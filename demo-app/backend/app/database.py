@@ -1,8 +1,16 @@
-"""SQLAlchemy 2.x async database session and engine."""
+"""SQLAlchemy 2.x async database session and engine.
+
+Uses AsyncAttrs + DeclarativeBase for awaitable lazy loading support.
+"""
 
 from collections.abc import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncAttrs,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
@@ -21,8 +29,8 @@ async_session_factory = async_sessionmaker(
 )
 
 
-class Base(DeclarativeBase):
-    """Base class for all SQLAlchemy 2.x ORM models."""
+class Base(AsyncAttrs, DeclarativeBase):
+    """Base class for all SQLAlchemy 2.x ORM models with async support."""
 
     def __repr__(self) -> str:
         """Default repr using the first few columns."""
