@@ -32,6 +32,12 @@ app = FastAPI(
 # Instrument FastAPI for OTel tracing
 instrument_fastapi(app)
 
+# --- Register API routes ---
+from app.api import routers
+
+for router in routers:
+    app.include_router(router)
+
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
