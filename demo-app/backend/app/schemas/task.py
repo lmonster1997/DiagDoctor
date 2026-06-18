@@ -31,7 +31,7 @@ class TaskUpdate(BaseModel):
 
 
 class TaskResponse(BaseModel):
-    """Schema for task data returned to clients."""
+    """Schema for task data returned to clients (list view, without relations)."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -45,3 +45,19 @@ class TaskResponse(BaseModel):
     due_date: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class TaskDetailResponse(TaskResponse):
+    """Schema for task detail view, including comments and tags."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    comments: list["CommentResponse"] = []
+    tags: list["TagResponse"] = []
+
+
+# Late imports to avoid circular dependency
+from app.schemas.comment import CommentResponse  # noqa: E402
+from app.schemas.tag import TagResponse  # noqa: E402
+
+TaskDetailResponse.model_rebuild()

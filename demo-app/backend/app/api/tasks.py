@@ -16,7 +16,7 @@ from app.auth.deps import get_current_user
 from app.database import get_db
 from app.models.task import Task
 from app.models.user import User
-from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
+from app.schemas.task import TaskCreate, TaskDetailResponse, TaskResponse, TaskUpdate
 
 router = APIRouter(prefix="/api", tags=["tasks"])
 
@@ -64,7 +64,7 @@ async def create_task(
     return task
 
 
-@router.get("/tasks/{task_id}", response_model=TaskResponse)
+@router.get("/tasks/{task_id}", response_model=TaskDetailResponse)
 async def get_task(
     task_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),

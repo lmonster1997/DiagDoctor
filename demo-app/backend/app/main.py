@@ -8,6 +8,9 @@ Usage:
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import settings
 
 # --- OTel MUST be initialized before FastAPI app instantiation ---
 from app.observability import init_observability, instrument_fastapi
@@ -29,11 +32,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# --- CORS: allow frontend dev server to call the API ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Instrument FastAPI for OTel tracing
 instrument_fastapi(app)
 
 # --- Register API routes ---
-from app.api import routers
+from app.api import routers  # noqa: E402
 
 for router in routers:
     app.include_router(router)
