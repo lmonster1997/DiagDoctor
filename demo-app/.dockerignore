@@ -1,0 +1,64 @@
+# ============================================================
+# Docker build ignore patterns for the TaskFlow demo-app
+# ============================================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# --- Node.js ---
+node_modules/
+.pnpm-store/
+
+# --- Build outputs ---
+dist/
+build/
+*.tsbuildinfo
+
+# --- IDE & Editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- OS files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Environment & Secrets ---
+.env
+.env.local
+.env.*.local
+
+# --- Testing & Coverage ---
+.coverage
+htmlcov/
+.pytest_cache/
+coverage.xml
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Git ---
+.git/
+.gitignore
+.gitattributes
+
+# --- Docker ---
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# --- Misc ---
+*.md
+LICENSE

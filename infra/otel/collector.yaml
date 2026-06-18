@@ -1,0 +1,52 @@
+# ============================================================
+# OpenTelemetry Collector — Minimal configuration
+# (Extended with Loki/Tempo exporters in Task 5.1)
+# ============================================================
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  attributes:
+    actions:
+      - key: service.name
+        action: upsert
+        value: "demo-app"
+
+exporters:
+  # Debug exporter: prints to stdout (useful before Loki/Tempo are wired)
+  debug:
+    verbosity: basic
+
+  # NOTE: Loki + Tempo exporters will be added in Task 5.1
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, attributes]
+      exporters: [debug]
+
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]
+
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, attributes]
+      exporters: [debug]

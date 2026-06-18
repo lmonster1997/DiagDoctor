@@ -1,0 +1,112 @@
+# ============================================================
+# DiagDoctor — Docker Compose (development / demo stack)
+# ============================================================
+# Usage:
+#   docker compose up -d          # start all services
+#   docker compose down           # stop & remove
+#   docker compose logs -f <svc>  # tail logs
+#   docker compose ps             # service status
+# ============================================================
+
+services:
+
+  # ==========================================================
+  # Infrastructure
+  # ==========================================================
+
+  postgres:
+    image: postgres:16
+    container_name: diagdoctor-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: taskflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d taskflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: diagdoctor-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --appendfsync everysec
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ---- OpenTelemetry Collector (minimal — extended in Task 5.1) ----
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: diagdoctor-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel/collector.yaml"]
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    volumes:
+      - ./infra/otel/collector.yaml:/etc/otel/collector.yaml:ro
+
+  # ==========================================================
+  # Demo Application
+  # ==========================================================
+
+  demo-backend:
+    build:
+      context: ./demo-app/backend
+      dockerfile: Dockerfile
+    container_name: diagdoctor-demo-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    environment:
+      # Database
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/taskflow
+      # JWT
+      JWT_SECRET: change-me-in-production-use-a-strong-random-secret
+      # OTel
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: demo-backend
+      # CORS
+      CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173"]'
+      # General
+      DEBUG: "false"
+    ports:
+      - "8000:8000"
+
+  demo-frontend:
+    build:
+      context: ./demo-app/frontend
+      dockerfile: Dockerfile
+    container_name: diagdoctor-demo-frontend
+    restart: unless-stopped
+    depends_on:
+      - demo-backend
+    ports:
+      - "3000:80"
+
+# ============================================================
+# Volumes
+# ============================================================
+
+volumes:
+  pgdata:
+  redisdata:
