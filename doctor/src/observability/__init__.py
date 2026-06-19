@@ -1,11 +1,16 @@
 """OpenTelemetry initialization and observability sub-modules."""
 
+from typing import TYPE_CHECKING
+
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 
 def init_observability(service_name: str = "doctor-api") -> None:
@@ -25,6 +30,6 @@ def init_observability(service_name: str = "doctor-api") -> None:
     trace.set_tracer_provider(provider)
 
 
-def instrument_fastapi(app: object) -> None:
+def instrument_fastapi(app: "FastAPI") -> None:
     """Instrument a FastAPI app for OpenTelemetry tracing."""
     FastAPIInstrumentor.instrument_app(app)

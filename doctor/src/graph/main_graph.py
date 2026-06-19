@@ -8,13 +8,15 @@ Currently implements a minimal graph with two dummy nodes:
 This will be expanded in subsequent tasks with real Agent subgraphs.
 """
 
+from typing import Any
+
 from langgraph.graph import END, StateGraph
 
 from src.config import settings
 from src.graph.state import DoctorState, Finding, DiagnosisReport
 
 
-async def dummy_triage_node(state: DoctorState) -> dict:
+async def dummy_triage_node(state: DoctorState) -> dict[str, Any]:
     """
     Dummy triage node: calls LLM to classify bug category.
 
@@ -23,7 +25,7 @@ async def dummy_triage_node(state: DoctorState) -> dict:
     from langchain_openai import ChatOpenAI
 
     llm = ChatOpenAI(
-        api_key=settings.llm_api_key.get_secret_value(),
+        api_key=settings.llm_api_key,
         base_url=settings.llm_base_url,
         model=settings.llm_model,
         temperature=0.1,
@@ -67,7 +69,7 @@ async def dummy_triage_node(state: DoctorState) -> dict:
     }
 
 
-async def dummy_reporter_node(state: DoctorState) -> dict:
+async def dummy_reporter_node(state: DoctorState) -> dict[str, Any]:
     """
     Dummy reporter node: generates a diagnosis report based on triage result.
     """
@@ -82,9 +84,9 @@ async def dummy_reporter_node(state: DoctorState) -> dict:
     return {"report": report}
 
 
-def build_graph() -> StateGraph:
+def build_graph() -> Any:
     """Build and compile the DiagDoctor diagnosis graph."""
-    graph = StateGraph(DoctorState)
+    graph: StateGraph[DoctorState, None, DoctorState, DoctorState] = StateGraph(DoctorState)
 
     # Add nodes
     graph.add_node("triage", dummy_triage_node)
