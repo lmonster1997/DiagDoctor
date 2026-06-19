@@ -31,11 +31,11 @@ async def _call_llm(user_report: str) -> str:
     from langchain_openai import ChatOpenAI
 
     llm = ChatOpenAI(
-        api_key=settings.llm_api_key.get_secret_value(),
+        api_key=settings.llm_api_key,
         base_url=settings.llm_base_url,
         model=settings.llm_model,
         temperature=settings.llm_temperature,
-        max_tokens=settings.llm_max_tokens,
+        max_completion_tokens=settings.llm_max_tokens,
     )
 
     prompt = f"""你是一个 Web 应用 Bug 诊断助手。用户报告了以下问题，请给出初步分析：

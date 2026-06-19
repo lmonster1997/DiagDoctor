@@ -6,7 +6,7 @@ Defines the shared state schema used across all Agent nodes in the diagnosis pip
 
 from datetime import datetime
 from operator import add
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Any, Literal, Optional
 
 from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field
@@ -23,7 +23,7 @@ class LogEntry(BaseModel):
     service: str
     message: str
     trace_id: Optional[str] = None
-    attributes: dict = Field(default_factory=dict)
+    attributes: dict[str, Any] = Field(default_factory=dict)
 
 
 class TraceSpan(BaseModel):
@@ -35,7 +35,7 @@ class TraceSpan(BaseModel):
     service: str
     start: datetime
     duration_ms: float
-    attributes: dict = Field(default_factory=dict)
+    attributes: dict[str, Any] = Field(default_factory=dict)
     status: Literal["ok", "error", "unset"] = "unset"
 
 
@@ -46,8 +46,8 @@ class Evidence(BaseModel):
     logs: list[LogEntry] = Field(default_factory=list)
     traces: list[TraceSpan] = Field(default_factory=list)
     error_screenshot_url: Optional[str] = None
-    request: Optional[dict] = None
-    response: Optional[dict] = None
+    request: Optional[dict[str, Any]] = None
+    response: Optional[dict[str, Any]] = None
 
 
 # ── Analysis sub-models ─────────────────────────────────────────────
@@ -110,7 +110,7 @@ class DoctorState(BaseModel):
     report: Optional[DiagnosisReport] = None
 
     # Message history (for ReAct agents)
-    messages: Annotated[list, add_messages] = Field(default_factory=list)
+    messages: Annotated[list[Any], add_messages] = Field(default_factory=list)
 
     # Metadata
     session_id: str = ""
