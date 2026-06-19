@@ -22,3 +22,6 @@ docs/diagdoctor-from-scratch.md
 # Infra runtime data
 infra/tempo/data/
 infra/loki/data/
+
+# Auto-generated PR content
+PR_CONTENT.md
