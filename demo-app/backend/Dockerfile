@@ -5,25 +5,26 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
+# ── Debian mirror (Docker bypasses host VPN) ──
+RUN sed -i 's|deb.debian.org|mirrors.ustc.edu.cn|g' /etc/apt/sources.list.d/debian.sources
+
 # Install system deps needed for building Python packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv (fast Python package manager)
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Install uv via pip
+RUN pip install uv --no-cache-dir
 
 # Enable bytecode compilation for faster startup
 ENV UV_COMPILE_BYTECODE=1
-# Link mode: copy (no hardlinks in Docker)
 ENV UV_LINK_MODE=copy
 
 # ---- Dependency layer (cache-friendly: copy only dep files first) ----
 COPY pyproject.toml uv.lock* ./
 
-# Install dependencies into the virtual environment
-# --no-dev: skip dev dependencies in the production image
+# Install dependencies (use VPN for PyPI access)
+ENV UV_HTTP_TIMEOUT=300
 RUN uv sync --frozen --no-dev --no-install-project
 
 # ============================================================
@@ -43,6 +44,7 @@ COPY --from=builder /app/.venv /app/.venv
 COPY alembic.ini .
 COPY alembic/ alembic/
 COPY app/ app/
+COPY scripts/ scripts/
 
 # Make sure the virtual env's site-packages are on PATH
 ENV PATH="/app/.venv/bin:$PATH"

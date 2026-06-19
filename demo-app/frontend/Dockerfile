@@ -5,13 +5,13 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install pnpm globally
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Install pnpm v9 (compatible with Node 20; v11+ requires Node 22+)
+RUN corepack enable && corepack prepare pnpm@9 --activate
 
 # ---- Dependency layer (cache-friendly: copy dep files first) ----
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies (frozen lockfile for reproducible builds)
+# Install dependencies (use VPN for npm registry access)
 RUN pnpm install --frozen-lockfile
 
 # Copy application source
