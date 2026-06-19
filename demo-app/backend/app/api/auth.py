@@ -10,7 +10,7 @@ from app.auth.deps import get_current_user
 from app.auth.utils import create_access_token, hash_password, verify_password
 from app.database import get_db
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import UserCreate, UserLogin, UserResponse
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -43,7 +43,7 @@ async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)) -> U
 
 @router.post("/login")
 async def login(
-    payload: UserCreate, db: AsyncSession = Depends(get_db)
+    payload: UserLogin, db: AsyncSession = Depends(get_db)
 ) -> dict[str, str]:
     """Authenticate a user and return a JWT access token."""
     result = await db.execute(select(User).where(User.email == payload.email))

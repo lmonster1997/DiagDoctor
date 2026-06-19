@@ -45,6 +45,10 @@ COPY alembic.ini .
 COPY alembic/ alembic/
 COPY app/ app/
 COPY scripts/ scripts/
+COPY docker-entrypoint.sh .
+
+# Make entrypoint executable
+RUN chmod +x docker-entrypoint.sh
 
 # Make sure the virtual env's site-packages are on PATH
 ENV PATH="/app/.venv/bin:$PATH"
@@ -55,12 +59,9 @@ ENV OTEL_SERVICE_NAME=demo-backend
 # Expose port
 EXPOSE 8000
 
-# Switch to non-root user
-USER appuser
-
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# Startup
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Entrypoint: auto-migrate DB then start app
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

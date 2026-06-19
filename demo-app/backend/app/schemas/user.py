@@ -14,6 +14,13 @@ class UserCreate(BaseModel):
     display_name: str = Field(..., min_length=1, max_length=100)
 
 
+class UserLogin(BaseModel):
+    """Schema for user login (email + password only)."""
+
+    email: EmailStr = Field(..., description="User email address")
+    password: str = Field(..., min_length=1, description="Plain-text password")
+
+
 class UserUpdate(BaseModel):
     """Schema for updating an existing user."""
 

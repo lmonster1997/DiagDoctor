@@ -18,3 +18,7 @@ docs/diagdoctor-from-scratch.md
 
 # Docker
 .env
+
+# Infra runtime data
+infra/tempo/data/
+infra/loki/data/

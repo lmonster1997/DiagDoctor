@@ -5,14 +5,19 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install pnpm v9 (compatible with Node 20; v11+ requires Node 22+)
-RUN corepack enable && corepack prepare pnpm@9 --activate
+# Configure npm mirror & install pnpm
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm install -g pnpm@9
 
 # ---- Dependency layer (cache-friendly: copy dep files first) ----
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml .npmrc ./
 
-# Install dependencies (use VPN for npm registry access)
-RUN pnpm install --frozen-lockfile
+# Ensure devDependencies are installed (pnpm skips them if NODE_ENV=production)
+ENV NODE_ENV=development
+
+# Configure pnpm mirror & install (hoist enabled via .npmrc)
+RUN pnpm config set registry https://registry.npmmirror.com && \
+    pnpm install --frozen-lockfile
 
 # Copy application source
 COPY . .

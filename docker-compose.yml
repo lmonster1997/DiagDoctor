@@ -48,9 +48,9 @@ services:
       timeout: 3s
       retries: 5
 
-  # ---- OpenTelemetry Collector (minimal — extended in Task 5.1) ----
+  # ---- OpenTelemetry Collector ----
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.111.0
     container_name: diagdoctor-otel-collector
     restart: unless-stopped
     command: ["--config=/etc/otel/collector.yaml"]
@@ -59,6 +59,70 @@ services:
       - "4318:4318"   # OTLP HTTP
     volumes:
       - ./infra/otel/collector.yaml:/etc/otel/collector.yaml:ro
+    depends_on:
+      loki:
+        condition: service_started
+      tempo:
+        condition: service_started
+
+  # ---- Loki — Log aggregation ----
+  loki:
+    image: grafana/loki:3.1.0
+    container_name: diagdoctor-loki
+    restart: unless-stopped
+    user: "0:0"  # run as root for dev; production: use proper UID/GID
+    command: ["-config.file=/etc/loki/config.yaml"]
+    ports:
+      - "3100:3100"   # HTTP API
+    volumes:
+      - ./infra/loki/config.yaml:/etc/loki/config.yaml:ro
+      - lokidata:/loki/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ---- Tempo — Trace storage ----
+  tempo:
+    image: grafana/tempo:2.6.0
+    container_name: diagdoctor-tempo
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo/config.yaml"]
+    ports:
+      - "3200:3200"   # HTTP query API (Grafana reads from here)
+      - "4319:4317"   # OTLP gRPC (Collector pushes traces here; host 4319 → container 4317)
+    volumes:
+      - ./infra/tempo/config.yaml:/etc/tempo/config.yaml:ro
+      - ./infra/tempo/data:/var/tempo
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3200/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ---- Grafana — Dashboards ----
+  grafana:
+    image: grafana/grafana:latest
+    container_name: diagdoctor-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_INSTALL_PLUGINS: ""
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafanadata:/var/lib/grafana
+      - ./infra/grafana/provisioning/datasources/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - ./infra/grafana/provisioning/dashboards/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro
+      - ./infra/grafana/dashboards/demo-app.json:/etc/grafana/provisioning/dashboards/demo-app.json:ro
+    depends_on:
+      loki:
+        condition: service_started
+      tempo:
+        condition: service_started
 
   # ==========================================================
   # Demo Application
@@ -110,3 +174,5 @@ services:
 volumes:
   pgdata:
   redisdata:
+  lokidata:
+  grafanadata:

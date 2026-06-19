@@ -21,9 +21,7 @@ init_observability()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: startup and shutdown events."""
-    # Startup
     yield
-    # Shutdown
 
 
 app = FastAPI(

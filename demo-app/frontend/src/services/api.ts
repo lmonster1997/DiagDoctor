@@ -2,7 +2,9 @@ import axios from "axios";
 import { useAuthStore } from "@/stores/authStore";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+  // In Docker: nginx proxies /api/* → backend.  Use relative URL (no host).
+  // In local dev (Vite): set VITE_API_BASE_URL=http://localhost:8000 in .env.local
+  baseURL: import.meta.env.VITE_API_BASE_URL || "",
   headers: {
     "Content-Type": "application/json",
   },

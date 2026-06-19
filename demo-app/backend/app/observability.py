@@ -1,9 +1,4 @@
-"""
-OpenTelemetry initialization.
-
-IMPORTANT: This module must be imported BEFORE FastAPI app instantiation
-to ensure instrumentation hooks are in place.
-"""
+"""OpenTelemetry initialization — tracing only."""
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -72,6 +67,83 @@ def init_observability(service_name: str = "demo-backend") -> None:
     provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
 
     trace.set_tracer_provider(provider)
+
+
+def setup_loki_logging(service_name: str = "demo-backend") -> None:
+    """
+    Bridge Python standard logging → Loki via HTTP Push API.
+
+    Uses a lightweight custom handler that sends log records to Loki
+    directly, bypassing the OTel Collector for logs (which is focused on traces).
+    """
+    import atexit
+    import json
+    import logging
+    import queue
+    import threading
+    import time
+    from datetime import datetime, timezone
+
+    import requests
+
+    loki_url = "http://loki:3100/loki/api/v1/push"
+    _log_queue: queue.Queue[dict] = queue.Queue(maxsize=10000)
+    _shutdown = threading.Event()
+
+    class _LokiHandler(logging.Handler):
+        """Push log records to a queue; a background thread sends them to Loki."""
+
+        def emit(self, record: logging.LogRecord) -> None:
+            try:
+                ts = datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat()
+                entry = {
+                    "stream": {
+                        "service_name": service_name,
+                        "level": record.levelname.lower(),
+                    },
+                    "values": [[str(int(record.created * 1_000_000_000)), self.format(record)]],
+                }
+                _log_queue.put_nowait(entry)
+            except queue.Full:
+                pass  # drop under extreme load
+
+    def _sender() -> None:
+        """Background thread: batch and send logs to Loki."""
+        session = requests.Session()
+        batch: list[dict] = []
+        last_send = time.monotonic()
+
+        while not _shutdown.is_set():
+            try:
+                item = _log_queue.get(timeout=1.0)
+                batch.append(item)
+            except queue.Empty:
+                pass
+
+            elapsed = time.monotonic() - last_send
+            if batch and (len(batch) >= 50 or elapsed >= 5.0):
+                payload = {"streams": batch}
+                try:
+                    session.post(loki_url, json=payload, timeout=5)
+                except Exception:
+                    pass  # best-effort; don't crash the app
+                batch.clear()
+                last_send = time.monotonic()
+
+        # Flush remaining
+        if batch:
+            try:
+                session.post(loki_url, json={"streams": batch}, timeout=5)
+            except Exception:
+                pass
+
+    handler = _LokiHandler()
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logging.getLogger().addHandler(handler)
+
+    thread = threading.Thread(target=_sender, daemon=True, name="loki-sender")
+    thread.start()
+    atexit.register(_shutdown.set)
 
 
 def instrument_fastapi(app) -> None:
