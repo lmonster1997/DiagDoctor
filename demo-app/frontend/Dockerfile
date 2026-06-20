@@ -30,6 +30,9 @@ RUN pnpm build
 # ============================================================
 FROM nginx:alpine AS runtime
 
+# Install wget for health check
+RUN apk add --no-cache wget
+
 # Remove default nginx config
 RUN rm /etc/nginx/conf.d/default.conf
 

@@ -6,11 +6,12 @@ FROM python:3.11-slim AS builder
 WORKDIR /app
 
 # ── Debian mirror (Docker bypasses host VPN) ──
-RUN sed -i 's|deb.debian.org|mirrors.ustc.edu.cn|g' /etc/apt/sources.list.d/debian.sources
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources
 
 # Install system deps needed for building Python packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    -o Acquire::Retries=3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv via pip
@@ -23,8 +24,9 @@ ENV UV_LINK_MODE=copy
 # ---- Dependency layer (cache-friendly: copy only dep files first) ----
 COPY pyproject.toml uv.lock* ./
 
-# Install dependencies (use VPN for PyPI access)
+# Install dependencies
 ENV UV_HTTP_TIMEOUT=300
+ENV UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 RUN uv sync --frozen --no-dev --no-install-project
 
 # ============================================================

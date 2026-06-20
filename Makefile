@@ -10,7 +10,7 @@
 #   make demo-seed     Seed demo data (admin user, sample project)
 # ============================================================
 
-.PHONY: help up down logs ps demo-migrate demo-seed clean restart
+.PHONY: help up down logs ps demo-migrate demo-seed clean restart doctor-logs doctor-restart
 
 # Default target
 help:
@@ -23,6 +23,8 @@ help:
 	@echo "  make restart        Restart all services"
 	@echo "  make demo-migrate   Run Alembic migrations"
 	@echo "  make demo-seed      Seed demo data"
+	@echo "  make doctor-logs    Tail logs of doctor-api"
+	@echo "  make doctor-restart Restart doctor-api service"
 	@echo "  make clean          Stop services & remove volumes"
 
 # ---- Lifecycle ----
@@ -52,6 +54,14 @@ demo-migrate:
 
 demo-seed:
 	docker compose exec demo-backend python scripts/seed.py
+
+# ---- Doctor Agent Commands ----
+
+doctor-logs:
+	docker compose logs -f doctor-api
+
+doctor-restart:
+	docker compose restart doctor-api
 
 # ---- Convenience: full setup from scratch ----
 setup: up
