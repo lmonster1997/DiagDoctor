@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: SecretStr = SecretStr("")
 
+    # --- Loki / Tempo (for evidence collection tools) ---
+    loki_url: str = "http://localhost:3100"
+    tempo_url: str = "http://localhost:3200"
+
     # --- OpenTelemetry ---
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
     otel_service_name: str = "doctor-api"
