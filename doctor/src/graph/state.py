@@ -113,4 +113,5 @@ class DoctorState(BaseModel):
     messages: Annotated[list[Any], add_messages] = Field(default_factory=list)
 
     # Metadata
+    trace_id: str = ""
     session_id: str = ""
