@@ -18,6 +18,7 @@ docs/diagdoctor-from-scratch.md
 
 # Docker
 .env
+doctor/data/
 
 # Infra runtime data
 infra/tempo/data/

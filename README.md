@@ -1,1 +1,1 @@
-# DiagDoctor
+**DiagDoctor** 是一个**通用 Web 应用 Bug 诊断助手**，核心能力： > 给定一个出错的 Web 应用 + 错误现象描述 + 日志/Trace 数据，自动定位根因并给出修复建议。
