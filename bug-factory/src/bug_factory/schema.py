@@ -101,6 +101,35 @@ class BugRecipe(BaseModel):
     tags: list[str] = []
 
 
+class InjectionResult(BaseModel):
+    """The result of successfully injecting a bug into the target repository.
+
+    Returned by :class:`BugInjector.inject` after creating a bug branch,
+    modifying the target file(s), and committing the changes.
+    """
+
+    recipe_id: str
+    branch: str  # e.g. "bug/BE-001"
+    diff: str  # Unified diff of all changes against main
+    modified_files: list[str]  # Absolute or relative paths of modified files
+
+
+class InjectionError(Exception):
+    """Raised when bug injection fails for any reason.
+
+    Common causes:
+    - AI rewriter returned content identical to original
+    - Diff patch had no effect
+    - File to modify does not exist
+    - Git operation failed
+    """
+
+    def __init__(self, recipe_id: str, detail: str) -> None:
+        self.recipe_id = recipe_id
+        self.detail = detail
+        super().__init__(f"Injection failed for {recipe_id}: {detail}")
+
+
 # ---------------------------------------------------------------------------
 # Utility functions
 # ---------------------------------------------------------------------------

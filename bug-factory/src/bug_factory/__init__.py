@@ -9,12 +9,15 @@ from bug_factory.ai_rewriter import (
     extract_code_block,
 )
 from bug_factory.git_manager import GitManager, GitOperationError
+from bug_factory.injector import BugInjector
 from bug_factory.schema import (
     BugRecipe,
     Evaluation,
     ExpectedDiagnosis,
     ExpectedObservation,
     Injection,
+    InjectionError,
+    InjectionResult,
     LogPattern,
     Trigger,
     TriggerStep,
@@ -24,9 +27,12 @@ from bug_factory.schema import (
 
 __all__ = [
     "AIRewriter",
+    "BugInjector",
     "DiffPatchApplier",
     "GitManager",
     "GitOperationError",
+    "InjectionError",
+    "InjectionResult",
     "PatchError",
     "RewriteError",
     "detect_language",
