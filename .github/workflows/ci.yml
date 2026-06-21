@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    name: "Python ${{ matrix.python-version }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Install workspace dependencies
+        run: uv sync --all-packages
+
+      - name: Run ruff check
+        run: uv run ruff check
+
+      - name: Run ruff format check
+        run: uv run ruff format --check
+
+      - name: Run mypy (strict)
+        run: |
+          # Collect existing source dirs from workspace members
+          TARGETS=""
+          for dir in doctor/src bug-factory/src benchmark/src demo-app/backend/app; do
+            if [ -d "$dir" ]; then
+              TARGETS="$TARGETS $dir"
+            fi
+          done
+          if [ -n "$TARGETS" ]; then
+            uv run mypy --strict $TARGETS
+          else
+            echo "No Python source directories found; skipping mypy."
+          fi
+        shell: bash
+
+      - name: Run tests
+        run: uv run pytest --tb=short

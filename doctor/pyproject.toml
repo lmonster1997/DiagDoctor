@@ -51,3 +51,8 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "integration: integration tests that require running services (Docker Compose)",
+    "smoke: smoke tests that validate the basic pipeline is functional",
+    "unit: fast unit tests (default)",
+]
