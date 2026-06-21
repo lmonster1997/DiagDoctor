@@ -80,6 +80,7 @@ _load_dotenv_files()
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
+
 def _find_recipe(recipe_id: str, recipes_dir: Path | None = None) -> Path:
     """Find a recipe YAML file by its ID.
 
@@ -99,9 +100,7 @@ def _find_recipe(recipe_id: str, recipes_dir: Path | None = None) -> Path:
     search_dir = Path(recipes_dir).resolve() if recipes_dir else _RECIPES_DIR
     prefix = recipe_id.lower().replace("-", "_")
 
-    candidates = sorted(
-        p for p in search_dir.rglob(f"{prefix}*.yaml") if p.is_file()
-    )
+    candidates = sorted(p for p in search_dir.rglob(f"{prefix}*.yaml") if p.is_file())
 
     if not candidates:
         raise click.ClickException(
