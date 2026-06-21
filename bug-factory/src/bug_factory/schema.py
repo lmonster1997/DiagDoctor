@@ -130,6 +130,53 @@ class InjectionError(Exception):
         super().__init__(f"Injection failed for {recipe_id}: {detail}")
 
 
+class StepResult(BaseModel):
+    """The result of executing a single trigger step.
+
+    Captures timing, response data, and error information for each step
+    in a trigger sequence.  Used by :class:`TriggerResult` to provide
+    a full audit trail of what happened during trigger execution.
+    """
+
+    action: str
+    params: dict[str, Any]
+    success: bool
+    elapsed_ms: float
+    response: dict[str, Any] | None = None
+    error: str | None = None
+
+
+class TriggerResult(BaseModel):
+    """The aggregated result of running a full trigger sequence.
+
+    Returned by :class:`TriggerRunner.run` after executing all steps
+    in a :class:`Trigger`.  The ``session`` dict carries state across
+    steps (token, created entity IDs, etc.).
+    """
+
+    success: bool
+    session: dict[str, Any] = {}
+    steps: list[StepResult] = []
+    error: str | None = None
+
+
+class TriggerError(Exception):
+    """Raised when trigger execution fails for any reason.
+
+    Common causes:
+    - A login step returned no token
+    - An API call received a non-2xx response
+    - A UI action could not locate the target element
+    - A required template variable could not be resolved
+    """
+
+    def __init__(self, recipe_id: str, step_index: int, detail: str) -> None:
+        self.recipe_id = recipe_id
+        self.step_index = step_index
+        self.detail = detail
+        super().__init__(f"Trigger failed for {recipe_id} at step {step_index}: {detail}")
+
+
 # ---------------------------------------------------------------------------
 # Utility functions
 # ---------------------------------------------------------------------------

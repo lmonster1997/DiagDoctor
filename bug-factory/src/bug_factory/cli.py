@@ -37,6 +37,8 @@ from rich.table import Table
 if TYPE_CHECKING:
     from langchain_openai import ChatOpenAI
 
+    from bug_factory.schema import TriggerResult
+
 from bug_factory.schema import InjectionResult, load_recipe, validate_all_recipes
 
 console = Console()
@@ -265,7 +267,115 @@ def _display_injection_result(result: InjectionResult) -> None:
     console.print("\n[bold green]✓ Injection complete![/]")
 
 
-# ── full (placeholder) ───────────────────────────────────────────────
+# ── trigger ──────────────────────────────────────────────────────────
+
+
+@cli.command()
+@click.argument("recipe_id")
+@click.option(
+    "--recipe",
+    "recipe_path",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="Path to a specific recipe YAML file (auto-discovered by default)",
+)
+@click.option(
+    "--base-url",
+    default="http://localhost:8000",
+    show_default=True,
+    help="Base URL of the running demo-app backend",
+)
+@click.option(
+    "--no-ui/--ui",
+    default=False,
+    show_default=True,
+    help="Skip UI click actions (useful when Playwright is not installed)",
+)
+def trigger_cmd(
+    recipe_id: str,
+    recipe_path: Path | None,
+    base_url: str,
+    no_ui: bool,  # noqa: FBT001
+) -> None:
+    """Execute the trigger sequence from a bug recipe against the demo-app.
+
+    RECIPE_ID: The bug recipe identifier (e.g. BE-001, FE-001).
+
+    Requires the demo-app backend to be running at --base-url.
+
+    \b
+    Examples:
+        python -m bug_factory.cli trigger BE-001
+        python -m bug_factory.cli trigger BE-001 --base-url http://localhost:8000
+        python -m bug_factory.cli trigger FE-001 --no-ui
+    """
+    from bug_factory.trigger import TriggerRunner
+
+    # Resolve recipe
+    yaml_path = recipe_path or _find_recipe(recipe_id)
+    console.print(f"[bold]Loading recipe:[/] {yaml_path.name}")
+    recipe = load_recipe(yaml_path)
+
+    console.print(f"[bold]Trigger type:[/] {recipe.trigger.type}")
+    console.print(f"[bold]Steps:[/] {len(recipe.trigger.steps)}")
+    console.print(f"[bold]Base URL:[/] {base_url}")
+
+    if no_ui:
+        console.print("[dim]UI actions will be skipped (--no-ui)[/]")
+
+    runner = TriggerRunner(demo_app_base_url=base_url)
+
+    async def _run() -> TriggerResult:
+        return await runner.run(recipe.trigger)
+
+    try:
+        result = asyncio.run(_run())
+    except Exception as exc:
+        console.print(f"\n[bold red]✗ Trigger execution failed:[/] {exc}")
+        raise SystemExit(1) from exc
+
+    _display_trigger_result(result)
+
+
+def _display_trigger_result(result: TriggerResult) -> None:
+    """Pretty-print a trigger result to the console."""
+    if result.success:
+        console.print("\n[bold green]✓ Trigger completed successfully![/]")
+    else:
+        console.print(f"\n[bold red]✗ Trigger failed:[/] {result.error}")
+
+    table = Table(title="Trigger Steps", show_header=True)
+    table.add_column("#", style="dim")
+    table.add_column("Action", style="cyan")
+    table.add_column("Success", style="white")
+    table.add_column("Elapsed (ms)", style="magenta", justify="right")
+    table.add_column("Response / Error", style="white")
+
+    for i, step in enumerate(result.steps):
+        status_icon = "[green]✓[/]" if step.success else "[red]✗[/]"
+        detail = ""
+        if step.success:
+            if step.response:
+                # Show a compact summary of the response.
+                detail = str(step.response)
+                if len(detail) > 120:
+                    detail = detail[:120] + "..."
+        else:
+            detail = f"[red]{step.error or 'unknown'}[/]"
+        table.add_row(str(i + 1), step.action, status_icon, f"{step.elapsed_ms:.1f}", detail)
+
+    console.print(table)
+
+    # Show session summary
+    console.print("\n[bold]Session State:[/]")
+    console.print(f"  Token: {'[green]set[/]' if result.session.get('token') else '[dim]none[/]'}")
+    projects = result.session.get("created_projects", [])
+    tasks = result.session.get("created_tasks", [])
+    console.print(f"  Created Projects: {len(projects)}")
+    console.print(f"  Created Tasks: {len(tasks)}")
+
+
+# ── full ─────────────────────────────────────────────────────────────
 
 
 @cli.command()
@@ -276,17 +386,101 @@ def _display_injection_result(result: InjectionResult) -> None:
     default=None,
     type=click.Path(exists=True, file_okay=False, path_type=Path),
 )
-def full(recipe_id: str, repo_path: Path | None) -> None:
+@click.option(
+    "--base-url",
+    default="http://localhost:8000",
+    show_default=True,
+    help="Base URL of the running demo-app backend (for trigger step)",
+)
+@click.option(
+    "--skip-trigger",
+    is_flag=True,
+    default=False,
+    help="Only inject the bug; do not run the trigger sequence",
+)
+@click.option(
+    "--no-ui/--ui",
+    default=False,
+    show_default=True,
+    help="Skip UI click actions during trigger",
+)
+def full(
+    recipe_id: str,
+    repo_path: Path | None,
+    base_url: str,
+    skip_trigger: bool,  # noqa: FBT001
+    no_ui: bool,  # noqa: FBT001
+) -> None:
     """Run the full pipeline: inject → trigger → collect → generate case.
 
-    (Trigger, evidence collection, and case generation are not yet implemented.)
-    """
-    console.print("[bold yellow]⚠ full pipeline not yet implemented[/]")
-    console.print("Only the 'inject' step is available. Running injection...\n")
+    RECIPE_ID: The bug recipe identifier (e.g. BE-001, FE-001).
 
-    # Delegate to inject command logic
-    ctx = click.get_current_context()
-    ctx.invoke(inject, recipe_id=recipe_id, recipe_path=None, repo_path=repo_path)
+    \b
+    Steps:
+        1. Inject the bug into the target repository (creates bug/ branch).
+        2. Trigger the bug against the running demo-app.
+        3. (collect & case generation coming soon)
+
+    \b
+    Note: After injection you must rebuild & redeploy the demo-app for the
+    injected bug to take effect (e.g. `docker compose up -d --build demo-backend`).
+    """
+    from bug_factory.injector import BugInjector
+    from bug_factory.trigger import TriggerRunner
+
+    # Resolve recipe
+    yaml_path = _find_recipe(recipe_id)
+    console.print(f"[bold]Loading recipe:[/] {yaml_path.name}")
+    recipe = load_recipe(yaml_path)
+
+    # Step 1: Inject
+    console.print("\n[bold]── Step 1: Inject ──[/]")
+    repo = repo_path.resolve() if repo_path else _WORKSPACE_ROOT
+    llm = _get_llm()
+    injector = BugInjector(repo_path=repo, llm=llm)
+
+    async def _inject() -> InjectionResult:
+        return await injector.inject(recipe)
+
+    try:
+        injection_result = asyncio.run(_inject())
+    except Exception as exc:
+        console.print(f"[bold red]✗ Injection failed:[/] {exc}")
+        raise SystemExit(1) from exc
+
+    _display_injection_result(injection_result)
+
+    if skip_trigger:
+        console.print("\n[dim]Skipping trigger step (--skip-trigger)[/]")
+        return
+
+    # Step 2: Trigger
+    console.print("\n[bold]── Step 2: Trigger ──[/]")
+    console.print(
+        "[yellow]⚠ Make sure you have rebuilt & redeployed the demo-app "
+        "with the injected bug before continuing![/]"
+    )
+
+    runner = TriggerRunner(demo_app_base_url=base_url)
+
+    async def _trigger() -> TriggerResult:
+        return await runner.run(recipe.trigger)
+
+    try:
+        trigger_result = asyncio.run(_trigger())
+    except Exception as exc:
+        console.print(f"[bold red]✗ Trigger failed:[/] {exc}")
+        raise SystemExit(1) from exc
+
+    _display_trigger_result(trigger_result)
+
+    # Step 3: Collect & generate (coming soon)
+    console.print("\n[dim]Evidence collection & case generation coming soon...[/]")
+
+    if trigger_result.success:
+        console.print("\n[bold green]✓ Full pipeline (inject + trigger) complete![/]")
+    else:
+        console.print("\n[bold yellow]⚠ Injection succeeded but trigger had failures.[/]")
 
 
 # ── Entry point ──────────────────────────────────────────────────────
