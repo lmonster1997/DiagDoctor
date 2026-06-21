@@ -26,7 +26,7 @@ jobs:
           enable-cache: true
 
       - name: Install workspace dependencies
-        run: uv sync --all-packages
+        run: uv sync --all-packages --all-extras
 
       - name: Run ruff check
         run: uv run ruff check

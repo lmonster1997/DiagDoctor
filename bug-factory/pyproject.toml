@@ -1,11 +1,18 @@
 [project]
 name = "bug-factory"
 version = "0.1.0"
-description = "Bug Factory — Bug generation and injection for DiagDoctor"
+description = "DiagDoctor Bug Factory — Bug recipe injection and trigger system"
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
     "pyyaml>=6.0",
+    "gitpython>=3.1.0",
+    "structlog>=24.4.0",
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "tenacity>=9.0.0",
+    "aiohttp>=3.9.0",
     "click>=8.1.0",
     "rich>=13.7.0",
 ]
@@ -14,6 +21,7 @@ dependencies = [
 dev = [
     "pytest>=8.2.0",
     "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
     "ruff>=0.4.0",
     "mypy>=1.10.0",
 ]
@@ -28,4 +36,9 @@ select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
 ignore_missing_imports = true
