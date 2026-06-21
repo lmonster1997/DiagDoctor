@@ -24,10 +24,25 @@ git diff --stat main..HEAD         # 相对 main 的差异
 git log --oneline main..HEAD       # 待合入的 commits
 ```
 
-如果当前已经在 `main` 上且没有 commits，跳到 Step 2。
-如果已有分支且已 commit，跳到 Step 4（只生成 PR）。
+如果当前已经在 `main` 上且没有 commits，跳到 Step 3。
+如果已有分支且已 commit，跳到 Step 5（只生成 PR）。
 
-### Step 2：自动推断分支名
+### Step 2：跑 CI 检查（必须全部通过才能继续）
+
+```bash
+uv run ruff format --check   # 格式检查
+uv run ruff check            # Lint 检查
+uv run pytest --tb=short     # 单元测试（全量）
+```
+
+**执行方式**：用 `run_in_terminal` 工具**串行**执行上述命令（不要并行），依次等待每个命令完成。
+每个命令执行后检查退出码：
+- `exitCode != 0` → **阻断流程**，向用户报告失败详情，**不继续后续步骤**。
+- 全部通过 → 进入 Step 3。
+
+> 如果用户明确表示"跳过 CI"或改动仅为文档类（仅 `*.md` 文件），可跳过此步骤。
+
+### Step 3：自动推断分支名
 
 分支命名规则：`{type}/{scope}-{简短描述}`
 
@@ -52,7 +67,7 @@ git log --oneline main..HEAD       # 待合入的 commits
 - 修改 `demo-app/backend/app/api/tasks.py` → `fix/demo-app-task-api`
 - 新增 `.github/skills/` → `chore/git-workflow-skill`
 
-### Step 3：创建并切换分支
+### Step 4：创建并切换分支
 
 ```bash
 git checkout main
@@ -62,7 +77,7 @@ git checkout -b {分支名}
 
 如果分支已存在，用 `{分支名}-2` 或询问用户。
 
-### Step 4：生成 PR 内容
+### Step 5：生成 PR 内容
 
 按以下格式写入 `PR_CONTENT.md`（项目根目录）：
 
@@ -88,7 +103,7 @@ git checkout -b {分支名}
 - 任务：Dxx
 ```
 
-### Step 5：输出摘要
+### Step 6：输出摘要
 
 报告给用户：
 - 新分支名
