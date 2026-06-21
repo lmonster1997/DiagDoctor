@@ -185,11 +185,13 @@ class GitManager:
 
         return branch_name
 
-    def commit_changes(self, message: str) -> str:
-        """Stage all changes and commit with *message*.
+    def commit_changes(self, message: str, paths: list[str] | None = None) -> str:
+        """Stage changes and commit with *message*.
 
         Args:
             message: Commit message (should follow Conventional Commits).
+            paths: If provided, only stage these specific file paths
+                (relative to repo root).  If ``None``, stages all changes.
 
         Returns:
             The commit hexsha of the new commit.
@@ -198,16 +200,29 @@ class GitManager:
             GitOperationError: If there are no changes to commit, or if
                 the commit operation fails.
         """
-        logger.info("Committing changes", message=message)
+        logger.info("Committing changes", message=message, paths=paths)
 
-        if not self._repo.is_dirty(untracked_files=True):
+        # Check dirtiness: if paths specified, only check those paths
+        if paths:
+            dirty = any(
+                self._repo.is_dirty(path=p, untracked_files=True) for p in paths
+            )
+            if not dirty:
+                raise GitOperationError(
+                    "commit_changes",
+                    f"No changes to commit in specified paths: {paths}",
+                )
+        elif not self._repo.is_dirty(untracked_files=True):
             raise GitOperationError(
                 "commit_changes",
                 "No changes to commit — the working tree is clean.",
             )
 
         try:
-            self._repo.git.add(A=True)
+            if paths:
+                self._repo.git.add(*paths)
+            else:
+                self._repo.git.add(A=True)
             commit = self._repo.index.commit(message)
             logger.info("Changes committed", hexsha=commit.hexsha)
         except GitCommandError as exc:

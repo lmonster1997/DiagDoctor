@@ -144,9 +144,10 @@ class BugInjector:
         target.write_text(modified, encoding="utf-8")
         logger.info("Modified file written", path=str(target))
 
-        # ── 6. Commit changes ──────────────────────────────────────
+        # ── 6. Commit changes (only the injected file) ──────────────
         commit_hexsha = self.git.commit_changes(
-            f"feat(bug-factory): inject bug {recipe.id} - {recipe.title}"
+            f"feat(bug-factory): inject bug {recipe.id} - {recipe.title}",
+            paths=[recipe.injection.target_file],
         )
         logger.info("Changes committed", hexsha=commit_hexsha)
 
