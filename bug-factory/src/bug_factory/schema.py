@@ -178,6 +178,74 @@ class TriggerError(Exception):
 
 
 # ---------------------------------------------------------------------------
+# Evidence collection models
+# ---------------------------------------------------------------------------
+
+
+class LogEntry(BaseModel):
+    """A single log entry fetched from Loki."""
+
+    timestamp: str
+    labels: dict[str, str] = {}
+    line: str
+
+
+class TraceSpan(BaseModel):
+    """A simplified span from a Tempo trace."""
+
+    trace_id: str
+    span_id: str
+    operation_name: str
+    service_name: str = ""
+    start_time: str
+    duration_ms: float
+    status: str = "ok"
+    attributes: dict[str, str] = {}
+
+
+class CollectedEvidence(BaseModel):
+    """Evidence collected from Loki and Tempo for a time window."""
+
+    recipe_id: str
+    logs: list[LogEntry] = []
+    traces: list[TraceSpan] = []
+    time_window: tuple[str, str] | None = None
+
+
+# ---------------------------------------------------------------------------
+# Evaluation case models
+# ---------------------------------------------------------------------------
+
+
+class EvaluationCaseInput(BaseModel):
+    """The input portion of an evaluation case."""
+
+    user_report: str
+    evidence: dict[str, str] = {}
+    trigger_summary: str = ""
+
+
+class EvaluationCaseExpected(BaseModel):
+    """The expected diagnosis for evaluation."""
+
+    category: str
+    root_cause_summary: str
+    affected_files: list[str] = []
+    fix_keywords: list[str] = []
+    llm_judge_criteria: str = ""
+
+
+class EvaluationCase(BaseModel):
+    """A complete evaluation case for benchmarking."""
+
+    case_id: str
+    generated_at: str
+    recipe_id: str
+    input: EvaluationCaseInput
+    expected: EvaluationCaseExpected
+
+
+# ---------------------------------------------------------------------------
 # Utility functions
 # ---------------------------------------------------------------------------
 
