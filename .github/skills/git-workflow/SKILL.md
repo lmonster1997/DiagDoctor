@@ -27,20 +27,32 @@ git log --oneline main..HEAD       # 待合入的 commits
 如果当前已经在 `main` 上且没有 commits，跳到 Step 3。
 如果已有分支且已 commit，跳到 Step 5（只生成 PR）。
 
-### Step 2：跑 CI 检查（必须全部通过才能继续）
+### Step 2：跑 CI 检查（🔴 必须全部通过才能继续，不可跳过）
+
+> **这是整个流程最关键的步骤。CI 失败 = 阻断提交，没有任何例外（含文档改动）。**
+> 你提交的代码在远程 CI 上也必须通过——本地先跑一遍，不要把失败留给下次 CI Run。
 
 ```bash
-uv run ruff format --check   # 格式检查
-uv run ruff check            # Lint 检查
-uv run pytest --tb=short     # 单元测试（全量）
+# 1. 格式 + Lint
+uv run ruff format --check
+uv run ruff check
+
+# 2. 类型检查（按 CI 方式：每个包从自身目录运行，避免 "Duplicate module named src"）
+cd doctor       && uv run mypy --strict src && cd ..
+cd bug-factory  && uv run mypy --strict src && cd ..
+cd benchmark    && uv run mypy --strict src && cd ..
+uv run mypy --strict demo-app/backend/app
+
+# 3. 单元测试（全量）
+uv run pytest --tb=short
 ```
 
 **执行方式**：用 `run_in_terminal` 工具**串行**执行上述命令（不要并行），依次等待每个命令完成。
 每个命令执行后检查退出码：
-- `exitCode != 0` → **阻断流程**，向用户报告失败详情，**不继续后续步骤**。
+- `exitCode != 0` → **🔴 阻断流程**，向用户报告失败详情（命令、退出码、关键错误行），**不继续后续步骤**。你必须先修复问题再重新触发"提交"。
 - 全部通过 → 进入 Step 3。
 
-> 如果用户明确表示"跳过 CI"或改动仅为文档类（仅 `*.md` 文件），可跳过此步骤。
+> ⚠️ **只有 3 项（ruff + mypy + pytest）全部绿色，才算 CI 通过。缺一项都不行。**
 
 ### Step 3：自动推断分支名
 
@@ -114,7 +126,9 @@ git checkout -b {分支名}
 
 ## 约束
 
+- **🔴 CI 优先原则**：任何代码改动，提交前必须通过完整 CI（ruff + mypy + pytest）。不允许"先提交再说，CI 挂了再修"——那会浪费 CI Runner 资源和所有人的时间。
 - 所有 git 操作前先 `git status` 确认工作区状态
 - 有未暂存变更时提醒用户先 `git stash` 或 `git add`
 - 分支名全小写，用 `-` 分隔
 - PR 文件直接覆盖写入，不加额外解释
+- **mypy 必须从各包目录分别运行**（`cd doctor && uv run mypy --strict src`），不要从 repo root 一次性传所有路径，否则会触发 "Duplicate module named src" 错误。这是已知 monorepo 陷阱。
