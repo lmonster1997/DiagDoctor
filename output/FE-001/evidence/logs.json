@@ -1,0 +1,130 @@
+[
+  {
+    "timestamp": "2026-06-21T11:35:54.690094+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     172.19.0.1:40174 - \"POST /api/auth/login HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:35:49.219567+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:58178 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:35:45.356618+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)"
+  },
+  {
+    "timestamp": "2026-06-21T11:35:45.355989+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     Application startup complete."
+  },
+  {
+    "timestamp": "2026-06-21T11:35:45.355754+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     Waiting for application startup."
+  },
+  {
+    "timestamp": "2026-06-21T11:35:45.355743+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     Started server process [10]"
+  },
+  {
+    "timestamp": "2026-06-21T11:35:31.579983+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:58422 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:35:01.525510+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:58822 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:34:31.449124+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:36578 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:34:01.372823+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:37864 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:33:31.303914+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:36790 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:33:01.215703+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:38792 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:32:31.147872+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:33844 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:32:01.068656+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:33872 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:31:31.004037+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:53168 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:31:00.921945+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:54990 - \"GET /health HTTP/1.1\" 200 OK"
+  }
+]

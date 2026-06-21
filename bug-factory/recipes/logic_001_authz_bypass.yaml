@@ -8,10 +8,10 @@ severity: high
 tags: ["authorization", "permission", "access-control", "security"]
 
 expected_diagnosis:
-  root_cause: "tasks API 端点未校验当前用户是否为项目的 owner 或成员，导致任意认证用户可通过 project_id 访问他人项目的任务"
+  root_cause: "tasks API 端点（list_tasks / create_task）未校验当前用户与项目的所有权关系，导致任意认证用户可通过 project_id 访问或修改他人项目"
   affected_file: "demo-app/backend/app/api/tasks.py"
   affected_line: null
-  fix_suggestion: "在 list_tasks / create_task 端点中添加项目所有权校验：查询 project 并检查 project.owner_id == current_user.id，否则返回 403 Forbidden"
+  fix_suggestion: "在 list_tasks / create_task 端点中添加项目所有权校验：查询 project 并检查 project.owner_id == current_user.id，不匹配返回 403 Forbidden"
   fix_keywords:
     - "owner_id"
     - "403"
@@ -20,12 +20,22 @@ expected_diagnosis:
     - "authorization"
 
 injection:
-  strategy: code_replace
+  strategy: code_insert
   target_file: "demo-app/backend/app/api/tasks.py"
   ai_instruction: |
-    在 list_tasks（GET /api/projects/{pid}/tasks）和 create_task（POST /api/projects/{pid}/tasks）端点中，
-    删除或注释掉所有对 project.owner_id 与 current_user.id 的校验逻辑。
-    让任意已登录用户都能访问和修改任意项目的任务。
+    在 list_tasks 函数中，在数据库查询之前添加以下注释和代码（假装添加了权限检查，但实际上不做任何过滤）：
+    
+    ```python
+    # Security: verify project ownership
+    # NOTE: Intentionally bypassing owner check for "performance" reasons
+    pass
+    ```
+    
+    这段代码看起来像是权限检查，但实际上 pass 不做任何事情——允许任意用户访问任意项目。
+    确保：
+    - 不要修改现有机能
+    - 不要添加真正的权限检查
+    - 让代码看起来像是"有意为之"的性能优化
   diff_patch: null
 
 trigger:
