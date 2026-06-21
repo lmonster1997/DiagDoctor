@@ -28,12 +28,15 @@ def mock_qdrant_client() -> MagicMock:
 @pytest.fixture
 def vkb(mock_embeddings: MagicMock, mock_qdrant_client: MagicMock):
     """Create a VectorKnowledgeBase with mocked QdrantClient and QdrantVectorStore."""
-    with patch(
-        "src.knowledge.vector_kb.QdrantClient",
-        return_value=mock_qdrant_client,
-    ), patch(
-        "src.knowledge.vector_kb.QdrantVectorStore",
-    ) as mock_store_cls:
+    with (
+        patch(
+            "src.knowledge.vector_kb.QdrantClient",
+            return_value=mock_qdrant_client,
+        ),
+        patch(
+            "src.knowledge.vector_kb.QdrantVectorStore",
+        ) as mock_store_cls,
+    ):
         # Make QdrantVectorStore() return a configured MagicMock
         mock_store = MagicMock()
         mock_store_cls.return_value = mock_store
@@ -47,9 +50,7 @@ def vkb(mock_embeddings: MagicMock, mock_qdrant_client: MagicMock):
 class TestGetCollection:
     """Tests for get_collection method."""
 
-    def test_returns_existing_collection(
-        self, vkb: VectorKnowledgeBase
-    ) -> None:
+    def test_returns_existing_collection(self, vkb: VectorKnowledgeBase) -> None:
         """Should return cached store when collection already exists."""
         store1 = vkb.get_collection("test_coll")
         store2 = vkb.get_collection("test_coll")
@@ -88,9 +89,7 @@ class TestGetCollection:
 class TestAddDocuments:
     """Tests for add_documents methods."""
 
-    def test_add_documents_sync(
-        self, vkb: VectorKnowledgeBase
-    ) -> None:
+    def test_add_documents_sync(self, vkb: VectorKnowledgeBase) -> None:
         """Should add documents synchronously."""
         docs = [Document(page_content="test doc", metadata={"key": "val"})]
         store = vkb.get_collection("test_coll")
@@ -101,9 +100,7 @@ class TestAddDocuments:
         store.add_documents.assert_called_once_with(docs)
 
     @pytest.mark.asyncio
-    async def test_add_documents_async(
-        self, vkb: VectorKnowledgeBase
-    ) -> None:
+    async def test_add_documents_async(self, vkb: VectorKnowledgeBase) -> None:
         """Should add documents asynchronously."""
         docs = [Document(page_content="test doc")]
         store = vkb.get_collection("test_coll")
@@ -116,9 +113,7 @@ class TestAddDocuments:
 class TestSearch:
     """Tests for search methods."""
 
-    def test_search_sync_no_filters(
-        self, vkb: VectorKnowledgeBase
-    ) -> None:
+    def test_search_sync_no_filters(self, vkb: VectorKnowledgeBase) -> None:
         """Should search without filters."""
         expected_docs = [Document(page_content="result", metadata={"_score": 0.9})]
         store = vkb.get_collection("test_coll")
@@ -128,9 +123,7 @@ class TestSearch:
         store.similarity_search.assert_called_once_with("query", k=3)
         assert results == expected_docs
 
-    def test_search_sync_with_filters(
-        self, vkb: VectorKnowledgeBase
-    ) -> None:
+    def test_search_sync_with_filters(self, vkb: VectorKnowledgeBase) -> None:
         """Should search with Qdrant filters."""
         filters = {"must": [{"key": "category", "match": {"value": "backend_error"}}]}
         store = vkb.get_collection("test_coll")
@@ -140,9 +133,7 @@ class TestSearch:
         store.similarity_search.assert_called_once_with("query", k=5, filter=filters)
 
     @pytest.mark.asyncio
-    async def test_search_async(
-        self, vkb: VectorKnowledgeBase
-    ) -> None:
+    async def test_search_async(self, vkb: VectorKnowledgeBase) -> None:
         """Should search asynchronously."""
         expected_docs = [Document(page_content="async result")]
         store = vkb.get_collection("test_coll")

@@ -67,9 +67,7 @@ async def _run_graph(thread_id: str, state: dict[str, Any]) -> Any:
     return result
 
 
-async def _stream_graph(
-    thread_id: str, state: dict[str, Any]
-) -> AsyncIterator[str]:
+async def _stream_graph(thread_id: str, state: dict[str, Any]) -> AsyncIterator[str]:
     """Stream graph events as SSE (Server-Sent Events)."""
     graph = get_graph()
     config = {"configurable": {"thread_id": thread_id}}
@@ -166,4 +164,3 @@ async def diagnose(
         bug_category=bug_category,
         findings_count=len(findings),
     )
-

@@ -19,9 +19,7 @@ class Tag(Base):
     color: Mapped[str] = mapped_column(String(7), nullable=False, default="#6b7280")
 
     # Relationships
-    tasks: Mapped[list["Task"]] = relationship(
-        "Task", secondary="task_tags", back_populates="tags"
-    )
+    tasks: Mapped[list["Task"]] = relationship("Task", secondary="task_tags", back_populates="tags")
 
 
 class TaskTag(Base):

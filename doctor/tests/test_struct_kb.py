@@ -131,9 +131,7 @@ class TestFrameworkPractices:
 
     def test_add_and_query(self, skb: StructKnowledgeBase) -> None:
         """Should add and query framework practices."""
-        skb.add_framework_practice(
-            "FastAPI", "performance", "Use async def", version="0.115"
-        )
+        skb.add_framework_practice("FastAPI", "performance", "Use async def", version="0.115")
 
         results = skb.query_framework_practices()
         assert len(results) == 1
@@ -163,9 +161,7 @@ class TestFrameworkPractices:
         skb.add_framework_practice("FastAPI", "async", "A")
         skb.add_framework_practice("FastAPI", "performance", "B")
 
-        results = skb.query_framework_practices(
-            framework="FastAPI", practice_type="async"
-        )
+        results = skb.query_framework_practices(framework="FastAPI", practice_type="async")
         assert len(results) == 1
         assert results[0]["description"] == "A"
 

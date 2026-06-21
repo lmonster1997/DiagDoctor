@@ -58,9 +58,7 @@ def sanitize_path(user_input: str, allowed_roots: list[Path]) -> Path:
         except ValueError:
             continue
 
-    raise PathSandboxError(
-        f"Path escapes allowed roots: {candidate}. Allowed: {allowed_roots}"
-    )
+    raise PathSandboxError(f"Path escapes allowed roots: {candidate}. Allowed: {allowed_roots}")
 
 
 # ── Subprocess argument safety ───────────────────────────────────────
@@ -100,9 +98,7 @@ def safe_subprocess_args(args: list[str]) -> list[str]:
         if not isinstance(arg, str):
             raise ValueError(f"Argument {i} is not a string: {type(arg).__name__}")
         if _SHELL_METACHARS.search(arg):
-            raise ValueError(
-                f"Argument {i} contains shell metacharacters: {arg!r}"
-            )
+            raise ValueError(f"Argument {i} contains shell metacharacters: {arg!r}")
 
     return args
 

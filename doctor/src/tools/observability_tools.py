@@ -132,18 +132,26 @@ def _parse_log_line(
     try:
         parsed = _json.loads(log_line)
         if isinstance(parsed, dict):
-            message = (
-                parsed.get("message")
-                or parsed.get("msg")
-                or parsed.get("event")
-                or log_line
-            )
+            message = parsed.get("message") or parsed.get("msg") or parsed.get("event") or log_line
             level = parsed.get("level", level)
             trace_id = parsed.get("trace_id") or parsed.get("traceID") or parsed.get("traceId")
             # Store remaining fields as attributes
             attributes = {
-                k: v for k, v in parsed.items()
-                if k not in ("message", "msg", "event", "level", "trace_id", "traceID", "traceId", "timestamp", "time", "@timestamp")
+                k: v
+                for k, v in parsed.items()
+                if k
+                not in (
+                    "message",
+                    "msg",
+                    "event",
+                    "level",
+                    "trace_id",
+                    "traceID",
+                    "traceId",
+                    "timestamp",
+                    "time",
+                    "@timestamp",
+                )
             }
     except (ValueError, TypeError):
         pass  # Not JSON, treat entire line as message
@@ -325,16 +333,18 @@ def _handle_tempo_search_response(
     traces = data.get("traces", [])
     result: list[dict[str, Any]] = []
     for trace in traces:
-        result.append({
-            "trace_id": trace.get("traceID", trace.get("trace_id", "")),
-            "root_service": trace.get("rootServiceName", trace.get("root_service_name", "")),
-            "root_name": trace.get("rootTraceName", trace.get("root_trace_name", "")),
-            "start_time": _parse_nano_timestamp(
-                trace.get("startTimeUnixNano", "0")
-            ).isoformat(),
-            "duration_ms": trace.get("durationMs", trace.get("duration_ms", 0)),
-            "span_count": len(trace.get("spanSets", [])),
-        })
+        result.append(
+            {
+                "trace_id": trace.get("traceID", trace.get("trace_id", "")),
+                "root_service": trace.get("rootServiceName", trace.get("root_service_name", "")),
+                "root_name": trace.get("rootTraceName", trace.get("root_trace_name", "")),
+                "start_time": _parse_nano_timestamp(
+                    trace.get("startTimeUnixNano", "0")
+                ).isoformat(),
+                "duration_ms": trace.get("durationMs", trace.get("duration_ms", 0)),
+                "span_count": len(trace.get("spanSets", [])),
+            }
+        )
     return result
 
 
@@ -346,9 +356,7 @@ def _build_retry_decorator() -> AsyncRetrying:
     return AsyncRetrying(
         stop=stop_after_attempt(DEFAULT_RETRY_ATTEMPTS),
         wait=wait_exponential(multiplier=1, min=1, max=10),
-        retry=retry_if_exception_type(
-            (aiohttp.ClientError, asyncio.TimeoutError, OSError)
-        ),
+        retry=retry_if_exception_type((aiohttp.ClientError, asyncio.TimeoutError, OSError)),
         reraise=True,
     )
 

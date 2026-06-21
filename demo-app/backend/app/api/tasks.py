@@ -40,7 +40,9 @@ async def list_tasks(
     return list(result.scalars().all())
 
 
-@router.post("/projects/{project_id}/tasks", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/projects/{project_id}/tasks", response_model=TaskResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_task(
     project_id: uuid.UUID,
     payload: TaskCreate,
@@ -93,9 +95,7 @@ async def update_task(
     current_user: User = Depends(get_current_user),
 ) -> Task:
     """Update an existing task."""
-    result = await db.execute(
-        select(Task).where(Task.id == task_id)
-    )
+    result = await db.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
     if task is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")

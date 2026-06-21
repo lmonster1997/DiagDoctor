@@ -21,9 +21,7 @@ async def list_projects(
     current_user: User = Depends(get_current_user),
 ) -> list[Project]:
     """List all projects owned by the current user."""
-    result = await db.execute(
-        select(Project).where(Project.owner_id == current_user.id)
-    )
+    result = await db.execute(select(Project).where(Project.owner_id == current_user.id))
     return list(result.scalars().all())
 
 
@@ -54,9 +52,7 @@ async def get_project(
 ) -> Project:
     """Get a single project by ID."""
     result = await db.execute(
-        select(Project).where(
-            Project.id == project_id, Project.owner_id == current_user.id
-        )
+        select(Project).where(Project.id == project_id, Project.owner_id == current_user.id)
     )
     project = result.scalar_one_or_none()
     if project is None:
@@ -73,9 +69,7 @@ async def update_project(
 ) -> Project:
     """Update an existing project."""
     result = await db.execute(
-        select(Project).where(
-            Project.id == project_id, Project.owner_id == current_user.id
-        )
+        select(Project).where(Project.id == project_id, Project.owner_id == current_user.id)
     )
     project = result.scalar_one_or_none()
     if project is None:
@@ -98,9 +92,7 @@ async def delete_project(
 ) -> None:
     """Delete a project and all its tasks."""
     result = await db.execute(
-        select(Project).where(
-            Project.id == project_id, Project.owner_id == current_user.id
-        )
+        select(Project).where(Project.id == project_id, Project.owner_id == current_user.id)
     )
     project = result.scalar_one_or_none()
     if project is None:

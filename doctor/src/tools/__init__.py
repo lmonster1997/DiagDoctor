@@ -32,7 +32,7 @@ LOKI_QUERY_TOOL = StructuredTool.from_function(
         "Use this to search for error logs, warning messages, or any log pattern "
         "within a specified time range. "
         "LogQL examples: "
-        "'{service_name=\"demo-backend\"} |= \"error\"' for backend errors, "
+        '\'{service_name="demo-backend"} |= "error"\' for backend errors, '
         "'{service_name=\"demo-frontend\"}' for all frontend logs. "
         "The start and end parameters should be ISO-format datetime strings."
     ),
