@@ -18,7 +18,7 @@ import structlog
 from aiohttp import ClientTimeout, TCPConnector
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
-from src.schema import BatchRunResult, RunMetadata, RunResult
+from benchmark.schema import BatchRunResult, RunMetadata, RunResult
 from bug_factory.schema import EvaluationCase
 
 logger = structlog.get_logger(__name__)

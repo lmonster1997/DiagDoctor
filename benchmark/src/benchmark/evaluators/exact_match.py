@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import structlog
 
-from src.evaluators.base import BaseEvaluator, EvaluationScore
-from src.schema import RunResult
+from benchmark.evaluators.base import BaseEvaluator, EvaluationScore
+from benchmark.schema import RunResult
 from bug_factory.schema import EvaluationCase
 
 logger = structlog.get_logger(__name__)
