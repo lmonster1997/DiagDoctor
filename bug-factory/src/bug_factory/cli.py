@@ -468,8 +468,8 @@ def full(
     recipe = load_recipe(yaml_path)
 
     repo = repo_path.resolve() if repo_path else _WORKSPACE_ROOT
-    loki = loki_url or os.getenv("LOKI_URL", "http://localhost:3100")
-    tempo = tempo_url or os.getenv("TEMPO_URL", "http://localhost:3200")
+    loki: str = loki_url or os.getenv("LOKI_URL") or "http://localhost:3100"
+    tempo: str = tempo_url or os.getenv("TEMPO_URL") or "http://localhost:3200"
 
     console.print(f"[bold]Repo:[/] {repo}")
     console.print(f"[bold]App URL:[/] {base_url}")
