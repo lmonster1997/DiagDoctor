@@ -1,0 +1,84 @@
+# LOGIC-001: Authorization bypass — user can access another user's project tasks
+# Category: logic — permission/authorization bug
+
+id: LOGIC-001
+title: "权限校验缺失导致用户可越权查看和修改他人项目任务"
+category: logic
+severity: high
+tags: ["authorization", "permission", "access-control", "security"]
+
+expected_diagnosis:
+  root_cause: "tasks API 端点未校验当前用户是否为项目的 owner 或成员，导致任意认证用户可通过 project_id 访问他人项目的任务"
+  affected_file: "demo-app/backend/app/api/tasks.py"
+  affected_line: null
+  fix_suggestion: "在 list_tasks / create_task 端点中添加项目所有权校验：查询 project 并检查 project.owner_id == current_user.id，否则返回 403 Forbidden"
+  fix_keywords:
+    - "owner_id"
+    - "403"
+    - "Forbidden"
+    - "权限"
+    - "authorization"
+
+injection:
+  strategy: code_replace
+  target_file: "demo-app/backend/app/api/tasks.py"
+  ai_instruction: |
+    在 list_tasks（GET /api/projects/{pid}/tasks）和 create_task（POST /api/projects/{pid}/tasks）端点中，
+    删除或注释掉所有对 project.owner_id 与 current_user.id 的校验逻辑。
+    让任意已登录用户都能访问和修改任意项目的任务。
+  diff_patch: null
+
+trigger:
+  type: api_call
+  steps:
+    - action: login
+      params:
+        email: "admin@example.com"
+        password: "Admin123!"
+    - action: create_data
+      params:
+        entity: "project"
+        data:
+          name: "Admin's Private Project"
+          description: "Should only be accessible by admin"
+    - action: create_data
+      params:
+        entity: "task"
+        data:
+          title: "Admin's Secret Task"
+          project_index: 0
+    - action: login
+      params:
+        email: "alice@example.com"
+        password: "Alice123!"
+    - action: api_call
+      params:
+        method: "GET"
+        path: "/api/projects/{project_id}/tasks"
+    - action: api_call
+      params:
+        method: "POST"
+        path: "/api/projects/{project_id}/tasks"
+        body:
+          title: "Alice's unauthorized task"
+          description: "This should not be allowed"
+  expected_observation:
+    log_patterns: []
+    trace_attributes: {}
+    api_response:
+      status: 200
+
+evaluation:
+  must_mention_keywords:
+    - "权限"
+    - "owner"
+    - "authorization"
+  should_mention_keywords:
+    - "403"
+    - "Forbidden"
+    - "越权"
+    - "access control"
+  llm_judge_criteria: |
+    诊断必须明确指出缺少项目所有权校验，使得任意用户可访问和操作他人项目的任务数据。
+    修复建议应包含检查 project.owner_id 与 current_user.id 是否匹配，不匹配返回 403。
+  min_confidence: 0.7

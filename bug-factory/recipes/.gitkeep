@@ -1,0 +1,2 @@
+# Bug recipes directory — YAML files defining injectable bugs
+# Each file follows the BugRecipe schema defined in bug_factory.schema
