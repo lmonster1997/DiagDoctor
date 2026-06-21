@@ -1,0 +1,167 @@
+# Initial structured knowledge for DiagDoctor
+# This file is loaded by scripts/init_kb.py into the SQLite struct_kb.
+
+# ── HTTP Status Codes ───────────────────────────────────────────────
+http_status_codes:
+  - code: 200
+    category: success
+    description: OK — The request succeeded.
+  - code: 201
+    category: success
+    description: Created — The resource was successfully created.
+  - code: 204
+    category: success
+    description: No Content — The request succeeded, no body returned.
+  - code: 301
+    category: redirection
+    description: Moved Permanently — The resource has been moved to a new URL.
+  - code: 302
+    category: redirection
+    description: Found — Temporary redirect.
+  - code: 304
+    category: redirection
+    description: Not Modified — Cached version is still valid.
+  - code: 400
+    category: client_error
+    description: Bad Request — The server cannot process the request due to client error.
+  - code: 401
+    category: client_error
+    description: Unauthorized — Authentication is required.
+  - code: 403
+    category: client_error
+    description: Forbidden — The client does not have access rights.
+  - code: 404
+    category: client_error
+    description: Not Found — The requested resource does not exist.
+  - code: 405
+    category: client_error
+    description: Method Not Allowed — The HTTP method is not supported.
+  - code: 408
+    category: client_error
+    description: Request Timeout — The server timed out waiting for the request.
+  - code: 409
+    category: client_error
+    description: Conflict — Request conflicts with current state.
+  - code: 422
+    category: client_error
+    description: Unprocessable Entity — Validation failed (often Pydantic/FastAPI).
+  - code: 429
+    category: client_error
+    description: Too Many Requests — Rate limit exceeded.
+  - code: 500
+    category: server_error
+    description: Internal Server Error — A generic server error occurred.
+  - code: 502
+    category: server_error
+    description: Bad Gateway — Upstream server returned invalid response.
+  - code: 503
+    category: server_error
+    description: Service Unavailable — The server is temporarily overloaded or down.
+  - code: 504
+    category: server_error
+    description: Gateway Timeout — Upstream server timed out.
+
+# ── Error Patterns (regex → category) ───────────────────────────────
+error_patterns:
+  - pattern: "TypeError.*Cannot read propert"
+    category: frontend_crash
+    description: JavaScript null/undefined property access (TypeError).
+  - pattern: "Uncaught \\(in promise\\)"
+    category: frontend_crash
+    description: Unhandled Promise rejection in frontend.
+  - pattern: "The above error occurred in the"
+    category: frontend_crash
+    description: React component error boundary caught.
+  - pattern: "Cannot read properties of null"
+    category: frontend_crash
+    description: Null reference access in JavaScript.
+  - pattern: "undefined is not a function"
+    category: frontend_crash
+    description: Calling undefined as a function in JavaScript.
+  - pattern: "IntegrityError|duplicate key value violates unique constraint"
+    category: backend_error
+    description: Database unique constraint violation (SQLAlchemy/Postgres).
+  - pattern: "ForeignKeyViolationError|violates foreign key constraint"
+    category: backend_error
+    description: Database foreign key constraint violation.
+  - pattern: "OperationalError.*could not connect"
+    category: data
+    description: Database connection failure.
+  - pattern: "TimeoutError|asyncio\\.TimeoutError"
+    category: performance
+    description: Async operation timeout.
+  - pattern: "ConnectionRefusedError|ECONNREFUSED"
+    category: config
+    description: Network connection refused — service may be down.
+  - pattern: "^500 Internal Server Error"
+    category: backend_error
+    description: HTTP 500 internal server error.
+  - pattern: "sqlalchemy\\.exc\\.DataError"
+    category: data
+    description: SQLAlchemy data error (type mismatch, encoding).
+  - pattern: "N\\+1|n\\+1|EagerLoading|joinedload"
+    category: performance
+    description: N+1 query pattern detected — missing eager loading.
+  - pattern: "PermissionError|AccessDenied|403"
+    category: logic
+    description: Permission or authorization error.
+  - pattern: "^CORS|Cross-Origin"
+    category: config
+    description: CORS configuration error.
+  - pattern: "JWT.*expired|token.*expired|Signature has expired"
+    category: backend_error
+    description: JWT token has expired.
+  - pattern: "JWT.*invalid|token.*invalid|Could not validate credentials"
+    category: backend_error
+    description: JWT token validation failure.
+
+# ── Framework Best Practices ────────────────────────────────────────
+framework_practices:
+  - framework: FastAPI
+    version: "0.115"
+    practice_type: async
+    description: Use async def for endpoint handlers; avoid sync blocking calls inside async routes.
+  - framework: FastAPI
+    version: "0.115"
+    practice_type: error_handling
+    description: Raise HTTPException with appropriate status_code and detail; do not return raw tracebacks to clients.
+  - framework: FastAPI
+    version: "0.115"
+    practice_type: validation
+    description: Use Pydantic v2 models with model_config = ConfigDict(from_attributes=True) for ORM mode.
+  - framework: FastAPI
+    version: "0.115"
+    practice_type: dependency_injection
+    description: Use Depends() for database sessions, current user, and common parameters.
+  - framework: SQLAlchemy
+    version: "2.0"
+    practice_type: async
+    description: Use async session with selectinload/joinedload for eager loading to avoid N+1 queries.
+  - framework: SQLAlchemy
+    version: "2.0"
+    practice_type: performance
+    description: Always use selectinload() or joinedload() when accessing relationships in a loop; monitor for N+1 query patterns.
+  - framework: SQLAlchemy
+    version: "2.0"
+    practice_type: migration
+    description: Use Alembic for all schema changes; never modify tables manually in production.
+  - framework: React
+    version: "18"
+    practice_type: error_handling
+    description: Wrap components with ErrorBoundary; use optional chaining (?.) for nullable props.
+  - framework: React
+    version: "18"
+    practice_type: state
+    description: Use Zustand for global state, local useState for component-local state; avoid prop drilling.
+  - framework: React
+    version: "18"
+    practice_type: data_fetching
+    description: Use TanStack Query (React Query) for server state; handle loading/error states explicitly.
+  - framework: LangGraph
+    version: latest
+    practice_type: state
+    description: Use TypedDict or Pydantic BaseModel for State; use Annotated[list, add] for reducer lists.
+  - framework: LangGraph
+    version: latest
+    practice_type: checkpoint
+    description: Use SqliteSaver or MemorySaver for checkpoints; thread_id enables session resumption.
