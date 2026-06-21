@@ -89,8 +89,8 @@ class EvidenceCollector:
     ) -> list[LogEntry]:
         start_ns = str(int(start.timestamp() * 1_000_000_000))
         end_ns = str(int(end.timestamp() * 1_000_000_000))
-        svc = "|".join(f'service_name="{s}"' for s in services)
-        query = f"{{{svc}}}"
+        svc_regex = "|".join(services)
+        query = f'{{service_name=~"{svc_regex}"}}'
         entries: list[LogEntry] = []
         last_end = end_ns
         for _page in range(50):
@@ -141,11 +141,13 @@ class EvidenceCollector:
         end: datetime,
         services: list[str],
     ) -> list[TraceSpan]:
-        start_s = start.strftime("%Y-%m-%dT%H:%M:%SZ")
-        end_s = end.strftime("%Y-%m-%dT%H:%M:%SZ")
-        params = {"start": start_s, "end": end_s, "limit": str(_TEMPO_MIN_TRACES * 3)}
-        if services:
-            params["tags"] = f"service.name={'|'.join(services)}"
+        start_epoch = str(int(start.timestamp()))
+        end_epoch = str(int(end.timestamp()))
+        params: dict[str, str] = {
+            "start": start_epoch,
+            "end": end_epoch,
+            "limit": str(_TEMPO_MIN_TRACES * 3),
+        }
         trace_ids: list[str] = []
         try:
             resp = await session.get(f"{self.tempo_url}/api/search", params=params)
@@ -153,9 +155,11 @@ class EvidenceCollector:
                 logger.warning("Tempo 404 — not running")
                 return []
             resp.raise_for_status()
-            data = await resp.json()
+            # Tempo may return JSON without a proper Content-Type header.
+            text = await resp.text()
+            data = json.loads(text)
             trace_ids = [t.get("traceID", "") for t in data.get("traces", []) if t.get("traceID")]
-        except aiohttp.ClientError as exc:
+        except (aiohttp.ClientError, json.JSONDecodeError) as exc:
             logger.warning("Tempo search failed", error=str(exc))
             return []
         if not trace_ids:
@@ -177,8 +181,10 @@ class EvidenceCollector:
             if resp.status == 404:
                 return []
             resp.raise_for_status()
-            data = await resp.json()
-        except aiohttp.ClientError:
+            # Tempo may return JSON without a proper Content-Type header.
+            text = await resp.text()
+            data = json.loads(text)
+        except (aiohttp.ClientError, json.JSONDecodeError):
             return []
         batches = data.get("batches", []) or data.get("data", {}).get("batches", [])
         spans: list[TraceSpan] = []
@@ -191,17 +197,17 @@ class EvidenceCollector:
             ):
                 for sd in scope.get("spans", []):
                     sattrs = _flatten_attrs(sd.get("attributes", []))
-                    dur = int(
-                        sd.get("durationNano", 0)
-                        or sd.get("endTimeUnixNano", 0) - sd.get("startTimeUnixNano", 0)
-                    )
+                    # JSON values from Tempo are strings — convert to int.
+                    end_ns = int(sd.get("endTimeUnixNano", 0))
+                    start_ns = int(sd.get("startTimeUnixNano", 0))
+                    dur = int(sd.get("durationNano", 0)) or (end_ns - start_ns)
                     spans.append(
                         TraceSpan(
                             trace_id=trace_id,
                             span_id=sd.get("spanID", ""),
                             operation_name=sd.get("name", ""),
                             service_name=svc or sattrs.get("service.name", ""),
-                            start_time=_ns_to_iso(sd.get("startTimeUnixNano", "0")),
+                            start_time=_ns_to_iso(str(start_ns)),
                             duration_ms=dur / 1_000_000,
                             status="error" if sd.get("status", {}).get("code", 0) == 2 else "ok",
                             attributes=sattrs,

@@ -1,1 +1,600 @@
-[]
+[
+  {
+    "trace_id": "dedff821fd1c25f74fdd77e6b950f881",
+    "span_id": "",
+    "operation_name": "GET /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.783010+00:00",
+    "duration_ms": 0.016687,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "500"
+    }
+  },
+  {
+    "trace_id": "dedff821fd1c25f74fdd77e6b950f881",
+    "span_id": "",
+    "operation_name": "GET /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.783149+00:00",
+    "duration_ms": 0.006547,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "dedff821fd1c25f74fdd77e6b950f881",
+    "span_id": "",
+    "operation_name": "GET /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.773961+00:00",
+    "duration_ms": 9.209406,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "172.19.0.4:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "172.19.0.1",
+      "net.peer.port": "59012",
+      "http.route": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.method": "GET",
+      "http.url": "http://localhost:8000/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks?include_comments=true",
+      "http.status_code": "500"
+    }
+  },
+  {
+    "trace_id": "330aa5986070dbde6d0f4dd87918af44",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.675007+00:00",
+    "duration_ms": 0.008466,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "330aa5986070dbde6d0f4dd87918af44",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.677277+00:00",
+    "duration_ms": 0.01742,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "330aa5986070dbde6d0f4dd87918af44",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.677406+00:00",
+    "duration_ms": 0.005934,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "330aa5986070dbde6d0f4dd87918af44",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.674904+00:00",
+    "duration_ms": 2.520991,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "172.19.0.4:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "172.19.0.1",
+      "net.peer.port": "54828",
+      "http.route": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.method": "POST",
+      "http.url": "http://localhost:8000/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "7161262010aff2913a47c5f36018985c",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.662527+00:00",
+    "duration_ms": 0.008722,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "7161262010aff2913a47c5f36018985c",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.664674+00:00",
+    "duration_ms": 0.016556,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "7161262010aff2913a47c5f36018985c",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.664800+00:00",
+    "duration_ms": 0.005842,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "7161262010aff2913a47c5f36018985c",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.662429+00:00",
+    "duration_ms": 2.388586,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "172.19.0.4:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "172.19.0.1",
+      "net.peer.port": "54796",
+      "http.route": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.method": "POST",
+      "http.url": "http://localhost:8000/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "3296df7510c1cf9e2231fb8b04e069ad",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.578047+00:00",
+    "duration_ms": 0.012809,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "3296df7510c1cf9e2231fb8b04e069ad",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.580235+00:00",
+    "duration_ms": 0.019145,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "3296df7510c1cf9e2231fb8b04e069ad",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.580372+00:00",
+    "duration_ms": 0.006007,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "3296df7510c1cf9e2231fb8b04e069ad",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.577931+00:00",
+    "duration_ms": 2.461286,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "172.19.0.4:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "172.19.0.1",
+      "net.peer.port": "54614",
+      "http.route": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.method": "POST",
+      "http.url": "http://localhost:8000/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "1b563574aca74b1551dd72f35b81a746",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.572096+00:00",
+    "duration_ms": 0.010264,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "1b563574aca74b1551dd72f35b81a746",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.574219+00:00",
+    "duration_ms": 0.018938,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "1b563574aca74b1551dd72f35b81a746",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.574358+00:00",
+    "duration_ms": 0.006502,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "1b563574aca74b1551dd72f35b81a746",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.571990+00:00",
+    "duration_ms": 2.389087,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "172.19.0.4:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "172.19.0.1",
+      "net.peer.port": "54602",
+      "http.route": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.method": "POST",
+      "http.url": "http://localhost:8000/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "752641a7d4956a71e7a76581c609c581",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.562791+00:00",
+    "duration_ms": 0.011117,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "752641a7d4956a71e7a76581c609c581",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.565067+00:00",
+    "duration_ms": 0.01929,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "752641a7d4956a71e7a76581c609c581",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.565201+00:00",
+    "duration_ms": 0.006842,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "752641a7d4956a71e7a76581c609c581",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.562685+00:00",
+    "duration_ms": 2.536101,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "172.19.0.4:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "172.19.0.1",
+      "net.peer.port": "54592",
+      "http.route": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.method": "POST",
+      "http.url": "http://localhost:8000/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "86f4926daad470b2decf9b3f9bcc773e",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.556998+00:00",
+    "duration_ms": 0.01301,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "86f4926daad470b2decf9b3f9bcc773e",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.559506+00:00",
+    "duration_ms": 0.021718,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "86f4926daad470b2decf9b3f9bcc773e",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.559654+00:00",
+    "duration_ms": 0.006352,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "86f4926daad470b2decf9b3f9bcc773e",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.556880+00:00",
+    "duration_ms": 2.796106,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "172.19.0.4:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "172.19.0.1",
+      "net.peer.port": "54588",
+      "http.route": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.method": "POST",
+      "http.url": "http://localhost:8000/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "334d9dda18d3762913a58c94576a8b49",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.543462+00:00",
+    "duration_ms": 0.014483,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "334d9dda18d3762913a58c94576a8b49",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.553771+00:00",
+    "duration_ms": 0.023281,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "334d9dda18d3762913a58c94576a8b49",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.553939+00:00",
+    "duration_ms": 0.00714,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "334d9dda18d3762913a58c94576a8b49",
+    "span_id": "",
+    "operation_name": "POST /api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.543004+00:00",
+    "duration_ms": 10.958318,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "172.19.0.4:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "172.19.0.1",
+      "net.peer.port": "54584",
+      "http.route": "/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.method": "POST",
+      "http.url": "http://localhost:8000/api/projects/1262c756-a503-4b0b-99a6-d9c1ce22e2bd/tasks",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "fe6bef1a4481293726d5d4b8daf3dcb5",
+    "span_id": "",
+    "operation_name": "POST /api/projects/ http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.534120+00:00",
+    "duration_ms": 0.013436,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "fe6bef1a4481293726d5d4b8daf3dcb5",
+    "span_id": "",
+    "operation_name": "POST /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.539047+00:00",
+    "duration_ms": 0.024052,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "fe6bef1a4481293726d5d4b8daf3dcb5",
+    "span_id": "",
+    "operation_name": "POST /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.539207+00:00",
+    "duration_ms": 0.006616,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "fe6bef1a4481293726d5d4b8daf3dcb5",
+    "span_id": "",
+    "operation_name": "POST /api/projects/",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.533725+00:00",
+    "duration_ms": 5.505146,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "172.19.0.4:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "172.19.0.1",
+      "net.peer.port": "54570",
+      "http.route": "/api/projects/",
+      "http.method": "POST",
+      "http.url": "http://localhost:8000/api/projects/",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "c9a1f201737537368ddd746291e24fef",
+    "span_id": "",
+    "operation_name": "POST /api/auth/login http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.330553+00:00",
+    "duration_ms": 0.018933,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "c9a1f201737537368ddd746291e24fef",
+    "span_id": "",
+    "operation_name": "POST /api/auth/login http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.530187+00:00",
+    "duration_ms": 0.028659,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "c9a1f201737537368ddd746291e24fef",
+    "span_id": "",
+    "operation_name": "POST /api/auth/login http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.530401+00:00",
+    "duration_ms": 0.008259,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "c9a1f201737537368ddd746291e24fef",
+    "span_id": "",
+    "operation_name": "POST /api/auth/login",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-21T11:28:58.330026+00:00",
+    "duration_ms": 200.41002,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "172.19.0.4:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/auth/login",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "172.19.0.1",
+      "net.peer.port": "54562",
+      "http.route": "/api/auth/login",
+      "http.method": "POST",
+      "http.url": "http://localhost:8000/api/auth/login",
+      "http.status_code": "200"
+    }
+  }
+]

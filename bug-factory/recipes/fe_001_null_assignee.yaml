@@ -18,16 +18,29 @@ expected_diagnosis:
     - "optional chaining"
 
 injection:
-  strategy: code_replace
+  strategy: code_insert
   target_file: "demo-app/frontend/src/pages/TaskDetailPage.tsx"
   ai_instruction: |
-    把所有 `assignee?.displayName` 改成 `assignee.displayName`
-    把所有 `assignee?.email` 改成 `assignee.email`
-    不要修改其他代码
+    在 TaskDetailPage 组件的 task info card 区域，添加一段显示负责人信息的 JSX 代码（注意：不要加 null 检查）。
+    
+    在 return 语句中的 Card 内，紧接在"状态" Badge 的 </div> 之后、"截止日期"之前，添加如下代码：
+    
+    ```tsx
+            <div>
+              <span className="text-muted-foreground">负责人：</span>
+              <span>{task.assignee.displayName} ({task.assignee.email})</span>
+            </div>
+    ```
+    
+    关键要求：
+    - 不要添加任何 `task.assignee &&` 或 `task.assignee?.` 等 null 检查
+    - 直接访问 task.assignee.displayName 和 task.assignee.email
+    - 确保 import 语句不被修改
+    - 不要修改代码的其他部分
   diff_patch: null
 
 trigger:
-  type: e2e_action
+  type: api_call
   steps:
     - action: login
       params:
@@ -35,19 +48,28 @@ trigger:
         password: "Admin123!"
     - action: create_data
       params:
+        entity: "project"
+        data:
+          name: "FE-001 Test Project"
+    - action: create_data
+      params:
         entity: "task"
         data:
           title: "Unassigned Task"
+          description: "This task has no assignee"
+          project_index: 0
           assignee_id: null
-    - action: ui_click
+    - action: api_call
       params:
-        selector: "[data-testid='task-link-Unassigned Task']"
+        method: "GET"
+        path: "/api/tasks/{task_id}"
   expected_observation:
     log_patterns:
-      - pattern: "TypeError|Cannot read"
+      - pattern: "TypeError|Cannot read|assignee"
         min_occurrences: 1
     trace_attributes: {}
-    api_response: null
+    api_response:
+      assignee: null
 
 evaluation:
   must_mention_keywords:
