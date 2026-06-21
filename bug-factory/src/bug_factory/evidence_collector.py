@@ -1,0 +1,263 @@
+"""
+Evidence Collector — fetches logs and traces from Loki and Tempo.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+import aiohttp
+import structlog
+from aiohttp import ClientTimeout, TCPConnector
+
+from bug_factory.schema import CollectedEvidence, LogEntry, TraceSpan
+
+logger = structlog.get_logger(__name__)
+_DEFAULT_TIMEOUT = ClientTimeout(total=60, connect=10)
+_LOKI_MAX_PER_PAGE = 5000
+_TEMPO_MIN_TRACES = 20
+
+
+class EvidenceCollector:
+    """Collect logs and traces from Grafana Loki and Tempo."""
+
+    def __init__(
+        self,
+        loki_url: str = "http://localhost:3100",
+        tempo_url: str = "http://localhost:3200",
+        output_dir: Path | None = None,
+    ) -> None:
+        self.loki_url = loki_url.rstrip("/")
+        self.tempo_url = tempo_url.rstrip("/")
+        if output_dir is None:
+            output_dir = Path(__file__).resolve().parent.parent.parent.parent / "output"
+        self.output_dir = Path(output_dir)
+        logger.info(
+            "EvidenceCollector initialised",
+            loki_url=self.loki_url,
+            tempo_url=self.tempo_url,
+            output_dir=str(self.output_dir),
+        )
+
+    async def collect(
+        self,
+        recipe_id: str,
+        start: datetime,
+        end: datetime,
+        services: list[str] | None = None,
+    ) -> CollectedEvidence:
+        if services is None:
+            services = ["demo-backend", "demo-frontend"]
+        logger.info(
+            "Starting evidence collection",
+            recipe_id=recipe_id,
+            start=start.isoformat(),
+            end=end.isoformat(),
+        )
+        async with aiohttp.ClientSession(
+            timeout=_DEFAULT_TIMEOUT, connector=TCPConnector(limit=5)
+        ) as session:
+            logs, traces = await asyncio.gather(
+                self._fetch_logs(session, start, end, services),
+                self._fetch_traces(session, start, end, services),
+            )
+        evidence = CollectedEvidence(
+            recipe_id=recipe_id,
+            logs=logs,
+            traces=traces,
+            time_window=(start.isoformat(), end.isoformat()),
+        )
+        logger.info(
+            "Evidence collection complete",
+            recipe_id=recipe_id,
+            log_count=len(logs),
+            trace_count=len(traces),
+        )
+        self._save_evidence(recipe_id, evidence)
+        return evidence
+
+    async def _fetch_logs(
+        self,
+        session: aiohttp.ClientSession,
+        start: datetime,
+        end: datetime,
+        services: list[str],
+    ) -> list[LogEntry]:
+        start_ns = str(int(start.timestamp() * 1_000_000_000))
+        end_ns = str(int(end.timestamp() * 1_000_000_000))
+        svc = "|".join(f'service_name="{s}"' for s in services)
+        query = f"{{{svc}}}"
+        entries: list[LogEntry] = []
+        last_end = end_ns
+        for _page in range(50):
+            params = {
+                "query": query,
+                "start": start_ns,
+                "end": last_end,
+                "limit": str(_LOKI_MAX_PER_PAGE),
+                "direction": "backward",
+            }
+            try:
+                resp = await session.get(f"{self.loki_url}/loki/api/v1/query_range", params=params)
+                if resp.status == 404:
+                    logger.warning("Loki 404 — not running", url=self.loki_url)
+                    break
+                resp.raise_for_status()
+                data = await resp.json()
+            except aiohttp.ClientError as exc:
+                logger.warning("Loki request failed", error=str(exc))
+                break
+            streams = data.get("data", {}).get("result", [])
+            if not streams:
+                break
+            prev = len(entries)
+            min_ns = None
+            for stream in streams:
+                labels = stream.get("stream", {})
+                for ts_ns, line in stream.get("values", []):
+                    entries.append(
+                        LogEntry(
+                            timestamp=_ns_to_iso(ts_ns),
+                            labels=dict(labels),
+                            line=line,
+                        )
+                    )
+                    if min_ns is None or ts_ns < min_ns:
+                        min_ns = ts_ns
+            new = len(entries) - prev
+            if new < _LOKI_MAX_PER_PAGE or min_ns is None:
+                break
+            last_end = min_ns
+        return entries
+
+    async def _fetch_traces(
+        self,
+        session: aiohttp.ClientSession,
+        start: datetime,
+        end: datetime,
+        services: list[str],
+    ) -> list[TraceSpan]:
+        start_s = start.strftime("%Y-%m-%dT%H:%M:%SZ")
+        end_s = end.strftime("%Y-%m-%dT%H:%M:%SZ")
+        params = {"start": start_s, "end": end_s, "limit": str(_TEMPO_MIN_TRACES * 3)}
+        if services:
+            params["tags"] = f"service.name={'|'.join(services)}"
+        trace_ids: list[str] = []
+        try:
+            resp = await session.get(f"{self.tempo_url}/api/search", params=params)
+            if resp.status == 404:
+                logger.warning("Tempo 404 — not running")
+                return []
+            resp.raise_for_status()
+            data = await resp.json()
+            trace_ids = [t.get("traceID", "") for t in data.get("traces", []) if t.get("traceID")]
+        except aiohttp.ClientError as exc:
+            logger.warning("Tempo search failed", error=str(exc))
+            return []
+        if not trace_ids:
+            return []
+        all_spans: list[TraceSpan] = []
+        for i in range(0, len(trace_ids), 5):
+            results = await asyncio.gather(
+                *[self._fetch_single_trace(session, tid) for tid in trace_ids[i : i + 5]]
+            )
+            for s in results:
+                all_spans.extend(s)
+        return self._select_representative(all_spans)
+
+    async def _fetch_single_trace(
+        self, session: aiohttp.ClientSession, trace_id: str
+    ) -> list[TraceSpan]:
+        try:
+            resp = await session.get(f"{self.tempo_url}/api/traces/{trace_id}")
+            if resp.status == 404:
+                return []
+            resp.raise_for_status()
+            data = await resp.json()
+        except aiohttp.ClientError:
+            return []
+        batches = data.get("batches", []) or data.get("data", {}).get("batches", [])
+        spans: list[TraceSpan] = []
+        for batch in batches:
+            resource = batch.get("resource", {})
+            rattrs = _flatten_attrs(resource.get("attributes", []))
+            svc = rattrs.get("service.name", "")
+            for scope in batch.get("scopeSpans", []) or batch.get(
+                "instrumentationLibrarySpans", []
+            ):
+                for sd in scope.get("spans", []):
+                    sattrs = _flatten_attrs(sd.get("attributes", []))
+                    dur = int(
+                        sd.get("durationNano", 0)
+                        or sd.get("endTimeUnixNano", 0) - sd.get("startTimeUnixNano", 0)
+                    )
+                    spans.append(
+                        TraceSpan(
+                            trace_id=trace_id,
+                            span_id=sd.get("spanID", ""),
+                            operation_name=sd.get("name", ""),
+                            service_name=svc or sattrs.get("service.name", ""),
+                            start_time=_ns_to_iso(sd.get("startTimeUnixNano", "0")),
+                            duration_ms=dur / 1_000_000,
+                            status="error" if sd.get("status", {}).get("code", 0) == 2 else "ok",
+                            attributes=sattrs,
+                        )
+                    )
+        return spans
+
+    def _select_representative(self, spans: list[TraceSpan]) -> list[TraceSpan]:
+        if not spans:
+            return []
+        traces: dict[str, list[TraceSpan]] = {}
+        for sp in spans:
+            traces.setdefault(sp.trace_id, []).append(sp)
+        stats = [
+            (tid, sum(s.duration_ms for s in ts), any(s.status == "error" for s in ts))
+            for tid, ts in traces.items()
+        ]
+        slow = {t[0] for t in sorted(stats, key=lambda x: x[1], reverse=True)[:10]}
+        err = {t[0] for t in stats if t[2] and t[0] not in slow}
+        return [sp for sp in spans if sp.trace_id in (slow | err)]
+
+    def _save_evidence(self, recipe_id: str, evidence: CollectedEvidence) -> None:
+        d = self.output_dir / recipe_id / "evidence"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "logs.json").write_text(
+            json.dumps([e.model_dump() for e in evidence.logs], indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (d / "traces.json").write_text(
+            json.dumps([t.model_dump() for t in evidence.traces], indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        logger.info("Evidence saved", recipe_id=recipe_id, path=str(d))
+
+
+def _ns_to_iso(ns_str: str) -> str:
+    try:
+        ns = int(ns_str)
+        return datetime.fromtimestamp(ns / 1_000_000_000, tz=timezone.utc).isoformat()  # noqa: UP017
+    except (ValueError, OSError):
+        return ns_str
+
+
+def _flatten_attrs(attrs: list[dict[str, Any]]) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for a in attrs:
+        k = a.get("key", "")
+        v = a.get("value", {})
+        if "stringValue" in v:
+            result[k] = v["stringValue"]
+        elif "intValue" in v:
+            result[k] = v["intValue"]
+        elif "doubleValue" in v:
+            result[k] = str(v["doubleValue"])
+        elif "boolValue" in v:
+            result[k] = str(v["boolValue"])
+        else:
+            result[k] = str(v)
+    return result
