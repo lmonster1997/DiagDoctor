@@ -142,7 +142,7 @@ class StepResult(BaseModel):
     params: dict[str, Any]
     success: bool
     elapsed_ms: float
-    response: dict[str, Any] | None = None
+    response: Any = None  # Can be dict, list, or None — API returns vary
     error: str | None = None
 
 

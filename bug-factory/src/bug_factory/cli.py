@@ -37,9 +37,14 @@ from rich.table import Table
 if TYPE_CHECKING:
     from langchain_openai import ChatOpenAI
 
-    from bug_factory.schema import TriggerResult
-
-from bug_factory.schema import InjectionResult, load_recipe, validate_all_recipes
+from bug_factory.schema import (
+    CollectedEvidence,
+    EvaluationCase,
+    InjectionResult,
+    TriggerResult,
+    load_recipe,
+    validate_all_recipes,
+)
 
 console = Console()
 
@@ -375,7 +380,24 @@ def _display_trigger_result(result: TriggerResult) -> None:
     console.print(f"  Created Tasks: {len(tasks)}")
 
 
-# ── full ─────────────────────────────────────────────────────────────
+def _display_evidence_result(evidence: CollectedEvidence) -> None:
+    """Pretty-print evidence collection results."""
+    table = Table(title="Evidence Collected", show_header=False)
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="white")
+    table.add_row("Recipe ID", evidence.recipe_id)
+    table.add_row("Log Entries", str(len(evidence.logs)))
+    table.add_row("Trace Spans", str(len(evidence.traces)))
+    if evidence.time_window:
+        table.add_row(
+            "Time Window",
+            f"{evidence.time_window[0]} → {evidence.time_window[1]}",
+        )
+    console.print(table)
+    console.print("\n[bold green]✓ Evidence collection complete![/]")
+
+
+# ── full ──────────────────────────────────────────────────────────────
 
 
 @cli.command()
@@ -390,26 +412,38 @@ def _display_trigger_result(result: TriggerResult) -> None:
     "--base-url",
     default="http://localhost:8000",
     show_default=True,
-    help="Base URL of the running demo-app backend (for trigger step)",
+    help="Base URL of the running demo-app backend",
+)
+@click.option(
+    "--loki-url",
+    default=None,
+    help="Loki HTTP API base URL (env: LOKI_URL, default: http://localhost:3100)",
+)
+@click.option(
+    "--tempo-url",
+    default=None,
+    help="Tempo HTTP API base URL (env: TEMPO_URL, default: http://localhost:3200)",
+)
+@click.option(
+    "--skip-inject",
+    is_flag=True,
+    default=False,
+    help="Skip injection (bug already on a branch)",
 )
 @click.option(
     "--skip-trigger",
     is_flag=True,
     default=False,
-    help="Only inject the bug; do not run the trigger sequence",
-)
-@click.option(
-    "--no-ui/--ui",
-    default=False,
-    show_default=True,
-    help="Skip UI click actions during trigger",
+    help="Skip trigger (bug already triggered)",
 )
 def full(
     recipe_id: str,
     repo_path: Path | None,
     base_url: str,
+    loki_url: str | None,
+    tempo_url: str | None,
+    skip_inject: bool,  # noqa: FBT001
     skip_trigger: bool,  # noqa: FBT001
-    no_ui: bool,  # noqa: FBT001
 ) -> None:
     """Run the full pipeline: inject → trigger → collect → generate case.
 
@@ -417,70 +451,112 @@ def full(
 
     \b
     Steps:
-        1. Inject the bug into the target repository (creates bug/ branch).
-        2. Trigger the bug against the running demo-app.
-        3. (collect & case generation coming soon)
-
-    \b
-    Note: After injection you must rebuild & redeploy the demo-app for the
-    injected bug to take effect (e.g. `docker compose up -d --build demo-backend`).
+        1. Inject bug into repo (creates bug/{id} branch)
+        2. Trigger bug against the running demo-app
+        3. Collect evidence (logs + traces) from Loki/Tempo
+        4. Generate evaluation case YAML in benchmark/cases/
     """
+    from datetime import datetime, timedelta, timezone
+
+    from bug_factory.case_generator import CaseGenerator
+    from bug_factory.evidence_collector import EvidenceCollector
     from bug_factory.injector import BugInjector
     from bug_factory.trigger import TriggerRunner
 
-    # Resolve recipe
     yaml_path = _find_recipe(recipe_id)
-    console.print(f"[bold]Loading recipe:[/] {yaml_path.name}")
+    console.print(f"[bold]Recipe:[/] {yaml_path.name}")
     recipe = load_recipe(yaml_path)
 
-    # Step 1: Inject
-    console.print("\n[bold]── Step 1: Inject ──[/]")
     repo = repo_path.resolve() if repo_path else _WORKSPACE_ROOT
-    llm = _get_llm()
-    injector = BugInjector(repo_path=repo, llm=llm)
+    loki = loki_url or os.getenv("LOKI_URL", "http://localhost:3100")
+    tempo = tempo_url or os.getenv("TEMPO_URL", "http://localhost:3200")
 
-    async def _inject() -> InjectionResult:
-        return await injector.inject(recipe)
+    console.print(f"[bold]Repo:[/] {repo}")
+    console.print(f"[bold]App URL:[/] {base_url}")
+    console.print(f"[bold]Loki:[/] {loki}  [bold]Tempo:[/] {tempo}")
+
+    injection_result: InjectionResult | None = None
+    trigger_result: TriggerResult | None = None
+
+    async def _run_full() -> EvaluationCase:
+        nonlocal injection_result, trigger_result
+
+        # ── Step 1: Inject ──────────────────────────────────────────
+        if not skip_inject:
+            console.print("\n[bold cyan]── Step 1/4: Injecting bug ──[/]")
+            llm = _get_llm()
+            injector = BugInjector(repo_path=repo, llm=llm)
+            injection_result = await injector.inject(recipe)
+            _display_injection_result(injection_result)
+        else:
+            console.print("\n[dim]── Step 1/4: Skipping injection ──[/]")
+
+        # ── Step 2: Trigger ─────────────────────────────────────────
+        if not skip_trigger:
+            console.print("\n[bold cyan]── Step 2/4: Triggering bug ──[/]")
+            console.print("[yellow]⚠ Ensure demo-app is rebuilt with injected bug![/]")
+            trigger_end = datetime.now(timezone.utc)  # noqa: UP017
+            runner = TriggerRunner(demo_app_base_url=base_url)
+            trigger_result = await runner.run(recipe.trigger)
+            _display_trigger_result(trigger_result)
+            if not trigger_result.success:
+                raise click.ClickException(f"Trigger failed: {trigger_result.error}")
+        else:
+            console.print("\n[dim]── Step 2/4: Skipping trigger ──[/]")
+            trigger_end = datetime.now(timezone.utc)  # noqa: UP017
+
+        # ── Step 3: Collect evidence ────────────────────────────────
+        console.print("\n[bold cyan]── Step 3/4: Collecting evidence ──[/]")
+        collector = EvidenceCollector(loki_url=loki, tempo_url=tempo)
+        evidence = await collector.collect(
+            recipe_id=recipe.id,
+            start=trigger_end - timedelta(minutes=5),
+            end=datetime.now(timezone.utc),  # noqa: UP017
+        )
+        _display_evidence_result(evidence)
+
+        # ── Step 4: Generate case ───────────────────────────────────
+        console.print("\n[bold cyan]── Step 4/4: Generating evaluation case ──[/]")
+        llm = _get_llm()
+        generator = CaseGenerator(llm=llm)
+        inj = injection_result or InjectionResult(
+            recipe_id=recipe.id,
+            branch=f"bug/{recipe.id}",
+            diff="(skipped)",
+            modified_files=[],
+        )
+        trig = trigger_result or TriggerResult(success=True, session={}, steps=[])
+        case = await generator.generate(
+            recipe=recipe,
+            injection_result=inj,
+            trigger_result=trig,
+            evidence=evidence,
+        )
+        return case
 
     try:
-        injection_result = asyncio.run(_inject())
+        case = asyncio.run(_run_full())
     except Exception as exc:
-        console.print(f"[bold red]✗ Injection failed:[/] {exc}")
+        console.print(f"\n[bold red]✗ Pipeline failed:[/] {exc}")
         raise SystemExit(1) from exc
 
-    _display_injection_result(injection_result)
+    table = Table(title="Evaluation Case Generated", show_header=False)
+    table.add_column("Field", style="cyan")
+    table.add_column("Value", style="white")
+    table.add_row("Case ID", case.case_id)
+    table.add_row("Recipe", case.recipe_id)
+    table.add_row("Generated At", case.generated_at)
+    table.add_row("Category", case.expected.category)
+    preview = case.input.user_report
+    if len(preview) > 100:
+        preview = preview[:100] + "..."
+    table.add_row("User Report", preview)
+    table.add_row("Output", f"benchmark/cases/{case.case_id}.yaml")
+    console.print(table)
 
-    if skip_trigger:
-        console.print("\n[dim]Skipping trigger step (--skip-trigger)[/]")
-        return
-
-    # Step 2: Trigger
-    console.print("\n[bold]── Step 2: Trigger ──[/]")
-    console.print(
-        "[yellow]⚠ Make sure you have rebuilt & redeployed the demo-app "
-        "with the injected bug before continuing![/]"
-    )
-
-    runner = TriggerRunner(demo_app_base_url=base_url)
-
-    async def _trigger() -> TriggerResult:
-        return await runner.run(recipe.trigger)
-
-    try:
-        trigger_result = asyncio.run(_trigger())
-    except Exception as exc:
-        console.print(f"[bold red]✗ Trigger failed:[/] {exc}")
-        raise SystemExit(1) from exc
-
-    _display_trigger_result(trigger_result)
-
-    # Step 3: Collect & generate (coming soon)
-    console.print("\n[dim]Evidence collection & case generation coming soon...[/]")
-
-    if trigger_result.success:
-        console.print("\n[bold green]✓ Full pipeline (inject + trigger) complete![/]")
-    else:
-        console.print("\n[bold yellow]⚠ Injection succeeded but trigger had failures.[/]")
+    console.print("\n[bold green]✓ Full pipeline complete![/]")
+    console.print(f"   Case:   benchmark/cases/{case.case_id}.yaml")
+    console.print(f"   Evidence: output/{case.case_id}/evidence/")
 
 
 # ── Entry point ──────────────────────────────────────────────────────

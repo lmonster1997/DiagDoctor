@@ -204,9 +204,7 @@ class GitManager:
 
         # Check dirtiness: if paths specified, only check those paths
         if paths:
-            dirty = any(
-                self._repo.is_dirty(path=p, untracked_files=True) for p in paths
-            )
+            dirty = any(self._repo.is_dirty(path=p, untracked_files=True) for p in paths)
             if not dirty:
                 raise GitOperationError(
                     "commit_changes",
