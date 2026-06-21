@@ -90,9 +90,7 @@ class TestGetEmbeddings:
 
     @patch("langchain_community.embeddings.HuggingFaceEmbeddings")
     @patch("src.knowledge.embeddings.settings")
-    def test_caches_result(
-        self, mock_settings: MagicMock, mock_hf: MagicMock
-    ) -> None:
+    def test_caches_result(self, mock_settings: MagicMock, mock_hf: MagicMock) -> None:
         """Should cache the embeddings instance after first creation."""
         mock_settings.llm_api_key.get_secret_value.return_value = ""
         mock_settings.embedding_base_url = ""

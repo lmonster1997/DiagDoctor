@@ -70,8 +70,7 @@ async def test_end_to_end_smoke() -> None:
         )
     if not doctor_ok:
         pytest.skip(
-            f"doctor-api not available at {DOCTOR_URL}. "
-            "Run 'make up' first to start all services."
+            f"doctor-api not available at {DOCTOR_URL}. Run 'make up' first to start all services."
         )
 
     # Generate unique test identifiers to avoid collisions across runs
@@ -105,8 +104,7 @@ async def test_end_to_end_smoke() -> None:
             json={"email": test_email, "password": test_password},
         )
         assert login_resp.status_code == 200, (
-            f"User login failed: HTTP {login_resp.status_code}\n"
-            f"Response: {login_resp.text}"
+            f"User login failed: HTTP {login_resp.status_code}\nResponse: {login_resp.text}"
         )
         token: str = login_resp.json()["access_token"]
         auth_headers = {"Authorization": f"Bearer {token}"}
@@ -123,8 +121,7 @@ async def test_end_to_end_smoke() -> None:
             headers=auth_headers,
         )
         assert project_resp.status_code == 201, (
-            f"Create project failed: HTTP {project_resp.status_code}\n"
-            f"Response: {project_resp.text}"
+            f"Create project failed: HTTP {project_resp.status_code}\nResponse: {project_resp.text}"
         )
         project_id: str = project_resp.json()["id"]
 
@@ -193,26 +190,18 @@ async def test_end_to_end_smoke() -> None:
         # ─────────────────────────────────────────────────────────
 
         # 8a. A thread_id must be assigned
-        assert "thread_id" in result, (
-            f"Response missing thread_id: {result}"
-        )
+        assert "thread_id" in result, f"Response missing thread_id: {result}"
 
         # 8b. bug_category must be present and non-empty
         bug_category: str = result.get("bug_category", "")
         assert bug_category, (
-            f"bug_category is empty — Doctor did not classify the bug.\n"
-            f"Full response: {result}"
+            f"bug_category is empty — Doctor did not classify the bug.\nFull response: {result}"
         )
 
         # 8c. A DiagnosisReport must be present
         report: dict | None = result.get("report")
-        assert report is not None, (
-            f"No 'report' in Doctor response.\n"
-            f"Full response: {result}"
-        )
-        assert isinstance(report, dict), (
-            f"'report' is not a dict: {type(report)}"
-        )
+        assert report is not None, f"No 'report' in Doctor response.\nFull response: {result}"
+        assert isinstance(report, dict), f"'report' is not a dict: {type(report)}"
 
         # 8d. Report must contain the required DiagnosisReport fields
         required_report_fields = [
@@ -223,14 +212,13 @@ async def test_end_to_end_smoke() -> None:
         ]
         for field in required_report_fields:
             assert field in report, (
-                f"DiagnosisReport missing required field '{field}'.\n"
-                f"Report: {report}"
+                f"DiagnosisReport missing required field '{field}'.\nReport: {report}"
             )
 
         # ── Success summary ───────────────────────────────────
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"✅ E2E Smoke Test PASSED!")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"   User email:     {test_email}")
         print(f"   Project ID:     {project_id}")
         print(f"   Task IDs:       {task_ids}")
@@ -238,4 +226,4 @@ async def test_end_to_end_smoke() -> None:
         print(f"   Bug category:   {bug_category}")
         print(f"   Confidence:     {report.get('confidence', 'N/A')}")
         print(f"   Root cause:     {report.get('root_cause', 'N/A')[:100]}")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")

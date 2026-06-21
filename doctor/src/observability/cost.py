@@ -121,9 +121,7 @@ class TokenAccountant:
 # ── Context variable for per-session accountant ──────────────────────
 
 
-_accountant_ctx: ContextVar[TokenAccountant] = ContextVar(
-    "accountant", default=TokenAccountant()
-)
+_accountant_ctx: ContextVar[TokenAccountant] = ContextVar("accountant", default=TokenAccountant())
 
 
 def get_accountant() -> TokenAccountant:

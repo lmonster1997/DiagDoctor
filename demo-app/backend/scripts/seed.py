@@ -55,63 +55,190 @@ SEED_TASKS = [
     # ── TODO (10 tasks) ──
     {"title": "Set up CI/CD pipeline", "status": "todo", "priority": 3, "assignee_idx": 0},
     {"title": "Write API documentation", "status": "todo", "priority": 2, "assignee_idx": 1},
-    {"title": "Design database schema for audit log", "status": "todo", "priority": 3, "assignee_idx": None},
+    {
+        "title": "Design database schema for audit log",
+        "status": "todo",
+        "priority": 3,
+        "assignee_idx": None,
+    },
     {"title": "Research WebSocket libraries", "status": "todo", "priority": 1, "assignee_idx": 0},
-    {"title": "Add rate limiting to auth endpoints", "status": "todo", "priority": 3, "assignee_idx": None},
-    {"title": "Create onboarding email template", "status": "todo", "priority": 2, "assignee_idx": 1},
+    {
+        "title": "Add rate limiting to auth endpoints",
+        "status": "todo",
+        "priority": 3,
+        "assignee_idx": None,
+    },
+    {
+        "title": "Create onboarding email template",
+        "status": "todo",
+        "priority": 2,
+        "assignee_idx": 1,
+    },
     {"title": "Set up staging environment", "status": "todo", "priority": 3, "assignee_idx": 0},
-    {"title": "Write unit tests for comment service", "status": "todo", "priority": 2, "assignee_idx": 1},
-    {"title": "Investigate memory leak in worker process", "status": "todo", "priority": 3, "assignee_idx": None},
+    {
+        "title": "Write unit tests for comment service",
+        "status": "todo",
+        "priority": 2,
+        "assignee_idx": 1,
+    },
+    {
+        "title": "Investigate memory leak in worker process",
+        "status": "todo",
+        "priority": 3,
+        "assignee_idx": None,
+    },
     {"title": "Plan v2.0 feature roadmap", "status": "todo", "priority": 1, "assignee_idx": 0},
-
     # ── DOING (10 tasks) ──
-    {"title": "Implement task search with full-text index", "status": "doing", "priority": 3, "assignee_idx": 0},
-    {"title": "Refactor project service to use repository pattern", "status": "doing", "priority": 2, "assignee_idx": 1},
-    {"title": "Fix pagination bug on task list page", "status": "doing", "priority": 3, "assignee_idx": 0},
-    {"title": "Add drag-and-drop sorting to task board", "status": "doing", "priority": 2, "assignee_idx": 1},
-    {"title": "Optimize N+1 query in task list endpoint", "status": "doing", "priority": 3, "assignee_idx": None},
-    {"title": "Migrate from moment.js to date-fns", "status": "doing", "priority": 1, "assignee_idx": 0},
-    {"title": "Add Sentry error tracking to frontend", "status": "doing", "priority": 2, "assignee_idx": 1},
-    {"title": "Write integration tests for auth flow", "status": "doing", "priority": 2, "assignee_idx": None},
-    {"title": "Update dependencies to latest versions", "status": "doing", "priority": 1, "assignee_idx": 0},
-    {"title": "Design new comment notification system", "status": "doing", "priority": 2, "assignee_idx": 1},
-
+    {
+        "title": "Implement task search with full-text index",
+        "status": "doing",
+        "priority": 3,
+        "assignee_idx": 0,
+    },
+    {
+        "title": "Refactor project service to use repository pattern",
+        "status": "doing",
+        "priority": 2,
+        "assignee_idx": 1,
+    },
+    {
+        "title": "Fix pagination bug on task list page",
+        "status": "doing",
+        "priority": 3,
+        "assignee_idx": 0,
+    },
+    {
+        "title": "Add drag-and-drop sorting to task board",
+        "status": "doing",
+        "priority": 2,
+        "assignee_idx": 1,
+    },
+    {
+        "title": "Optimize N+1 query in task list endpoint",
+        "status": "doing",
+        "priority": 3,
+        "assignee_idx": None,
+    },
+    {
+        "title": "Migrate from moment.js to date-fns",
+        "status": "doing",
+        "priority": 1,
+        "assignee_idx": 0,
+    },
+    {
+        "title": "Add Sentry error tracking to frontend",
+        "status": "doing",
+        "priority": 2,
+        "assignee_idx": 1,
+    },
+    {
+        "title": "Write integration tests for auth flow",
+        "status": "doing",
+        "priority": 2,
+        "assignee_idx": None,
+    },
+    {
+        "title": "Update dependencies to latest versions",
+        "status": "doing",
+        "priority": 1,
+        "assignee_idx": 0,
+    },
+    {
+        "title": "Design new comment notification system",
+        "status": "doing",
+        "priority": 2,
+        "assignee_idx": 1,
+    },
     # ── DONE (10 tasks) ──
     {"title": "Initialize project repository", "status": "done", "priority": 3, "assignee_idx": 0},
-    {"title": "Set up PostgreSQL and Redis containers", "status": "done", "priority": 3, "assignee_idx": 0},
-    {"title": "Create user registration and login API", "status": "done", "priority": 3, "assignee_idx": 1},
-    {"title": "Implement JWT authentication middleware", "status": "done", "priority": 3, "assignee_idx": 1},
+    {
+        "title": "Set up PostgreSQL and Redis containers",
+        "status": "done",
+        "priority": 3,
+        "assignee_idx": 0,
+    },
+    {
+        "title": "Create user registration and login API",
+        "status": "done",
+        "priority": 3,
+        "assignee_idx": 1,
+    },
+    {
+        "title": "Implement JWT authentication middleware",
+        "status": "done",
+        "priority": 3,
+        "assignee_idx": 1,
+    },
     {"title": "Build project CRUD endpoints", "status": "done", "priority": 2, "assignee_idx": 0},
     {"title": "Build task CRUD endpoints", "status": "done", "priority": 3, "assignee_idx": 1},
-    {"title": "Add comment functionality to tasks", "status": "done", "priority": 2, "assignee_idx": 0},
-    {"title": "Create React frontend scaffold with Vite", "status": "done", "priority": 3, "assignee_idx": 1},
-    {"title": "Implement task board page with three columns", "status": "done", "priority": 3, "assignee_idx": 0},
-    {"title": "Add Tailwind CSS and shadcn/ui components", "status": "done", "priority": 2, "assignee_idx": 1},
+    {
+        "title": "Add comment functionality to tasks",
+        "status": "done",
+        "priority": 2,
+        "assignee_idx": 0,
+    },
+    {
+        "title": "Create React frontend scaffold with Vite",
+        "status": "done",
+        "priority": 3,
+        "assignee_idx": 1,
+    },
+    {
+        "title": "Implement task board page with three columns",
+        "status": "done",
+        "priority": 3,
+        "assignee_idx": 0,
+    },
+    {
+        "title": "Add Tailwind CSS and shadcn/ui components",
+        "status": "done",
+        "priority": 2,
+        "assignee_idx": 1,
+    },
 ]
 
 # Seed comments for some tasks (by task title)
 SEED_COMMENTS_BY_TASK: dict[str, list[dict]] = {
     "Fix pagination bug on task list page": [
-        {"author_idx": 0, "content": "Looks like the offset is calculated incorrectly when page > 1."},
+        {
+            "author_idx": 0,
+            "content": "Looks like the offset is calculated incorrectly when page > 1.",
+        },
         {"author_idx": 1, "content": "I can reproduce this — page 3 shows duplicates from page 2."},
     ],
     "Optimize N+1 query in task list endpoint": [
-        {"author_idx": 0, "content": "We should use selectinload() or joinedload() to prefetch comments."},
-        {"author_idx": 1, "content": "Agreed. The current code makes a separate query per task — that's the bottleneck."},
+        {
+            "author_idx": 0,
+            "content": "We should use selectinload() or joinedload() to prefetch comments.",
+        },
+        {
+            "author_idx": 1,
+            "content": "Agreed. The current code makes a separate query per task — that's the bottleneck.",
+        },
     ],
     "Add drag-and-drop sorting to task board": [
-        {"author_idx": 0, "content": "@dnd-kit looks like the best option. I've drafted a prototype."},
+        {
+            "author_idx": 0,
+            "content": "@dnd-kit looks like the best option. I've drafted a prototype.",
+        },
     ],
     "Build task CRUD endpoints": [
-        {"author_idx": 1, "content": "All CRUD endpoints are passing manual tests. Ready for review."},
+        {
+            "author_idx": 1,
+            "content": "All CRUD endpoints are passing manual tests. Ready for review.",
+        },
     ],
     "Create user registration and login API": [
-        {"author_idx": 0, "content": "JWT tokens working. Let's add refresh token support in the next sprint."},
+        {
+            "author_idx": 0,
+            "content": "JWT tokens working. Let's add refresh token support in the next sprint.",
+        },
     ],
 }
 
 
 # ── Helpers ────────────────────────────────────────────────────────
+
 
 async def _user_exists(session: AsyncSession, email: str) -> User | None:
     """Check if a user with the given email already exists."""
@@ -146,6 +273,7 @@ async def _comment_exists(session: AsyncSession, task_id, author_id, content: st
 
 
 # ── Main ───────────────────────────────────────────────────────────
+
 
 async def seed() -> None:
     """Run the seed process — idempotent."""

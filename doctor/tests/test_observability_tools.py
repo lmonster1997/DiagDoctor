@@ -31,6 +31,7 @@ from src.tools.observability_tools import (
 
 # ── Test fixtures ───────────────────────────────────────────────────
 
+
 @pytest.fixture
 def sample_timestamp() -> datetime:
     return datetime(2026, 6, 20, 12, 0, 0, tzinfo=timezone.utc)
@@ -52,19 +53,23 @@ def sample_loki_response() -> dict[str, Any]:
                     "values": [
                         [
                             "1750000000000000000",  # nanosecond timestamp
-                            json.dumps({
-                                "level": "error",
-                                "message": "Something went wrong",
-                                "trace_id": "abc123def456",
-                                "request_id": "req-001",
-                            }),
+                            json.dumps(
+                                {
+                                    "level": "error",
+                                    "message": "Something went wrong",
+                                    "trace_id": "abc123def456",
+                                    "request_id": "req-001",
+                                }
+                            ),
                         ],
                         [
                             "1750000001000000000",
-                            json.dumps({
-                                "level": "info",
-                                "message": "Recovered from error",
-                            }),
+                            json.dumps(
+                                {
+                                    "level": "info",
+                                    "message": "Recovered from error",
+                                }
+                            ),
                         ],
                     ],
                 },
@@ -128,7 +133,10 @@ def sample_tempo_trace_response() -> dict[str, Any]:
                                 "endTimeUnixNano": "1750000000450000000",
                                 "status": {"code": 1},
                                 "attributes": [
-                                    {"key": "db.statement", "value": {"stringValue": "SELECT * FROM tasks"}},
+                                    {
+                                        "key": "db.statement",
+                                        "value": {"stringValue": "SELECT * FROM tasks"},
+                                    },
                                 ],
                             },
                         ],
@@ -172,11 +180,13 @@ class TestLokiResponseParsing:
 
     def test_parse_log_line_json(self, sample_timestamp: datetime) -> None:
         """JSON log lines are correctly parsed into LogEntry."""
-        log_line = json.dumps({
-            "level": "error",
-            "message": "Something went wrong",
-            "trace_id": "abc123",
-        })
+        log_line = json.dumps(
+            {
+                "level": "error",
+                "message": "Something went wrong",
+                "trace_id": "abc123",
+            }
+        )
         entry = _parse_log_line(log_line, sample_timestamp, "demo-backend", {"level": "error"})
 
         assert isinstance(entry, LogEntry)
@@ -245,10 +255,12 @@ class TestLokiResponseParsing:
 
     def test_handle_loki_response_empty(self) -> None:
         """Empty result returns empty list."""
-        entries = _handle_loki_response({
-            "status": "success",
-            "data": {"resultType": "streams", "result": []},
-        })  # type: ignore[arg-type]
+        entries = _handle_loki_response(
+            {
+                "status": "success",
+                "data": {"resultType": "streams", "result": []},
+            }
+        )  # type: ignore[arg-type]
         assert entries == []
 
 
@@ -352,9 +364,7 @@ class TestTempoTraceParsing:
         """Service name defaults to 'unknown'."""
         assert _parse_span_service({}, None) == "unknown"
 
-    def test_handle_tempo_trace_response(
-        self, sample_tempo_trace_response: dict[str, Any]
-    ) -> None:
+    def test_handle_tempo_trace_response(self, sample_tempo_trace_response: dict[str, Any]) -> None:
         """Full Tempo trace response parses correctly."""
         spans = _handle_tempo_trace_response(sample_tempo_trace_response, "trace-id")  # type: ignore[arg-type]
 

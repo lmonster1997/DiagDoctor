@@ -1,0 +1,79 @@
+# BE-001: N+1 query in task list endpoint
+# Reference: docs/diagdoctor-from-scratch.md §4.3
+
+id: BE-001
+title: "任务列表 N+1 查询导致接口严重变慢"
+category: performance
+severity: high
+tags: ["n+1", "sqlalchemy", "orm", "eager-loading"]
+
+expected_diagnosis:
+  root_cause: "tasks API 的 list_tasks 端点中，对每个 task 单独查询其 comments 数量，触发 N+1 查询问题"
+  affected_file: "demo-app/backend/app/api/tasks.py"
+  affected_line: null
+  fix_suggestion: "使用 SQLAlchemy selectinload 或 joinedload 预加载 comments 关系，或改为单次聚合子查询统计评论数"
+  fix_keywords:
+    - "N+1"
+    - "joinedload"
+    - "selectinload"
+    - "eager loading"
+    - "list_tasks"
+
+injection:
+  strategy: code_replace
+  target_file: "demo-app/backend/app/api/tasks.py"
+  ai_instruction: |
+    把 list_tasks 函数中预加载 comments 的 selectinload / joinedload 选项删除。
+    改为在循环内逐个访问 task.comments 来获取评论列表。
+    确保每次迭代都触发一次额外的 SQL 查询。
+  diff_patch: null
+
+trigger:
+  type: api_call
+  steps:
+    - action: login
+      params:
+        email: "admin@example.com"
+        password: "Admin123!"
+    - action: create_data
+      params:
+        entity: "project"
+        data:
+          name: "N+1 Test Project"
+          description: "Project for testing N+1 query bug"
+    - action: create_data
+      params:
+        entity: "task"
+        data:
+          title: "Bulk Task"
+          project_index: 0
+        repeat: 50
+    - action: api_call
+      params:
+        method: "GET"
+        path: "/api/projects/{project_id}/tasks"
+        query:
+          include_comments: "true"
+  expected_observation:
+    log_patterns:
+      - pattern: "SELECT.*FROM comments.*WHERE comments.task_id"
+        min_occurrences: 50
+    trace_attributes:
+      "GET /api/projects/{id}/tasks":
+        duration_ms: ">2000"
+    api_response: null
+
+evaluation:
+  must_mention_keywords:
+    - "N+1"
+    - "joinedload"
+  should_mention_keywords:
+    - "selectinload"
+    - "预加载"
+    - "eager"
+    - "list_tasks"
+  llm_judge_criteria: |
+    诊断必须明确指出 N+1 查询问题——即对每个 task 单独查询其关联数据，
+    并建议使用 ORM 的预加载（joinedload/selectinload）或聚合查询来一次性获取所有需要的数据。
+    关键词"N+1"必须出现。
+  min_confidence: 0.6

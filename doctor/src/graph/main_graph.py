@@ -73,13 +73,20 @@ async def dummy_triage_node(state: DoctorState) -> dict[str, Any]:
 - config: 配置或环境问题"""
 
     valid_categories = {
-        "frontend_crash", "backend_error", "performance", "logic", "data", "config",
+        "frontend_crash",
+        "backend_error",
+        "performance",
+        "logic",
+        "data",
+        "config",
     }
 
     try:
         structured_llm = llm.with_structured_output(TriageOutput)
         raw_output = await structured_llm.ainvoke(prompt)
-        triage_output = TriageOutput.model_validate(raw_output) if isinstance(raw_output, dict) else raw_output
+        triage_output = (
+            TriageOutput.model_validate(raw_output) if isinstance(raw_output, dict) else raw_output
+        )
 
         category = triage_output.category.strip().lower()
         if category not in valid_categories:

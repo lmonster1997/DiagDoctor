@@ -44,15 +44,19 @@ def mock_struct_kb() -> MagicMock:
 @pytest.fixture
 def svc(mock_vector_kb: MagicMock, mock_struct_kb: MagicMock) -> KnowledgeService:
     """Create a KnowledgeService with mocked backends."""
-    with patch(
-        "src.knowledge.hybrid_service.VectorKnowledgeBase",
-        return_value=mock_vector_kb,
-    ), patch(
-        "src.knowledge.hybrid_service.StructKnowledgeBase",
-        return_value=mock_struct_kb,
-    ), patch(
-        "src.knowledge.hybrid_service.get_embeddings",
-        return_value=MagicMock(),
+    with (
+        patch(
+            "src.knowledge.hybrid_service.VectorKnowledgeBase",
+            return_value=mock_vector_kb,
+        ),
+        patch(
+            "src.knowledge.hybrid_service.StructKnowledgeBase",
+            return_value=mock_struct_kb,
+        ),
+        patch(
+            "src.knowledge.hybrid_service.get_embeddings",
+            return_value=MagicMock(),
+        ),
     ):
         return KnowledgeService(
             qdrant_url="http://localhost:6333",
@@ -145,7 +149,13 @@ class TestSearchPractices:
         mock_struct_kb.query_framework_practices.side_effect = [
             [],  # exact match
             [],  # framework only
-            [{"framework": "React", "practice_type": "error_handling", "description": "Use ErrorBoundary"}],
+            [
+                {
+                    "framework": "React",
+                    "practice_type": "error_handling",
+                    "description": "Use ErrorBoundary",
+                }
+            ],
         ]
 
         results = await svc.search_practices("UnknownFramework", "error_handling")
@@ -317,15 +327,19 @@ class TestSingleton:
 
     def test_get_knowledge_service_creates_singleton(self) -> None:
         """Should create and cache a KnowledgeService singleton."""
-        with patch(
-            "src.knowledge.hybrid_service.VectorKnowledgeBase",
-            return_value=MagicMock(),
-        ), patch(
-            "src.knowledge.hybrid_service.StructKnowledgeBase",
-            return_value=MagicMock(),
-        ), patch(
-            "src.knowledge.hybrid_service.get_embeddings",
-            return_value=MagicMock(),
+        with (
+            patch(
+                "src.knowledge.hybrid_service.VectorKnowledgeBase",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "src.knowledge.hybrid_service.StructKnowledgeBase",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "src.knowledge.hybrid_service.get_embeddings",
+                return_value=MagicMock(),
+            ),
         ):
             svc1 = get_knowledge_service()
             svc2 = get_knowledge_service()
@@ -333,15 +347,19 @@ class TestSingleton:
 
     def test_reset_knowledge_service(self) -> None:
         """Should reset the singleton."""
-        with patch(
-            "src.knowledge.hybrid_service.VectorKnowledgeBase",
-            return_value=MagicMock(),
-        ), patch(
-            "src.knowledge.hybrid_service.StructKnowledgeBase",
-            return_value=MagicMock(),
-        ), patch(
-            "src.knowledge.hybrid_service.get_embeddings",
-            return_value=MagicMock(),
+        with (
+            patch(
+                "src.knowledge.hybrid_service.VectorKnowledgeBase",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "src.knowledge.hybrid_service.StructKnowledgeBase",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "src.knowledge.hybrid_service.get_embeddings",
+                return_value=MagicMock(),
+            ),
         ):
             svc1 = get_knowledge_service()
             reset_knowledge_service()
