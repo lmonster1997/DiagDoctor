@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from src.schema import RunResult
+from benchmark.schema import RunResult
 from bug_factory.schema import EvaluationCase
 
 
