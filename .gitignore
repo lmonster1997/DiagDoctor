@@ -24,5 +24,9 @@ doctor/data/
 infra/tempo/data/
 infra/loki/data/
 
+# Agent development learning notes (personal use, not for repo)
+docs/agent-dev-notes/
+.github/skills/
+
 # Auto-generated PR content
 PR_CONTENT.md

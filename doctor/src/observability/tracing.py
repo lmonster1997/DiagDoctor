@@ -17,7 +17,7 @@ Usage:
         ...
 """
 
-import asyncio
+import inspect
 import logging
 from collections.abc import Callable
 from functools import wraps
@@ -75,7 +75,7 @@ def traced(
             with tracer.start_as_current_span(span_name, attributes=span_attrs):
                 return func(*args, **kwargs)
 
-        if asyncio.iscoroutinefunction(func):
+        if inspect.iscoroutinefunction(func):
             return async_wrapper  # type: ignore[return-value]
         return sync_wrapper  # type: ignore[return-value]
 
