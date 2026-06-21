@@ -1,0 +1,82 @@
+[
+  {
+    "timestamp": "2026-06-21T11:23:04.566429+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:46280 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:22:34.484260+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:52138 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:22:04.414160+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:38914 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:21:34.343602+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:53464 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:21:04.264431+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:37026 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:20:34.186200+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:37776 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:20:04.099016+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:57382 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:19:34.025699+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:45214 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:19:03.947797+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:47432 - \"GET /health HTTP/1.1\" 200 OK"
+  },
+  {
+    "timestamp": "2026-06-21T11:18:33.874187+00:00",
+    "labels": {
+      "detected_level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "INFO:     127.0.0.1:38952 - \"GET /health HTTP/1.1\" 200 OK"
+  }
+]
