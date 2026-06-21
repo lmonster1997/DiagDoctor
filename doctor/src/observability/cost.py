@@ -121,12 +121,16 @@ class TokenAccountant:
 # ── Context variable for per-session accountant ──────────────────────
 
 
-_accountant_ctx: ContextVar[TokenAccountant] = ContextVar("accountant", default=TokenAccountant())
+_accountant_ctx: ContextVar[TokenAccountant | None] = ContextVar("accountant", default=None)
 
 
 def get_accountant() -> TokenAccountant:
     """Get the current session's TokenAccountant from context."""
-    return _accountant_ctx.get()
+    acct = _accountant_ctx.get()
+    if acct is None:
+        acct = TokenAccountant()
+        _accountant_ctx.set(acct)
+    return acct
 
 
 def set_accountant(accountant: TokenAccountant) -> None:

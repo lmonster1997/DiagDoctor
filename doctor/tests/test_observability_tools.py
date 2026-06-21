@@ -7,10 +7,11 @@ Uses pytest + pytest-asyncio. Mocks aiohttp to avoid real network calls.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
 
 from src.graph.state import LogEntry, TraceSpan
@@ -28,13 +29,12 @@ from src.tools.observability_tools import (
     search_tempo_traces,
 )
 
-
 # ── Test fixtures ───────────────────────────────────────────────────
 
 
 @pytest.fixture
 def sample_timestamp() -> datetime:
-    return datetime(2026, 6, 20, 12, 0, 0, tzinfo=timezone.utc)
+    return datetime(2026, 6, 20, 12, 0, 0, tzinfo=UTC)
 
 
 @pytest.fixture
@@ -454,8 +454,8 @@ class TestQueryLokiLogsIntegration:
         mock_session.__aexit__ = AsyncMock(return_value=None)
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
-            start = datetime(2026, 6, 20, 11, 0, tzinfo=timezone.utc)
-            end = datetime(2026, 6, 20, 12, 0, tzinfo=timezone.utc)
+            start = datetime(2026, 6, 20, 11, 0, tzinfo=UTC)
+            end = datetime(2026, 6, 20, 12, 0, tzinfo=UTC)
 
             entries = await query_loki_logs(
                 logql='{service_name="demo-backend"}',
@@ -485,10 +485,10 @@ class TestQueryLokiLogsIntegration:
         mock_session.__aexit__ = AsyncMock(return_value=None)
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
-            start = datetime(2026, 6, 20, 11, 0, tzinfo=timezone.utc)
-            end = datetime(2026, 6, 20, 12, 0, tzinfo=timezone.utc)
+            start = datetime(2026, 6, 20, 11, 0, tzinfo=UTC)
+            end = datetime(2026, 6, 20, 12, 0, tzinfo=UTC)
 
-            with pytest.raises(Exception):
+            with pytest.raises(aiohttp.ClientError):
                 await query_loki_logs(
                     logql='{service_name="demo-backend"}',
                     start=start,
@@ -566,9 +566,11 @@ class TestQueryTempoTraceIntegration:
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
-            with pytest.raises(Exception):
-                await query_tempo_trace("nonexistent")
+        with (
+            patch("aiohttp.ClientSession", return_value=mock_session),
+            pytest.raises(aiohttp.ClientError),
+        ):
+            await query_tempo_trace("nonexistent")
 
 
 class TestSearchTempoTracesIntegration:
@@ -604,8 +606,8 @@ class TestSearchTempoTracesIntegration:
         mock_session.__aexit__ = AsyncMock(return_value=None)
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
-            start = datetime(2026, 6, 20, 11, 0, tzinfo=timezone.utc)
-            end = datetime(2026, 6, 20, 12, 0, tzinfo=timezone.utc)
+            start = datetime(2026, 6, 20, 11, 0, tzinfo=UTC)
+            end = datetime(2026, 6, 20, 12, 0, tzinfo=UTC)
 
             traces = await search_tempo_traces(
                 service="demo-backend",
@@ -637,8 +639,8 @@ class TestSearchTempoTracesIntegration:
         mock_session.__aexit__ = AsyncMock(return_value=None)
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
-            start = datetime(2026, 6, 20, 11, 0, tzinfo=timezone.utc)
-            end = datetime(2026, 6, 20, 12, 0, tzinfo=timezone.utc)
+            start = datetime(2026, 6, 20, 11, 0, tzinfo=UTC)
+            end = datetime(2026, 6, 20, 12, 0, tzinfo=UTC)
 
             traces = await search_tempo_traces(
                 service="demo-backend",
@@ -666,10 +668,10 @@ class TestSearchTempoTracesIntegration:
         mock_session.__aexit__ = AsyncMock(return_value=None)
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
-            start = datetime(2026, 6, 20, 11, 0, tzinfo=timezone.utc)
-            end = datetime(2026, 6, 20, 12, 0, tzinfo=timezone.utc)
+            start = datetime(2026, 6, 20, 11, 0, tzinfo=UTC)
+            end = datetime(2026, 6, 20, 12, 0, tzinfo=UTC)
 
-            with pytest.raises(Exception):
+            with pytest.raises(aiohttp.ClientError):
                 await search_tempo_traces(service="demo-backend", start=start, end=end)
 
 

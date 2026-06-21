@@ -2,8 +2,6 @@
 Tests for src.observability.logger — structured logging with structlog.
 """
 
-import structlog
-
 from src.observability.logger import (
     bind_log_context,
     clear_log_context,

@@ -5,10 +5,8 @@ down_revision = "e8e3f9ebff95"
 branch_labels = None
 depends_on = None
 
-from typing import Sequence, Union
 
 from alembic import op
-import sqlalchemy as sa
 
 
 def upgrade() -> None:

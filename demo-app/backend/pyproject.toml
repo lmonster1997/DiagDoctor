@@ -37,10 +37,27 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+# Alembic auto-generated migration files — standard pattern places imports after
+# revision variables, which triggers E402. Exclude them entirely.
+exclude = ["alembic/versions/"]
+# B008: FastAPI Depends in function argument defaults is the idiomatic pattern.
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"alembic/versions/*.py" = ["E402"]
+# SQLAlchemy models use quoted forward references (e.g., Mapped["Task"])
+# which ruff's F821 doesn't understand — suppress for all model files.
+"app/models/*.py" = ["F821"]
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
+ignore_missing_imports = true
+
+# SQLAlchemy forward references in model relationship annotations
+[[tool.mypy.overrides]]
+module = "app.models.*"
+ignore_errors = true
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

@@ -8,14 +8,13 @@ a structured DiagnosisReport. Supports streaming via ?stream=true.
 from __future__ import annotations
 
 import json
-import uuid
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from src.config import settings
 from src.graph.main_graph import generate_thread_id, get_graph
 from src.graph.state import DiagnosisReport, Evidence
 

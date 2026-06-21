@@ -1,5 +1,8 @@
 """OpenTelemetry initialization — tracing only."""
 
+from typing import Any
+
+from fastapi import FastAPI
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -21,7 +24,7 @@ def _patch_otel_fastapi() -> None:
     try:
         import opentelemetry.instrumentation.fastapi as otel_fastapi
 
-        def _patched_get_route_details(scope: dict) -> str:
+        def _patched_get_route_details(scope: dict[str, Any]) -> str:
             app = scope.get("app")
             if app is None or not hasattr(app, "routes"):
                 return ""
@@ -33,17 +36,17 @@ def _patch_otel_fastapi() -> None:
                 )
                 if match == Match.FULL:
                     try:
-                        return starlette_route.path
+                        return starlette_route.path  # type: ignore[no-any-return]
                     except AttributeError:
-                        return scope.get("path", "")
+                        return scope.get("path", "")  # type: ignore[no-any-return]
                 if match == Match.PARTIAL:
                     try:
-                        return starlette_route.path
+                        return starlette_route.path  # type: ignore[no-any-return]
                     except AttributeError:
-                        return scope.get("path", "")
+                        return scope.get("path", "")  # type: ignore[no-any-return]
             return ""
 
-        otel_fastapi._get_route_details = _patched_get_route_details  # type: ignore[attr-defined]
+        otel_fastapi._get_route_details = _patched_get_route_details
     except Exception:
         pass  # 内部 API 变化时静默跳过, 不影响应用启动
 
@@ -77,17 +80,16 @@ def setup_loki_logging(service_name: str = "demo-backend") -> None:
     directly, bypassing the OTel Collector for logs (which is focused on traces).
     """
     import atexit
-    import json
     import logging
     import queue
     import threading
     import time
-    from datetime import datetime, timezone
+    from contextlib import suppress
 
     import requests
 
     loki_url = "http://loki:3100/loki/api/v1/push"
-    _log_queue: queue.Queue[dict] = queue.Queue(maxsize=10000)
+    _log_queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=10000)
     _shutdown = threading.Event()
 
     class _LokiHandler(logging.Handler):
@@ -95,7 +97,6 @@ def setup_loki_logging(service_name: str = "demo-backend") -> None:
 
         def emit(self, record: logging.LogRecord) -> None:
             try:
-                ts = datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat()
                 entry = {
                     "stream": {
                         "service_name": service_name,
@@ -110,7 +111,7 @@ def setup_loki_logging(service_name: str = "demo-backend") -> None:
     def _sender() -> None:
         """Background thread: batch and send logs to Loki."""
         session = requests.Session()
-        batch: list[dict] = []
+        batch: list[dict[str, Any]] = []
         last_send = time.monotonic()
 
         while not _shutdown.is_set():
@@ -123,19 +124,15 @@ def setup_loki_logging(service_name: str = "demo-backend") -> None:
             elapsed = time.monotonic() - last_send
             if batch and (len(batch) >= 50 or elapsed >= 5.0):
                 payload = {"streams": batch}
-                try:
+                with suppress(Exception):
                     session.post(loki_url, json=payload, timeout=5)
-                except Exception:
-                    pass  # best-effort; don't crash the app
                 batch.clear()
                 last_send = time.monotonic()
 
         # Flush remaining
         if batch:
-            try:
+            with suppress(Exception):
                 session.post(loki_url, json={"streams": batch}, timeout=5)
-            except Exception:
-                pass
 
     handler = _LokiHandler()
     handler.setFormatter(logging.Formatter("%(message)s"))
@@ -146,7 +143,7 @@ def setup_loki_logging(service_name: str = "demo-backend") -> None:
     atexit.register(_shutdown.set)
 
 
-def instrument_fastapi(app) -> None:
+def instrument_fastapi(app: FastAPI) -> None:
     """Instrument a FastAPI app for OpenTelemetry tracing."""
     FastAPIInstrumentor.instrument_app(app)
 

@@ -23,10 +23,10 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Relationships
-    owned_projects: Mapped[list["Project"]] = relationship(
+    owned_projects: Mapped[list["Project"]] = relationship(  # type: ignore[name-defined]
         "Project", back_populates="owner", foreign_keys="Project.owner_id"
     )
-    assigned_tasks: Mapped[list["Task"]] = relationship(
+    assigned_tasks: Mapped[list["Task"]] = relationship(  # type: ignore[name-defined]
         "Task", back_populates="assignee", foreign_keys="Task.assignee_id"
     )
-    comments: Mapped[list["Comment"]] = relationship("Comment", back_populates="author")
+    comments: Mapped[list["Comment"]] = relationship("Comment", back_populates="author")  # type: ignore[name-defined]

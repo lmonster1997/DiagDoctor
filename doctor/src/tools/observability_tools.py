@@ -25,8 +25,8 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any, Literal
 
 import aiohttp
 from tenacity import (
@@ -100,7 +100,7 @@ def _handle_loki_response(
 
                 # Timestamp: Loki returns nanosecond unix epoch as string
                 ts_seconds = int(ts_nano) / 1e9
-                timestamp = datetime.fromtimestamp(ts_seconds, tz=timezone.utc)
+                timestamp = datetime.fromtimestamp(ts_seconds, tz=UTC)
 
                 entry = _parse_log_line(log_line, timestamp, service, stream_labels)
                 entries.append(entry)
@@ -125,7 +125,7 @@ def _parse_log_line(
     import json as _json
 
     level = stream_labels.get("level", "info")
-    trace_id: Optional[str] = None
+    trace_id: str | None = None
     message: str = log_line
     attributes: dict[str, Any] = {}
 
@@ -171,7 +171,8 @@ def _parse_log_line(
 
 def _parse_span_name(span_data: dict[str, Any]) -> str:
     """Extract a human-readable span name from OTLP span data."""
-    return span_data.get("name", span_data.get("spanName", "unknown"))
+    name: object = span_data.get("name", span_data.get("spanName", "unknown"))
+    return str(name) if name else "unknown"
 
 
 def _parse_span_service(span_data: dict[str, Any], resource: dict[str, Any] | None) -> str:
@@ -211,10 +212,10 @@ def _parse_nano_timestamp(nano_str: str) -> datetime:
     """Parse an OTLP nanosecond timestamp string to datetime."""
     try:
         ns = int(nano_str)
-        return datetime.fromtimestamp(ns / 1e9, tz=timezone.utc)
+        return datetime.fromtimestamp(ns / 1e9, tz=UTC)
     except (ValueError, TypeError):
         logger.debug("tempo_timestamp_parse_fallback", raw=str(nano_str)[:50])
-        return datetime.now(tz=timezone.utc)
+        return datetime.now(tz=UTC)
 
 
 def _handle_tempo_trace_response(
@@ -289,7 +290,7 @@ def _convert_otlp_span_to_trace_span(
 
     status_code = raw_span.get("status", {}).get("code", raw_span.get("statusCode", 0))
     if status_code == 0:
-        status = "unset"
+        status: Literal["ok", "error", "unset"] = "unset"
     elif status_code == 1:
         status = "ok"
     elif status_code == 2:
@@ -374,7 +375,8 @@ async def _http_get_json(
             async with aiohttp.ClientSession(timeout=client_timeout) as session:
                 async with session.get(url, params=params) as response:
                     response.raise_for_status()
-                    return await response.json()
+                    result: dict[str, Any] = await response.json()
+                    return result
     # Should not reach here due to reraise=True
     return {}
 
@@ -484,7 +486,7 @@ async def search_tempo_traces(
     service: str,
     start: datetime,
     end: datetime,
-    min_duration_ms: Optional[float] = None,
+    min_duration_ms: float | None = None,
 ) -> list[dict[str, Any]]:
     """Search for traces in Tempo matching the given criteria.
 

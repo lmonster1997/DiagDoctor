@@ -5,8 +5,6 @@ Provides safe handling of Pydantic SecretStr values and validation
 that configuration classes never expose raw secrets.
 """
 
-import inspect
-
 from pydantic import SecretStr
 
 

@@ -26,5 +26,5 @@ class Comment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    task: Mapped["Task"] = relationship("Task", back_populates="comments")
-    author: Mapped["User"] = relationship("User", back_populates="comments")
+    task: Mapped["Task"] = relationship("Task", back_populates="comments")  # type: ignore[name-defined]
+    author: Mapped["User"] = relationship("User", back_populates="comments")  # type: ignore[name-defined]

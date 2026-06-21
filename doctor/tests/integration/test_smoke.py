@@ -23,7 +23,6 @@ import uuid
 import httpx
 import pytest
 
-
 # ── Configuration ───────────────────────────────────────────────────
 
 DEMO_BACKEND_URL = "http://localhost:8000"
@@ -217,7 +216,7 @@ async def test_end_to_end_smoke() -> None:
 
         # ── Success summary ───────────────────────────────────
         print(f"\n{'=' * 60}")
-        print(f"✅ E2E Smoke Test PASSED!")
+        print("✅ E2E Smoke Test PASSED!")
         print(f"{'=' * 60}")
         print(f"   User email:     {test_email}")
         print(f"   Project ID:     {project_id}")

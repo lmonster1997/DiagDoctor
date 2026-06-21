@@ -44,8 +44,8 @@ app.add_middleware(
 instrument_fastapi(app)
 
 # --- Register API routes ---
-from src.api.health import router as health_router  # noqa: E402
 from src.api.diagnose import router as diagnose_router  # noqa: E402
+from src.api.health import router as health_router  # noqa: E402
 
 app.include_router(health_router)
 app.include_router(diagnose_router)

@@ -26,9 +26,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.utils import hash_password  # noqa: E402
 from app.database import async_session_factory, engine
 from app.models import Comment, Project, Task, TaskStatus, User  # noqa: E402
-from app.auth.utils import hash_password  # noqa: E402
 
 # ── Seed Data ──────────────────────────────────────────────────────
 
@@ -213,7 +213,9 @@ SEED_COMMENTS_BY_TASK: dict[str, list[dict]] = {
         },
         {
             "author_idx": 1,
-            "content": "Agreed. The current code makes a separate query per task — that's the bottleneck.",
+            "content": (
+                "Agreed. The current code makes a separate query per task — that's the bottleneck."
+            ),
         },
     ],
     "Add drag-and-drop sorting to task board": [

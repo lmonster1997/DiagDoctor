@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
-class TaskStatus(str, enum.Enum):
+class TaskStatus(enum.StrEnum):
     """Task workflow status."""
 
     todo = "todo"
@@ -49,11 +49,11 @@ class Task(Base):
     )
 
     # Relationships
-    project: Mapped["Project"] = relationship("Project", back_populates="tasks")
-    assignee: Mapped["User | None"] = relationship(
+    project: Mapped["Project"] = relationship("Project", back_populates="tasks")  # type: ignore[name-defined]
+    assignee: Mapped["User | None"] = relationship(  # type: ignore[name-defined]
         "User", back_populates="assigned_tasks", foreign_keys=[assignee_id]
     )
-    comments: Mapped[list["Comment"]] = relationship(
+    comments: Mapped[list["Comment"]] = relationship(  # type: ignore[name-defined]
         "Comment", back_populates="task", order_by="Comment.created_at"
     )
-    tags: Mapped[list["Tag"]] = relationship("Tag", secondary="task_tags", back_populates="tasks")
+    tags: Mapped[list["Tag"]] = relationship("Tag", secondary="task_tags", back_populates="tasks")  # type: ignore[name-defined]

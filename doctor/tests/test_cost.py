@@ -2,8 +2,6 @@
 Tests for src.observability.cost — TokenAccountant token tracking.
 """
 
-import pytest
-
 from src.observability.cost import (
     TokenAccountant,
     UsageRecord,

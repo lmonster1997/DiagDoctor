@@ -7,7 +7,6 @@ raise explicit errors on invalid input rather than silently passing it through.
 """
 
 import re
-import shlex
 from pathlib import Path
 
 # ── Path sandbox ─────────────────────────────────────────────────────
