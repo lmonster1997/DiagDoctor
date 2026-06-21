@@ -34,7 +34,7 @@ class EvidenceCollector:
         self.loki_url = loki_url.rstrip("/")
         self.tempo_url = tempo_url.rstrip("/")
         if output_dir is None:
-            output_dir = Path(__file__).resolve().parent.parent.parent / "output"
+            output_dir = Path(__file__).resolve().parent.parent.parent.parent / "output"
         self.output_dir = Path(output_dir)
         logger.info(
             "EvidenceCollector initialised",
@@ -89,8 +89,8 @@ class EvidenceCollector:
     ) -> list[LogEntry]:
         start_ns = str(int(start.timestamp() * 1_000_000_000))
         end_ns = str(int(end.timestamp() * 1_000_000_000))
-        svc = "|".join(services)
-        query = f'{{service_name=~"{svc}"}}'
+        svc_regex = "|".join(services)
+        query = f'{{service_name=~"{svc_regex}"}}'
         entries: list[LogEntry] = []
         last_end = end_ns
         for _page in range(50):
@@ -107,7 +107,7 @@ class EvidenceCollector:
                     logger.warning("Loki 404 — not running", url=self.loki_url)
                     break
                 resp.raise_for_status()
-                data = await resp.json(content_type=None)
+                data = await resp.json()
             except aiohttp.ClientError as exc:
                 logger.warning("Loki request failed", error=str(exc))
                 break
@@ -141,11 +141,11 @@ class EvidenceCollector:
         end: datetime,
         services: list[str],
     ) -> list[TraceSpan]:
-        start_s = str(int(start.timestamp()))
-        end_s = str(int(end.timestamp()))
+        start_epoch = str(int(start.timestamp()))
+        end_epoch = str(int(end.timestamp()))
         params: dict[str, str] = {
-            "start": start_s,
-            "end": end_s,
+            "start": start_epoch,
+            "end": end_epoch,
             "limit": str(_TEMPO_MIN_TRACES * 3),
         }
         trace_ids: list[str] = []
@@ -155,9 +155,11 @@ class EvidenceCollector:
                 logger.warning("Tempo 404 — not running")
                 return []
             resp.raise_for_status()
-            data = await resp.json(content_type=None)
+            # Tempo may return JSON without a proper Content-Type header.
+            text = await resp.text()
+            data = json.loads(text)
             trace_ids = [t.get("traceID", "") for t in data.get("traces", []) if t.get("traceID")]
-        except aiohttp.ClientError as exc:
+        except (aiohttp.ClientError, json.JSONDecodeError) as exc:
             logger.warning("Tempo search failed", error=str(exc))
             return []
         if not trace_ids:
@@ -179,8 +181,10 @@ class EvidenceCollector:
             if resp.status == 404:
                 return []
             resp.raise_for_status()
-            data = await resp.json(content_type=None)
-        except aiohttp.ClientError:
+            # Tempo may return JSON without a proper Content-Type header.
+            text = await resp.text()
+            data = json.loads(text)
+        except (aiohttp.ClientError, json.JSONDecodeError):
             return []
         batches = data.get("batches", []) or data.get("data", {}).get("batches", [])
         spans: list[TraceSpan] = []
@@ -193,16 +197,10 @@ class EvidenceCollector:
             ):
                 for sd in scope.get("spans", []):
                     sattrs = _flatten_attrs(sd.get("attributes", []))
-                    # Tempo returns timestamps as strings; convert to int.
-                    start_ns = int(sd.get("startTimeUnixNano", "0"))
-                    end_ns = int(sd.get("endTimeUnixNano", "0"))
-                    dur_ns = end_ns - start_ns if end_ns > start_ns else 0
-                    # Status: code 2 = ERROR (OTLP convention).
-                    status_code = sd.get("status", {})
-                    if isinstance(status_code, dict):
-                        status_code = status_code.get("code", 0)
-                    else:
-                        status_code = int(status_code or 0)
+                    # JSON values from Tempo are strings — convert to int.
+                    end_ns = int(sd.get("endTimeUnixNano", 0))
+                    start_ns = int(sd.get("startTimeUnixNano", 0))
+                    dur = int(sd.get("durationNano", 0)) or (end_ns - start_ns)
                     spans.append(
                         TraceSpan(
                             trace_id=trace_id,
@@ -210,8 +208,8 @@ class EvidenceCollector:
                             operation_name=sd.get("name", ""),
                             service_name=svc or sattrs.get("service.name", ""),
                             start_time=_ns_to_iso(str(start_ns)),
-                            duration_ms=dur_ns / 1_000_000,
-                            status="error" if status_code == 2 else "ok",
+                            duration_ms=dur / 1_000_000,
+                            status="error" if sd.get("status", {}).get("code", 0) == 2 else "ok",
                             attributes=sattrs,
                         )
                     )

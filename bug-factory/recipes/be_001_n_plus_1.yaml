@@ -23,9 +23,25 @@ injection:
   strategy: code_replace
   target_file: "demo-app/backend/app/api/tasks.py"
   ai_instruction: |
-    把 list_tasks 函数中预加载 comments 的 selectinload / joinedload 选项删除。
-    改为在循环内逐个访问 task.comments 来获取评论列表。
-    确保每次迭代都触发一次额外的 SQL 查询。
+    修改 list_tasks 函数，删除 .options(selectinload(Task.comments)) 预加载。
+    改为在获取 tasks 列表后，对每个 task 单独执行一次数据库查询来获取其评论：
+    
+    ```python
+    tasks = list(result.scalars().all())
+    # N+1: query comments individually for each task
+    for task in tasks:
+        comment_result = await db.execute(
+            select(Comment).where(Comment.task_id == task.id)
+        )
+        _ = comment_result.scalars().all()
+    return tasks
+    ```
+    
+    注意：
+    - 必须保留 `from sqlalchemy.orm import selectinload` 导入（其他地方还在用）
+    - 需要新增 `from app.models.comment import Comment` 导入
+    - 必须使用 async/await 语法，不要用同步的 task.comments 懒加载
+    - 最终 list_tasks 函数签名和返回类型不要改
   diff_patch: null
 
 trigger:
