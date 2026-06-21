@@ -58,11 +58,13 @@ class KnowledgeService:
         """
         qdrant_url = qdrant_url or settings.qdrant_url
 
-        self._vector_kb = VectorKnowledgeBase(
+        self._vector_kb: VectorKnowledgeBase = VectorKnowledgeBase(
             qdrant_url=qdrant_url,
             embeddings=get_embeddings(),
         )
-        self._struct_kb = StructKnowledgeBase(db_path=struct_db_path or "data/struct_kb.db")
+        self._struct_kb: StructKnowledgeBase = StructKnowledgeBase(
+            db_path=struct_db_path or "data/struct_kb.db"
+        )
 
     # ── Search: Historical Cases (Vector) ────────────────────────────
 

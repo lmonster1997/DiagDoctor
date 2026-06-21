@@ -21,7 +21,7 @@ import inspect
 import logging
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from opentelemetry import trace
 
@@ -76,8 +76,8 @@ def traced(
                 return func(*args, **kwargs)
 
         if inspect.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore[return-value]
-        return sync_wrapper  # type: ignore[return-value]
+            return cast(_F, async_wrapper)
+        return cast(_F, sync_wrapper)
 
     return decorator
 
