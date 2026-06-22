@@ -18,3 +18,8 @@ markers = [
     "smoke: smoke tests that validate the basic pipeline is functional",
     "unit: fast unit tests (default)",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.18",
+]
