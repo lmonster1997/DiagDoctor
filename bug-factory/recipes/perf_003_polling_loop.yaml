@@ -1,0 +1,119 @@
+# PERF-003: Frontend polling loop — setInterval fetching tasks every 2 seconds
+# WITHOUT cleanup on unmount. When user navigates away, the interval keeps running,
+# flooding the backend API with orphaned requests.
+
+id: PERF-003
+title: "前端任务看板无清理机制的轮询导致页面离开后持续轰炸后端 API"
+category: performance
+severity: medium
+tags:
+  - "polling"
+  - "setInterval"
+  - "cleanup"
+  - "memory-leak"
+  - "react"
+
+expected_diagnosis:
+  root_cause: "TaskBoardPage 组件中使用了 setInterval 进行任务列表自动刷新（每 2 秒），但在 useEffect 中没有返回 cleanup 函数来清除定时器。当用户离开看板页面后，定时器继续运行并调用 fetchTasks()，产生大量无效 API 请求，浪费带宽和后端资源"
+  affected_file: "demo-app/frontend/src/pages/TaskBoardPage.tsx"
+  affected_line: null
+  fix_suggestion: "在 useEffect 中返回 cleanup 函数：return () => clearInterval(intervalId)。或者使用 React 的 useRef 保存 interval ID 并在组件卸载时清除。更好的方案是使用 TanStack Query 的 refetchInterval 配合 enabled 选项，自动处理生命周期"
+  fix_keywords:
+    - "clearInterval"
+    - "cleanup"
+    - "setInterval"
+    - "unmount"
+    - "useEffect"
+
+injection:
+  strategy: code_insert
+  target_file: "demo-app/frontend/src/pages/TaskBoardPage.tsx"
+  ai_instruction: |
+    在 TaskBoardPage 组件中添加一个自动刷新功能，但故意不清理定时器。
+
+    1. 在现有的 `useEffect(() => { fetchTasks(); }, [fetchTasks]);` 之后，添加一个新的 useEffect：
+
+    ```tsx
+    // Auto-refresh: poll for new tasks every 2 seconds
+    useEffect(() => {
+      const intervalId = setInterval(() => {
+        fetchTasks();
+      }, 2000);
+      // BUG: No cleanup! Interval keeps running after unmount.
+      // Missing: return () => clearInterval(intervalId);
+    }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+    ```
+
+    2. 同时，在组件顶部添加一个计数器 ref 来追踪轮询次数（方便观察 bug 效果）：
+
+    ```tsx
+    const pollCountRef = useRef(0);
+    ```
+
+    并在 setInterval 回调中递增并打印：
+    ```tsx
+    setInterval(() => {
+      pollCountRef.current += 1;
+      console.log("[AUTO_REFRESH_POLL]", { count: pollCountRef.current, projectId });
+      fetchTasks();
+    }, 2000);
+    ```
+
+    关键要求：
+    - 必须在 useEffect 的依赖数组中使用 []（空数组），这样 interval 只创建一次
+    - 必须不返回 cleanup 函数（这是故意的 bug）
+    - 在文件顶部添加 useRef 的 import（从 react 中导入）
+    - 不要修改其他已有的 useEffect 或 fetchTasks 逻辑
+    - 不要删除或注释掉现有的 fetchTasks useEffect
+    - 确保 import { useRef } 被添加到 react import 行中
+  diff_patch: null
+
+trigger:
+  type: api_call
+  steps:
+    - action: login
+      params:
+        email: "admin@example.com"
+        password: "Admin123!"
+    - action: create_data
+      params:
+        entity: "project"
+        data:
+          name: "PERF-003 Test Project"
+    - action: create_data
+      params:
+        entity: "task"
+        data:
+          title: "Poll Target Task"
+          project_index: 0
+    - action: api_call
+      params:
+        method: "GET"
+        path: "/api/projects/{project_id}/tasks"
+    - action: wait
+      params:
+        seconds: 10
+  expected_observation:
+    log_patterns:
+      - pattern: "GET.*\\/api\\/projects\\/.*\\/tasks"
+        min_occurrences: 5
+    trace_attributes: {}
+    api_response: null
+
+evaluation:
+  must_mention_keywords:
+    - "clearInterval"
+    - "setInterval"
+    - "cleanup"
+    - "unmount"
+  should_mention_keywords:
+    - "轮询"
+    - "polling"
+    - "useEffect"
+    - "useRef"
+    - "内存泄漏"
+  llm_judge_criteria: |
+    诊断必须识别出 setInterval 缺少清除机制（clearInterval）导致组件卸载后仍然持续发出 API 请求。
+    修复建议必须包含在 useEffect 中返回 cleanup 函数来清除定时器。
+    关键词 clearInterval、setInterval、cleanup 必须出现。
+  min_confidence: 0.7
