@@ -269,6 +269,8 @@ version = "0.1.0"
 source = { editable = "benchmark" }
 dependencies = [
     { name = "aiohttp" },
+    { name = "langchain-core" },
+    { name = "langchain-openai" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rich" },
@@ -278,6 +280,8 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.9.0" },
+    { name = "langchain-core", specifier = ">=0.3.0" },
+    { name = "langchain-openai", specifier = ">=0.2.0" },
     { name = "pydantic", specifier = ">=2.7.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "rich", specifier = ">=13.7.0" },
