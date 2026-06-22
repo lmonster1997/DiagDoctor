@@ -220,6 +220,46 @@ async def _cmd_run(args: argparse.Namespace) -> None:
     # ── Print results ──────────────────────────────────────────────
     _print_results_table(batch_result, all_scores)
 
+    # ── Generate reports ───────────────────────────────────────────
+    _generate_reports(batch_result, all_scores)
+
+
+def _generate_reports(
+    batch: BatchRunResult,
+    scores: dict[str, list[EvaluationScore]],
+) -> None:
+    """Generate Markdown and HTML reports, saving them to the run directory."""
+    from pathlib import Path
+
+    from benchmark.reporters.html import HTMLReporter
+    from benchmark.reporters.markdown import MarkdownReporter
+
+    # Determine run directory
+    runs_dir = Path(__file__).resolve().parent.parent.parent / "runs" / batch.run_id
+    runs_dir.mkdir(parents=True, exist_ok=True)
+
+    # ── Markdown report ────────────────────────────────────────────
+    try:
+        md_reporter = MarkdownReporter()
+        md_content = md_reporter.generate(batch, scores)
+        md_path = runs_dir / "report.md"
+        md_path.write_text(md_content, encoding="utf-8")
+        console.print(f"[green]✓[/green] Markdown report saved to [bold]{md_path}[/bold]")
+    except Exception:
+        logger.exception("Failed to generate Markdown report")
+        console.print("[yellow]⚠[/yellow] Markdown report generation failed")
+
+    # ── HTML report ────────────────────────────────────────────────
+    try:
+        html_reporter = HTMLReporter()
+        html_content = html_reporter.generate(batch, scores)
+        html_path = runs_dir / "report.html"
+        html_path.write_text(html_content, encoding="utf-8")
+        console.print(f"[green]✓[/green] HTML dashboard saved to [bold]{html_path}[/bold]")
+    except Exception:
+        logger.exception("Failed to generate HTML report")
+        console.print("[yellow]⚠[/yellow] HTML dashboard generation failed")
+
 
 def _find_case(cases: list[EvaluationCase], case_id: str) -> EvaluationCase | None:
     """Find a case by ID in a list."""
