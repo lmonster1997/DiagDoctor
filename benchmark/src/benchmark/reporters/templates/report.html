@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }} — {{ timestamp }}</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f7fa; color: #1a1a2e; line-height: 1.6;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white; padding: 32px 40px; border-radius: 12px; margin-bottom: 24px;
+    }
+    .header h1 { font-size: 28px; font-weight: 700; }
+    .header .subtitle { opacity: 0.85; margin-top: 4px; font-size: 14px; }
+
+    /* ── KPI Cards ── */
+    .kpi-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px; margin-bottom: 24px;
+    }
+    .kpi-card {
+      background: white; border-radius: 10px; padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    .kpi-card .label { font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: .5px; }
+    .kpi-card .value { font-size: 32px; font-weight: 700; margin: 4px 0; }
+    .kpi-card .sub { font-size: 13px; color: #9ca3af; }
+    .kpi-pass .value { color: #10b981; }
+    .kpi-fail .value { color: #ef4444; }
+    .kpi-rate .value { color: #3b82f6; }
+    .kpi-latency .value { color: #f59e0b; }
+    .kpi-cost .value { color: #8b5cf6; }
+
+    /* ── Charts row ── */
+    .charts-row {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 16px; margin-bottom: 24px;
+    }
+    @media (max-width: 768px) {
+      .charts-row { grid-template-columns: 1fr; }
+    }
+    .chart-card {
+      background: white; border-radius: 10px; padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    .chart-card h2 { font-size: 16px; margin-bottom: 16px; color: #374151; }
+    .chart-card canvas { max-height: 280px; }
+
+    /* ── Table ── */
+    .table-card {
+      background: white; border-radius: 10px; padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 24px;
+      overflow-x: auto;
+    }
+    .table-card h2 { font-size: 16px; margin-bottom: 16px; color: #374151; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    th { background: #f9fafb; font-weight: 600; color: #4b5563; white-space: nowrap; }
+    tr:hover { background: #f9fafb; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
+    .badge-pass { background: #d1fae5; color: #065f46; }
+    .badge-fail { background: #fee2e2; color: #991b1b; }
+    .score-bar {
+      display: inline-block; width: 50px; height: 8px; border-radius: 4px;
+      background: #e5e7eb; vertical-align: middle; margin-right: 6px;
+    }
+    .score-bar-fill { height: 100%; border-radius: 4px; }
+
+    /* ── Expandable detail ── */
+    .detail-row { display: none; }
+    .detail-row.open { display: table-row; }
+    .detail-cell {
+      padding: 16px 24px; background: #f9fafb; border-bottom: 2px solid #e5e7eb;
+    }
+    .detail-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 13px;
+    }
+    @media (max-width: 768px) {
+      .detail-grid { grid-template-columns: 1fr; }
+    }
+    .detail-section h4 {
+      font-size: 13px; text-transform: uppercase; color: #6b7280;
+      margin-bottom: 4px; letter-spacing: .5px;
+    }
+    .detail-section .content {
+      background: white; border: 1px solid #e5e7eb; border-radius: 6px;
+      padding: 12px; white-space: pre-wrap; font-family: monospace; font-size: 12px;
+      max-height: 200px; overflow-y: auto;
+    }
+    .toggle-btn {
+      background: none; border: none; color: #3b82f6; cursor: pointer;
+      font-size: 14px; padding: 2px 8px;
+    }
+    .toggle-btn:hover { text-decoration: underline; }
+
+    /* ── Evaluator summary ── */
+    .eval-summary {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px; margin-bottom: 16px;
+    }
+    .eval-chip {
+      background: #f3f4f6; border-radius: 8px; padding: 10px 14px; font-size: 13px;
+    }
+    .eval-chip .ename { color: #6b7280; }
+    .eval-chip .escore { font-size: 20px; font-weight: 700; }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center; color: #9ca3af; font-size: 12px; padding: 24px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- ── Header ── -->
+    <div class="header">
+      <h1>{{ title }}</h1>
+      <div class="subtitle">Generated: {{ timestamp }}</div>
+      <div class="subtitle">Run ID: {{ run_id }}</div>
+    </div>
+
+    <!-- ── KPI Cards ── -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="label">Total Cases</div>
+        <div class="value">{{ total_cases }}</div>
+      </div>
+      <div class="kpi-card kpi-pass">
+        <div class="label">Passed</div>
+        <div class="value">{{ passed }}</div>
+      </div>
+      <div class="kpi-card kpi-fail">
+        <div class="label">Failed</div>
+        <div class="value">{{ failed }}</div>
+      </div>
+      <div class="kpi-card kpi-rate">
+        <div class="label">Pass Rate</div>
+        <div class="value">{{ "%.0f"|format(pass_rate) }}%</div>
+        <div class="sub">{{ passed }}/{{ total_cases }} cases</div>
+      </div>
+      <div class="kpi-card kpi-latency">
+        <div class="label">Avg Latency</div>
+        <div class="value">{{ "%.1f"|format(avg_latency_s) }}s</div>
+      </div>
+    </div>
+
+    <!-- ── Charts ── -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <h2>By Category</h2>
+        <canvas id="categoryChart"></canvas>
+      </div>
+      <div class="chart-card">
+        <h2>By Evaluator (Avg Score)</h2>
+        <canvas id="evaluatorChart"></canvas>
+      </div>
+    </div>
+
+    {% if trend_labels and trend_values %}
+    <div class="chart-card" style="margin-bottom: 24px;">
+      <h2>Pass Rate Trend</h2>
+      <canvas id="trendChart"></canvas>
+    </div>
+    {% endif %}
+
+    <!-- ── Evaluator Summary Chips ── -->
+    {% if evaluator_avgs %}
+    <div class="table-card">
+      <h2>Evaluator Averages</h2>
+      <div class="eval-summary">
+        {% for e in evaluator_avgs %}
+        <div class="eval-chip">
+          <div class="ename">{{ e.name }}</div>
+          <div class="escore" style="color: {{ e.color }};">{{ "%.2f"|format(e.avg) }}</div>
+          <div style="font-size:12px;color:#9ca3af;">{{ e.count }} case(s)</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Case Details Table ── -->
+    <div class="table-card">
+      <h2>Case Details</h2>
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Case ID</th>
+            <th>Status</th>
+            <th>Category</th>
+            <th>Latency</th>
+            {% for en in evaluator_names %}
+            <th>{{ en }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in case_rows %}
+          <tr>
+            <td>
+              <button class="toggle-btn" onclick="toggleDetail('{{ row.case_id }}')">▶</button>
+            </td>
+            <td><strong>{{ row.case_id }}</strong></td>
+            <td>
+              <span class="badge {% if row.success %}badge-pass{% else %}badge-fail{% endif %}">
+                {{ "Pass" if row.success else "Fail" }}
+              </span>
+            </td>
+            <td>{{ row.category }}</td>
+            <td>{{ row.latency }}</td>
+            {% for s in row.scores %}
+            <td>
+              <span class="score-bar">
+                <span class="score-bar-fill" style="width:{{ "%.0f"|format(s*100) }}%; background:{{ row.score_colors[loop.index0] }};"></span>
+              </span>
+              {{ "%.2f"|format(s) }}
+            </td>
+            {% endfor %}
+          </tr>
+          <tr class="detail-row" id="detail-{{ row.case_id }}">
+            <td colspan="100">
+              <div class="detail-cell">
+                <div class="detail-grid">
+                  <div class="detail-section">
+                    <h4>User Report</h4>
+                    <div class="content">{{ row.user_report }}</div>
+                  </div>
+                  <div class="detail-section">
+                    <h4>Expected Diagnosis</h4>
+                    <div class="content">
+Category: {{ row.expected.category }}
+Root Cause: {{ row.expected.root_cause_summary }}
+Affected Files: {{ row.expected.affected_files|join(', ') }}
+Keywords: {{ row.expected.fix_keywords|join(', ') }}
+                    </div>
+                  </div>
+                  <div class="detail-section">
+                    <h4>Actual Diagnosis</h4>
+                    <div class="content">{{ row.diagnosis }}</div>
+                  </div>
+                  <div class="detail-section">
+                    <h4>Evaluator Reasoning</h4>
+                    <div class="content">{{ row.eval_reasoning }}</div>
+                  </div>
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Footer ── -->
+    <div class="footer">
+      Generated by <strong>DiagDoctor Benchmark</strong> — {{ timestamp }}
+    </div>
+  </div>
+
+  <!-- ── Scripts ── -->
+  <script>
+    // ── Toggle detail rows ──
+    function toggleDetail(caseId) {
+      const row = document.getElementById('detail-' + caseId);
+      const btn = event.target;
+      if (row.classList.contains('open')) {
+        row.classList.remove('open');
+        btn.textContent = '▶';
+      } else {
+        row.classList.add('open');
+        btn.textContent = '▼';
+      }
+    }
+
+    // ── Category bar chart ──
+    (function() {
+      const ctx = document.getElementById('categoryChart').getContext('2d');
+      const data = {{ category_chart_data | tojson }};
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.labels,
+          datasets: [
+            {
+              label: 'Pass Rate (%)',
+              data: data.pass_rates,
+              backgroundColor: 'rgba(59,130,246,0.7)',
+              borderColor: 'rgba(59,130,246,1)',
+              borderWidth: 1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } },
+          },
+        },
+      });
+    })();
+
+    // ── Evaluator radar/bar chart ──
+    (function() {
+      const ctx = document.getElementById('evaluatorChart').getContext('2d');
+      const data = {{ evaluator_chart_data | tojson }};
+      const colors = ['rgba(16,185,129,0.7)', 'rgba(59,130,246,0.7)', 'rgba(245,158,11,0.7)', 'rgba(139,92,246,0.7)'];
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.labels,
+          datasets: [{
+            label: 'Avg Score',
+            data: data.scores,
+            backgroundColor: data.scores.map((_, i) => colors[i % colors.length]),
+            borderWidth: 1,
+          }],
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, max: 1.0, ticks: { callback: v => v.toFixed(2) } },
+          },
+        },
+      });
+    })();
+
+    {% if trend_labels and trend_values %}
+    // ── Trend line chart ──
+    (function() {
+      const ctx = document.getElementById('trendChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: {{ trend_labels | tojson }},
+          datasets: [{
+            label: 'Pass Rate (%)',
+            data: {{ trend_values | tojson }},
+            borderColor: 'rgba(59,130,246,1)',
+            backgroundColor: 'rgba(59,130,246,0.1)',
+            fill: true,
+            tension: 0.3,
+          }],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } },
+          },
+        },
+      });
+    })();
+    {% endif %}
+  </script>
+</body>
+</html>
