@@ -26,8 +26,8 @@ logger = structlog.get_logger(__name__)
 # ── Constants ────────────────────────────────────────────────────────
 _DEFAULT_TIMEOUT = ClientTimeout(total=120, connect=10)
 _DEFAULT_CONCURRENCY = 4
-_RUNS_DIR = Path(__file__).resolve().parent.parent / "runs"
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_RUNS_DIR = Path(__file__).resolve().parent.parent.parent / "runs"
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 # Doctor API response fields we care about
 _DOCTOR_DIAGNOSE_PATH = "/api/diagnose"
