@@ -559,6 +559,209 @@ def full(
     console.print(f"   Evidence: output/{case.case_id}/evidence/")
 
 
+# ── full-all ─────────────────────────────────────────────────────────
+
+
+@cli.command()
+@click.option(
+    "--repo",
+    "repo_path",
+    default=None,
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+)
+@click.option(
+    "--base-url",
+    default="http://localhost:8000",
+    show_default=True,
+    help="Base URL of the running demo-app backend",
+)
+@click.option(
+    "--loki-url",
+    default=None,
+    help="Loki HTTP API base URL (env: LOKI_URL, default: http://localhost:3100)",
+)
+@click.option(
+    "--tempo-url",
+    default=None,
+    help="Tempo HTTP API base URL (env: TEMPO_URL, default: http://localhost:3200)",
+)
+@click.option(
+    "--skip-inject",
+    is_flag=True,
+    default=False,
+    help="Skip injection for all recipes",
+)
+@click.option(
+    "--skip-trigger",
+    is_flag=True,
+    default=False,
+    help="Skip trigger for all recipes",
+)
+@click.option(
+    "--filter",
+    "category_filter",
+    default=None,
+    help="Only run recipes matching a category prefix (e.g. backend, frontend, perf)",
+)
+@click.option(
+    "--concurrency",
+    default=1,
+    type=int,
+    show_default=True,
+    help="Number of recipes to run concurrently (1 = sequential)",
+)
+def full_all(
+    repo_path: Path | None,
+    base_url: str,
+    loki_url: str | None,
+    tempo_url: str | None,
+    skip_inject: bool,  # noqa: FBT001
+    skip_trigger: bool,  # noqa: FBT001
+    category_filter: str | None,
+    concurrency: int,
+) -> None:
+    """Run the full pipeline for ALL bug recipes.
+
+    Discovers every YAML recipe in bug-factory/recipes/ and runs the
+    full pipeline (inject → trigger → collect → generate case) for each.
+
+    \b
+    Examples:
+        python -m bug_factory.cli full-all
+        python -m bug_factory.cli full-all --filter backend
+        python -m bug_factory.cli full-all --skip-inject --concurrency 2
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from bug_factory.case_generator import CaseGenerator
+    from bug_factory.evidence_collector import EvidenceCollector
+    from bug_factory.injector import BugInjector
+    from bug_factory.trigger import TriggerRunner
+
+    # Discover recipes
+    search_dir = _RECIPES_DIR
+    all_yaml = sorted(p for p in search_dir.rglob("*.yaml") if p.is_file() and p.name != ".gitkeep")
+
+    if category_filter:
+        all_yaml = [p for p in all_yaml if p.name.startswith(category_filter.lower())]
+
+    if not all_yaml:
+        console.print("[bold red]No recipes found.[/]")
+        raise SystemExit(1)
+
+    repo = repo_path.resolve() if repo_path else _WORKSPACE_ROOT
+    loki: str = loki_url or os.getenv("LOKI_URL") or "http://localhost:3100"
+    tempo: str = tempo_url or os.getenv("TEMPO_URL") or "http://localhost:3200"
+
+    console.print(f"[bold]Found {len(all_yaml)} recipe(s)[/]")
+    console.print(f"[dim]Repo: {repo}  App: {base_url}  Loki: {loki}  Tempo: {tempo}[/]")
+
+    results: dict[str, bool] = {}
+
+    async def _run_one(yaml_path: Path) -> bool:
+        recipe_id = "???"
+        try:
+            recipe = load_recipe(yaml_path)
+            recipe_id = recipe.id
+
+            injection_result: InjectionResult | None = None
+            trigger_result: TriggerResult | None = None
+
+            # Step 1: Inject
+            if not skip_inject:
+                llm = _get_llm()
+                injector = BugInjector(repo_path=repo, llm=llm)
+                injection_result = await injector.inject(recipe)
+            else:
+                injection_result = InjectionResult(
+                    recipe_id=recipe.id,
+                    branch=f"bug/{recipe.id}",
+                    diff="(skipped)",
+                    modified_files=[],
+                )
+
+            # Step 2: Trigger
+            if not skip_trigger:
+                trigger_end = datetime.now(timezone.utc)  # noqa: UP017
+                runner = TriggerRunner(demo_app_base_url=base_url)
+                trigger_result = await runner.run(recipe.trigger)
+                if not trigger_result.success:
+                    console.print(
+                        f"  [red]✗ {recipe_id}: trigger failed — {trigger_result.error}[/]"
+                    )
+                    return False
+            else:
+                trigger_end = datetime.now(timezone.utc)  # noqa: UP017
+                trigger_result = TriggerResult(success=True, session={}, steps=[])
+
+            # Step 3: Collect evidence
+            collector = EvidenceCollector(loki_url=loki, tempo_url=tempo)
+            evidence = await collector.collect(
+                recipe_id=recipe.id,
+                start=trigger_end - timedelta(minutes=5),
+                end=datetime.now(timezone.utc),  # noqa: UP017
+            )
+
+            # Step 4: Generate case
+            llm = _get_llm()
+            generator = CaseGenerator(llm=llm)
+            await generator.generate(
+                recipe=recipe,
+                injection_result=injection_result,
+                trigger_result=trigger_result,
+                evidence=evidence,
+            )
+            console.print(f"  [green]✓ {recipe_id}[/]")
+            return True
+        except Exception as exc:
+            console.print(f"  [red]✗ {recipe_id}: {exc}[/]")
+            return False
+
+    async def _run_sequential() -> None:
+        for yp in all_yaml:
+            ok = await _run_one(yp)
+            results[yp.stem] = ok
+
+    async def _run_concurrent() -> None:
+        sem = asyncio.Semaphore(concurrency)
+
+        async def _bounded(yp: Path) -> bool:
+            async with sem:
+                return await _run_one(yp)
+
+        tasks = [_bounded(yp) for yp in all_yaml]
+        outcomes = await asyncio.gather(*tasks, return_exceptions=True)
+        for yp, outcome in zip(all_yaml, outcomes, strict=True):
+            if isinstance(outcome, Exception):
+                results[yp.stem] = False
+                console.print(f"  [red]✗ {yp.stem}: {outcome}[/]")
+            else:
+                results[yp.stem] = bool(outcome)
+
+    run_fn = _run_concurrent if concurrency > 1 else _run_sequential
+
+    console.print(f"\n[bold cyan]── Running {len(all_yaml)} recipe(s) ──[/]\n")
+    asyncio.run(run_fn())
+
+    # Summary
+    passed = sum(1 for v in results.values() if v)
+    failed = len(results) - passed
+    console.print("\n[bold]── Summary ──[/]")
+    console.print(f"[green]  Passed: {passed}[/]")
+    if failed:
+        console.print(f"[red]  Failed: {failed}[/]")
+        for name, ok in results.items():
+            if not ok:
+                console.print(f"    [red]✗ {name}[/]")
+    else:
+        console.print(f"[green]  All {passed} recipes completed successfully![/]")
+    console.print("  Cases:   benchmark/cases/")
+    console.print("  Evidence: bug-factory/output/")
+
+    if failed:
+        raise SystemExit(1)
+
+
 # ── Entry point ──────────────────────────────────────────────────────
 
 if __name__ == "__main__":

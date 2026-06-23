@@ -35,3 +35,6 @@ PR_CONTENT.md
 
 # Benchmark run outputs
 benchmark/runs/
+
+# Bug-factory run outputs (generated evidence)
+output/
