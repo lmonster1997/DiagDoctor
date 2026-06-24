@@ -28,14 +28,17 @@ Usage::
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 import structlog
 from aiohttp import ClientSession, ClientTimeout
 
 from bug_factory.schema import (
+    BrowserError,
     StepResult,
     Trigger,
     TriggerError,
@@ -89,6 +92,7 @@ class TriggerRunner:
             "created_projects": [],
             "created_tasks": [],
         }
+        self.browser_errors: list[BrowserError] = []
         logger.info(
             "TriggerRunner initialised",
             base_url=self.base_url,
@@ -154,11 +158,13 @@ class TriggerRunner:
             session=self.session,
             steps=steps,
             error=error_msg,
+            browser_errors=self.browser_errors,
         )
         logger.info(
             "Trigger run complete",
             success=overall_success,
             step_count=len(steps),
+            browser_error_count=len(self.browser_errors),
         )
         return result
 
@@ -349,6 +355,8 @@ class TriggerRunner:
             )
 
         frontend_url = params.get("frontend_url", "http://localhost:3000")
+        # Resolve template variables like {task_id}, {project_id} in the URL.
+        frontend_url = self._resolve_template(frontend_url)
 
         try:
             from playwright.async_api import async_playwright
@@ -363,25 +371,83 @@ class TriggerRunner:
             ) from exc
 
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
+            # Use system Edge on Windows to avoid 182MB Chromium download.
+            launch_kwargs: dict[str, Any] = {"headless": True}
+            if os.name == "nt":
+                launch_kwargs["channel"] = "msedge"
+            browser = await pw.chromium.launch(**launch_kwargs)
             page = await browser.new_page()
 
-            try:
-                await page.goto(frontend_url, wait_until="networkidle")
+            # ── Capture browser-side errors for FE evidence ─────────
+            def _capture_console(msg) -> None:
+                """Handler for ALL console messages — capture errors/warnings."""
+                logger.debug(
+                    "Browser console message",
+                    type=msg.type,
+                    text=msg.text[:500] if msg.text else "",
+                )
+                if msg.type in ("error", "warning"):
+                    now = datetime.now(timezone.utc).isoformat()  # noqa: UP017
+                    loc = msg.location
+                    self.browser_errors.append(
+                        BrowserError(
+                            timestamp=now,
+                            type=f"console_{msg.type}",
+                            message=msg.text[:2000] if msg.text else "",
+                            url=loc.get("url") if loc else None,
+                            line_number=loc.get("lineNumber") if loc else None,
+                        )
+                    )
+                    logger.info(
+                        "Captured browser console error",
+                        type=msg.type,
+                        message=msg.text[:200] if msg.text else "",
+                    )
 
-                # Log in via API first so the browser session has a token
-                # stored in localStorage — replay the login via page.evaluate.
+            def _capture_pageerror(err: Exception) -> None:
+                """Handler for uncaught JS exceptions (pageerror)."""
+                now = datetime.now(timezone.utc).isoformat()  # noqa: UP017
+                self.browser_errors.append(
+                    BrowserError(
+                        timestamp=now,
+                        type="pageerror",
+                        message=str(err)[:2000],
+                        stack=getattr(err, "stack", None),
+                    )
+                )
+                logger.info(
+                    "Captured browser page error",
+                    message=str(err)[:200],
+                )
+
+            page.on("console", _capture_console)
+            page.on("pageerror", _capture_pageerror)
+            # ── End browser error capture ────────────────────────────
+
+            try:
+                # ── Phase 1: Set auth token BEFORE navigating to protected page ──
+                # Navigate to login page first (always publicly accessible),
+                # set localStorage with auth token, then go to the target URL.
+                base_frontend = frontend_url.rsplit("/tasks/", 1)[0] if "/tasks/" in frontend_url else frontend_url
+                await page.goto(f"{base_frontend}/login", wait_until="domcontentloaded", timeout=15000)
+
+                # Set auth token in localStorage so ProtectedRoute allows access.
                 token = self.session.get("token")
                 if token:
                     await page.evaluate(
                         """(t) => {
-                            localStorage.setItem('auth-storage', JSON.stringify({
-                                state: { token: t }
+                            localStorage.setItem('taskflow-auth', JSON.stringify({
+                                state: { token: t, currentUser: null },
+                                version: 0
                             }));
                         }""",
                         token,
                     )
-                    await page.reload(wait_until="networkidle")
+
+                # ── Phase 2: Navigate to the actual target (protected) URL ──
+                await page.goto(frontend_url, wait_until="domcontentloaded", timeout=15000)
+                # Wait for React to hydrate / render (client-side JS).
+                await asyncio.sleep(2)
 
                 # Click the target element.
                 await page.click(selector)

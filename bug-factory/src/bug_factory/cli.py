@@ -388,6 +388,7 @@ def _display_evidence_result(evidence: CollectedEvidence) -> None:
     table.add_row("Recipe ID", evidence.recipe_id)
     table.add_row("Log Entries", str(len(evidence.logs)))
     table.add_row("Trace Spans", str(len(evidence.traces)))
+    table.add_row("Browser Errors", str(len(evidence.browser_errors)))
     if evidence.time_window:
         table.add_row(
             "Time Window",
@@ -513,6 +514,24 @@ def full(
             start=trigger_end - timedelta(minutes=5),
             end=datetime.now(timezone.utc),  # noqa: UP017
         )
+        # ── Merge browser-side errors captured during trigger ──────
+        if trigger_result and trigger_result.browser_errors:
+            evidence.browser_errors = trigger_result.browser_errors
+            console.print(
+                f"[dim]   ↳ Captured {len(trigger_result.browser_errors)} browser error(s)[/]"
+            )
+            # ── Re-save evidence with browser_errors to disk ─────
+            import json
+            evidence_dir = _WORKSPACE_ROOT / "output" / recipe.id / "evidence"
+            evidence_dir.mkdir(parents=True, exist_ok=True)
+            (evidence_dir / "browser_errors.json").write_text(
+                json.dumps(
+                    [e.model_dump() for e in evidence.browser_errors],
+                    indent=2,
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
         _display_evidence_result(evidence)
 
         # ── Step 4: Generate case ───────────────────────────────────

@@ -158,6 +158,7 @@ class TriggerResult(BaseModel):
     session: dict[str, Any] = {}
     steps: list[StepResult] = []
     error: str | None = None
+    browser_errors: list[BrowserError] = []
 
 
 class TriggerError(Exception):
@@ -203,12 +204,28 @@ class TraceSpan(BaseModel):
     attributes: dict[str, str] = {}
 
 
+class BrowserError(BaseModel):
+    """A browser-side error captured via Playwright during trigger.
+
+    Captures both uncaught exceptions (``pageerror``) and
+    ``console.error`` messages from the browser's JavaScript context.
+    """
+
+    timestamp: str
+    type: str  # "pageerror" | "console_error"
+    message: str
+    stack: str | None = None
+    url: str | None = None
+    line_number: int | None = None
+
+
 class CollectedEvidence(BaseModel):
     """Evidence collected from Loki and Tempo for a time window."""
 
     recipe_id: str
     logs: list[LogEntry] = []
     traces: list[TraceSpan] = []
+    browser_errors: list[BrowserError] = []
     time_window: tuple[str, str] | None = None
 
 
