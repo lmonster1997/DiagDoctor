@@ -40,7 +40,7 @@ injection:
   diff_patch: null
 
 trigger:
-  type: api_call
+  type: e2e_action
   steps:
     - action: login
       params:
@@ -59,17 +59,16 @@ trigger:
           description: "This task has no assignee"
           project_index: 0
           assignee_id: null
-    - action: api_call
+    - action: ui_click
       params:
-        method: "GET"
-        path: "/api/tasks/{task_id}"
+        frontend_url: "http://localhost:5173/tasks/{task_id}"
+        selector: "body"
   expected_observation:
     log_patterns:
-      - pattern: "TypeError|Cannot read|assignee"
+      - pattern: "client_error.*TypeError|Cannot read"
         min_occurrences: 1
     trace_attributes: {}
-    api_response:
-      assignee: null
+    api_response: null
 
 evaluation:
   must_mention_keywords:

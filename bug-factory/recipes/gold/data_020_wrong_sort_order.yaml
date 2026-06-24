@@ -1,0 +1,95 @@
+# DATA-020 (L2) — Wrong sort order: task list returns oldest-first
+# REQUIRES: P0 access-log middleware — done.
+# Signal: GET /api/projects/{id}/tasks -> 200, but rows come back in ASC
+#         created_at order. No error; a data-presentation correctness bug.
+# NOTE: this app has no Decimal/float/timezone-config surface, so this "data"
+#       case is an ordering-correctness bug rather than a precision/encoding one.
+
+id: DATA-020
+title: "任务列表顺序反了，最新建的任务排在最后面"
+category: data
+severity: medium
+tags: ["ordering", "sort", "list_tasks", "difficulty:L2"]
+
+expected_diagnosis:
+  root_cause: "list_tasks 把 .order_by(Task.created_at.desc()) 改成了 .asc()，任务按创建时间升序返回，导致最新任务排在末尾"
+  affected_file: "demo-app/backend/app/api/tasks.py"
+  affected_line: null
+  fix_suggestion: "将 list_tasks 的排序改回 Task.created_at.desc()（或按产品预期的排序字段降序）"
+  fix_keywords: ["order_by", "desc", "asc", "排序", "created_at"]
+
+injection:
+  strategy: code_replace
+  target_file: "demo-app/backend/app/api/tasks.py"
+  ai_instruction: |
+    在 list_tasks 中，把 .order_by(Task.created_at.desc()) 改成 .order_by(Task.created_at.asc())，
+    使任务按创建时间升序返回（顺序反了）。
+
+  diff_patch: |
+
+    --- a/demo-app/backend/app/api/tasks.py
+
+    +++ b/demo-app/backend/app/api/tasks.py
+
+    @@ -41,1 +41,1 @@
+
+    -        .order_by(Task.created_at.desc())
+
+    +        .order_by(Task.created_at.asc())  # BUG(DATA-020): wrong sort order (oldest first)
+
+
+
+trigger:
+
+  type: api_call
+
+  steps:
+
+    - action: login
+
+      params: { email: "admin@example.com", password: "Admin123!" }
+
+    - action: create_data
+
+      params:
+
+        entity: "project"
+
+        data: { name: "排序测试", description: "ordering" }
+
+    - action: create_data
+
+      params:
+
+        entity: "task"
+
+        data: { title: "任务", project_index: 0 }
+
+        repeat: 5
+
+    - action: api_call
+
+      params:
+
+        method: "GET"
+
+        path: "/api/projects/{project_id}/tasks"
+
+  expected_observation:
+
+    log_patterns:
+
+      - pattern: "\"path\":\"/api/projects/.*/tasks\",\"status\":200"
+        min_occurrences: 1
+    trace_attributes:
+      "GET /api/projects/{id}/tasks":
+        status: "OK"
+    api_response: null
+
+evaluation:
+  must_mention_keywords: ["排序", "order_by"]
+  should_mention_keywords: ["desc", "asc", "created_at", "顺序"]
+  llm_judge_criteria: |
+    诊断必须指出 list_tasks 的排序方向被改为升序 (asc) 导致任务列表顺序颠倒，
+    并建议改回降序。需识别这是排序方向错误而非数据丢失。
+  min_confidence: 0.6

@@ -40,6 +40,26 @@ class ErrorBoundaryClass extends React.Component<
         },
       });
     }
+
+    // Report to backend → Loki (fire-and-forget; don't block the UI).
+    const payload = JSON.stringify({
+      error: error.message,
+      stack: error.stack ?? null,
+      componentStack: errorInfo.componentStack ?? null,
+      url: window.location.href,
+      timestamp: new Date().toISOString(),
+    });
+    const endpoint = `${window.location.origin}/api/log/client-error`;
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(endpoint, new Blob([payload], { type: "application/json" }));
+    } else {
+      fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+        keepalive: true,
+      }).catch(() => {});
+    }
   }
 
   render(): React.ReactNode {

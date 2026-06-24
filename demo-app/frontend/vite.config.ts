@@ -6,12 +6,17 @@ import path from "path"
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    tailwindcss(),   // ← 放 react 前面也行，总之要加
+    tailwindcss(),
     react(),
   ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  server: {
+    // SPA fallback — redirect all non-file requests to index.html
+    // so React Router can handle client-side routes like /tasks/:id.
+    historyApiFallback: true,
   },
 })

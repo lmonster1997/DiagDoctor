@@ -1,0 +1,102 @@
+# LOGIC-022 (L2) — Silent drop: status field removed from update payload
+# REQUIRES: P0 access-log middleware — done.
+# Signal: PATCH /api/tasks/{id} -> 200, but the persisted/returned status is
+#         unchanged. No error; a "save succeeded but nothing changed" bug.
+# Difficulty L2: the update returns 200 and other fields DO update, so only the
+#         status field appears stuck.
+
+id: LOGIC-022
+title: "改任务状态点了保存却不生效，其它字段能改"
+category: logic
+severity: high
+tags: ["silent-drop", "update_task", "state", "difficulty:L2"]
+
+expected_diagnosis:
+  root_cause: "update_task 在应用更新前用 update_data.pop('status', None) 把 status 字段剔除，导致状态更新被静默丢弃"
+  affected_file: "demo-app/backend/app/api/tasks.py"
+  affected_line: null
+  fix_suggestion: "删除 update_data.pop('status', None)，让 status 与其它字段一样写入 task"
+  fix_keywords: ["status", "update_task", "pop", "静默丢弃", "model_dump"]
+
+injection:
+  strategy: code_insert
+  target_file: "demo-app/backend/app/api/tasks.py"
+  ai_instruction: |
+    在 update_task 中 update_data = payload.model_dump(exclude_unset=True) 之后，
+    插入 update_data.pop("status", None)，使 status 字段在写回前被剔除。
+
+  diff_patch: |
+
+    --- a/demo-app/backend/app/api/tasks.py
+
+    +++ b/demo-app/backend/app/api/tasks.py
+
+    @@ -106,1 +106,2 @@
+
+         update_data = payload.model_dump(exclude_unset=True)
+
+    +    update_data.pop("status", None)  # BUG(LOGIC-022): status updates silently dropped
+
+
+
+trigger:
+
+  type: api_call
+
+  steps:
+
+    - action: login
+
+      params: { email: "admin@example.com", password: "Admin123!" }
+
+    - action: create_data
+
+      params:
+
+        entity: "project"
+
+        data: { name: "状态测试", description: "status drop" }
+
+    - action: create_data
+
+      params:
+
+        entity: "task"
+
+        data: { title: "待办任务", project_index: 0 }
+
+    - action: api_call
+
+      params:
+
+        method: "PATCH"
+
+        path: "/api/tasks/{task_id}"
+
+        body: { status: "done" }
+
+    - action: api_call
+
+      params:
+
+        method: "GET"
+
+        path: "/api/tasks/{task_id}"
+
+  expected_observation:
+
+    log_patterns:
+      - pattern: "\"method\":\"PATCH\",\"path\":\"/api/tasks/.*\",\"status\":200"
+        min_occurrences: 1
+    trace_attributes:
+      "PATCH /api/tasks/{id}":
+        status: "OK"
+    api_response: null
+
+evaluation:
+  must_mention_keywords: ["status", "update_task"]
+  should_mention_keywords: ["pop", "静默丢弃", "model_dump", "不生效"]
+  llm_judge_criteria: |
+    诊断必须指出 update_task 用 update_data.pop("status", None) 剔除了 status 字段，
+    导致状态更新被静默丢弃（返回 200 但未变更），并建议删除该 pop。
+  min_confidence: 0.6

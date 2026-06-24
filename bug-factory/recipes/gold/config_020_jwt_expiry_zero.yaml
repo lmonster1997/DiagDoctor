@@ -1,0 +1,66 @@
+# CONFIG-020 (L3) — Misconfigured JWT expiry: "0" misread as "no expiry"
+# REQUIRES: P0 access-log middleware — done.
+# Signal: access-log shows a 200 login immediately followed by 401s on every
+#         protected call. NOTE (honest): decode_access_token swallows the
+#         ExpiredSignatureError and returns None, so logs only show generic 401
+#         ("无效的认证凭据") — there is NO explicit "expired" message. The tell is
+#         the pattern (fresh login -> instant 401), not a stack trace. This is
+#         what makes it L3.
+# WHY env-safe: JWT_EXPIRE_MINUTES is NOT set in docker-compose, so editing the
+#         config.py default actually takes effect (unlike CORS_ORIGINS /
+#         DATABASE_URL, which are env-overridden).
+
+id: CONFIG-020
+title: "登录成功后马上就掉登录态，所有操作都提示未认证"
+category: config
+severity: high
+tags: ["jwt", "config", "token-expiry", "difficulty:L3", "misleading-default"]
+
+expected_diagnosis:
+  root_cause: "jwt_expire_minutes 被设为 0（误以为 0 表示永不过期），实际导致 token 签发即过期，每个受保护请求都因 token 过期返回 401"
+  affected_file: "demo-app/backend/app/config.py"
+  affected_line: null
+  fix_suggestion: "将 jwt_expire_minutes 改回正数（如 60）；0 不代表永不过期，而是立即过期"
+  fix_keywords: ["jwt_expire_minutes", "token 过期", "401", "ExpiredSignature", "配置"]
+
+injection:
+  strategy: code_replace
+  target_file: "demo-app/backend/app/config.py"
+  ai_instruction: |
+    在 Settings 中把 jwt_expire_minutes 的默认值从 60 改成 0，
+    模拟“误以为 0 = 永不过期”的配置错误（实际是签发即过期）。
+  diff_patch: |
+    --- a/demo-app/backend/app/config.py
+    +++ b/demo-app/backend/app/config.py
+    @@ -32,1 +32,1 @@
+    -    jwt_expire_minutes: int = 60
+    +    jwt_expire_minutes: int = 0  # BUG(CONFIG-020): "0" misread as "no expiry" — tokens expire instantly
+
+trigger:
+  type: api_call
+  steps:
+    - action: login
+      params: { email: "admin@example.com", password: "Admin123!" }
+    - action: wait
+      params: { seconds: 2 }
+    - action: api_call
+      params:
+        method: "GET"
+        path: "/api/projects/"
+        expected_status: [401]
+  expected_observation:
+    log_patterns:
+      - pattern: "\"path\":\"/api/projects/\",\"status\":401"
+        min_occurrences: 1
+    trace_attributes:
+      "GET /api/projects/":
+        status: "OK"
+    api_response: null
+
+evaluation:
+  must_mention_keywords: ["jwt_expire_minutes", "过期"]
+  should_mention_keywords: ["401", "token", "配置", "0"]
+  llm_judge_criteria: |
+    诊断必须指出 jwt_expire_minutes 被设为 0 导致 token 签发即过期，从而所有受保护请求 401，
+    并说明 0 不是“永不过期”。需把“刚登录就 401”的现象与该配置值关联，而不是泛泛归因于密钥或网络。
+  min_confidence: 0.55

@@ -1,0 +1,96 @@
+# FE-020 (L1) — Frontend crash: render reads task.tags.length on the board
+# HONEST NOTE: this is a browser-side React render crash. The bug-factory
+# evidence collector only scrapes Loki/Tempo (server-side), so there is NO
+# server log/trace signal. Primary evidence = the user_report (blank board /
+# white screen) + the source diff + the browser console TypeError. Verify the
+# crash with the frontend running (or Playwright), not via Loki.
+# WHY it always crashes: the list endpoint (TaskResponse) does NOT include
+# `tags`, so task.tags is undefined and `.length` throws on every card.
+
+id: FE-020
+title: "打开任务看板整页白屏，控制台报 Cannot read properties of undefined"
+category: frontend_crash
+severity: critical
+tags: ["react", "typeerror", "undefined", "task-board", "difficulty:L1"]
+
+expected_diagnosis:
+  root_cause: "SortableTaskCard 渲染时读取 task.tags.length，但列表接口返回的 TaskResponse 不含 tags 字段，task.tags 为 undefined，导致每张卡片渲染时抛 TypeError 使整个看板崩溃白屏"
+  affected_file: "demo-app/frontend/src/pages/TaskBoardPage.tsx"
+  affected_line: null
+  fix_suggestion: "渲染前判空（task.tags?.length / (task.tags ?? []))，或在列表接口补齐 tags 字段；不要假设列表数据带 tags"
+  fix_keywords: ["task.tags", "undefined", "可选链", "TaskResponse", "判空"]
+
+injection:
+  strategy: code_insert
+  target_file: "demo-app/frontend/src/pages/TaskBoardPage.tsx"
+  ai_instruction: |
+    在 SortableTaskCard 的优先级 Badge 之后、外层 </div> 之前，插入一段读取
+    task.tags.length 的渲染（不加可选链）。因为列表接口不返回 tags，task.tags 为
+    undefined，会在每张卡片渲染时抛 TypeError 导致看板白屏。
+  diff_patch: |
+    --- a/demo-app/frontend/src/pages/TaskBoardPage.tsx
+    +++ b/demo-app/frontend/src/pages/TaskBoardPage.tsx
+    @@ -131,2 +131,5 @@
+                   )}
+    +              {task.tags.length > 0 && (
+    +                <span className="ml-1 text-xs text-muted-foreground">{task.tags.length} 标签</span>
+    +              )}
+                 </div>
+
+trigger:
+  type: e2e_action
+  steps:
+    - action: login
+      params: { email: "admin@example.com", password: "Admin123!" }
+    - action: create_data
+      params:
+
+        entity: "project"
+
+        data: { name: "白屏看板", description: "fe crash" }
+
+    - action: create_data
+
+      params:
+
+        entity: "task"
+
+        data: { title: "任意任务", project_index: 0 }
+
+    - action: ui_click
+
+      params:
+
+        frontend_url: "http://localhost:3000"
+
+        selector: "[data-testid^='task-link-']"
+
+  expected_observation:
+
+    # Browser-side only — no server log signal. The crash surfaces as a React
+
+    # render error (white screen) + console "Cannot read properties of undefined".
+
+    log_patterns: []
+
+    trace_attributes: {}
+
+    api_response: null
+
+
+
+evaluation:
+
+  must_mention_keywords: ["task.tags", "undefined"]
+
+  should_mention_keywords: ["可选链", "判空", "TaskResponse", "TypeError"]
+
+  llm_judge_criteria: |
+
+    诊断必须指出 SortableTaskCard 访问 task.tags.length，而列表数据不含 tags（undefined），
+
+    导致渲染崩溃白屏，并建议判空/可选链或补齐字段。需识别这是前端渲染读取未定义字段，
+
+    而不是后端接口报错。
+
+  min_confidence: 0.6

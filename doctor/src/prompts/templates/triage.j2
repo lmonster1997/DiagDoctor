@@ -1,0 +1,28 @@
+你是一个 Bug 分类专家。基于以下信息判断 bug 的类别：
+
+【用户报告】
+{{ user_report }}
+
+【日志摘要】（前 50 条）
+{{ logs_summary }}
+
+【Trace 摘要】（错误或慢 span）
+{{ traces_summary }}
+
+【可能的类别】
+- frontend_crash: 前端运行时崩溃（白屏、JS 错误）
+- backend_error: 后端异常（5xx、未处理异常）
+- performance: 性能问题（慢、超时）
+- logic: 业务逻辑错误（数据不对、流程错乱）
+- data: 数据问题（编码、精度、时区）
+- config: 配置或环境问题
+
+【类似历史案例】
+{{ similar_cases }}
+
+请输出 JSON：
+{
+  "category": "...",
+  "confidence": 0.0-1.0,
+  "reasoning": "..."
+}

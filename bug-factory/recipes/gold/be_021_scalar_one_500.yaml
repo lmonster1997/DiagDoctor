@@ -1,0 +1,92 @@
+# BE-021 (L2) — 500 instead of 404: scalar_one() raises NoResultFound
+# REQUIRES: P0 global exception handler — done.
+# Signal: {"event":"unhandled_exception","exc_type":"NoResultFound"...} + 500.
+# Difficulty L2: symptom is "task detail page errors", but the real cause is the
+# wrong result accessor turning a normal not-found into a server crash.
+
+id: BE-021
+title: "打开某些任务详情直接 500，正常情况应该提示任务不存在"
+category: backend_error
+severity: high
+tags: ["scalar_one", "no-result-found", "get_task", "difficulty:L2"]
+
+expected_diagnosis:
+  root_cause: "get_task 把 scalar_one_or_none() 改成了 scalar_one()，任务不存在时抛 NoResultFound 异常导致 500，而不是返回 404"
+  affected_file: "demo-app/backend/app/api/tasks.py"
+  affected_line: null
+  fix_suggestion: "将 get_task 中的 result.scalar_one() 改回 result.scalar_one_or_none()，保留 None 检查返回 404"
+  fix_keywords: ["scalar_one", "NoResultFound", "404", "get_task", "scalar_one_or_none"]
+
+injection:
+  strategy: code_replace
+  target_file: "demo-app/backend/app/api/tasks.py"
+  ai_instruction: |
+
+    在 get_task 中，把 task = result.scalar_one_or_none() 改成 task = result.scalar_one()，
+
+    使得任务不存在时抛 NoResultFound 而非走 404 分支。
+
+  diff_patch: |
+
+    --- a/demo-app/backend/app/api/tasks.py
+
+    +++ b/demo-app/backend/app/api/tasks.py
+
+    @@ -87,1 +87,1 @@
+
+    -    task = result.scalar_one_or_none()
+
+    +    task = result.scalar_one()  # BUG(BE-021): raises 500 NoResultFound instead of 404
+
+
+
+trigger:
+
+  type: api_call
+
+  steps:
+
+    - action: login
+
+      params: { email: "admin@example.com", password: "Admin123!" }
+
+    - action: api_call
+
+      params:
+
+        method: "GET"
+
+        path: "/api/tasks/00000000-0000-0000-0000-000000000000"
+
+        expected_status: [500]
+
+  expected_observation:
+
+    log_patterns:
+
+      - pattern: "unhandled_exception.*NoResultFound"
+
+        min_occurrences: 1
+
+    trace_attributes:
+
+      "GET /api/tasks/{id}":
+
+        status: "ERROR"
+
+    api_response: null
+
+
+
+evaluation:
+
+  must_mention_keywords: ["scalar_one", "NoResultFound"]
+
+  should_mention_keywords: ["404", "get_task", "scalar_one_or_none"]
+  llm_judge_criteria: |
+
+    诊断必须指出 get_task 使用 scalar_one() 导致任务不存在时抛 NoResultFound 返回 500，
+
+    并建议改回 scalar_one_or_none() 返回 404。
+
+  min_confidence: 0.6

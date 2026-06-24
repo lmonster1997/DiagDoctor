@@ -1,0 +1,92 @@
+# PERF-021 (L2) — N+1 query in project list (per-project task lookup)
+# REQUIRES: P0 observability (SQL echo + SQL spans) — done.
+# Signal: one "SELECT ... FROM tasks WHERE tasks.project_id" per project in Loki/Tempo.
+# Difficulty L2: symptom (slow projects page) is one layer; root cause is an
+# extra per-row query that is easy to miss without reading the SQL stream.
+
+id: PERF-021
+title: "项目列表页打开变慢，项目越多越卡"
+category: performance
+severity: medium
+tags: ["n+1", "sqlalchemy", "list_projects", "difficulty:L2"]
+
+expected_diagnosis:
+  root_cause: "list_projects 在返回项目前，对每个 project 单独执行一次 select(Task) 查询，构成 N+1 查询"
+  affected_file: "demo-app/backend/app/api/projects.py"
+  affected_line: null
+  fix_suggestion: "删除按 project 循环的逐条任务查询；若需任务数请用单条 GROUP BY 聚合或 selectinload 一次性加载"
+  fix_keywords: ["N+1", "list_projects", "聚合", "selectinload", "per-project"]
+
+injection:
+  strategy: code_replace
+  target_file: "demo-app/backend/app/api/projects.py"
+  ai_instruction: |
+    在 list_projects 拿到 projects 后，对每个 project 用 select(Task).where(Task.project_id == project.id)
+    单独查询一次，构成 N+1。需新增 from app.models.task import Task。
+  diff_patch: |
+    --- a/demo-app/backend/app/api/projects.py
+    +++ b/demo-app/backend/app/api/projects.py
+    @@ -11,2 +11,3 @@
+     from app.models.project import Project
+    +from app.models.task import Task
+     from app.models.user import User
+    @@ -24,2 +24,7 @@
+         result = await db.execute(select(Project).where(Project.owner_id == current_user.id))
+    -    return list(result.scalars().all())
+    +    projects = list(result.scalars().all())
+    +    # BUG(PERF-021): N+1 — query tasks for each project separately
+    +    for _p in projects:
+    +        _r = await db.execute(select(Task).where(Task.project_id == _p.id))
+    +        _ = _r.scalars().all()
+    +    return projects
+
+trigger:
+  type: api_call
+  steps:
+    - action: login
+      params: { email: "admin@example.com", password: "Admin123!" }
+    - action: create_data
+      params:
+        entity: "project"
+        data: { name: "项目", description: "n+1" }
+        repeat: 30
+
+    - action: api_call
+
+      params:
+
+        method: "GET"
+
+        path: "/api/projects/"
+
+  expected_observation:
+
+    log_patterns:
+
+      - pattern: "SELECT .* FROM tasks .* WHERE tasks.project_id"
+
+        min_occurrences: 30
+
+    trace_attributes:
+
+      "GET /api/projects/":
+
+        duration_ms: ">500"
+
+    api_response: null
+
+
+
+evaluation:
+
+  must_mention_keywords: ["N+1"]
+
+  should_mention_keywords: ["list_projects", "聚合", "selectinload", "per-project"]
+
+  llm_judge_criteria: |
+
+    诊断必须指出 list_projects 对每个 project 单独查询 tasks 形成 N+1，
+
+    并建议改为聚合或预加载。关键词 "N+1" 必须出现。
+
+  min_confidence: 0.6

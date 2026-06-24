@@ -1,0 +1,67 @@
+# LOGIC-021 (L3) — Broken list filter: list_projects returns ALL users' projects
+# REQUIRES: P0 access-log middleware — done.
+# Signal: GET /api/projects/ -> 200 with a list containing projects whose owner_id
+#         != caller. No error; a quiet data-leak that needs cross-user reasoning.
+# Difficulty L3: the endpoint "works" and even returns the caller's own projects,
+#         so it looks correct until you notice foreign projects mixed in.
+
+id: LOGIC-021
+title: "项目列表里混进了其他人的项目"
+category: logic
+severity: critical
+tags: ["broken-access-control", "data-leak", "list_projects", "difficulty:L3", "red-herring"]
+
+expected_diagnosis:
+  root_cause: "list_projects 删除了 .where(Project.owner_id == current_user.id)，返回全表所有用户的项目，造成横向越权数据泄露"
+  affected_file: "demo-app/backend/app/api/projects.py"
+  affected_line: null
+  fix_suggestion: "在 list_projects 的 select(Project) 上恢复 owner_id == current_user.id 过滤，只返回当前用户的项目"
+  fix_keywords: ["owner_id", "越权", "list_projects", "数据泄露", "过滤"]
+injection:
+  strategy: code_replace
+  target_file: "demo-app/backend/app/api/projects.py"
+  ai_instruction: |
+    在 list_projects 中，把 select(Project).where(Project.owner_id == current_user.id)
+    改成 select(Project)，使其返回所有用户的项目。
+  diff_patch: |
+    --- a/demo-app/backend/app/api/projects.py
+    +++ b/demo-app/backend/app/api/projects.py
+    @@ -24,1 +24,1 @@
+    -    result = await db.execute(select(Project).where(Project.owner_id == current_user.id))
+    +    result = await db.execute(select(Project))  # BUG(LOGIC-021): owner filter dropped — leaks all projects
+
+trigger:
+  type: api_call
+  steps:
+    - action: login
+      params: { email: "alice@example.com", password: "Alice123!" }
+    - action: create_data
+      params:
+        entity: "project"
+        data: { name: "Alice 专属", description: "alice only" }
+    - action: login
+      params: { email: "admin@example.com", password: "Admin123!" }
+    - action: create_data
+      params:
+        entity: "project"
+        data: { name: "Admin 专属", description: "admin only" }
+    - action: api_call
+      params:
+        method: "GET"
+        path: "/api/projects/"
+  expected_observation:
+    log_patterns:
+      - pattern: "\"path\":\"/api/projects/\",\"status\":200"
+        min_occurrences: 1
+    trace_attributes:
+      "GET /api/projects/":
+        status: "OK"
+    api_response: null
+
+evaluation:
+  must_mention_keywords: ["owner_id", "越权"]
+  should_mention_keywords: ["list_projects", "数据泄露", "过滤", "横向越权"]
+  llm_judge_criteria: |
+    诊断必须指出 list_projects 缺少 owner_id 过滤导致返回所有用户的项目（数据泄露/横向越权），
+    并建议恢复按当前用户过滤。需体现“列表里出现了不属于当前用户的项目”这一点。
+  min_confidence: 0.6
