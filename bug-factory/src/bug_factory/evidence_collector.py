@@ -250,12 +250,6 @@ class EvidenceCollector:
             json.dumps([t.model_dump() for t in evidence.traces], indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
-        (d / "browser_errors.json").write_text(
-            json.dumps(
-                [e.model_dump() for e in evidence.browser_errors], indent=2, ensure_ascii=False
-            ),
-            encoding="utf-8",
-        )
         logger.info("Evidence saved", recipe_id=recipe_id, path=str(d))
 
 

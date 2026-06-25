@@ -18,5 +18,13 @@ export default defineConfig({
     // SPA fallback — redirect all non-file requests to index.html
     // so React Router can handle client-side routes like /tasks/:id.
     historyApiFallback: true,
+    proxy: {
+      // Forward ALL /api/* requests to the backend in dev mode.
+      // (In Docker, nginx handles this; in dev, Vite must proxy.)
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
   },
 })

@@ -68,7 +68,6 @@ class CaseGenerator:
         evidence_files = {
             "logs_file": "evidence/logs.json",
             "traces_file": "evidence/traces.json",
-            "browser_errors_file": "evidence/browser_errors.json",
         }
         expected = EvaluationCaseExpected(
             category=recipe.category,

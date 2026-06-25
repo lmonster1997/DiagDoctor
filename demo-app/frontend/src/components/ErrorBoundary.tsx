@@ -1,5 +1,6 @@
 import React from "react";
 import * as Sentry from "@sentry/react";
+import { reportClientError } from "@/services/error-reporter";
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -25,11 +26,6 @@ class ErrorBoundaryClass extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error("[REACT_RENDER_ERROR]", {
-      error: error.message,
-      componentStack: errorInfo.componentStack,
-    });
-
     // Report to Sentry if configured
     if (import.meta.env.VITE_SENTRY_DSN) {
       Sentry.captureException(error, {
@@ -41,25 +37,14 @@ class ErrorBoundaryClass extends React.Component<
       });
     }
 
-    // Report to backend → Loki (fire-and-forget; don't block the UI).
-    const payload = JSON.stringify({
+    // Report to backend → Loki via the unified error reporter
+    // (includes console.error for E2E test visibility + sendBeacon to Loki)
+    reportClientError({
       error: error.message,
       stack: error.stack ?? null,
       componentStack: errorInfo.componentStack ?? null,
-      url: window.location.href,
-      timestamp: new Date().toISOString(),
+      type: "react_render",
     });
-    const endpoint = `${window.location.origin}/api/log/client-error`;
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(endpoint, new Blob([payload], { type: "application/json" }));
-    } else {
-      fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: payload,
-        keepalive: true,
-      }).catch(() => {});
-    }
   }
 
   render(): React.ReactNode {

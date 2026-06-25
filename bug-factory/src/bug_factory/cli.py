@@ -328,6 +328,11 @@ def _display_injection_result(result: InjectionResult) -> None:
     help="Base URL of the running demo-app backend",
 )
 @click.option(
+    "--frontend-url",
+    default=None,
+    help="Override frontend base URL for UI actions (default: use recipe value or http://localhost:5173)",
+)
+@click.option(
     "--no-ui/--ui",
     default=False,
     show_default=True,
@@ -337,6 +342,7 @@ def trigger_cmd(
     recipe_id: str,
     recipe_path: Path | None,
     base_url: str,
+    frontend_url: str | None,
     no_ui: bool,  # noqa: FBT001
 ) -> None:
     """Execute the trigger sequence from a bug recipe against the demo-app.
@@ -365,7 +371,7 @@ def trigger_cmd(
     if no_ui:
         console.print("[dim]UI actions will be skipped (--no-ui)[/]")
 
-    runner = TriggerRunner(demo_app_base_url=base_url)
+    runner = TriggerRunner(demo_app_base_url=base_url, frontend_url=frontend_url)
 
     async def _run() -> TriggerResult:
         return await runner.run(recipe.trigger)
@@ -425,7 +431,6 @@ def _display_evidence_result(evidence: CollectedEvidence) -> None:
     table.add_row("Recipe ID", evidence.recipe_id)
     table.add_row("Log Entries", str(len(evidence.logs)))
     table.add_row("Trace Spans", str(len(evidence.traces)))
-    table.add_row("Browser Errors", str(len(evidence.browser_errors)))
     if evidence.time_window:
         table.add_row(
             "Time Window",
@@ -475,6 +480,11 @@ def _display_evidence_result(evidence: CollectedEvidence) -> None:
     help="Skip trigger (bug already triggered)",
 )
 @click.option(
+    "--frontend-url",
+    default=None,
+    help="Override frontend base URL for UI actions (default: use recipe value or http://localhost:5173)",
+)
+@click.option(
     "--clear-loki",
     is_flag=True,
     default=False,
@@ -486,6 +496,7 @@ def full(
     base_url: str,
     loki_url: str | None,
     tempo_url: str | None,
+    frontend_url: str | None,
     skip_inject: bool,  # noqa: FBT001
     skip_trigger: bool,  # noqa: FBT001
     clear_loki: bool,  # noqa: FBT001
@@ -547,17 +558,11 @@ def full(
 
             # Record precise trigger start time for narrow evidence window
             trigger_start = datetime.now(timezone.utc)  # noqa: UP017
-            runner = TriggerRunner(demo_app_base_url=base_url)
+            runner = TriggerRunner(demo_app_base_url=base_url, frontend_url=frontend_url)
             trigger_result = await runner.run(recipe.trigger)
             _display_trigger_result(trigger_result)
             if not trigger_result.success:
-                if trigger_result.browser_errors:
-                    console.print(
-                        "[yellow]⚠ Trigger had failures, but browser errors were"
-                        " captured. Continuing...[/]"
-                    )
-                else:
-                    raise click.ClickException(f"Trigger failed: {trigger_result.error}")
+                raise click.ClickException(f"Trigger failed: {trigger_result.error}")
         else:
             console.print("\n[dim]── Step 2/4: Skipping trigger ──[/]")
             trigger_start = datetime.now(timezone.utc)  # noqa: UP017
@@ -576,25 +581,6 @@ def full(
             start=trigger_start - timedelta(seconds=30),
             end=datetime.now(timezone.utc),  # noqa: UP017
         )
-        # ── Merge browser-side errors captured during trigger ──────
-        if trigger_result and trigger_result.browser_errors:
-            evidence.browser_errors = trigger_result.browser_errors
-            console.print(
-                f"[dim]   ↳ Captured {len(trigger_result.browser_errors)} browser error(s)[/]"
-            )
-            # ── Re-save evidence with browser_errors to disk ─────
-            import json
-
-            evidence_dir = _WORKSPACE_ROOT / "bug-factory" / "output" / recipe.id / "evidence"
-            evidence_dir.mkdir(parents=True, exist_ok=True)
-            (evidence_dir / "browser_errors.json").write_text(
-                json.dumps(
-                    [e.model_dump() for e in evidence.browser_errors],
-                    indent=2,
-                    ensure_ascii=False,
-                ),
-                encoding="utf-8",
-            )
         _display_evidence_result(evidence)
 
         # ── Step 4: Generate case ───────────────────────────────────
@@ -692,6 +678,11 @@ def full(
     show_default=True,
     help="Number of recipes to run concurrently (1 = sequential)",
 )
+@click.option(
+    "--frontend-url",
+    default=None,
+    help="Override frontend base URL for UI actions",
+)
 def full_all(
     repo_path: Path | None,
     base_url: str,
@@ -701,6 +692,7 @@ def full_all(
     skip_trigger: bool,  # noqa: FBT001
     category_filter: str | None,
     concurrency: int,
+    frontend_url: str | None,
 ) -> None:
     """Run the full pipeline for ALL bug recipes.
 
@@ -765,7 +757,7 @@ def full_all(
             # Step 2: Trigger
             if not skip_trigger:
                 trigger_end = datetime.now(timezone.utc)  # noqa: UP017
-                runner = TriggerRunner(demo_app_base_url=base_url)
+                runner = TriggerRunner(demo_app_base_url=base_url, frontend_url=frontend_url)
                 trigger_result = await runner.run(recipe.trigger)
                 if not trigger_result.success:
                     console.print(
