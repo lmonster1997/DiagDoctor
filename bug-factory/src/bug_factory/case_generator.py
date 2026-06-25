@@ -49,7 +49,7 @@ class CaseGenerator:
         self.llm = llm
         if output_dir is None:
             output_dir = (
-                Path(__file__).resolve().parent.parent.parent.parent / "benchmark" / "cases"
+                Path(__file__).resolve().parent.parent.parent.parent / "bug-factory" / "output"
             )
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -66,9 +66,9 @@ class CaseGenerator:
         user_report = await self._make_user_report(recipe)
         summary = self._make_trigger_summary(trigger_result)
         evidence_files = {
-            "logs_file": f"evidences/{recipe.id}/logs.json",
-            "traces_file": f"evidences/{recipe.id}/traces.json",
-            "browser_errors_file": f"evidences/{recipe.id}/browser_errors.json",
+            "logs_file": "evidence/logs.json",
+            "traces_file": "evidence/traces.json",
+            "browser_errors_file": "evidence/browser_errors.json",
         }
         expected = EvaluationCaseExpected(
             category=recipe.category,
@@ -137,7 +137,9 @@ class CaseGenerator:
         return "\n".join(lines)
 
     def _save_case(self, case: EvaluationCase) -> None:
-        path = self.output_dir / f"{case.case_id}.yaml"
+        case_dir = self.output_dir / case.case_id
+        case_dir.mkdir(parents=True, exist_ok=True)
+        path = case_dir / "case.yaml"
         body = yaml.dump(
             case.model_dump(), allow_unicode=True, sort_keys=False, default_flow_style=False
         )

@@ -1,0 +1,532 @@
+[
+  {
+    "trace_id": "38271164e1905d5ea6250da15e4770e9",
+    "span_id": "",
+    "operation_name": "GET /api/tasks/c6638387-225a-40c8-81a2-43e19f651a83 http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.575083+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "500"
+    }
+  },
+  {
+    "trace_id": "38271164e1905d5ea6250da15e4770e9",
+    "span_id": "",
+    "operation_name": "GET /api/tasks/c6638387-225a-40c8-81a2-43e19f651a83 http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.575083+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "38271164e1905d5ea6250da15e4770e9",
+    "span_id": "",
+    "operation_name": "GET /api/tasks/c6638387-225a-40c8-81a2-43e19f651a83",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.568928+00:00",
+    "duration_ms": 6.1544,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/tasks/c6638387-225a-40c8-81a2-43e19f651a83",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "51038",
+      "http.route": "/api/tasks/c6638387-225a-40c8-81a2-43e19f651a83",
+      "http.method": "GET",
+      "http.url": "http://localhost:8000/api/tasks/c6638387-225a-40c8-81a2-43e19f651a83",
+      "http.status_code": "500"
+    }
+  },
+  {
+    "trace_id": "38271164e1905d5ea6250da15e4770e9",
+    "span_id": "",
+    "operation_name": "connect",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.569927+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "38271164e1905d5ea6250da15e4770e9",
+    "span_id": "",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.570929+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "38271164e1905d5ea6250da15e4770e9",
+    "span_id": "",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.570929+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "38271164e1905d5ea6250da15e4770e9",
+    "span_id": "",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.575083+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT tasks_1.id AS tasks_1_id, tags.id AS tags_id, tags.name AS tags_name, tags.color AS tags_color \nFROM tasks AS tasks_1 JOIN task_tags AS task_tags_1 ON tasks_1.id = task_tags_1.task_id JOIN tags ON tags.id = task_tags_1.tag_id \nWHERE tasks_1.id IN ($1::UUID)",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "38271164e1905d5ea6250da15e4770e9",
+    "span_id": "",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.575083+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT comments.task_id AS comments_task_id, comments.id AS comments_id, comments.author_id AS comments_author_id, comments.content AS comments_content, comments.created_at AS comments_created_at \nFROM comments \nWHERE comments.task_id IN ($1::UUID) ORDER BY comments.created_at",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "b79eaf73169654f4ca275e3841a493d4",
+    "span_id": "",
+    "operation_name": "POST /api/projects/7ad629d1-1e30-4107-abfd-729209ce1ecd/tasks http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.287920+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "b79eaf73169654f4ca275e3841a493d4",
+    "span_id": "",
+    "operation_name": "POST /api/projects/7ad629d1-1e30-4107-abfd-729209ce1ecd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.304139+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "b79eaf73169654f4ca275e3841a493d4",
+    "span_id": "",
+    "operation_name": "POST /api/projects/7ad629d1-1e30-4107-abfd-729209ce1ecd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.304139+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "b79eaf73169654f4ca275e3841a493d4",
+    "span_id": "",
+    "operation_name": "POST /api/projects/7ad629d1-1e30-4107-abfd-729209ce1ecd/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.304139+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "b79eaf73169654f4ca275e3841a493d4",
+    "span_id": "",
+    "operation_name": "POST /api/projects/7ad629d1-1e30-4107-abfd-729209ce1ecd/tasks",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.287920+00:00",
+    "duration_ms": 17.2174,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/7ad629d1-1e30-4107-abfd-729209ce1ecd/tasks",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "58379",
+      "http.route": "/api/projects/7ad629d1-1e30-4107-abfd-729209ce1ecd/tasks",
+      "http.method": "POST",
+      "http.url": "http://localhost:8000/api/projects/7ad629d1-1e30-4107-abfd-729209ce1ecd/tasks",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "b79eaf73169654f4ca275e3841a493d4",
+    "span_id": "",
+    "operation_name": "connect",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.287920+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "b79eaf73169654f4ca275e3841a493d4",
+    "span_id": "",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.287920+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "b79eaf73169654f4ca275e3841a493d4",
+    "span_id": "",
+    "operation_name": "INSERT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.287920+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "INSERT INTO tasks (id, project_id, title, description, status, priority, assignee_id, due_date) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::task_status, $6::INTEGER, $7::UUID, $8::TIMESTAMP WITH TIME ZONE) RETURNING tasks.created_at, tasks.updated_at",
+      "db.system": "postgresql",
+      "db.operation": "INSERT"
+    }
+  },
+  {
+    "trace_id": "b79eaf73169654f4ca275e3841a493d4",
+    "span_id": "",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.287920+00:00",
+    "duration_ms": 15.2126,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "b99c142a2181a2cd85bfd62c90fc19b1",
+    "span_id": "",
+    "operation_name": "POST /api/projects/ http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.007484+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "b99c142a2181a2cd85bfd62c90fc19b1",
+    "span_id": "",
+    "operation_name": "POST /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.019514+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "b99c142a2181a2cd85bfd62c90fc19b1",
+    "span_id": "",
+    "operation_name": "POST /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.019514+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "b99c142a2181a2cd85bfd62c90fc19b1",
+    "span_id": "",
+    "operation_name": "POST /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.019514+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "b99c142a2181a2cd85bfd62c90fc19b1",
+    "span_id": "",
+    "operation_name": "POST /api/projects/",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.003779+00:00",
+    "duration_ms": 15.7346,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "58377",
+      "http.route": "/api/projects/",
+      "http.method": "POST",
+      "http.url": "http://localhost:8000/api/projects/",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "b99c142a2181a2cd85bfd62c90fc19b1",
+    "span_id": "",
+    "operation_name": "connect",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.007484+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "b99c142a2181a2cd85bfd62c90fc19b1",
+    "span_id": "",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.007484+00:00",
+    "duration_ms": 2.0048,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "b99c142a2181a2cd85bfd62c90fc19b1",
+    "span_id": "",
+    "operation_name": "INSERT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.009489+00:00",
+    "duration_ms": 6.3733,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "INSERT INTO projects (id, name, description, owner_id) VALUES ($1::UUID, $2::VARCHAR, $3::VARCHAR, $4::UUID) RETURNING projects.created_at",
+      "db.system": "postgresql",
+      "db.operation": "INSERT"
+    }
+  },
+  {
+    "trace_id": "b99c142a2181a2cd85bfd62c90fc19b1",
+    "span_id": "",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:45.015863+00:00",
+    "duration_ms": 3.2075,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT projects.id, projects.name, projects.description, projects.owner_id, projects.created_at \nFROM projects \nWHERE projects.id = $1::UUID",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "6087c3d380d475f77a5c7642812f4e36",
+    "span_id": "",
+    "operation_name": "POST /api/auth/login http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:44.496744+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "6087c3d380d475f77a5c7642812f4e36",
+    "span_id": "",
+    "operation_name": "POST /api/auth/login http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:44.737099+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "6087c3d380d475f77a5c7642812f4e36",
+    "span_id": "",
+    "operation_name": "POST /api/auth/login http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:44.746476+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "6087c3d380d475f77a5c7642812f4e36",
+    "span_id": "",
+    "operation_name": "POST /api/auth/login http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:44.746476+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "6087c3d380d475f77a5c7642812f4e36",
+    "span_id": "",
+    "operation_name": "POST /api/auth/login",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:44.492753+00:00",
+    "duration_ms": 253.7238,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/auth/login",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "58369",
+      "http.route": "/api/auth/login",
+      "http.method": "POST",
+      "http.url": "http://localhost:8000/api/auth/login",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "6087c3d380d475f77a5c7642812f4e36",
+    "span_id": "",
+    "operation_name": "connect",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:44.498744+00:00",
+    "duration_ms": 65.1549,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "6087c3d380d475f77a5c7642812f4e36",
+    "span_id": "",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-25T14:15:44.571744+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.email = $1::VARCHAR",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  }
+]

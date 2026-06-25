@@ -37,4 +37,5 @@ PR_CONTENT.md
 benchmark/runs/
 
 # Bug-factory run outputs (generated evidence)
-output/
+# bug-factory/output/ is tracked — contains generated cases + evidence
+benchmark/output/

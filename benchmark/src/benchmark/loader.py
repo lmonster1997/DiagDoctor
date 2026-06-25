@@ -19,7 +19,9 @@ from bug_factory.schema import EvaluationCase
 logger = structlog.get_logger(__name__)
 
 # Default directory where evaluation case YAML files live.
-_DEFAULT_CASES_DIR = Path(__file__).resolve().parent.parent.parent / "cases"
+_DEFAULT_CASES_DIR = (
+    Path(__file__).resolve().parent.parent.parent.parent / "bug-factory" / "output"
+)
 
 
 def _parse_case_yaml(path: Path) -> EvaluationCase:
@@ -75,7 +77,7 @@ class CaseLoader:
     def load_one(self, case_id: str) -> EvaluationCase:
         """Load a single evaluation case by its **case_id**.
 
-        The file is expected at ``{cases_dir}/{case_id}.yaml``.
+        The file is expected at ``{cases_dir}/{case_id}/case.yaml``.
 
         Args:
             case_id: The case identifier (e.g. ``"BE-001"``).
@@ -86,7 +88,7 @@ class CaseLoader:
         Raises:
             FileNotFoundError: If the corresponding YAML file does not exist.
         """
-        path = self.cases_dir / f"{case_id}.yaml"
+        path = self.cases_dir / case_id / "case.yaml"
         logger.debug("Loading case", case_id=case_id, path=str(path))
         return _parse_case_yaml(path)
 
@@ -114,7 +116,7 @@ class CaseLoader:
             >>> loader.load_suite({"expected__category": "performance"})
         """
         cases: list[EvaluationCase] = []
-        for yaml_file in sorted(self.cases_dir.glob("*.yaml")):
+        for yaml_file in sorted(self.cases_dir.glob("*/case.yaml")):
             if not yaml_file.is_file():
                 continue
             try:

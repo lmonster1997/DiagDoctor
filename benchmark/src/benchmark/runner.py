@@ -303,18 +303,15 @@ class BatchRunner:
     def _resolve_evidence_dir(self, case_id: str) -> Path | None:
         """Find the evidence directory for a given case_id.
 
-        Searches multiple possible locations:
-        1. ``bug-factory/output/{case_id}/evidence/`` (default EvidenceCollector output)
-        2. ``benchmark/output/{case_id}/evidence/`` (legacy)
-        3. ``output/{case_id}/evidence/`` (legacy)
+        Searches:
+        1. ``bug-factory/output/{case_id}/evidence/`` (default, co-located with case.yaml)
+        2. Evidence paths from the case YAML (relative to case.yaml location)
 
         Returns:
             The resolved directory path, or ``None`` if not found.
         """
         candidates = [
             _BUG_FACTORY_OUTPUT / case_id / "evidence",
-            _BENCHMARK_DIR / "output" / case_id / "evidence",
-            _PROJECT_ROOT / "output" / case_id / "evidence",
         ]
 
         for candidate in candidates:

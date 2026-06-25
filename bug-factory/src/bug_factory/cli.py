@@ -494,7 +494,7 @@ def full(
         1. Inject bug into repo (creates bug/{id} branch)
         2. Trigger bug against the running demo-app
         3. Collect evidence (logs + traces) from Loki/Tempo
-        4. Generate evaluation case YAML in benchmark/cases/
+        4. Generate evaluation case YAML in bug-factory/output/{id}/case.yaml
     """
     from datetime import datetime, timedelta, timezone
 
@@ -626,11 +626,11 @@ def full(
     if len(preview) > 100:
         preview = preview[:100] + "..."
     table.add_row("User Report", preview)
-    table.add_row("Output", f"benchmark/cases/{case.case_id}.yaml")
+    table.add_row("Output", f"bug-factory/output/{case.case_id}/case.yaml")
     console.print(table)
 
     console.print("\n[bold green]✓ Full pipeline complete![/]")
-    console.print(f"   Case:   benchmark/cases/{case.case_id}.yaml")
+    console.print(f"   Case:   bug-factory/output/{case.case_id}/case.yaml")
     console.print(f"   Evidence: output/{case.case_id}/evidence/")
 
 
@@ -833,7 +833,7 @@ def full_all(
                 console.print(f"    [red]✗ {name}[/]")
     else:
         console.print(f"[green]  All {passed} recipes completed successfully![/]")
-    console.print("  Cases:   benchmark/cases/")
+    console.print("  Cases:   bug-factory/output/")
     console.print("  Evidence: bug-factory/output/")
 
     if failed:
