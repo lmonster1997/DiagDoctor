@@ -501,7 +501,12 @@ def full(
             trigger_result = await runner.run(recipe.trigger)
             _display_trigger_result(trigger_result)
             if not trigger_result.success:
-                raise click.ClickException(f"Trigger failed: {trigger_result.error}")
+                if trigger_result.browser_errors:
+                    console.print(
+                        "[yellow]⚠ Trigger had failures, but browser errors were captured. Continuing...[/]"
+                    )
+                else:
+                    raise click.ClickException(f"Trigger failed: {trigger_result.error}")
         else:
             console.print("\n[dim]── Step 2/4: Skipping trigger ──[/]")
             trigger_end = datetime.now(timezone.utc)  # noqa: UP017
@@ -522,7 +527,7 @@ def full(
             )
             # ── Re-save evidence with browser_errors to disk ─────
             import json
-            evidence_dir = _WORKSPACE_ROOT / "output" / recipe.id / "evidence"
+            evidence_dir = _WORKSPACE_ROOT / "bug-factory" / "output" / recipe.id / "evidence"
             evidence_dir.mkdir(parents=True, exist_ok=True)
             (evidence_dir / "browser_errors.json").write_text(
                 json.dumps(

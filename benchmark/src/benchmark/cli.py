@@ -234,8 +234,8 @@ def _generate_reports(
     from benchmark.reporters.html import HTMLReporter
     from benchmark.reporters.markdown import MarkdownReporter
 
-    # Determine run directory
-    runs_dir = Path(__file__).resolve().parent.parent.parent / "runs" / batch.run_id
+    # Determine run directory (under benchmark/output/runs/)
+    runs_dir = Path(__file__).resolve().parent.parent.parent / "output" / "runs" / batch.run_id
     runs_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Markdown report ────────────────────────────────────────────

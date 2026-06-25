@@ -26,8 +26,10 @@ logger = structlog.get_logger(__name__)
 # ── Constants ────────────────────────────────────────────────────────
 _DEFAULT_TIMEOUT = ClientTimeout(total=120, connect=10)
 _DEFAULT_CONCURRENCY = 4
-_RUNS_DIR = Path(__file__).resolve().parent.parent.parent / "runs"
+_BENCHMARK_DIR = Path(__file__).resolve().parent.parent.parent  # benchmark/
+_RUNS_DIR = _BENCHMARK_DIR / "output" / "runs"
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+_BUG_FACTORY_OUTPUT = _PROJECT_ROOT / "bug-factory" / "output"
 
 # Doctor API response fields we care about
 _DOCTOR_DIAGNOSE_PATH = "/api/diagnose"
@@ -302,14 +304,16 @@ class BatchRunner:
         """Find the evidence directory for a given case_id.
 
         Searches multiple possible locations:
-        1. ``output/{case_id}/evidence/`` (where EvidenceCollector saves)
-        2. The path referenced in the case YAML (relative to project root)
+        1. ``bug-factory/output/{case_id}/evidence/`` (default EvidenceCollector output)
+        2. ``benchmark/output/{case_id}/evidence/`` (legacy)
+        3. ``output/{case_id}/evidence/`` (legacy)
 
         Returns:
             The resolved directory path, or ``None`` if not found.
         """
         candidates = [
-            self.evidence_base_dir / "output" / case_id / "evidence",
+            _BUG_FACTORY_OUTPUT / case_id / "evidence",
+            _BENCHMARK_DIR / "output" / case_id / "evidence",
             _PROJECT_ROOT / "output" / case_id / "evidence",
         ]
 

@@ -61,7 +61,7 @@ trigger:
 
       params:
 
-        frontend_url: "http://localhost:3000"
+        frontend_url: "http://localhost:3000/projects/{project_id}"
 
         selector: "[data-testid^='task-link-']"
 

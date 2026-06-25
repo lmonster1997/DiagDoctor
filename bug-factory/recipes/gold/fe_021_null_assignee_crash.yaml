@@ -52,7 +52,7 @@ trigger:
         data: { title: "无负责人任务", project_index: 0 }
     - action: ui_click
       params:
-        frontend_url: "http://localhost:3000"
+        frontend_url: "http://localhost:3000/projects/{project_id}"
         selector: "[data-testid^='task-link-']"
   expected_observation:
     # Browser-side only — no server log signal. Only unassigned tasks crash.
