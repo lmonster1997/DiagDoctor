@@ -88,6 +88,38 @@ _load_dotenv_files()
 # ── Helpers ──────────────────────────────────────────────────────────
 
 
+def _clear_loki_logs(loki_url: str) -> None:
+    """Delete all demo-backend logs from Loki before a new recipe run.
+
+    Uses Loki's delete API to mark logs for deletion.  Actual removal
+    happens during the next compaction cycle (config: every 10 min).
+    """
+    import requests as _requests
+    from datetime import datetime, timedelta, timezone as _timezone
+
+    now = datetime.now(_timezone.utc)
+    start = "2024-01-01T00:00:00Z"
+    end = (now + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    delete_url = loki_url.rstrip("/") + "/loki/api/v1/delete"
+
+    try:
+        resp = _requests.post(
+            delete_url,
+            data={
+                "query": '{service_name="demo-backend"}',
+                "start": start,
+                "end": end,
+            },
+            timeout=10,
+        )
+        if resp.status_code in (204, 200):
+            console.print("[dim]   ↳ Cleared old demo-backend logs from Loki[/]")
+        else:
+            console.print(f"[yellow]   ⚠ Loki clear returned {resp.status_code}: {resp.text[:200]}[/]")
+    except Exception as exc:
+        console.print(f"[yellow]   ⚠ Loki clear failed (non-fatal): {exc}[/]")
+
+
 def _find_recipe(recipe_id: str, recipes_dir: Path | None = None) -> Path:
     """Find a recipe YAML file by its ID.
 
@@ -437,6 +469,12 @@ def _display_evidence_result(evidence: CollectedEvidence) -> None:
     default=False,
     help="Skip trigger (bug already triggered)",
 )
+@click.option(
+    "--clear-loki",
+    is_flag=True,
+    default=False,
+    help="Clear old demo-backend logs from Loki before triggering",
+)
 def full(
     recipe_id: str,
     repo_path: Path | None,
@@ -445,6 +483,7 @@ def full(
     tempo_url: str | None,
     skip_inject: bool,  # noqa: FBT001
     skip_trigger: bool,  # noqa: FBT001
+    clear_loki: bool,  # noqa: FBT001
 ) -> None:
     """Run the full pipeline: inject → trigger → collect → generate case.
 
@@ -496,7 +535,13 @@ def full(
         if not skip_trigger:
             console.print("\n[bold cyan]── Step 2/4: Triggering bug ──[/]")
             console.print("[yellow]⚠ Ensure demo-app is rebuilt with injected bug![/]")
-            trigger_end = datetime.now(timezone.utc)  # noqa: UP017
+
+            # Clear old Loki logs if requested (avoids cross-recipe contamination)
+            if clear_loki:
+                _clear_loki_logs(loki)
+
+            # Record precise trigger start time for narrow evidence window
+            trigger_start = datetime.now(timezone.utc)  # noqa: UP017
             runner = TriggerRunner(demo_app_base_url=base_url)
             trigger_result = await runner.run(recipe.trigger)
             _display_trigger_result(trigger_result)
@@ -509,14 +554,20 @@ def full(
                     raise click.ClickException(f"Trigger failed: {trigger_result.error}")
         else:
             console.print("\n[dim]── Step 2/4: Skipping trigger ──[/]")
-            trigger_end = datetime.now(timezone.utc)  # noqa: UP017
+            trigger_start = datetime.now(timezone.utc)  # noqa: UP017
 
         # ── Step 3: Collect evidence ────────────────────────────────
         console.print("\n[bold cyan]── Step 3/4: Collecting evidence ──[/]")
+        # Wait for OTel trace pipeline flush:
+        #   demo-backend BatchSpanProcessor (≤5 s) → Collector batch (5 s) → Tempo index (2-5 s)
+        _TRACE_FLUSH_SECONDS = 15
+        console.print(f"[dim]   ↳ Waiting {_TRACE_FLUSH_SECONDS}s for trace pipeline to flush...[/]")
+        await asyncio.sleep(_TRACE_FLUSH_SECONDS)
         collector = EvidenceCollector(loki_url=loki, tempo_url=tempo)
         evidence = await collector.collect(
             recipe_id=recipe.id,
-            start=trigger_end - timedelta(minutes=5),
+            # Narrow window: from trigger_start to now (+ 30 s buffer for Loki flush)
+            start=trigger_start - timedelta(seconds=30),
             end=datetime.now(timezone.utc),  # noqa: UP017
         )
         # ── Merge browser-side errors captured during trigger ──────
@@ -719,6 +770,9 @@ def full_all(
                 trigger_result = TriggerResult(success=True, session={}, steps=[])
 
             # Step 3: Collect evidence
+            # Wait for OTel trace pipeline flush
+            _TRACE_FLUSH_SECONDS = 15
+            await asyncio.sleep(_TRACE_FLUSH_SECONDS)
             collector = EvidenceCollector(loki_url=loki, tempo_url=tempo)
             evidence = await collector.collect(
                 recipe_id=recipe.id,

@@ -12,12 +12,18 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 
 # --- OTel MUST be initialized before FastAPI app instantiation ---
-from app.observability import init_observability, instrument_fastapi, setup_loki_logging
+from app.observability import (
+    init_observability,
+    instrument_fastapi,
+    instrument_sqlalchemy,
+    setup_loki_logging,
+)
 
 init_observability()
 
 logger = structlog.get_logger(__name__)
 log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)  # ensure http_request middleware logs reach Loki
 
 # --- Bridge Python logging → Loki for structured diagnostics ---
 try:
@@ -25,6 +31,16 @@ try:
     logger.info("Loki logging bridge enabled")
 except Exception:
     logger.warning("Loki logging bridge unavailable — logs will only appear on stdout")
+
+# --- Ensure uvicorn access logs propagate to root → Loki ---
+for _name in ("uvicorn.access", "uvicorn.error", "uvicorn"):
+    _uv_logger = logging.getLogger(_name)
+    _uv_logger.propagate = True
+    _uv_logger.setLevel(logging.INFO)
+
+# --- SQLAlchemy OTel instrumentation (MUST be called before engine creation) ---
+instrument_sqlalchemy()
+logger.info("SQLAlchemy OTel instrumentation enabled")
 
 
 @asynccontextmanager
@@ -50,6 +66,34 @@ app.add_middleware(
 
 # Instrument FastAPI for OTel tracing
 instrument_fastapi(app)
+
+
+# ── Request logging middleware ────────────────────────────────────────
+# Logs every HTTP request with method, path, status, duration.
+# This + SQLAlchemy instrumentation + unhandled_exception handler
+# together provide a rich diagnostic trail in Loki.
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    import time as _time
+
+    t0 = _time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = (_time.perf_counter() - t0) * 1000
+
+    log.info(
+        json.dumps(
+            {
+                "event": "http_request",
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": round(elapsed_ms, 1),
+                "client": request.client.host if request.client else "",
+            },
+            ensure_ascii=False,
+        )
+    )
+    return response
 
 
 # ── Global exception handler ──────────────────────────────────────────

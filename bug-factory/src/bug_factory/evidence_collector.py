@@ -171,7 +171,7 @@ class EvidenceCollector:
             )
             for s in results:
                 all_spans.extend(s)
-        return self._select_representative(all_spans)
+        return self._select_representative(all_spans, services)
 
     async def _fetch_single_trace(
         self, session: aiohttp.ClientSession, trace_id: str
@@ -215,7 +215,9 @@ class EvidenceCollector:
                     )
         return spans
 
-    def _select_representative(self, spans: list[TraceSpan]) -> list[TraceSpan]:
+    def _select_representative(
+        self, spans: list[TraceSpan], services: list[str]
+    ) -> list[TraceSpan]:
         if not spans:
             return []
         traces: dict[str, list[TraceSpan]] = {}
@@ -227,7 +229,13 @@ class EvidenceCollector:
         ]
         slow = {t[0] for t in sorted(stats, key=lambda x: x[1], reverse=True)[:10]}
         err = {t[0] for t in stats if t[2] and t[0] not in slow}
-        return [sp for sp in spans if sp.trace_id in (slow | err)]
+        # Always include traces from target services (demo-backend / demo-frontend)
+        target = {
+            sp.trace_id
+            for sp in spans
+            if any(sp.service_name == s or sp.service_name.startswith(s) for s in services)
+        }
+        return [sp for sp in spans if sp.trace_id in (slow | err | target)]
 
     def _save_evidence(self, recipe_id: str, evidence: CollectedEvidence) -> None:
         d = self.output_dir / recipe_id / "evidence"

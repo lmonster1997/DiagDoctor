@@ -62,8 +62,10 @@ _CREATE_ROUTES: dict[str, str] = {
 # Default auth header key inserted by _action_login.
 _AUTH_HEADER = "Authorization"
 
-# Minimum and default wait for logs to flush after trigger completion.
-_LOG_FLUSH_SECONDS = 3
+# Default wait for logs to flush to Loki after trigger (must be > Loki
+# batch-send interval of 5 s, plus buffer for network).  Evidence collector
+# runs after this wait so logs are already in Loki at query time.
+_LOG_FLUSH_SECONDS = 8
 
 
 class TriggerRunner:
