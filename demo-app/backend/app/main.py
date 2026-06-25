@@ -74,21 +74,36 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     ``unhandled_exception`` event is queryable in Loki by the evidence
     collector and Doctor agent.
     """
+    import json
+
     tb = traceback.format_exc()
-    error_detail = {
-        "event": "unhandled_exception",
-        "exc_type": type(exc).__name__,
-        "exc_message": str(exc),
-        "path": request.url.path,
-        "method": request.method,
-        "traceback": tb,
-    }
 
-    # Structlog → stdout / console
-    logger.error("unhandled_exception", **error_detail)
+    # Structlog → stdout / console (first positional arg = event message;
+    # do NOT add a duplicate ``event=`` kwarg — that causes TypeError).
+    logger.error(
+        "unhandled_exception",
+        exc_type=type(exc).__name__,
+        exc_message=str(exc),
+        path=request.url.path,
+        method=request.method,
+        traceback=tb,
+    )
 
-    # Standard logging → Loki (via setup_loki_logging bridge)
-    log.error("unhandled_exception", extra=error_detail)
+    # Standard logging → Loki (format as JSON string since the Loki handler
+    # uses ``Formatter("%(message)s")`` which only captures the msg arg).
+    log.error(
+        json.dumps(
+            {
+                "event": "unhandled_exception",
+                "exc_type": type(exc).__name__,
+                "exc_message": str(exc),
+                "path": request.url.path,
+                "method": request.method,
+                "traceback": tb,
+            },
+            ensure_ascii=False,
+        )
+    )
 
     return JSONResponse(
         status_code=500,
