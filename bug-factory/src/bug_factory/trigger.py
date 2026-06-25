@@ -33,6 +33,7 @@ import re
 import time
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
 import structlog
 from aiohttp import ClientSession, ClientTimeout
@@ -86,9 +87,11 @@ class TriggerRunner:
         self,
         demo_app_base_url: str = "http://localhost:8000",
         log_flush_seconds: float = _LOG_FLUSH_SECONDS,
+        frontend_url: str | None = None,
     ) -> None:
         self.base_url = demo_app_base_url.rstrip("/")
         self.log_flush_seconds = log_flush_seconds
+        self.frontend_url = frontend_url  # None → use recipe's value
         self.session: dict[str, Any] = {
             "token": None,
             "created_projects": [],
@@ -98,6 +101,7 @@ class TriggerRunner:
         logger.info(
             "TriggerRunner initialised",
             base_url=self.base_url,
+            frontend_url=self.frontend_url,
             log_flush_seconds=self.log_flush_seconds,
         )
 
@@ -360,9 +364,24 @@ class TriggerRunner:
                 detail="ui_click action requires 'selector' param",
             )
 
-        frontend_url = params.get("frontend_url", "http://localhost:3000")
+        frontend_url = params.get("frontend_url", "http://localhost:5173")
         # Resolve template variables like {task_id}, {project_id} in the URL.
         frontend_url = self._resolve_template(frontend_url)
+
+        # ── Apply --frontend-url CLI override (replaces origin only) ──
+        if self.frontend_url:
+            parsed = urlparse(frontend_url)
+            override_parsed = urlparse(self.frontend_url)
+            frontend_url = urlunparse(
+                (
+                    override_parsed.scheme or parsed.scheme or "http",
+                    override_parsed.netloc or parsed.netloc or "localhost:5173",
+                    parsed.path,
+                    parsed.params,
+                    parsed.query,
+                    parsed.fragment,
+                )
+            )
 
         try:
             from playwright.async_api import async_playwright
@@ -433,14 +452,12 @@ class TriggerRunner:
             try:
                 # ── Phase 1: Set auth token BEFORE navigating to protected page ──
                 # Navigate to login page first (always publicly accessible),
-                # set localStorage with auth token, then go to the target URL.
-                base_frontend = (
-                    frontend_url.rsplit("/tasks/", 1)[0]
-                    if "/tasks/" in frontend_url
-                    else frontend_url
-                )
+                # set localStorage with auth token, then reload to let Zustand
+                # persist middleware rehydrate from localStorage.
+                parsed_target = urlparse(frontend_url)
+                base_origin = f"{parsed_target.scheme}://{parsed_target.netloc}"
                 await page.goto(
-                    f"{base_frontend}/login", wait_until="domcontentloaded", timeout=15000
+                    f"{base_origin}/login", wait_until="domcontentloaded", timeout=15000
                 )
 
                 # Set auth token in localStorage so ProtectedRoute allows access.
@@ -455,15 +472,39 @@ class TriggerRunner:
                         }""",
                         token,
                     )
+                    # Reload the page so Zustand's persist middleware picks up
+                    # the token from localStorage during store initialisation.
+                    await page.reload(wait_until="networkidle", timeout=15000)
+                    await asyncio.sleep(2)  # Let Zustand fully rehydrate
 
                 # ── Phase 2: Navigate to the actual target (protected) URL ──
-                await page.goto(frontend_url, wait_until="domcontentloaded", timeout=15000)
+                await page.goto(frontend_url, wait_until="networkidle", timeout=15000)
+                logger.info("Navigated to target", url=page.url, expected=frontend_url)
+
+                # Zustand persist middleware may rehydrate AFTER first render,
+                # causing ProtectedRoute to redirect to /login.  Retry if needed.
+                for _attempt in range(3):
+                    await asyncio.sleep(1)
+                    current = page.url
+                    if "/login" not in current:
+                        logger.info("Successfully on target page", url=current)
+                        break
+                    logger.warning("Still on login — re-navigating", attempt=_attempt, url=current)
+                    await page.goto(frontend_url, wait_until="networkidle", timeout=15000)
+
                 # Wait for React to hydrate / render (client-side JS).
                 await asyncio.sleep(2)
 
                 # Click the target element.
-                await page.click(selector)
-                await asyncio.sleep(1)  # Let any navigation / animation settle.
+                # For "body" selector (typical for FE render-crash bugs),
+                # skip the click — the crash already happened on render.
+                # For other selectors, use force=True to bypass actionability
+                # checks (visible/enabled/stable) for robustness.
+                if selector == "body":
+                    await asyncio.sleep(1)
+                else:
+                    await page.click(selector, force=True)
+                    await asyncio.sleep(1)  # Let any navigation / animation settle.
 
             finally:
                 await browser.close()

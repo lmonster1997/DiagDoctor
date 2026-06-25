@@ -1,11 +1,7 @@
 # FE-020 (L1) — Frontend crash: render reads task.tags.length on the board
-# HONEST NOTE: this is a browser-side React render crash. The bug-factory
-# evidence collector only scrapes Loki/Tempo (server-side), so there is NO
-# server log/trace signal. Primary evidence = the user_report (blank board /
-# white screen) + the source diff + the browser console TypeError. Verify the
-# crash with the frontend running (or Playwright), not via Loki.
 # WHY it always crashes: the list endpoint (TaskResponse) does NOT include
 # `tags`, so task.tags is undefined and `.length` throws on every card.
+# Evidence via Loki: ErrorBoundary sends client_error event to backend → Loki.
 
 id: FE-020
 title: "打开任务看板整页白屏，控制台报 Cannot read properties of undefined"
@@ -44,37 +40,29 @@ trigger:
       params: { email: "admin@example.com", password: "Admin123!" }
     - action: create_data
       params:
-
         entity: "project"
-
         data: { name: "白屏看板", description: "fe crash" }
-
     - action: create_data
-
       params:
-
         entity: "task"
-
         data: { title: "任意任务", project_index: 0 }
-
+    # Navigate to the board page — the bug crashes on render, so we just
+    # click <body> (always present, even in ErrorBoundary fallback) and
+    # wait for client_error to reach Loki.
     - action: ui_click
-
       params:
-
-        frontend_url: "http://localhost:3000/projects/{project_id}"
-
-        selector: "[data-testid^='task-link-']"
-
+        frontend_url: "http://localhost:5173/projects/{project_id}"
+        selector: "body"
+    - action: wait
+      params:
+        seconds: 5
   expected_observation:
-
-    # Browser-side only — no server log signal. The crash surfaces as a React
-
-    # render error (white screen) + console "Cannot read properties of undefined".
-
-    log_patterns: []
-
+    # The crash is caught by ErrorBoundary → reportClientError() →
+    # sendBeacon /api/log/client-error → Loki.
+    log_patterns:
+      - pattern: "client_error.*Cannot read properties of undefined.*length"
+        min_occurrences: 1
     trace_attributes: {}
-
     api_response: null
 
 

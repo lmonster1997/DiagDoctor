@@ -2,8 +2,13 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import * as Sentry from "@sentry/react";
+import { initErrorReporting } from "@/services/error-reporter";
 import "./index.css";
 import App from "./App.tsx";
+
+// ── Initialize client-side error reporting (MUST run before React renders) ──
+// Installs window.onerror, unhandledrejection hooks, and breadcrumb tracking.
+initErrorReporting();
 
 // Initialize Sentry if DSN is configured
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;

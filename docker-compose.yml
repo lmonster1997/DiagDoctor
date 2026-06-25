@@ -160,6 +160,8 @@ services:
       # OTel
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: demo-backend
+      # Loki (for client_error → Loki pipeline)
+      LOKI_URL: http://loki:3100
       # CORS
       CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173"]'
       # General
