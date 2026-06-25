@@ -1,13 +1,13 @@
 import json
 import logging
 import traceback
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from app.config import settings
 
@@ -73,7 +73,9 @@ instrument_fastapi(app)
 # This + SQLAlchemy instrumentation + unhandled_exception handler
 # together provide a rich diagnostic trail in Loki.
 @app.middleware("http")
-async def request_logging_middleware(request: Request, call_next):
+async def request_logging_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
     import time as _time
 
     t0 = _time.perf_counter()

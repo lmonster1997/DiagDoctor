@@ -24,7 +24,7 @@ class ClientErrorPayload(BaseModel):
 
     error: str = Field(..., description="Error message (e.g. TypeError: Cannot read...)")
     stack: str | None = Field(None, description="JavaScript stack trace if available")
-    componentStack: str | None = Field(None, description="React component stack")
+    componentStack: str | None = Field(None, description="React component stack")  # noqa: N815
     url: str | None = Field(None, description="page URL where the error occurred")
     timestamp: str | None = Field(None, description="ISO-8601 timestamp from the browser")
 

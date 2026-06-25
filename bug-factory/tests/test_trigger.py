@@ -135,6 +135,7 @@ async def test_action_api_call_get(runner: TriggerRunner) -> None:
         json_data=None,
         params=None,
         auth_required=True,
+        expected_status=set(),
     )
 
 
@@ -161,6 +162,7 @@ async def test_action_api_call_post_with_body(runner: TriggerRunner) -> None:
         json_data={"name": "Test"},
         params=None,
         auth_required=True,
+        expected_status=set(),
     )
 
 

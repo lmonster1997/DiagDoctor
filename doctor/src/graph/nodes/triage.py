@@ -11,7 +11,6 @@ The output is a TriageOutput with category, confidence, and reasoning.
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from langchain_openai import ChatOpenAI
@@ -68,15 +67,13 @@ def summarize_logs(logs: list[LogEntry], max_entries: int = 50) -> str:
     # Sort by severity: ERROR > WARNING > INFO > DEBUG
     severity_order = {"ERROR": 0, "WARNING": 1, "INFO": 2, "DEBUG": 3}
 
-    sorted_logs = sorted(logs, key=lambda l: severity_order.get(l.level.upper(), 4))
+    sorted_logs = sorted(logs, key=lambda entry: severity_order.get(entry.level.upper(), 4))
     truncated = sorted_logs[:max_entries]
 
     lines: list[str] = []
     for entry in truncated:
         ts = entry.timestamp.isoformat() if entry.timestamp else "N/A"
-        lines.append(
-            f"[{ts}] [{entry.level}] [{entry.service}] {entry.message}"
-        )
+        lines.append(f"[{ts}] [{entry.level}] [{entry.service}] {entry.message}")
 
     return "\n".join(lines)
 
@@ -104,19 +101,19 @@ def summarize_traces(
 
     # Separate error and slow spans
     error_spans = [t for t in traces if t.status == "error"]
-    slow_spans = [
-        t for t in traces if t.status != "error" and t.duration_ms >= slow_threshold_ms
-    ]
-    other_spans = [
-        t for t in traces if t.status != "error" and t.duration_ms < slow_threshold_ms
-    ]
+    slow_spans = [t for t in traces if t.status != "error" and t.duration_ms >= slow_threshold_ms]
+    other_spans = [t for t in traces if t.status != "error" and t.duration_ms < slow_threshold_ms]
 
     prioritized = error_spans + slow_spans + other_spans
     truncated = prioritized[:max_entries]
 
     lines: list[str] = []
     for span in truncated:
-        status_mark = "❌" if span.status == "error" else ("🐢" if span.duration_ms >= slow_threshold_ms else "✓")
+        status_mark = (
+            "❌"
+            if span.status == "error"
+            else ("🐢" if span.duration_ms >= slow_threshold_ms else "✓")
+        )
         lines.append(
             f"{status_mark} [{span.service}] {span.name} "
             f"({span.duration_ms:.1f}ms, status={span.status})"
@@ -178,9 +175,7 @@ async def triage_node(state: DoctorState) -> dict[str, Any]:
 
     # 2. RAG retrieve similar historical cases
     knowledge_service = get_knowledge_service()
-    similar = await knowledge_service.search_historical_cases(
-        evidence.user_report, k=3
-    )
+    similar = await knowledge_service.search_historical_cases(evidence.user_report, k=3)
     similar_text = format_similar_cases(similar)
 
     # 3. Render the prompt
@@ -204,9 +199,7 @@ async def triage_node(state: DoctorState) -> dict[str, Any]:
         structured_llm = llm.with_structured_output(TriageOutput)
         raw_output = await structured_llm.ainvoke(prompt)
         triage_output = (
-            TriageOutput.model_validate(raw_output)
-            if isinstance(raw_output, dict)
-            else raw_output
+            TriageOutput.model_validate(raw_output) if isinstance(raw_output, dict) else raw_output
         )
 
         category = triage_output.category.strip().lower()

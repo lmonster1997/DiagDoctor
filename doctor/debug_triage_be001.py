@@ -9,9 +9,11 @@ Usage:
 This bypasses the FastAPI server and benchmark runner,
 so you can step-debug the triage logic directly.
 """
+
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import sys
 from pathlib import Path
@@ -26,9 +28,7 @@ from src.graph.state import DoctorState, Evidence, LogEntry, TraceSpan  # noqa: 
 
 def load_be001_evidence() -> Evidence:
     """Load BE-001 logs and traces from bug-factory output."""
-    evidence_dir = (
-        _doctor_dir.parent / "bug-factory" / "output" / "BE-001" / "evidence"
-    )
+    evidence_dir = _doctor_dir.parent / "bug-factory" / "output" / "BE-001" / "evidence"
 
     logs: list[LogEntry] = []
     traces: list[TraceSpan] = []
@@ -38,7 +38,7 @@ def load_be001_evidence() -> Evidence:
     if logs_path.exists():
         raw_logs = json.loads(logs_path.read_text(encoding="utf-8"))
         for item in raw_logs:
-            try:
+            with contextlib.suppress(Exception):
                 logs.append(
                     LogEntry(
                         timestamp=item["timestamp"],
@@ -47,15 +47,13 @@ def load_be001_evidence() -> Evidence:
                         message=item.get("line", ""),
                     )
                 )
-            except Exception:
-                pass
 
     # Load traces
     traces_path = evidence_dir / "traces.json"
     if traces_path.exists():
         raw_traces = json.loads(traces_path.read_text(encoding="utf-8"))
         for item in raw_traces:
-            try:
+            with contextlib.suppress(Exception):
                 traces.append(
                     TraceSpan(
                         span_id=item.get("span_id", ""),
@@ -67,8 +65,6 @@ def load_be001_evidence() -> Evidence:
                         attributes=item.get("attributes", {}),
                     )
                 )
-            except Exception:
-                pass
 
     return Evidence(
         user_report=(

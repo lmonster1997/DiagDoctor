@@ -385,7 +385,7 @@ class TriggerRunner:
             page = await browser.new_page()
 
             # ── Capture browser-side errors for FE evidence ─────────
-            def _capture_console(msg) -> None:
+            def _capture_console(msg: Any) -> None:
                 """Handler for ALL console messages — capture errors/warnings."""
                 logger.debug(
                     "Browser console message",
@@ -434,8 +434,14 @@ class TriggerRunner:
                 # ── Phase 1: Set auth token BEFORE navigating to protected page ──
                 # Navigate to login page first (always publicly accessible),
                 # set localStorage with auth token, then go to the target URL.
-                base_frontend = frontend_url.rsplit("/tasks/", 1)[0] if "/tasks/" in frontend_url else frontend_url
-                await page.goto(f"{base_frontend}/login", wait_until="domcontentloaded", timeout=15000)
+                base_frontend = (
+                    frontend_url.rsplit("/tasks/", 1)[0]
+                    if "/tasks/" in frontend_url
+                    else frontend_url
+                )
+                await page.goto(
+                    f"{base_frontend}/login", wait_until="domcontentloaded", timeout=15000
+                )
 
                 # Set auth token in localStorage so ProtectedRoute allows access.
                 token = self.session.get("token")

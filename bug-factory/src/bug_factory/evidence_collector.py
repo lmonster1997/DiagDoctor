@@ -34,7 +34,9 @@ class EvidenceCollector:
         self.loki_url = loki_url.rstrip("/")
         self.tempo_url = tempo_url.rstrip("/")
         if output_dir is None:
-            output_dir = Path(__file__).resolve().parent.parent.parent.parent / "bug-factory" / "output"
+            output_dir = (
+                Path(__file__).resolve().parent.parent.parent.parent / "bug-factory" / "output"
+            )
         self.output_dir = Path(output_dir)
         logger.info(
             "EvidenceCollector initialised",

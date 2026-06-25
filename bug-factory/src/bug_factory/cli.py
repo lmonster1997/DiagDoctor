@@ -37,6 +37,8 @@ from rich.table import Table
 if TYPE_CHECKING:
     from langchain_openai import ChatOpenAI
 
+from datetime import UTC
+
 from bug_factory.schema import (
     CollectedEvidence,
     EvaluationCase,
@@ -94,10 +96,11 @@ def _clear_loki_logs(loki_url: str) -> None:
     Uses Loki's delete API to mark logs for deletion.  Actual removal
     happens during the next compaction cycle (config: every 10 min).
     """
-    import requests as _requests
-    from datetime import datetime, timedelta, timezone as _timezone
+    from datetime import datetime, timedelta
 
-    now = datetime.now(_timezone.utc)
+    import requests as _requests
+
+    now = datetime.now(UTC)
     start = "2024-01-01T00:00:00Z"
     end = (now + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
     delete_url = loki_url.rstrip("/") + "/loki/api/v1/delete"
@@ -115,7 +118,9 @@ def _clear_loki_logs(loki_url: str) -> None:
         if resp.status_code in (204, 200):
             console.print("[dim]   ↳ Cleared old demo-backend logs from Loki[/]")
         else:
-            console.print(f"[yellow]   ⚠ Loki clear returned {resp.status_code}: {resp.text[:200]}[/]")
+            console.print(
+                f"[yellow]   ⚠ Loki clear returned {resp.status_code}: {resp.text[:200]}[/]"
+            )
     except Exception as exc:
         console.print(f"[yellow]   ⚠ Loki clear failed (non-fatal): {exc}[/]")
 
@@ -548,7 +553,8 @@ def full(
             if not trigger_result.success:
                 if trigger_result.browser_errors:
                     console.print(
-                        "[yellow]⚠ Trigger had failures, but browser errors were captured. Continuing...[/]"
+                        "[yellow]⚠ Trigger had failures, but browser errors were"
+                        " captured. Continuing...[/]"
                     )
                 else:
                     raise click.ClickException(f"Trigger failed: {trigger_result.error}")
@@ -560,9 +566,9 @@ def full(
         console.print("\n[bold cyan]── Step 3/4: Collecting evidence ──[/]")
         # Wait for OTel trace pipeline flush:
         #   demo-backend BatchSpanProcessor (≤5 s) → Collector batch (5 s) → Tempo index (2-5 s)
-        _TRACE_FLUSH_SECONDS = 15
-        console.print(f"[dim]   ↳ Waiting {_TRACE_FLUSH_SECONDS}s for trace pipeline to flush...[/]")
-        await asyncio.sleep(_TRACE_FLUSH_SECONDS)
+        trace_flush_seconds = 15
+        console.print(f"[dim]   ↳ Waiting {trace_flush_seconds}s for trace pipeline to flush...[/]")
+        await asyncio.sleep(trace_flush_seconds)
         collector = EvidenceCollector(loki_url=loki, tempo_url=tempo)
         evidence = await collector.collect(
             recipe_id=recipe.id,
@@ -578,6 +584,7 @@ def full(
             )
             # ── Re-save evidence with browser_errors to disk ─────
             import json
+
             evidence_dir = _WORKSPACE_ROOT / "bug-factory" / "output" / recipe.id / "evidence"
             evidence_dir.mkdir(parents=True, exist_ok=True)
             (evidence_dir / "browser_errors.json").write_text(
@@ -771,8 +778,8 @@ def full_all(
 
             # Step 3: Collect evidence
             # Wait for OTel trace pipeline flush
-            _TRACE_FLUSH_SECONDS = 15
-            await asyncio.sleep(_TRACE_FLUSH_SECONDS)
+            trace_flush_seconds = 15
+            await asyncio.sleep(trace_flush_seconds)
             collector = EvidenceCollector(loki_url=loki, tempo_url=tempo)
             evidence = await collector.collect(
                 recipe_id=recipe.id,

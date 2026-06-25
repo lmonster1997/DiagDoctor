@@ -19,9 +19,7 @@ from bug_factory.schema import EvaluationCase
 logger = structlog.get_logger(__name__)
 
 # Default directory where evaluation case YAML files live.
-_DEFAULT_CASES_DIR = (
-    Path(__file__).resolve().parent.parent.parent.parent / "bug-factory" / "output"
-)
+_DEFAULT_CASES_DIR = Path(__file__).resolve().parent.parent.parent.parent / "bug-factory" / "output"
 
 
 def _parse_case_yaml(path: Path) -> EvaluationCase:
