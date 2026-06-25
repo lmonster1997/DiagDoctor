@@ -149,8 +149,22 @@ def setup_loki_logging(service_name: str = "demo-backend") -> None:
 
 
 def instrument_fastapi(app: FastAPI) -> None:
-    """Instrument a FastAPI app for OpenTelemetry tracing."""
-    FastAPIInstrumentor.instrument_app(app)
+    """Instrument a FastAPI app for OpenTelemetry tracing.
+
+    Includes a ``response_hook`` that marks spans as ERROR when the
+    HTTP status code is ≥ 500.  This ensures Tempo traces show the
+    correct status even when ``@app.exception_handler`` catches the
+    exception before the OTel middleware sees it.
+    """
+    from opentelemetry.trace import Status, StatusCode
+
+    def _response_hook(span: object, request: object, response: object) -> None:
+        """Set span status to ERROR on 5xx responses."""
+        status_code = getattr(response, "status_code", 0)
+        if status_code >= 500:
+            span.set_status(Status(StatusCode.ERROR))  # type: ignore[arg-type]
+
+    FastAPIInstrumentor.instrument_app(app, response_hook=_response_hook)
 
 
 def instrument_sqlalchemy() -> None:

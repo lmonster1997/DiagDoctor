@@ -1,10 +1,4 @@
-"""
-FastAPI application entry point for TaskFlow backend.
-
-Usage:
-    uv run uvicorn app.main:app --reload
-"""
-
+import json
 import logging
 import traceback
 from collections.abc import AsyncGenerator
@@ -23,9 +17,6 @@ from app.observability import init_observability, instrument_fastapi, setup_loki
 init_observability()
 
 logger = structlog.get_logger(__name__)
-
-# Standard logging logger — used for Loki bridge (setup_loki_logging hooks into
-# the ``logging`` module, NOT structlog).  Structlog output goes to stdout only.
 log = logging.getLogger(__name__)
 
 # --- Bridge Python logging → Loki for structured diagnostics ---
@@ -62,24 +53,12 @@ instrument_fastapi(app)
 
 
 # ── Global exception handler ──────────────────────────────────────────
-# Catches unhandled exceptions (IntegrityError, etc.) and logs a
-# structured ``unhandled_exception`` event that the evidence collector
-# and Doctor agent can search for in Loki / Tempo.
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Log structured error and return 500 for any unhandled exception.
-
-    Logs to **both** structlog (stdout / human-readable) and Python standard
-    ``logging`` (which the Loki bridge forwards to Loki).  This ensures the
-    ``unhandled_exception`` event is queryable in Loki by the evidence
-    collector and Doctor agent.
-    """
-    import json
-
+    """Log structured error and return 500 for any unhandled exception."""
     tb = traceback.format_exc()
 
-    # Structlog → stdout / console (first positional arg = event message;
-    # do NOT add a duplicate ``event=`` kwarg — that causes TypeError).
+    # Structlog → stdout (first positional arg = event message)
     logger.error(
         "unhandled_exception",
         exc_type=type(exc).__name__,
@@ -89,8 +68,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         traceback=tb,
     )
 
-    # Standard logging → Loki (format as JSON string since the Loki handler
-    # uses ``Formatter("%(message)s")`` which only captures the msg arg).
+    # Standard logging → Loki (JSON string)
     log.error(
         json.dumps(
             {
