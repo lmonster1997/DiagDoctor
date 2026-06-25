@@ -5,6 +5,7 @@ Usage:
     uv run uvicorn app.main:app --reload
 """
 
+import logging
 import traceback
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -22,6 +23,10 @@ from app.observability import init_observability, instrument_fastapi, setup_loki
 init_observability()
 
 logger = structlog.get_logger(__name__)
+
+# Standard logging logger — used for Loki bridge (setup_loki_logging hooks into
+# the ``logging`` module, NOT structlog).  Structlog output goes to stdout only.
+log = logging.getLogger(__name__)
 
 # --- Bridge Python logging → Loki for structured diagnostics ---
 try:
@@ -62,16 +67,29 @@ instrument_fastapi(app)
 # and Doctor agent can search for in Loki / Tempo.
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Log structured error and return 500 for any unhandled exception."""
-    logger.error(
-        "unhandled_exception",
-        event="unhandled_exception",
-        exc_type=type(exc).__name__,
-        exc_message=str(exc),
-        path=request.url.path,
-        method=request.method,
-        traceback=traceback.format_exc(),
-    )
+    """Log structured error and return 500 for any unhandled exception.
+
+    Logs to **both** structlog (stdout / human-readable) and Python standard
+    ``logging`` (which the Loki bridge forwards to Loki).  This ensures the
+    ``unhandled_exception`` event is queryable in Loki by the evidence
+    collector and Doctor agent.
+    """
+    tb = traceback.format_exc()
+    error_detail = {
+        "event": "unhandled_exception",
+        "exc_type": type(exc).__name__,
+        "exc_message": str(exc),
+        "path": request.url.path,
+        "method": request.method,
+        "traceback": tb,
+    }
+
+    # Structlog → stdout / console
+    logger.error("unhandled_exception", **error_detail)
+
+    # Standard logging → Loki (via setup_loki_logging bridge)
+    log.error("unhandled_exception", extra=error_detail)
+
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"},
