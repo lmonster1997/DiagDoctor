@@ -78,9 +78,14 @@ def setup_loki_logging(service_name: str = "demo-backend") -> None:
 
     Uses a lightweight custom handler that sends log records to Loki
     directly, bypassing the OTel Collector for logs (which is focused on traces).
+
+    The Loki URL can be overridden via the ``LOKI_URL`` environment variable
+    (defaults to ``http://localhost:3100`` for local dev outside Docker;
+    use ``http://loki:3100`` when running inside Docker Compose).
     """
     import atexit
     import logging
+    import os
     import queue
     import threading
     import time
@@ -88,7 +93,7 @@ def setup_loki_logging(service_name: str = "demo-backend") -> None:
 
     import requests
 
-    loki_url = "http://loki:3100/loki/api/v1/push"
+    loki_url = os.getenv("LOKI_URL", "http://localhost:3100").rstrip("/") + "/loki/api/v1/push"
     _log_queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=10000)
     _shutdown = threading.Event()
 

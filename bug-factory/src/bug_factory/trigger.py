@@ -308,6 +308,8 @@ class TriggerRunner:
             body (dict): JSON request body.
             query (dict): Query string parameters.
             repeat (int): Repeat the call *repeat* times (for load generation).
+            expected_status (list[int]): HTTP statuses that are treated as
+                success rather than failure (e.g. [500] for expected 500s).
 
         Template variables like ``{project_id}`` or ``{task_id}`` in *path*
         and *body* are resolved from session state before each request.
@@ -317,6 +319,7 @@ class TriggerRunner:
         body_template = params.get("body")
         query = params.get("query")
         repeat = max(1, int(params.get("repeat", 1)))
+        expected_status: set[int] = set(params.get("expected_status", []))
 
         result: dict[str, Any] | None = None
 
@@ -330,6 +333,7 @@ class TriggerRunner:
                 json_data=body,
                 params=query,
                 auth_required=True,
+                expected_status=expected_status,
             )
 
         return result
@@ -546,6 +550,7 @@ class TriggerRunner:
         json_data: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
         auth_required: bool = True,
+        expected_status: set[int] | None = None,
     ) -> dict[str, Any] | None:
         """Make an HTTP request to the demo-app backend.
 
@@ -555,12 +560,15 @@ class TriggerRunner:
             json_data: Optional JSON body.
             params: Optional query string parameters.
             auth_required: If True, inject the Bearer token from session.
+            expected_status: HTTP statuses that are treated as success
+                (e.g. ``{500}`` for an expected IntegrityError).
 
         Returns:
             Parsed JSON response, or None for 204 No Content.
 
         Raises:
-            TriggerError: On non-2xx status or network failure.
+            TriggerError: On non-2xx status (unless in *expected_status*)
+                or network failure.
         """
         url = f"{self.base_url}{path if path.startswith('/') else '/' + path}"
         headers: dict[str, str] = {}
@@ -584,11 +592,14 @@ class TriggerRunner:
                     params=params,
                     headers=headers,
                 ) as resp:
-                    if 200 <= resp.status < 300:
+                    accept = expected_status or set()
+                    if 200 <= resp.status < 300 or resp.status in accept:
                         if resp.status == 204 or resp.content_type == "":
-                            return None
+                            return {"status": resp.status}
                         try:
                             result: dict[str, Any] = await resp.json()
+                            # Include the status code so callers can inspect it.
+                            result["_status"] = resp.status
                             return result
                         except Exception:
                             return {"status": resp.status, "body": await resp.text()}
