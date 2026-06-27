@@ -29,6 +29,38 @@ def _short_id() -> str:
     return uuid.uuid4().hex[:8]
 
 
+def _get_service_name(item: dict[str, Any]) -> str:
+    """Extract service_name, checking top-level first, then labels."""
+    svc = str(item.get("service_name", item.get("service", "")))
+    if svc:
+        return svc
+    labels = item.get("labels")
+    if isinstance(labels, dict):
+        svc = str(labels.get("service_name", labels.get("service", "")))
+        if svc:
+            return svc
+    return ""
+
+
+def _get_level(item: dict[str, Any]) -> str:
+    """Extract log level, checking top-level first, then labels.detected_level."""
+    lvl = str(item.get("level", ""))
+    if lvl:
+        return lvl
+    labels = item.get("labels")
+    if isinstance(labels, dict):
+        lvl = str(labels.get("detected_level", labels.get("level", "")))
+        if lvl:
+            return lvl
+    return "INFO"
+
+
+def _get_span_name(span: dict[str, Any]) -> str:
+    """Extract span name, checking 'name' first, then 'operation_name'."""
+    name = str(span.get("name", span.get("operation_name", "")))
+    return name or "unknown"
+
+
 def extract_golden_signals(
     logs: list[dict[str, Any]],
     traces: list[dict[str, Any]],
@@ -56,10 +88,12 @@ def extract_golden_signals(
 
     # --- From logs ---
     for log in logs:
-        level = str(log.get("level", "INFO")).upper()
+        level = _get_level(log).upper()
         if level in ("ERROR", "WARNING"):
-            service_name = str(log.get("service_name", log.get("service", "")))
+            service_name = _get_service_name(log)
             tier: str = "frontend" if "frontend" in service_name.lower() else "backend"
+            # Use 'line' field as fallback for 'message' (Loki format)
+            log_content = str(log.get("message", log.get("line", "")))
             signals.append(
                 Signal(
                     signal_id=f"sig-log-{_short_id()}",
@@ -67,7 +101,7 @@ def extract_golden_signals(
                     signal_type="error_log",
                     service_tier=tier,  # type: ignore[arg-type]
                     severity="error" if level == "ERROR" else "warning",
-                    summary=str(log.get("message", ""))[:300],
+                    summary=log_content[:300],
                     evidence_ref=str(log.get("_ref", "")),
                     timestamp=log.get("timestamp", ""),
                     metadata={"level": level, "service": service_name},
@@ -89,11 +123,11 @@ def extract_golden_signals(
                     signal_type="error_span",
                     service_tier=span_tier,  # type: ignore[arg-type]
                     severity="error",
-                    summary=f"Error span: {span.get('name', 'unknown')} ({duration:.1f}ms)",
+                    summary=f"Error span: {_get_span_name(span)} ({duration:.1f}ms)",
                     evidence_ref=str(span.get("span_id", "")),
-                    timestamp=span.get("start", ""),
+                    timestamp=span.get("start", span.get("start_time", "")),
                     metadata={
-                        "span_name": span.get("name", ""),
+                        "span_name": _get_span_name(span),
                         "duration_ms": duration,
                         "service": service_name,
                     },
@@ -101,7 +135,8 @@ def extract_golden_signals(
             )
         elif duration >= slow_threshold_ms:
             db_stmt = str(span.get("db_statement", ""))
-            summary = f"Slow span: {span.get('name', 'unknown')} ({duration:.1f}ms)"
+            span_name = _get_span_name(span)
+            summary = f"Slow span: {span_name} ({duration:.1f}ms)"
             if db_stmt:
                 summary += f" | SQL: {db_stmt[:200]}"
             signals.append(
@@ -113,9 +148,9 @@ def extract_golden_signals(
                     severity="warning",
                     summary=summary,
                     evidence_ref=str(span.get("span_id", "")),
-                    timestamp=span.get("start", ""),
+                    timestamp=span.get("start", span.get("start_time", "")),
                     metadata={
-                        "span_name": span.get("name", ""),
+                        "span_name": span_name,
                         "duration_ms": duration,
                         "service": service_name,
                         "db_statement": db_stmt,

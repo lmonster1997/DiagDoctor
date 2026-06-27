@@ -43,7 +43,7 @@ jobs:
           (cd doctor       && uv run mypy --strict src)
           (cd bug-factory  && uv run mypy --strict src)
           (cd benchmark    && uv run mypy --strict src)
-          uv run mypy --strict demo-app/backend/app
+          (cd demo-app/backend && uv run mypy --strict app)
         shell: bash
 
       - name: Run tests

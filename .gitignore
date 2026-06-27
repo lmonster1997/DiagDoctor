@@ -21,6 +21,9 @@ docs/
 .env
 doctor/data/
 
+# Structured KB SQLite (auto-generated at runtime)
+data/
+
 # Infra runtime data
 infra/tempo/data/
 infra/loki/data/

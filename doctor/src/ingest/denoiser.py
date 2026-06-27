@@ -65,7 +65,13 @@ def denoise_logs(
     preserved: list[dict[str, Any]] = []
 
     for log in logs:
-        service_name = str(log.get("service_name", log.get("service", ""))).lower()
+        # Check top-level first, then labels.service_name (Loki format)
+        svc_raw = str(log.get("service_name", log.get("service", "")))
+        if not svc_raw:
+            labels = log.get("labels")
+            if isinstance(labels, dict):
+                svc_raw = str(labels.get("service_name", labels.get("service", "")))
+        service_name = svc_raw.lower()
 
         # Always protect frontend logs (sparse, critical for debugging)
         is_frontend = "frontend" in service_name or service_name.startswith("demo-frontend")

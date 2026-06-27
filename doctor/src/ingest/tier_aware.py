@@ -12,6 +12,32 @@ from __future__ import annotations
 from typing import Any
 
 
+def _get_service_name(item: dict[str, Any]) -> str:
+    """Extract service_name from item, checking top-level first, then labels."""
+    svc = str(item.get("service_name", item.get("service", "")))
+    if svc:
+        return svc
+    labels = item.get("labels")
+    if isinstance(labels, dict):
+        svc = str(labels.get("service_name", labels.get("service", "")))
+        if svc:
+            return svc
+    return ""
+
+
+def _get_trace_id(item: dict[str, Any]) -> str:
+    """Extract trace_id from item, checking top-level first, then labels."""
+    tid = str(item.get("trace_id", ""))
+    if tid:
+        return tid
+    labels = item.get("labels")
+    if isinstance(labels, dict):
+        tid = str(labels.get("trace_id", ""))
+        if tid:
+            return tid
+    return ""
+
+
 def derive_service_tier(
     service_name: str,
     span_name: str = "",
@@ -66,18 +92,36 @@ def mark_tiers(
     Returns:
         Tuple of (marked_logs, marked_traces).
     """
-    # Mark logs
+    # Mark logs (check top-level + labels.service_name)
     for log in logs:
-        svc = str(log.get("service_name", log.get("service", "")))
+        svc = _get_service_name(log)
         log["_tier"] = derive_service_tier(svc)
         log["service_tier"] = log["_tier"]
+        # Normalise: ensure top-level service_name is populated for downstream
+        if not log.get("service_name"):
+            log["service_name"] = svc
+        # Set _ref for correlation (prefer trace_id from labels or body)
+        if not log.get("_ref"):
+            tid = _get_trace_id(log)
+            if tid:
+                log["_ref"] = tid
 
-    # Mark traces
+    # Mark traces (check top-level + labels, use operation_name fallback for name)
     for span in traces:
-        svc = str(span.get("service_name", span.get("service", "")))
-        name = str(span.get("name", ""))
+        svc = _get_service_name(span)
+        name = str(span.get("name", span.get("operation_name", "")))
         span["_tier"] = derive_service_tier(svc, name)
         span["service_tier"] = span["_tier"]
+        # Normalise: ensure top-level fields are populated for downstream consumers
+        if not span.get("service_name"):
+            span["service_name"] = svc
+        if not span.get("name") and span.get("operation_name"):
+            span["name"] = span["operation_name"]
+        # Set _ref for correlation
+        if not span.get("_ref"):
+            tid = _get_trace_id(span)
+            if tid:
+                span["_ref"] = tid
 
     # Mark browser errors (always frontend)
     for err in browser_errors or []:

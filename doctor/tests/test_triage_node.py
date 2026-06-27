@@ -232,6 +232,130 @@ class TestRouteAfterTriage:
         targets = route_after_triage(state)
         assert targets == ["general_agent"]
 
+    # ── Cross-layer enforcement edge cases (D21 fix) ──────────────
+
+    def test_cross_layer_forces_backend_when_second_is_data(self) -> None:
+        """
+        FE-020 场景：跨层疑似 True，primary=frontend_crash，第二高是 data(0.55)
+        映射到 logic_specialist。cross_layer 修正必须强制补上 backend_specialist。
+
+        修复前 bug：扇出 [frontend_specialist, logic_specialist]，缺 backend_specialist。
+        修复后：扇出 [frontend_specialist, logic_specialist, backend_specialist]。
+        """
+        state = DoctorState(
+            triage=TriageOutput(
+                scores=[
+                    CategoryScore(category="frontend_crash", confidence=0.95),
+                    CategoryScore(category="data", confidence=0.55),
+                    CategoryScore(category="backend_error", confidence=0.30),
+                ],
+                primary="frontend_crash",
+                reasoning="白屏 + 后端缺字段，data 问题置信度高于 backend_error",
+                cross_layer_suspected=True,
+            )
+        )
+        targets = route_after_triage(state)
+        assert "frontend_specialist" in targets
+        assert "logic_specialist" in targets  # second: data → logic_specialist
+        assert "backend_specialist" in targets  # ★ cross-layer 强制补位
+        # Order preserved: primary first, then second, then forced
+        assert targets[0] == "frontend_specialist"
+
+    def test_cross_layer_forces_frontend_when_primary_is_backend(self) -> None:
+        """
+        反向跨层：primary=backend_error，cross_layer_suspected=True 但第二高是
+        performance（映射到 perf_specialist）。应强制补 frontend_specialist。
+        """
+        state = DoctorState(
+            triage=TriageOutput(
+                scores=[
+                    CategoryScore(category="backend_error", confidence=0.88),
+                    CategoryScore(category="performance", confidence=0.50),
+                ],
+                primary="backend_error",
+                reasoning="后端超时 + 前端感知慢，需排查前端异步调用逻辑",
+                cross_layer_suspected=True,
+            )
+        )
+        targets = route_after_triage(state)
+        assert "backend_specialist" in targets
+        assert "perf_specialist" in targets
+        assert "frontend_specialist" in targets  # ★ cross-layer 强制补位
+
+    def test_cross_layer_no_second_but_forces_opposite_tier(self) -> None:
+        """
+        跨层但只有一个类别（只有 frontend_crash）。第二名为 None 时，
+        cross_layer 应直接补 backend_specialist（走 elif 分支）。
+        """
+        state = DoctorState(
+            triage=TriageOutput(
+                scores=[CategoryScore(category="frontend_crash", confidence=0.92)],
+                primary="frontend_crash",
+                reasoning="前端报错，疑似后端返回异常数据",
+                cross_layer_suspected=True,
+            )
+        )
+        targets = route_after_triage(state)
+        assert targets == ["frontend_specialist", "backend_specialist"]
+
+    def test_no_cross_layer_no_fan_out_single_target(self) -> None:
+        """非跨层、无第二高置信度 → 只走单个 specialist。"""
+        state = DoctorState(
+            triage=TriageOutput(
+                scores=[CategoryScore(category="performance", confidence=0.95)],
+                primary="performance",
+                cross_layer_suspected=False,
+            )
+        )
+        targets = route_after_triage(state)
+        assert targets == ["perf_specialist"]
+
+    def test_second_confidence_above_04_triggers_fan_out(self) -> None:
+        """第二高置信度 > 0.4 且非跨层 → 扇出两个 specialist。"""
+        state = DoctorState(
+            triage=TriageOutput(
+                scores=[
+                    CategoryScore(category="performance", confidence=0.85),
+                    CategoryScore(category="backend_error", confidence=0.45),
+                ],
+                primary="performance",
+                cross_layer_suspected=False,
+            )
+        )
+        targets = route_after_triage(state)
+        assert "perf_specialist" in targets
+        assert "backend_specialist" in targets
+        assert len(targets) == 2
+
+    def test_dedup_when_second_maps_same_specialist(self) -> None:
+        """第二高类别映射到同一个 specialist 时不应重复。"""
+        state = DoctorState(
+            triage=TriageOutput(
+                scores=[
+                    CategoryScore(category="backend_error", confidence=0.90),
+                    CategoryScore(category="config", confidence=0.60),
+                ],
+                primary="backend_error",
+                cross_layer_suspected=False,
+            )
+        )
+        targets = route_after_triage(state)
+        # config → backend_specialist, same as primary → dedup to 1
+        assert targets == ["backend_specialist"]
+
+    def test_exact_boundary_confidence_05(self) -> None:
+        """Primary confidence == 0.5 应通过门控（>= 0.5），不走 general_agent。"""
+        state = DoctorState(
+            triage=TriageOutput(
+                scores=[CategoryScore(category="logic", confidence=0.5)],
+                primary="logic",
+                cross_layer_suspected=False,
+            )
+        )
+        targets = route_after_triage(state)
+        assert targets == ["logic_specialist"]
+        assert "general_agent" not in targets
+
 
 # ── triage_node integration tests ───────────────────────────────────
 
@@ -389,6 +513,130 @@ class TestTriageNode:
             result = await triage_node(minimal_state)
 
         assert result["triage"].primary == "backend_error"
+
+    # ── Mock 归一化证据 → 多标签输出（D21 验收核心）──────────────
+
+    @pytest.mark.asyncio
+    async def test_multi_label_output_from_frontend_backend_signals(
+        self, minimal_state: DoctorState
+    ) -> None:
+        """
+        Mock 归一化证据含前端 client_error + 后端关联信号 →
+        验证 triage_node 输出多标签 scores + cross_layer_suspected=True。
+        """
+        mock_llm = MagicMock()
+        mock_llm.with_structured_output.return_value.ainvoke = AsyncMock(
+            return_value={
+                "scores": [
+                    {"category": "frontend_crash", "confidence": 0.93},
+                    {"category": "backend_error", "confidence": 0.35},
+                    {"category": "data", "confidence": 0.55},
+                ],
+                "primary": "frontend_crash",
+                "reasoning": "前端白屏 + 后端 API 缺字段",
+                "cross_layer_suspected": True,
+            }
+        )
+
+        with (
+            patch("src.graph.nodes.triage.ChatOpenAI", return_value=mock_llm),
+            patch(
+                "src.graph.nodes.triage.get_knowledge_service",
+                return_value=MagicMock(
+                    search_historical_cases=AsyncMock(return_value=[]),
+                ),
+            ),
+        ):
+            result = await triage_node(minimal_state)
+
+        triage_output: TriageOutput = result["triage"]
+        assert triage_output.cross_layer_suspected is True
+        assert len(triage_output.scores) >= 2  # 多标签输出
+        # primary 必须是最高置信度
+        top_score = max(triage_output.scores, key=lambda s: s.confidence)
+        assert triage_output.primary == top_score.category
+        # 所有 score 的 category 必须在 VALID_CATEGORIES 中
+        for s in triage_output.scores:
+            assert s.category in VALID_CATEGORIES
+
+    @pytest.mark.asyncio
+    async def test_multi_label_preserves_confidence_sorting(
+        self, minimal_state: DoctorState
+    ) -> None:
+        """
+        验证 triage_node 保留 LLM 返回的所有类别 scores（不截断、不重排）。
+        """
+        mock_llm = MagicMock()
+        mock_llm.with_structured_output.return_value.ainvoke = AsyncMock(
+            return_value={
+                "scores": [
+                    {"category": "performance", "confidence": 0.95},
+                    {"category": "logic", "confidence": 0.50},
+                    {"category": "data", "confidence": 0.40},
+                ],
+                "primary": "performance",
+                "reasoning": "3 个潜在类别均有信号",
+                "cross_layer_suspected": False,
+            }
+        )
+
+        with (
+            patch("src.graph.nodes.triage.ChatOpenAI", return_value=mock_llm),
+            patch(
+                "src.graph.nodes.triage.get_knowledge_service",
+                return_value=MagicMock(
+                    search_historical_cases=AsyncMock(return_value=[]),
+                ),
+            ),
+        ):
+            result = await triage_node(minimal_state)
+
+        triage_output: TriageOutput = result["triage"]
+        assert len(triage_output.scores) == 3
+        # 验证门控：primary=0.95 ≥ 0.5 → 不走 general_agent
+        state_after = DoctorState(
+            evidence=minimal_state.evidence,
+            triage=triage_output,
+        )
+        targets = route_after_triage(state_after)
+        assert "general_agent" not in targets
+
+    @pytest.mark.asyncio
+    async def test_triage_node_receives_normalized_signals(
+        self, minimal_state: DoctorState
+    ) -> None:
+        """
+        验证 triage_node 使用的是归一化后的 golden_signals + correlations，
+        而非原始 raw 数据。
+        """
+        # 确认 populated_evidence 含 golden_signals 和 correlations
+        evidence = minimal_state.evidence
+        assert len(evidence.golden_signals) >= 1
+        assert len(evidence.correlations) >= 1
+
+        mock_llm = MagicMock()
+        mock_llm.with_structured_output.return_value.ainvoke = AsyncMock(
+            return_value={
+                "scores": [{"category": "performance", "confidence": 0.85}],
+                "primary": "performance",
+                "reasoning": "慢查询信号明确",
+                "cross_layer_suspected": False,
+            }
+        )
+
+        with (
+            patch("src.graph.nodes.triage.ChatOpenAI", return_value=mock_llm),
+            patch(
+                "src.graph.nodes.triage.get_knowledge_service",
+                return_value=MagicMock(
+                    search_historical_cases=AsyncMock(return_value=[]),
+                ),
+            ),
+        ):
+            result = await triage_node(minimal_state)
+
+        assert "triage" in result
+        assert result["triage"].primary in VALID_CATEGORIES
 
 
 class TestTriageOutputModel:

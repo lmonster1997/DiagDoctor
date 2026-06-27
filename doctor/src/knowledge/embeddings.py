@@ -11,7 +11,6 @@ Provides a unified factory: get_embeddings() -> Embeddings.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from langchain_core.embeddings import Embeddings
 
@@ -22,29 +21,72 @@ logger = logging.getLogger(__name__)
 _embeddings_cache: Embeddings | None = None
 
 
-def _create_openai_embeddings() -> Embeddings:
-    """Create OpenAI-compatible embeddings from config."""
-    from langchain_openai import OpenAIEmbeddings
+class _DashScopeEmbeddings(Embeddings):
+    """Minimal OpenAI-compatible embeddings wrapper.
 
+    Uses the raw ``openai`` client directly, bypassing LangChain's
+    ``OpenAIEmbeddings`` tokenization layer.  LangChain tokenizes text
+    into token-IDs before sending (e.g. ``[[15339]]``), which DashScope's
+    compatible API rejects with ``InvalidParameter: input.contents``.
+
+    This class sends plain text strings, matching exactly what the
+    vanilla ``openai`` client does.
+    """
+
+    def __init__(self, model: str, api_key: str, base_url: str) -> None:
+        import httpx
+
+        self._model = model
+        self._api_key = api_key
+        self._base_url = base_url.rstrip("/")
+        self._client = httpx.Client(
+            timeout=httpx.Timeout(30.0),
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Embed a list of documents."""
+        result: list[list[float]] = []
+        for i in range(0, len(texts), 20):  # batch ≤ 20
+            batch = texts[i : i + 20]
+            resp = self._client.post(
+                f"{self._base_url}/embeddings",
+                json={"model": self._model, "input": batch},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            result.extend(item["embedding"] for item in data["data"])
+        return result
+
+    def embed_query(self, text: str) -> list[float]:
+        """Embed a single query."""
+        return self.embed_documents([text])[0]
+
+
+def _create_openai_embeddings() -> Embeddings:
+    """Create OpenAI-compatible embeddings from config.
+
+    Uses the lightweight :class:`_DashScopeEmbeddings` wrapper that sends
+    plain text instead of token-IDs, so it works with DashScope and any
+    other OpenAI-compatible provider that expects raw strings.
+    """
     base_url = settings.embedding_base_url or settings.llm_base_url
     api_key = settings.llm_api_key.get_secret_value() if settings.llm_api_key else ""
 
     logger.info(
-        "Using OpenAI-compatible embeddings: model=%s, base_url=%s",
+        "Using DashScope-compatible embeddings: model=%s, base_url=%s",
         settings.embedding_model,
         base_url,
     )
 
-    kwargs: dict[str, Any] = {
-        "model": settings.embedding_model,
-        "openai_api_key": api_key,
-    }
-    if settings.embedding_base_url:
-        kwargs["openai_api_base"] = settings.embedding_base_url
-    else:
-        kwargs["openai_api_base"] = settings.llm_base_url
-
-    return OpenAIEmbeddings(**kwargs)
+    return _DashScopeEmbeddings(
+        model=settings.embedding_model,
+        api_key=api_key,
+        base_url=base_url,
+    )
 
 
 def _create_local_embeddings() -> Embeddings:

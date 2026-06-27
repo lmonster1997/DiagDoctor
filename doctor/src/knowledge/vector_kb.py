@@ -13,14 +13,14 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
-from qdrant_client.http.exceptions import ResponseHandlingException
+from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 from qdrant_client.http.models import Distance, VectorParams
 
 logger = logging.getLogger(__name__)
 
-# Default vector size for OpenAI text-embedding-3-small = 1536
-# bge-m3 = 1024. Use 1536 as safe default; Qdrant infers from first insert anyway.
-DEFAULT_VECTOR_SIZE = 1536
+# Default vector size for DashScope text-embedding-v3 = 1024
+# OpenAI text-embedding-3-small = 1536; bge-m3 = 1024.
+DEFAULT_VECTOR_SIZE = 1024
 DEFAULT_DISTANCE = Distance.COSINE
 
 
@@ -190,7 +190,7 @@ class VectorKnowledgeBase:
         try:
             self._client.get_collection(name)
             logger.debug("Collection '%s' already exists", name)
-        except (ResponseHandlingException, ValueError):
+        except (ResponseHandlingException, UnexpectedResponse, ValueError):
             self._client.create_collection(
                 collection_name=name,
                 vectors_config=VectorParams(

@@ -13,15 +13,68 @@
  */
 
 import { WebTracerProvider, BatchSpanProcessor } from "@opentelemetry/sdk-trace-web";
+import type { SpanProcessor, Span } from "@opentelemetry/sdk-trace-web";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { ZoneContextManager } from "@opentelemetry/context-zone";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
-import { trace } from "@opentelemetry/api";
 
 // ── Trace exporter ──────────────────────────────────────────────────
 
 const TRACE_EXPORTER_URL = "http://localhost:4318/v1/traces";
+
+/** Global reference to the BatchSpanProcessor so error handlers can force-flush. */
+let _batchProcessor: BatchSpanProcessor | null = null;
+
+/**
+ * Force-flush pending OTel spans immediately.
+ *
+ * Call this after creating a ``client_error`` span so it is exported
+ * to the collector before the page potentially refreshes or the
+ * Playwright trigger moves on.
+ */
+export async function forceFlushOtel(): Promise<void> {
+  if (_batchProcessor) {
+    await _batchProcessor.forceFlush();
+  }
+}
+
+/**
+ * SpanProcessor that captures the last-known trace_id / span_id on
+ * every span start so that error reporters can link client_error spans
+ * to the originating API call even after the fetch span has ended.
+ */
+class LastTraceIdProcessor implements SpanProcessor {
+  private _win: Record<string, unknown>;
+
+  constructor(win: Record<string, unknown>) {
+    this._win = win;
+    win.__otelLastTraceId = "";
+    win.__otelLastSpanId = "";
+  }
+
+  forceFlush(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  shutdown(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  onStart(span: Span, _parentContext: import("@opentelemetry/api").Context): void {
+    try {
+      const ctx = span.spanContext();
+      this._win.__otelLastTraceId = ctx.traceId;
+      this._win.__otelLastSpanId = ctx.spanId;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  onEnd(_span: Span): void {
+    /* noop */
+  }
+}
 
 /**
  * Initialise the OTel WebTracerProvider and register it globally.
@@ -33,39 +86,36 @@ export function initOtel(): void {
     url: TRACE_EXPORTER_URL,
   });
 
-  // ── Expose last-known trace_id for Playwright E2E capture ──
-  // When React ErrorBoundary fires, the fetch span may already be ended,
-  // so trace.getActiveSpan() returns null.  This fallback lets the
-  // Playwright trigger (page.evaluate) read the last trace_id seen by
-  // any instrumentation, preserving the cross-tier link for bug-factory
-  // evidence collection (see from-scratch §13.1.2 / §13.1.4).
   const win = window as unknown as Record<string, unknown>;
   win.__otelLastTraceId = "";
   win.__otelLastSpanId = "";
 
-  // Custom processor: update __otelLastTraceId / __otelLastSpanId on every span start.
-  const _traceIdUpdater = {
-    forceFlush: () => Promise.resolve(),
-    shutdown: () => Promise.resolve(),
-    onStart(span: { spanContext: () => { traceId: string; spanId: string } }) {
-      try {
-        const ctx = span.spanContext();
-        win.__otelLastTraceId = ctx.traceId;
-        win.__otelLastSpanId = ctx.spanId;
-      } catch { /* ignore */ }
-    },
-    onEnd() { /* noop */ },
-  };
+  _batchProcessor = new BatchSpanProcessor(exporter, {
+    // Reduce the batch delay so client_error spans are exported quickly.
+    // Default is 5000ms; 1500ms gives enough time for batching without
+    // losing spans before the Playwright trigger moves on.
+    scheduledDelayMillis: 1500,
+    // Reduce max export batch size so rare spans (errors) flush sooner.
+    maxExportBatchSize: 64,
+  });
 
   const provider = new WebTracerProvider({
     resource: resourceFromAttributes({
       [ATTR_SERVICE_NAME]: "demo-frontend",
     }),
-    spanProcessors: [_traceIdUpdater, new BatchSpanProcessor(exporter)],
+    spanProcessors: [new LastTraceIdProcessor(win), _batchProcessor],
   });
+
+  // Expose for global access (force-flush from error handlers).
+  win.__otelForceFlush = () => forceFlushOtel();
 
   provider.register({
     contextManager: new ZoneContextManager(),
+  });
+
+  // ── Flush pending spans on page unload ───────────────────────
+  window.addEventListener("beforeunload", () => {
+    _batchProcessor?.forceFlush().catch(() => {});
   });
 
   console.log(
