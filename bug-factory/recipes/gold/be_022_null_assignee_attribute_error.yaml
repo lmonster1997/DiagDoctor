@@ -39,7 +39,7 @@ injection:
     \ crashes for unassigned tasks\n\n+    _audit_label = task.assignee_id.hex\n\n\
     \     return task\n"
 trigger:
-  type: api_call
+  type: e2e_action
   steps:
   - action: login
     params:
@@ -57,12 +57,12 @@ trigger:
       data:
         title: 无负责人任务
         project_index: 0
-  - action: api_call
+  - action: ui_navigate
     params:
-      method: GET
-      path: /api/tasks/{task_id}
-      expected_status:
-      - 500
+      url: /tasks/{task_id}
+  - action: wait
+    params:
+      seconds: 3
   expected_observation:
     log_patterns:
     - pattern: unhandled_exception.*AttributeError
@@ -73,7 +73,7 @@ trigger:
       GET /api/tasks/{id}:
         status: ERROR
     api_response: null
-  ui_reachable: false
+  ui_reachable: true
   expected_evidence:
     browser_errors: optional
     frontend_spans: expected

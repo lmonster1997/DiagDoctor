@@ -2,11 +2,18 @@
 Signal Extractor — identifies "golden signals" from normalized evidence.
 
 Golden signals are the critical clues that an LLM needs to diagnose the bug:
-- Error logs (ERROR/WARNING level)
-- Error spans (status=error)
-- Slow spans (above threshold)
-- Non-2xx API responses
-- Browser errors (pageerror / console_error)
+
+Error-signal bugs (crashes, 5xx, slow queries):
+    - error_log      — ERROR/WARNING logs
+    - error_span     — trace spans with status=error
+    - slow_span      — spans above a duration threshold
+    - repeated_query — N+1 patterns (collapsed by deduplicator)
+
+"Smokeless" bugs (logic, data, config — no error signals):
+    No signals are extracted from observability data for these bugs —
+    logs/traces/browser_errors all appear normal (200 OK, no errors).
+    Diagnosis must rely on user_report semantic analysis + active
+    investigation (code search, API probing).
 """
 
 from __future__ import annotations
@@ -29,7 +36,12 @@ def extract_golden_signals(
     slow_threshold_ms: float = 200.0,
 ) -> list[Signal]:
     """
-    Extract golden signals from all evidence sources.
+    Extract golden signals from observability evidence.
+
+    Note: "smokeless" bugs (logic/data/config) produce no signals here —
+    their logs/traces/browser_errors are all normal.  The Triage agent
+    must detect them from the user_report text and then actively
+    investigate (code search, API probing).
 
     Args:
         logs: Denoised log entries.
@@ -52,6 +64,7 @@ def extract_golden_signals(
                 Signal(
                     signal_id=f"sig-log-{_short_id()}",
                     source="log",
+                    signal_type="error_log",
                     service_tier=tier,  # type: ignore[arg-type]
                     severity="error" if level == "ERROR" else "warning",
                     summary=str(log.get("message", ""))[:300],
@@ -73,6 +86,7 @@ def extract_golden_signals(
                 Signal(
                     signal_id=f"sig-trace-{_short_id()}",
                     source="trace",
+                    signal_type="error_span",
                     service_tier=span_tier,  # type: ignore[arg-type]
                     severity="error",
                     summary=f"Error span: {span.get('name', 'unknown')} ({duration:.1f}ms)",
@@ -94,6 +108,7 @@ def extract_golden_signals(
                 Signal(
                     signal_id=f"sig-slow-{_short_id()}",
                     source="trace",
+                    signal_type="slow_span",
                     service_tier=span_tier,  # type: ignore[arg-type]
                     severity="warning",
                     summary=summary,
@@ -115,6 +130,7 @@ def extract_golden_signals(
             Signal(
                 signal_id=f"sig-browser-{_short_id()}",
                 source="browser_error",
+                signal_type="error_log",
                 service_tier="frontend",
                 severity="error",
                 summary=msg[:300],

@@ -80,10 +80,30 @@ class Evidence(BaseModel):
 
 
 class Signal(BaseModel):
-    """A golden signal extracted from evidence — the key clues."""
+    """A golden signal extracted from evidence — the key clues.
+
+    The ``signal_type`` field classifies signals into two families:
+    - **Error signals**: crashes, exceptions, 5xx, slow queries — easy
+      to detect from logs/traces.
+    - **Behavioural mismatch signals**: logic/data/config bugs that
+      produce normal HTTP responses but violate expected behaviour
+      (IDOR, silent data loss, wrong sort order, etc.). These are
+      inferred from the user_report combined with code analysis and
+      active API probing — there are no error signals in logs/traces.
+    """
 
     signal_id: str = ""  # e.g. "sig-be001-slow-sql"
-    source: Literal["log", "trace", "browser_error", "api_response"] = "log"
+    source: Literal["log", "trace", "browser_error", "api_response", "user_report"] = "log"
+    signal_type: Literal[
+        "error_log",
+        "error_span",
+        "slow_span",
+        "repeated_query",
+        "behavior_mismatch",
+        "data_invariant_broken",
+        "access_control_anomaly",
+        "silent_data_loss",
+    ] = "error_log"
     service_tier: Literal["frontend", "backend"] = "backend"
     severity: Literal["error", "warning", "info"] = "error"
     summary: str = ""

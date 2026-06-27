@@ -154,5 +154,14 @@ def instrument_fastapi(app: FastAPI) -> None:
 
 
 def instrument_sqlalchemy() -> None:
-    """Instrument SQLAlchemy engine for OpenTelemetry tracing."""
-    SQLAlchemyInstrumentor().instrument()
+    """Instrument SQLAlchemy engine for OpenTelemetry tracing.
+
+    ``enable_commenter=True`` injects trace-context comments into SQL
+    statements (``/* traceparent='...' */``), allowing the OTel SDK to
+    create child spans for every SQL execution — critical for N+1
+    detection and slow-query attribution in distributed traces.
+    """
+    SQLAlchemyInstrumentor().instrument(
+        enable_commenter=True,
+        commenter_options={},
+    )

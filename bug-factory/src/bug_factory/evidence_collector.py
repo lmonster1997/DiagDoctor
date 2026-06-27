@@ -53,6 +53,7 @@ class EvidenceCollector:
         end: datetime,
         services: list[str] | None = None,
         expected_evidence: Any = None,
+        browser_errors: list[Any] | None = None,
     ) -> CollectedEvidence:
         """Collect logs and traces for *recipe_id* within the time window.
 
@@ -61,6 +62,13 @@ class EvidenceCollector:
                 recipe's trigger.  When provided, evidence collection is
                 clipped accordingly — e.g. frontend-crash-only cases skip
                 trace fetching, and backend-only cases skip browser errors.
+
+        Note:
+            ``diff_evidence`` is NOT collected here (it would embed
+            ground-truth expectations that a real user cannot provide).
+            The ``collect_diff`` trigger action still runs as a self-check
+            during trigger execution, but its output is discarded after
+            verification — it is never persisted as an evidence file.
         """
         if services is None:
             services = ["demo-backend", "demo-frontend"]
@@ -102,10 +110,15 @@ class EvidenceCollector:
                     self._fetch_logs(session, start, end, services),
                     self._fetch_traces(session, start, end, services),
                 )
+        from bug_factory.schema import BrowserError  # noqa: F811
+
         evidence = CollectedEvidence(
             recipe_id=recipe_id,
             logs=logs,
             traces=traces,
+            browser_errors=[
+                BrowserError(**be) if isinstance(be, dict) else be for be in (browser_errors or [])
+            ],
             time_window=(start.isoformat(), end.isoformat()),
         )
         logger.info(
@@ -241,7 +254,7 @@ class EvidenceCollector:
                     spans.append(
                         TraceSpan(
                             trace_id=trace_id,
-                            span_id=_b64_to_hex(sd.get("spanID", "")),
+                            span_id=_b64_to_hex(sd.get("spanId") or sd.get("spanID", "")),
                             parent_span_id=_b64_to_hex(
                                 sd.get("parentSpanId") or sd.get("parentSpanID", "")
                             ),
@@ -289,15 +302,15 @@ class EvidenceCollector:
             encoding="utf-8",
         )
         # ── Save browser_errors.json (independent channel, see §13.1.2) ──
-        if evidence.browser_errors:
-            (d / "browser_errors.json").write_text(
-                json.dumps(
-                    [b.model_dump() for b in evidence.browser_errors],
-                    indent=2,
-                    ensure_ascii=False,
-                ),
-                encoding="utf-8",
-            )
+        # Always write — empty array signals "no frontend crash" to Doctor.
+        (d / "browser_errors.json").write_text(
+            json.dumps(
+                [b.model_dump() for b in evidence.browser_errors],
+                indent=2,
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
         logger.info("Evidence saved", recipe_id=recipe_id, path=str(d))
 
 

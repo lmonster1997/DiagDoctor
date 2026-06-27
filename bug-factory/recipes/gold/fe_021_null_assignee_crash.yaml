@@ -62,7 +62,7 @@ trigger:
         project_index: 0
   - action: ui_click
     params:
-      frontend_url: http://localhost:3000/projects/{project_id}
+      frontend_url: http://localhost:5173/projects/{project_id}
       selector: '[data-testid^=''task-link-'']'
   expected_observation:
     log_patterns: []

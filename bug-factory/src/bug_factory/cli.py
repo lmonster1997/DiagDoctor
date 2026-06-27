@@ -580,6 +580,7 @@ def full(
             # Narrow window: from trigger_start to now (+ 30 s buffer for Loki flush)
             start=trigger_start - timedelta(seconds=30),
             end=datetime.now(timezone.utc),  # noqa: UP017
+            browser_errors=trigger_result.browser_errors if trigger_result else [],
         )
         _display_evidence_result(evidence)
 
@@ -755,8 +756,8 @@ def full_all(
                 )
 
             # Step 2: Trigger
+            trigger_start = datetime.now(timezone.utc)  # noqa: UP017
             if not skip_trigger:
-                trigger_end = datetime.now(timezone.utc)  # noqa: UP017
                 runner = TriggerRunner(demo_app_base_url=base_url, frontend_url=frontend_url)
                 trigger_result = await runner.run(recipe.trigger)
                 if not trigger_result.success:
@@ -765,8 +766,8 @@ def full_all(
                     )
                     return False
             else:
-                trigger_end = datetime.now(timezone.utc)  # noqa: UP017
                 trigger_result = TriggerResult(success=True, session={}, steps=[])
+            trigger_end = datetime.now(timezone.utc)  # noqa: UP017
 
             # Step 3: Collect evidence
             # Wait for OTel trace pipeline flush
@@ -775,8 +776,10 @@ def full_all(
             collector = EvidenceCollector(loki_url=loki, tempo_url=tempo)
             evidence = await collector.collect(
                 recipe_id=recipe.id,
-                start=trigger_end - timedelta(minutes=5),
-                end=datetime.now(timezone.utc),  # noqa: UP017
+                # Narrow window around this case's trigger to avoid cross-case contamination.
+                start=trigger_start - timedelta(seconds=30),
+                end=trigger_end + timedelta(seconds=45),
+                browser_errors=trigger_result.browser_errors if trigger_result else [],
             )
 
             # Step 4: Generate case

@@ -36,7 +36,8 @@ async def ingest_node(state: DoctorState) -> dict[str, Any]:
     Ingest node: normalize raw evidence before feeding to LLM agents.
 
     Converts raw_evidence (user_report, logs, traces, browser_errors)
-    into NormalizedEvidence with golden_signals, correlations, timeline.
+    into NormalizedEvidence with golden_signals,
+    correlations, timeline.
 
     This is a **non-LLM** node — pure Python processing.
     """

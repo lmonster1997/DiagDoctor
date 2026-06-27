@@ -111,7 +111,7 @@ class BugInjector:
             lines=len(original.splitlines()),
         )
 
-        # ── 3. Apply injection ─────────────────────────────────────
+        # ── 3. Apply injection to primary target ───────────────────
         if recipe.injection.diff_patch:
             modified = self._apply_diff_patch(recipe.id, original, recipe.injection.diff_patch)
         else:
@@ -143,11 +143,43 @@ class BugInjector:
         # ── 5. Write modified file ─────────────────────────────────
         target.write_text(modified, encoding="utf-8")
         logger.info("Modified file written", path=str(target))
+        modified_files = [str(target)]
 
-        # ── 6. Commit changes (only the injected file) ──────────────
+        # ── 5b. Process extra_files (cross-layer bugs) ─────────────
+        for extra in recipe.injection.extra_files:
+            extra_path = self.repo_path / extra["file"]
+            if not extra_path.is_file():
+                logger.warning(
+                    "Extra target file does not exist — skipping",
+                    file=extra["file"],
+                )
+                continue
+            extra_original = extra_path.read_text(encoding="utf-8")
+            extra_instruction = extra.get("instruction", recipe.injection.ai_instruction)
+            extra_lang = detect_language(extra_path)
+            extra_modified = await self._apply_ai_rewrite(
+                recipe.id,
+                extra_original,
+                extra_instruction,
+                extra_lang,
+            )
+            if extra_modified == extra_original:
+                logger.warning(
+                    "Extra file produced no changes — skipping",
+                    file=extra["file"],
+                )
+                continue
+            extra_path.write_text(extra_modified, encoding="utf-8")
+            logger.info("Extra file written", path=str(extra_path))
+            modified_files.append(str(extra_path))
+
+        # ── 6. Commit changes (all injected files) ──────────────────
+        all_paths = [recipe.injection.target_file] + [
+            e["file"] for e in recipe.injection.extra_files
+        ]
         commit_hexsha = self.git.commit_changes(
             f"feat(bug-factory): inject bug {recipe.id} - {recipe.title}",
-            paths=[recipe.injection.target_file],
+            paths=all_paths,
         )
         logger.info("Changes committed", hexsha=commit_hexsha)
 
@@ -164,7 +196,7 @@ class BugInjector:
             recipe_id=recipe.id,
             branch=branch,
             diff=diff,
-            modified_files=[str(target)],
+            modified_files=modified_files,
         )
 
     # ── private helpers ──────────────────────────────────────────────

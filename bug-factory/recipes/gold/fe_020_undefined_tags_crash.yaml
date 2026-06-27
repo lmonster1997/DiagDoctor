@@ -6,24 +6,37 @@ tags:
 - react
 - typeerror
 - undefined
+- cross-layer
 - task-board
-- difficulty:L1
+- api-contract
+- difficulty:L4
 expected_diagnosis:
-  root_cause: SortableTaskCard 渲染时读取 task.tags.length，但列表接口返回的 TaskResponse 不含 tags
-    字段，task.tags 为 undefined，导致每张卡片渲染时抛 TypeError 使整个看板崩溃白屏
-  affected_file: demo-app/frontend/src/pages/TaskBoardPage.tsx
+  root_cause: |
+    前端 SortableTaskCard 渲染时读取 task.tags.length，但列表接口 GET /api/projects/{id}/tasks
+    返回的 TaskResponse 列表中不含 tags 字段，task.tags 为 undefined，导致每张卡片渲染时抛
+    TypeError 使整个看板崩溃白屏。
+
+    这是 API 契约缺陷 —— 列表接口未返回关联数据（selectinload 仅用于预加载 comments，不含 tags），
+    前端却假设 tags 总是存在。真正的根因在后端 schema，而不是前端缺少判空。
+  affected_file: demo-app/backend/app/schemas/task.py
   affected_line: null
-  fix_suggestion: 渲染前判空（task.tags?.length / (task.tags ?? []))，或在列表接口补齐 tags 字段；不要假设列表数据带
-    tags
+  fix_suggestion: |
+    方案 A（治本）：在 TaskResponse（列表用）schema 中补齐 tags 字段，
+    并在 list_tasks 的查询中加入 .options(selectinload(Task.tags))
+    方案 B（治标）：前端渲染前判空 task.tags?.length ?? 0 或 (task.tags ?? []).length
+    建议两者都做：后端补齐契约 + 前端防御性判空
   fix_keywords:
   - task.tags
   - undefined
   - 可选链
   - TaskResponse
   - 判空
+  - 契约
+  - selectinload
   retrieval_gold:
     code_chunks:
-    - demo-app/frontend/src/pages/TaskBoardPage.tsx::root_cause
+    - demo-app/backend/app/schemas/task.py::TaskResponse
+    - demo-app/frontend/src/pages/TaskBoardPage.tsx::SortableTaskCard
     evidence_ids: []
     similar_cases: []
 injection:
@@ -52,7 +65,7 @@ trigger:
       entity: project
       data:
         name: 白屏看板
-        description: fe crash
+        description: fe crash cross-layer
   - action: create_data
     params:
       entity: task
@@ -76,29 +89,31 @@ trigger:
   expected_evidence:
     browser_errors: expected
     frontend_spans: expected
-    backend_signal: ''
+    backend_signal: 'TaskResponse schema missing tags field in list endpoint'
     symptom_tier: frontend
-    root_cause_tier: frontend
+    root_cause_tier: backend
+    cross_layer: true
 evaluation:
   must_mention_keywords:
   - task.tags
   - undefined
+  - TaskResponse
   should_mention_keywords:
   - 可选链
   - 判空
-  - TaskResponse
+  - 契约
+  - selectinload
+  - 后端补齐
   - TypeError
-  llm_judge_criteria: '
-
-    诊断必须指出 SortableTaskCard 访问 task.tags.length，而列表数据不含 tags（undefined），
-
-
-    导致渲染崩溃白屏，并建议判空/可选链或补齐字段。需识别这是前端渲染读取未定义字段，
-
-
-    而不是后端接口报错。
-
-    '
-  min_confidence: 0.6
+  llm_judge_criteria: |
+    诊断必须区分「症状」与「根因」：
+    - 症状：前端 SortableTaskCard 读取 task.tags.length 时 undefined 崩溃白屏
+    - 根因：后端 GET /api/projects/{id}/tasks 的列表接口 TaskResponse schema 不含 tags 字段（API 契约缺陷）
+    - 仅给出"加可选链"的症状补丁、未定位到后端 schema 且未提及 TaskResponse / selectinload 的，记低分（≤ 0.4）
+    - 同时给出"后端补齐 tags + 前端防御性判空"双重建议的，记高分（≥ 0.8）
+    - 需识别这是跨层 bug（前端症状 + 后端根因），非纯前端问题
+  min_confidence: 0.5
+  cross_layer_required: true
 categories:
 - frontend_crash
+- backend_error

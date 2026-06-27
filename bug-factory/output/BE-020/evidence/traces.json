@@ -1,10 +1,11 @@
 [
   {
-    "trace_id": "6be32b34db4883d9eb4c13e6429a3fe3",
-    "span_id": "",
+    "trace_id": "6cc9ef81010e02897711ce53c33880ea",
+    "span_id": "532e38272d58ec0c",
+    "parent_span_id": "246f9adf8aadbf56",
     "operation_name": "POST /api/tasks/00000000-0000-0000-0000-000000000000/comments http receive",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:50.628801+00:00",
+    "start_time": "2026-06-27T11:26:00.366338+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -12,11 +13,12 @@
     }
   },
   {
-    "trace_id": "6be32b34db4883d9eb4c13e6429a3fe3",
-    "span_id": "",
+    "trace_id": "6cc9ef81010e02897711ce53c33880ea",
+    "span_id": "c9e86209a677701d",
+    "parent_span_id": "246f9adf8aadbf56",
     "operation_name": "POST /api/tasks/00000000-0000-0000-0000-000000000000/comments http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:50.648314+00:00",
+    "start_time": "2026-06-27T11:26:00.384063+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -25,11 +27,12 @@
     }
   },
   {
-    "trace_id": "6be32b34db4883d9eb4c13e6429a3fe3",
-    "span_id": "",
+    "trace_id": "6cc9ef81010e02897711ce53c33880ea",
+    "span_id": "367ffe6b598a6fd4",
+    "parent_span_id": "246f9adf8aadbf56",
     "operation_name": "POST /api/tasks/00000000-0000-0000-0000-000000000000/comments http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:50.648314+00:00",
+    "start_time": "2026-06-27T11:26:00.384063+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -37,12 +40,13 @@
     }
   },
   {
-    "trace_id": "6be32b34db4883d9eb4c13e6429a3fe3",
-    "span_id": "",
+    "trace_id": "6cc9ef81010e02897711ce53c33880ea",
+    "span_id": "246f9adf8aadbf56",
+    "parent_span_id": "",
     "operation_name": "POST /api/tasks/00000000-0000-0000-0000-000000000000/comments",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:50.628801+00:00",
-    "duration_ms": 19.5136,
+    "start_time": "2026-06-27T11:26:00.366338+00:00",
+    "duration_ms": 17.7248,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
@@ -53,7 +57,7 @@
       "http.server_name": "localhost:8000",
       "http.user_agent": "Python/3.11 aiohttp/3.14.1",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "58730",
+      "net.peer.port": "60345",
       "http.route": "/api/tasks/00000000-0000-0000-0000-000000000000/comments",
       "http.method": "POST",
       "http.url": "http://localhost:8000/api/tasks/00000000-0000-0000-0000-000000000000/comments",
@@ -61,11 +65,12 @@
     }
   },
   {
-    "trace_id": "6be32b34db4883d9eb4c13e6429a3fe3",
-    "span_id": "",
+    "trace_id": "6cc9ef81010e02897711ce53c33880ea",
+    "span_id": "30c90a38d34fbc6b",
+    "parent_span_id": "246f9adf8aadbf56",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:50.628801+00:00",
+    "start_time": "2026-06-27T11:26:00.366338+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -77,11 +82,12 @@
     }
   },
   {
-    "trace_id": "6be32b34db4883d9eb4c13e6429a3fe3",
-    "span_id": "",
+    "trace_id": "6cc9ef81010e02897711ce53c33880ea",
+    "span_id": "fbc8facd009c41ae",
+    "parent_span_id": "246f9adf8aadbf56",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:50.628801+00:00",
+    "start_time": "2026-06-27T11:26:00.366338+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -89,17 +95,18 @@
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-6cc9ef81010e02897711ce53c33880ea-0a7b5369cb9d4eec-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "6be32b34db4883d9eb4c13e6429a3fe3",
-    "span_id": "",
+    "trace_id": "6cc9ef81010e02897711ce53c33880ea",
+    "span_id": "dfa8eaea4b5c4e53",
+    "parent_span_id": "246f9adf8aadbf56",
     "operation_name": "INSERT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:50.628801+00:00",
+    "start_time": "2026-06-27T11:26:00.366338+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -107,29 +114,18 @@
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "INSERT INTO comments (id, task_id, author_id, content) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR) RETURNING comments.created_at",
+      "db.statement": "INSERT INTO comments (id, task_id, author_id, content) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR) RETURNING comments.created_at /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-6cc9ef81010e02897711ce53c33880ea-6cad29b2f579f4f5-03'*/",
       "db.system": "postgresql",
       "db.operation": "INSERT"
     }
   },
   {
-    "trace_id": "d9b57324b2677b1f913bed457b132624",
-    "span_id": "",
-    "operation_name": "POST /api/auth/login http receive",
+    "trace_id": "b2ce65a513597eafdae30797fad61c3a",
+    "span_id": "350d8934fddebdf7",
+    "parent_span_id": "db907fc77d97a485",
+    "operation_name": "GET /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:50.110043+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.request"
-    }
-  },
-  {
-    "trace_id": "d9b57324b2677b1f913bed457b132624",
-    "span_id": "",
-    "operation_name": "POST /api/auth/login http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:50.356054+00:00",
+    "start_time": "2026-06-27T11:25:55.365038+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -138,11 +134,12 @@
     }
   },
   {
-    "trace_id": "d9b57324b2677b1f913bed457b132624",
-    "span_id": "",
-    "operation_name": "POST /api/auth/login http send",
+    "trace_id": "b2ce65a513597eafdae30797fad61c3a",
+    "span_id": "1bacbda7af3a1656",
+    "parent_span_id": "db907fc77d97a485",
+    "operation_name": "GET /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:50.356054+00:00",
+    "start_time": "2026-06-27T11:25:55.365038+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -150,11 +147,12 @@
     }
   },
   {
-    "trace_id": "d9b57324b2677b1f913bed457b132624",
-    "span_id": "",
-    "operation_name": "POST /api/auth/login http send",
+    "trace_id": "b2ce65a513597eafdae30797fad61c3a",
+    "span_id": "d44825ba791d5ddd",
+    "parent_span_id": "db907fc77d97a485",
+    "operation_name": "GET /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:50.356054+00:00",
+    "start_time": "2026-06-27T11:25:55.365038+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -162,12 +160,1516 @@
     }
   },
   {
-    "trace_id": "d9b57324b2677b1f913bed457b132624",
-    "span_id": "",
+    "trace_id": "b2ce65a513597eafdae30797fad61c3a",
+    "span_id": "db907fc77d97a485",
+    "parent_span_id": "",
+    "operation_name": "GET /api/projects/",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.360941+00:00",
+    "duration_ms": 4.0964,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "65187",
+      "http.route": "/api/projects/",
+      "http.method": "GET",
+      "http.url": "http://localhost:8000/api/projects/",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "b2ce65a513597eafdae30797fad61c3a",
+    "span_id": "98864ef8f0910329",
+    "parent_span_id": "db907fc77d97a485",
+    "operation_name": "connect",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.360941+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "b2ce65a513597eafdae30797fad61c3a",
+    "span_id": "1f9fd2ee9a366e1b",
+    "parent_span_id": "db907fc77d97a485",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.360941+00:00",
+    "duration_ms": 1.0802,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-b2ce65a513597eafdae30797fad61c3a-6ec2dd6983e4c631-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "b2ce65a513597eafdae30797fad61c3a",
+    "span_id": "d4a2bc74a3e5bb6d",
+    "parent_span_id": "db907fc77d97a485",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.362021+00:00",
+    "duration_ms": 1.0055,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT projects.id, projects.name, projects.description, projects.owner_id, projects.created_at \nFROM projects \nWHERE projects.owner_id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-b2ce65a513597eafdae30797fad61c3a-ec299d6dcf0c7a95-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "b5e5e461a1801b8d338e4e3a4e567be3",
+    "span_id": "40ae6ac17c1760e6",
+    "parent_span_id": "0e32a87ab17f800b",
+    "operation_name": "GET /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.359297+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "b5e5e461a1801b8d338e4e3a4e567be3",
+    "span_id": "2cdb9256171732d0",
+    "parent_span_id": "0e32a87ab17f800b",
+    "operation_name": "GET /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.359297+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "b5e5e461a1801b8d338e4e3a4e567be3",
+    "span_id": "93b1a82381ea43d2",
+    "parent_span_id": "0e32a87ab17f800b",
+    "operation_name": "GET /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.359297+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "b5e5e461a1801b8d338e4e3a4e567be3",
+    "span_id": "0e32a87ab17f800b",
+    "parent_span_id": "",
+    "operation_name": "GET /api/projects/",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.351609+00:00",
+    "duration_ms": 7.6881,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "60240",
+      "http.route": "/api/projects/",
+      "http.method": "GET",
+      "http.url": "http://localhost:8000/api/projects/",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "b5e5e461a1801b8d338e4e3a4e567be3",
+    "span_id": "4c6e186e58f091c4",
+    "parent_span_id": "0e32a87ab17f800b",
+    "operation_name": "connect",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.352608+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "b5e5e461a1801b8d338e4e3a4e567be3",
+    "span_id": "a0a506726ccb759d",
+    "parent_span_id": "0e32a87ab17f800b",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.353609+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-b5e5e461a1801b8d338e4e3a4e567be3-869b11d6adafac46-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "b5e5e461a1801b8d338e4e3a4e567be3",
+    "span_id": "3f8c5fbd2df308d5",
+    "parent_span_id": "0e32a87ab17f800b",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.354608+00:00",
+    "duration_ms": 1.8952,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT projects.id, projects.name, projects.description, projects.owner_id, projects.created_at \nFROM projects \nWHERE projects.owner_id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-b5e5e461a1801b8d338e4e3a4e567be3-1b96afc4d8e9e5d2-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "d0d4351b7cb4ed7d5eaf560018741729",
+    "span_id": "4a569864d87ef640",
+    "parent_span_id": "70812152200dce01",
+    "operation_name": "OPTIONS /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.350608+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "d0d4351b7cb4ed7d5eaf560018741729",
+    "span_id": "53873d746250ca8c",
+    "parent_span_id": "70812152200dce01",
+    "operation_name": "OPTIONS /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.351609+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "d0d4351b7cb4ed7d5eaf560018741729",
+    "span_id": "ef09fe691225f462",
+    "parent_span_id": "70812152200dce01",
+    "operation_name": "OPTIONS /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.351609+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "d0d4351b7cb4ed7d5eaf560018741729",
+    "span_id": "70812152200dce01",
+    "parent_span_id": "",
+    "operation_name": "OPTIONS /api/projects/",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.349609+00:00",
+    "duration_ms": 2.0002,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "65187",
+      "http.route": "/api/projects/",
+      "http.method": "OPTIONS",
+      "http.url": "http://localhost:8000/api/projects/",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "eb3365d7352f430783cb7e4ad26afd3b",
+    "span_id": "5437acc6e390a977",
+    "parent_span_id": "4610543a5a737a77",
+    "operation_name": "OPTIONS /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.349609+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "eb3365d7352f430783cb7e4ad26afd3b",
+    "span_id": "a83bc885b459c6c4",
+    "parent_span_id": "4610543a5a737a77",
+    "operation_name": "OPTIONS /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.350608+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "eb3365d7352f430783cb7e4ad26afd3b",
+    "span_id": "8cf93fd68a7f2867",
+    "parent_span_id": "4610543a5a737a77",
+    "operation_name": "OPTIONS /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.350608+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "eb3365d7352f430783cb7e4ad26afd3b",
+    "span_id": "4610543a5a737a77",
+    "parent_span_id": "",
+    "operation_name": "OPTIONS /api/projects/",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:55.348608+00:00",
+    "duration_ms": 1.9995,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "60240",
+      "http.route": "/api/projects/",
+      "http.method": "OPTIONS",
+      "http.url": "http://localhost:8000/api/projects/",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "c4178888d239b69c",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "documentFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.347700+00:00",
+    "duration_ms": 1.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "631",
+      "http.url": "http://localhost:5173/login"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "889daba366ddf91b",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.356100+00:00",
+    "duration_ms": 0.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/@vite/client"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "a0e531237b79cc0d",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.356200+00:00",
+    "duration_ms": 1.1,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/main.tsx?t=1782559542083"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "57ffbd5d7791515d",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.358400+00:00",
+    "duration_ms": 1.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/@react-refresh"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "5ec74faa16e1de34",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.359400+00:00",
+    "duration_ms": 1.1,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/node_modules/.pnpm/vite@8.0.16_@types+node@24.13.2_jiti@2.7.0/node_modules/vite/dist/client/env.mjs"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "ccf96030eea27cd9",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.359900+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "38367",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "aa4b100c34525495",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.360000+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "821152",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "cc189c864275e8e4",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.360000+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "399565",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "7e4724fe0f795849",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.360100+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "981132",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@sentry_react.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "50fe8c64cbd0c1a6",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.360200+00:00",
+    "duration_ms": 1.1,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/services/error-reporter.ts?t=1782559542083"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "5218cacbd7911480",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.360200+00:00",
+    "duration_ms": 1.4,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/observability/otel.ts?t=1782559542080"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "85826e9c8a5c7432",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.360200+00:00",
+    "duration_ms": 1.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/observability/otel-logs.ts?t=1782559542074"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "cb1b8dc13de68afb",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.360200+00:00",
+    "duration_ms": 2.2,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/observability/error-reporter.ts"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "1931f122b1c12961",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.360200+00:00",
+    "duration_ms": 2.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/observability/instruments.ts"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "7f967c2ea196ee5e",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.360200+00:00",
+    "duration_ms": 3.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/index.css?t=1782559542083"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "7a0c3beb515fb8d4",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.360200+00:00",
+    "duration_ms": 4.2,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/App.tsx?t=1782559542083"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "9a69c22f4bb3c362",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.360300+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10637",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "e8f387e99c8d129e",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.360400+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "7614",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/chunk-B-1-B7_t.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "b881eb6e2dddb530",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.360500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "14728",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-dom.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "de94a825eb0dd0d7",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.364200+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4959",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_api.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "d5b1167fe6ba7979",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.364300+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "45895",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-CHaCIvwP.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "e7fe53e8b66e19aa",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.364600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4714",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_sdk-trace-web.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "3389466f2a9a5e9d",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.364600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "5865",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_exporter-trace-otlp-http.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "95aa5fef2fc8dd4b",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.364600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "87502",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_context-zone.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "ac3133705a055489",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.364700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2234",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_resources.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "da540dd95398185a",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.364700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "141511",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_semantic-conventions.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "7036033140eb9db8",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.365000+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "66078",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-DIDyjc4l.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "547f193781881047",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.365100+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "22541",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/create-legacy-browser-delegate-Dmych8N4.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "316a2dbf80273f6a",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.365300+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10856",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-DOs4RJ4A.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "5b5057188134f1dc",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.365300+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "275815",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-BzIo-9AA.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "c66505fc976dbcc2",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.365400+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2405",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "e825ef9823ff8366",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.365400+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "22014",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-fetch.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "1f955034768c3626",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.365500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "21187",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-xml-http-request.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "ff0f7628d69732c5",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.365500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "11360",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-document-load.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "23d0ef5db84bc296",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.365500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "14206",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-user-interaction.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "7bdbe32b46ff13df",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.365800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "33205",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-D4oLRWLv.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "c2614d648740d23a",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.365800+00:00",
+    "duration_ms": 0.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ErrorBoundary.tsx?t=1782559542083"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "715fd0a6bbc977fe",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.365800+00:00",
+    "duration_ms": 1.4,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ProtectedRoute.tsx"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "0171bd6d9f3c7b3a",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.365900+00:00",
+    "duration_ms": 1.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/RegisterPage.tsx?t=1782559542077"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "8339c809eb51a581",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.366900+00:00",
+    "duration_ms": 1.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/LoginPage.tsx?t=1782559542077"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "561f4e809b9a4aff",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.367000+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "14779",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-Be2DXXst.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "73b0b27e591729e6",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.367000+00:00",
+    "duration_ms": 2.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/ProjectsPage.tsx?t=1782559542077"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "85c474379c88dd9d",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.367000+00:00",
+    "duration_ms": 3.2,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/TaskBoardPage.tsx?t=1782559542077"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "f6222697ce73b4eb",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.367000+00:00",
+    "duration_ms": 3.3,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/TaskDetailPage.tsx?t=1782559542077"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "429c477a0b2a6c53",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.367100+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "6800",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-D_0s551P.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "cc691ebc2bc0efcc",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.371100+00:00",
+    "duration_ms": 0.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/stores/authStore.ts"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "75e93bff1d76939d",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.371400+00:00",
+    "duration_ms": 0.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/services/api.ts?t=1782559542077"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "1425821c6ad42c43",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.371400+00:00",
+    "duration_ms": 0.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/button.tsx"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "ffa40a6c6d3188a4",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.371500+00:00",
+    "duration_ms": 0.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/input.tsx"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "14479b903fa3f4a1",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.371500+00:00",
+    "duration_ms": 1.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/label.tsx"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "bd3c9ac27ea9001e",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.371500+00:00",
+    "duration_ms": 1.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/card.tsx"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "e3e069fc6b99861d",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.371500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1125418",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/lucide-react.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "034b528ed27e0559",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.371500+00:00",
+    "duration_ms": 1.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/dialog.tsx"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "02e2a15a5cf349c9",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.371500+00:00",
+    "duration_ms": 2.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/badge.tsx"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "6f84dc51b06cc75a",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.371600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "6166",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_core.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "7ac8c3c42547a31d",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.371700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "18185",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_sortable.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "38219676036e7048",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.371700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "7337",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_utilities.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "3c40ef28275fa9a2",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.371800+00:00",
+    "duration_ms": 1.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/textarea.tsx"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "43f96e0df6cd2d65",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.371800+00:00",
+    "duration_ms": 1.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/separator.tsx"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "84cfd328e756f036",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.372000+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "90058",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/core.esm-_5gF4dhK.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "4f10d070641d5211",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.372700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2173",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/zustand.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "3d065ff0f2ff3b7f",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.372600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "14109",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/zustand_middleware.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "fc95d67c503832ce",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.374600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "118194",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/axios.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "874df58c9e7ee673",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.375700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1206",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_button.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "de7c00904a457033",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.375800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2801",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/class-variance-authority.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "c233092a51adab4f",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.375900+00:00",
+    "duration_ms": 0.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/lib/utils.ts"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "d6c494c4de6677fd",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.376100+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "13644",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_input.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "132d00a9f66545d8",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.376400+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "157710",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_dialog.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "ac454f19ebd4fdfe",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.376500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1264",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_merge-props.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "5398ce9cf395cb45",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.376700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "494",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_use-render.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "a836a9483a2b692e",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.376900+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1015",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_separator.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "70ffee224756b1a1",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.377100+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "11248",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/useRenderElement-DwlGiZDv.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "058644790a153dbb",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.377200+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "7664",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/useButton-BFYEIg_b.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "f1d91acff07c6e85",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.377400+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "628",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/clsx.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "3eba122249e8fe25",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.377500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10947",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-runtime.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "ae741de4bb1b44c1",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.377600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "5521",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/useIsoLayoutEffect-75NDodZ2.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "efba55c8e6c2208f",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.377700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4456",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/owner-B9RWFV_H.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "576bfaf473b09c5b",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.378000+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "6778",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/merge-props-CHESzXJC.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "d9138b7b61615189",
+    "parent_span_id": "2a111e921909b362",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.378400+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "91422",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/tailwind-merge.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c956a8f1c2f4e5ae80bec022bca4d4d3",
+    "span_id": "2a111e921909b362",
+    "parent_span_id": "",
+    "operation_name": "documentLoad",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T11:25:52.347800+00:00",
+    "duration_ms": 59.0,
+    "status": "ok",
+    "attributes": {
+      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+      "http.url": "http://localhost:5173/login"
+    }
+  },
+  {
+    "trace_id": "f64e15129c572d00ef965d8baafd79d1",
+    "span_id": "7b31b8c8d8501aab",
+    "parent_span_id": "c06a435ee267c981",
+    "operation_name": "POST /api/auth/login http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:51.375870+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "f64e15129c572d00ef965d8baafd79d1",
+    "span_id": "637dc2d26ea9b729",
+    "parent_span_id": "c06a435ee267c981",
+    "operation_name": "POST /api/auth/login http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:51.629825+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "f64e15129c572d00ef965d8baafd79d1",
+    "span_id": "a53cf1e32e3aee07",
+    "parent_span_id": "c06a435ee267c981",
+    "operation_name": "POST /api/auth/login http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:51.630817+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "f64e15129c572d00ef965d8baafd79d1",
+    "span_id": "ef2361db111480e7",
+    "parent_span_id": "c06a435ee267c981",
+    "operation_name": "POST /api/auth/login http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T11:25:51.630817+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "f64e15129c572d00ef965d8baafd79d1",
+    "span_id": "c06a435ee267c981",
+    "parent_span_id": "",
     "operation_name": "POST /api/auth/login",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:50.106398+00:00",
-    "duration_ms": 249.6565,
+    "start_time": "2026-06-27T11:25:51.375870+00:00",
+    "duration_ms": 254.9471,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
@@ -178,7 +1680,7 @@
       "http.server_name": "localhost:8000",
       "http.user_agent": "Python/3.11 aiohttp/3.14.1",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "58724",
+      "net.peer.port": "52481",
       "http.route": "/api/auth/login",
       "http.method": "POST",
       "http.url": "http://localhost:8000/api/auth/login",
@@ -186,12 +1688,13 @@
     }
   },
   {
-    "trace_id": "d9b57324b2677b1f913bed457b132624",
-    "span_id": "",
+    "trace_id": "f64e15129c572d00ef965d8baafd79d1",
+    "span_id": "1c295d53c2f2e304",
+    "parent_span_id": "c06a435ee267c981",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:50.112049+00:00",
-    "duration_ms": 49.4608,
+    "start_time": "2026-06-27T11:25:51.390317+00:00",
+    "duration_ms": 54.7589,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
@@ -202,251 +1705,20 @@
     }
   },
   {
-    "trace_id": "d9b57324b2677b1f913bed457b132624",
-    "span_id": "",
+    "trace_id": "f64e15129c572d00ef965d8baafd79d1",
+    "span_id": "da37ef30b9c12788",
+    "parent_span_id": "c06a435ee267c981",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:50.179152+00:00",
-    "duration_ms": 1.9937,
+    "start_time": "2026-06-27T11:25:51.455186+00:00",
+    "duration_ms": 3.2704,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.email = $1::VARCHAR",
-      "db.system": "postgresql",
-      "db.operation": "SELECT"
-    }
-  },
-  {
-    "trace_id": "c3d7cf8f0ca2ec7f203946f724e50c94",
-    "span_id": "",
-    "operation_name": "POST /api/tasks/00000000-0000-0000-0000-000000000000/comments http receive",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:19.835586+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.request"
-    }
-  },
-  {
-    "trace_id": "c3d7cf8f0ca2ec7f203946f724e50c94",
-    "span_id": "",
-    "operation_name": "POST /api/tasks/00000000-0000-0000-0000-000000000000/comments http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:19.839225+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.start",
-      "http.status_code": "404"
-    }
-  },
-  {
-    "trace_id": "c3d7cf8f0ca2ec7f203946f724e50c94",
-    "span_id": "",
-    "operation_name": "POST /api/tasks/00000000-0000-0000-0000-000000000000/comments http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:19.839225+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.body"
-    }
-  },
-  {
-    "trace_id": "c3d7cf8f0ca2ec7f203946f724e50c94",
-    "span_id": "",
-    "operation_name": "POST /api/tasks/00000000-0000-0000-0000-000000000000/comments http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:19.839225+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.body"
-    }
-  },
-  {
-    "trace_id": "c3d7cf8f0ca2ec7f203946f724e50c94",
-    "span_id": "",
-    "operation_name": "POST /api/tasks/00000000-0000-0000-0000-000000000000/comments",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:19.835586+00:00",
-    "duration_ms": 3.6383,
-    "status": "ok",
-    "attributes": {
-      "http.scheme": "http",
-      "http.host": "127.0.0.1:8000",
-      "net.host.port": "8000",
-      "http.flavor": "1.1",
-      "http.target": "/api/tasks/00000000-0000-0000-0000-000000000000/comments",
-      "http.server_name": "localhost:8000",
-      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
-      "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "63897",
-      "http.route": "/api/tasks/00000000-0000-0000-0000-000000000000/comments",
-      "http.method": "POST",
-      "http.url": "http://localhost:8000/api/tasks/00000000-0000-0000-0000-000000000000/comments",
-      "http.status_code": "404"
-    }
-  },
-  {
-    "trace_id": "c3d7cf8f0ca2ec7f203946f724e50c94",
-    "span_id": "",
-    "operation_name": "connect",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:19.836586+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.system": "postgresql"
-    }
-  },
-  {
-    "trace_id": "c3d7cf8f0ca2ec7f203946f724e50c94",
-    "span_id": "",
-    "operation_name": "SELECT",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:19.836586+00:00",
-    "duration_ms": 1.1474,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID",
-      "db.system": "postgresql",
-      "db.operation": "SELECT"
-    }
-  },
-  {
-    "trace_id": "c3d7cf8f0ca2ec7f203946f724e50c94",
-    "span_id": "",
-    "operation_name": "SELECT",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:19.837733+00:00",
-    "duration_ms": 1.1318,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID",
-      "db.system": "postgresql",
-      "db.operation": "SELECT"
-    }
-  },
-  {
-    "trace_id": "347a356a7ea2b056fc19eb2dc0baaaf5",
-    "span_id": "",
-    "operation_name": "POST /api/auth/login http receive",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:19.401669+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.request"
-    }
-  },
-  {
-    "trace_id": "347a356a7ea2b056fc19eb2dc0baaaf5",
-    "span_id": "",
-    "operation_name": "POST /api/auth/login http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:19.576668+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.start",
-      "http.status_code": "200"
-    }
-  },
-  {
-    "trace_id": "347a356a7ea2b056fc19eb2dc0baaaf5",
-    "span_id": "",
-    "operation_name": "POST /api/auth/login http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:19.577675+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.body"
-    }
-  },
-  {
-    "trace_id": "347a356a7ea2b056fc19eb2dc0baaaf5",
-    "span_id": "",
-    "operation_name": "POST /api/auth/login http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:19.577675+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.body"
-    }
-  },
-  {
-    "trace_id": "347a356a7ea2b056fc19eb2dc0baaaf5",
-    "span_id": "",
-    "operation_name": "POST /api/auth/login",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:19.401669+00:00",
-    "duration_ms": 176.0061,
-    "status": "ok",
-    "attributes": {
-      "http.scheme": "http",
-      "http.host": "127.0.0.1:8000",
-      "net.host.port": "8000",
-      "http.flavor": "1.1",
-      "http.target": "/api/auth/login",
-      "http.server_name": "localhost:8000",
-      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
-      "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "63894",
-      "http.route": "/api/auth/login",
-      "http.method": "POST",
-      "http.url": "http://localhost:8000/api/auth/login",
-      "http.status_code": "200"
-    }
-  },
-  {
-    "trace_id": "347a356a7ea2b056fc19eb2dc0baaaf5",
-    "span_id": "",
-    "operation_name": "connect",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:19.402676+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.system": "postgresql"
-    }
-  },
-  {
-    "trace_id": "347a356a7ea2b056fc19eb2dc0baaaf5",
-    "span_id": "",
-    "operation_name": "SELECT",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:13:19.403676+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.email = $1::VARCHAR",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.email = $1::VARCHAR /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-f64e15129c572d00ef965d8baafd79d1-d11a963416d6d90a-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }

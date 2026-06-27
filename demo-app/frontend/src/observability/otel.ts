@@ -17,6 +17,7 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { ZoneContextManager } from "@opentelemetry/context-zone";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
+import { trace } from "@opentelemetry/api";
 
 // ── Trace exporter ──────────────────────────────────────────────────
 
@@ -32,11 +33,35 @@ export function initOtel(): void {
     url: TRACE_EXPORTER_URL,
   });
 
+  // ── Expose last-known trace_id for Playwright E2E capture ──
+  // When React ErrorBoundary fires, the fetch span may already be ended,
+  // so trace.getActiveSpan() returns null.  This fallback lets the
+  // Playwright trigger (page.evaluate) read the last trace_id seen by
+  // any instrumentation, preserving the cross-tier link for bug-factory
+  // evidence collection (see from-scratch §13.1.2 / §13.1.4).
+  const win = window as unknown as Record<string, unknown>;
+  win.__otelLastTraceId = "";
+  win.__otelLastSpanId = "";
+
+  // Custom processor: update __otelLastTraceId / __otelLastSpanId on every span start.
+  const _traceIdUpdater = {
+    forceFlush: () => Promise.resolve(),
+    shutdown: () => Promise.resolve(),
+    onStart(span: { spanContext: () => { traceId: string; spanId: string } }) {
+      try {
+        const ctx = span.spanContext();
+        win.__otelLastTraceId = ctx.traceId;
+        win.__otelLastSpanId = ctx.spanId;
+      } catch { /* ignore */ }
+    },
+    onEnd() { /* noop */ },
+  };
+
   const provider = new WebTracerProvider({
     resource: resourceFromAttributes({
       [ATTR_SERVICE_NAME]: "demo-frontend",
     }),
-    spanProcessors: [new BatchSpanProcessor(exporter)],
+    spanProcessors: [_traceIdUpdater, new BatchSpanProcessor(exporter)],
   });
 
   provider.register({
