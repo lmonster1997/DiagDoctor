@@ -21,6 +21,14 @@ from src.tools.observability_tools import (
     query_tempo_trace,
     search_tempo_traces,
 )
+from src.tools.trace_query import (
+    build_cross_tier_tree,
+    detect_n_plus_one,
+    find_bottlenecks,
+    find_critical_path,
+    find_error_spans,
+    get_tree_summary,
+)
 
 # ── Loki log query tool ─────────────────────────────────────────────
 
@@ -72,6 +80,13 @@ __all__ = [
     "query_loki_logs",
     "query_tempo_trace",
     "search_tempo_traces",
+    # Trace query / tree analysis (shared tools)
+    "build_cross_tier_tree",
+    "detect_n_plus_one",
+    "find_bottlenecks",
+    "find_critical_path",
+    "find_error_spans",
+    "get_tree_summary",
     # LangChain StructuredTool wrappers (for ReAct agents)
     "LOKI_QUERY_TOOL",
     "TEMPO_TRACE_TOOL",

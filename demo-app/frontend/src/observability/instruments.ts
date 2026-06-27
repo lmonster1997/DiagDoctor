@@ -17,11 +17,19 @@ import { DocumentLoadInstrumentation } from "@opentelemetry/instrumentation-docu
 import { UserInteractionInstrumentation } from "@opentelemetry/instrumentation-user-interaction";
 
 /**
- * Backend origin(s) that should receive the W3C traceparent header
- * so frontend and backend spans share the same trace_id.
+ * Origins that should receive the W3C traceparent header so frontend
+ * and backend spans share the same trace_id.
+ *
+ * In dev mode, Vite proxies /api → localhost:8000, so the browser sees
+ * same-origin requests.  Same-origin fetch requests automatically get
+ * traceparent injected by FetchInstrumentation.
+ *
+ * The explicit backend origins here serve as a belt-and-suspenders
+ * safety net for scenarios where the request goes directly to the
+ * backend (e.g. Docker Compose mode where nginx, not Vite, proxies).
  */
 const BACKEND_ORIGINS = [
-  /^http:\/\/localhost:8000/, // demo-backend (dev)
+  /^http:\/\/localhost:8000/,   // demo-backend (Vite proxy target)
   /^http:\/\/127\.0\.0\.1:8000/,
 ];
 
@@ -35,11 +43,18 @@ export function initInstruments(): void {
   registerInstrumentations({
     instrumentations: [
       new FetchInstrumentation({
-        // Inject traceparent into requests to demo-backend so the
-        // browser span and the backend server span share a trace_id.
+        // Inject traceparent into cross-origin requests to demo-backend.
+        // Same-origin requests (through Vite proxy) get traceparent
+        // automatically — no extra config needed.
         propagateTraceHeaderCorsUrls: BACKEND_ORIGINS,
       }),
-      new XMLHttpRequestInstrumentation(),
+      new XMLHttpRequestInstrumentation({
+        // CRITICAL: The frontend uses axios (XHR), not fetch().  XHR
+        // instrumentation must ALSO be told which cross-origin URLs
+        // should receive the traceparent header so frontend XHR spans
+        // and backend server spans share the same trace_id.
+        propagateTraceHeaderCorsUrls: BACKEND_ORIGINS,
+      }),
       new DocumentLoadInstrumentation(),
       new UserInteractionInstrumentation({
         // Only trace meaningful interactions (not every mousemove).

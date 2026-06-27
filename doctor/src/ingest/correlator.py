@@ -20,6 +20,45 @@ def _short_id() -> str:
     return uuid.uuid4().hex[:8]
 
 
+def _get_trace_id(item: dict[str, Any]) -> str:
+    """Extract trace_id, checking top-level first, then labels."""
+    tid = str(item.get("trace_id", item.get("_trace_id", "")))
+    if tid:
+        return tid
+    labels = item.get("labels")
+    if isinstance(labels, dict):
+        tid = str(labels.get("trace_id", ""))
+        if tid:
+            return tid
+    return ""
+
+
+def _get_service_name(item: dict[str, Any]) -> str:
+    """Extract service_name, checking top-level first, then labels."""
+    svc = str(item.get("service_name", item.get("service", "")))
+    if svc:
+        return svc
+    labels = item.get("labels")
+    if isinstance(labels, dict):
+        svc = str(labels.get("service_name", labels.get("service", "")))
+        if svc:
+            return svc
+    return ""
+
+
+def _get_tier_from_log(log: dict[str, Any]) -> str:
+    """Derive tier from a log entry."""
+    svc = _get_service_name(log).lower()
+    return "frontend" if "frontend" in svc else "backend"
+
+
+def _get_tier_from_span(span: dict[str, Any]) -> str:
+    """Derive tier from a span entry."""
+    svc = _get_service_name(span).lower()
+    return "frontend" if "frontend" in svc else "backend"
+    return uuid.uuid4().hex[:8]
+
+
 def _get_signal_ids_by_trace(
     signals: list[Signal],
 ) -> dict[str, list[str]]:
@@ -66,9 +105,10 @@ def correlate_by_trace_id(
     trace_groups: dict[str, dict[str, list[str]]] = {}
 
     for log in logs:
-        trace_id = str(log.get("trace_id", ""))
+        trace_id = _get_trace_id(log)
         if trace_id:
-            msg = str(log.get("message", ""))[:200]
+            # Use 'line' as fallback for 'message' (Loki format)
+            msg = str(log.get("message", log.get("line", "")))[:200]
             trace_groups.setdefault(
                 trace_id,
                 {
@@ -77,20 +117,14 @@ def correlate_by_trace_id(
                     "db": [],
                 },
             )
-            tier = (
-                "frontend" if "frontend" in str(log.get("service_name", "")).lower() else "backend"
-            )
+            tier = _get_tier_from_log(log)
             trace_groups[trace_id][tier].append(msg)
 
     for span in traces:
-        trace_id = str(span.get("trace_id", span.get("_trace_id", "")))
+        trace_id = _get_trace_id(span)
         if trace_id:
-            name = str(span.get("name", ""))[:200]
-            tier = (
-                "frontend"
-                if "frontend" in str(span.get("service_name", span.get("service", ""))).lower()
-                else "backend"
-            )
+            name = str(span.get("name", span.get("operation_name", "")))[:200]
+            tier = _get_tier_from_span(span)
             trace_groups.setdefault(
                 trace_id,
                 {
