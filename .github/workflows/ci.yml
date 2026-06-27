@@ -36,16 +36,13 @@ jobs:
 
       - name: Run mypy (strict)
         run: |
-          # Run mypy from each package's own directory to avoid module
-          # naming conflicts in this monorepo.  doctor/src, benchmark/src,
-          # and bug-factory/src/bug_factory are distinct packages that mypy
-          # cannot disambiguate when passed as paths from the repo root.
-          # demo-app/backend is NOT a workspace member, so we check it
-          # from the repo root (no naming conflict with the other packages).
+          # Run mypy from each package's own directory (subshell) to avoid
+          # module naming conflicts in this monorepo.  Each subshell
+          # isolates the working directory so failures don't cascade.
           set -e
-          cd doctor       && uv run mypy --strict src && cd ..
-          cd bug-factory  && uv run mypy --strict src && cd ..
-          cd benchmark    && uv run mypy --strict src && cd ..
+          (cd doctor       && uv run mypy --strict src)
+          (cd bug-factory  && uv run mypy --strict src)
+          (cd benchmark    && uv run mypy --strict src)
           uv run mypy --strict demo-app/backend/app
         shell: bash
 
