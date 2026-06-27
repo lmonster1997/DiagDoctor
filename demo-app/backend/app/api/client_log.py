@@ -38,6 +38,12 @@ class ClientErrorPayload(BaseModel):
     componentStack: str | None = Field(None, description="React component stack")  # noqa: N815
     url: str | None = Field(None, description="page URL where the error occurred")
     timestamp: str | None = Field(None, description="ISO-8601 timestamp from the browser")
+    trace_id: str | None = Field(
+        None, description="OTel trace_id for cross-tier correlation (hex, 32 chars)"
+    )
+    span_id: str | None = Field(
+        None, description="OTel span_id for cross-tier correlation (hex, 16 chars)"
+    )
     breadcrumbs: list[BreadcrumbEntry] = Field(
         default_factory=list, description="User actions leading up to the error"
     )
@@ -63,6 +69,10 @@ async def report_client_error(payload: ClientErrorPayload, request: Request) -> 
         log_entry["url"] = payload.url
     if payload.timestamp:
         log_entry["browser_ts"] = payload.timestamp
+    if payload.trace_id:
+        log_entry["trace_id"] = payload.trace_id
+    if payload.span_id:
+        log_entry["span_id"] = payload.span_id
     if payload.breadcrumbs:
         log_entry["breadcrumbs"] = [b.model_dump() for b in payload.breadcrumbs]
 

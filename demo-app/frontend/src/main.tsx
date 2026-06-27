@@ -5,7 +5,7 @@ import * as Sentry from "@sentry/react";
 import { initErrorReporting } from "@/services/error-reporter";
 // OTel-JS observability channel (D5 Task 5.2)
 import { initOtel } from "@/observability/otel";
-import { initFrontendLogs } from "@/observability/otel-logs";
+import { initFrontendLogs, emitOtelLog } from "@/observability/otel-logs";
 import { installGlobalErrorHooks } from "@/observability/error-reporter";
 import { initInstruments } from "@/observability/instruments";
 import "./index.css";
@@ -17,6 +17,15 @@ initOtel();
 
 // ── OTel-JS: logs channel (LoggerProvider → :4318/v1/logs) ──
 initFrontendLogs();
+
+// ── Intercept console.warn → OTel logs channel (breadcrumb noise) ──
+const _origWarn = console.warn.bind(console);
+console.warn = (...args: unknown[]) => {
+  _origWarn(...args);
+  emitOtelLog("warn", `[CONSOLE_WARN] ${String(args[0])}`, {
+    "console.severity": "warn",
+  });
+};
 
 // ── OTel-JS: global error hooks → client_error spans ──
 installGlobalErrorHooks();

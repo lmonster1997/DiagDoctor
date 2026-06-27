@@ -50,7 +50,7 @@ injection:
 
     '
 trigger:
-  type: api_call
+  type: e2e_action
   steps:
   - action: login
     params:
@@ -69,10 +69,22 @@ trigger:
         title: 任务
         project_index: 0
       repeat: 5
-  - action: api_call
+  - action: ui_navigate
     params:
-      method: GET
-      path: /api/projects/{project_id}/tasks
+      url: /projects/{project_id}
+  - action: wait
+    params:
+      seconds: 3
+  - action: collect_diff
+    params:
+      diff_type: data_invariant_broken
+      description: 验证任务列表是否按创建时间降序排列（最新在前）
+      steps:
+      - method: GET
+        path: /api/projects/{project_id}/tasks
+        label: "获取任务列表"
+      expectation: 第一个任务的 created_at 应是最新的（降序）
+      discrepancy: "任务列表按创建时间升序返回——最早创建的任务排在最前面，order_by 被改成了 asc 而非 desc"
   expected_observation:
     log_patterns:
     - pattern: '"path":"/api/projects/.*/tasks","status":200'
@@ -81,13 +93,15 @@ trigger:
       GET /api/projects/{id}/tasks:
         status: OK
     api_response: null
-  ui_reachable: false
+  ui_reachable: true
   expected_evidence:
     browser_errors: none
     frontend_spans: expected
-    backend_signal: data corruption or wrong values
+    backend_signal: data_invariant_broken
     symptom_tier: backend
     root_cause_tier: data
+    required_signal_types:
+    - data_invariant_broken
 evaluation:
   must_mention_keywords:
   - 排序
@@ -102,6 +116,11 @@ evaluation:
     并建议改回降序。需识别这是排序方向错误而非数据丢失。
 
     '
-  min_confidence: 0.6
+  min_confidence: 0.5
+  note: |
+    No diff_evidence is provided (removed for authenticity).  Logs show
+    200 OK — the wrong sort order produces no error signals.  Doctor must
+    infer the data-invariant violation from the user_report ("newest tasks
+    appear last") and investigate the list_tasks ORDER BY clause.
 categories:
 - data

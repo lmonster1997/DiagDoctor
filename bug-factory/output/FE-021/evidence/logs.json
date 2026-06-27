@@ -1,615 +1,386 @@
 [
   {
-    "timestamp": "2026-06-25T16:20:01.878241+00:00",
+    "timestamp": "2026-06-27T11:31:38.465181+00:00",
     "labels": {
       "detected_level": "error",
       "level": "error",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"client_error\", \"error\": \"[react_render] Cannot read properties of null (reading 'slice')\", \"stack\": \"TypeError: Cannot read properties of null (reading 'slice')\\n    at TaskDetailPage (http://localhost:5173/src/pages/TaskDetailPage.tsx:222:79)\\n    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=fcd1f1b7:12868:12)\\n    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=fcd1f1b7:4213:19)\\n    at updateFunctionComponent (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=fcd1f1b7:5569:16)\\n    at beginWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=fcd1f1b7:6140:20)\\n    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=fcd1f1b7:851:66)\\n    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=fcd1f1b7:8429:92)\\n    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=fcd1f1b7:8325:37)\\n    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=fcd1f1b7:8309:6)\\n    at performWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=fcd1f1b7:7994:27)\", \"component_stack\": \"\\n    at TaskDetailPage (http://localhost:5173/src/pages/TaskDetailPage.tsx:26:25)\\n    at ProtectedRoute (http://localhost:5173/src/components/ProtectedRoute.tsx:6:34)\\n    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dafdd2b6:4137:26)\\n    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dafdd2b6:4817:19)\\n    at ErrorBoundaryClass (http://localhost:5173/src/components/ErrorBoundary.tsx:8:3)\\n    at ErrorBoundary (http://localhost:5173/src/components/ErrorBoundary.tsx:99:33)\\n    at App (<anonymous>)\\n    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dafdd2b6:4769:29)\\n    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dafdd2b6:7209:26)\", \"url\": \"http://localhost:5173/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337\", \"browser_ts\": \"2026-06-25T16:20:01.874Z\", \"breadcrumbs\": [{\"category\": \"navigation\", \"message\": \"pushState → /tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337\", \"timestamp\": \"2026-06-25T16:20:01.854Z\", \"data\": null}, {\"category\": \"click\", \"message\": \"div \\\"无负责人任务\\\"\", \"timestamp\": \"2026-06-25T16:20:01.854Z\", \"data\": null}], \"client_ip\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"client_error\", \"error\": \"[react_render] Cannot read properties of null (reading 'slice')\", \"stack\": \"TypeError: Cannot read properties of null (reading 'slice')\\n    at TaskDetailPage (http://localhost:5173/src/pages/TaskDetailPage.tsx?t=1782559889387:222:79)\\n    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:12868:12)\\n    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:4213:19)\\n    at updateFunctionComponent (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:5569:16)\\n    at beginWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:6140:20)\\n    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:851:66)\\n    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:8429:92)\\n    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:8325:37)\\n    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:8309:6)\\n    at performWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:7994:27)\", \"component_stack\": \"\\n    at TaskDetailPage (http://localhost:5173/src/pages/TaskDetailPage.tsx?t=1782559889387:26:25)\\n    at ProtectedRoute (http://localhost:5173/src/components/ProtectedRoute.tsx:6:34)\\n    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=71c858a9:4137:26)\\n    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=71c858a9:4817:19)\\n    at ErrorBoundaryClass (http://localhost:5173/src/components/ErrorBoundary.tsx?t=1782559889082:9:3)\\n    at ErrorBoundary (http://localhost:5173/src/components/ErrorBoundary.tsx?t=1782559889082:108:33)\\n    at App (<anonymous>)\\n    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=71c858a9:4769:29)\\n    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=71c858a9:7209:26)\", \"url\": \"http://localhost:5173/tasks/460eca98-4854-436d-b091-8232aa194600\", \"browser_ts\": \"2026-06-27T11:31:38.461Z\", \"trace_id\": \"6ccd3d525b158c966b6c39efacb8de08\", \"span_id\": \"690e7d0e155e8dc3\", \"breadcrumbs\": [{\"category\": \"navigation\", \"message\": \"pushState → /tasks/460eca98-4854-436d-b091-8232aa194600\", \"timestamp\": \"2026-06-27T11:31:38.431Z\", \"data\": null}, {\"category\": \"click\", \"message\": \"div \\\"无负责人任务\\\"\", \"timestamp\": \"2026-06-27T11:31:38.432Z\", \"data\": null}], \"client_ip\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:20:18.800719+00:00",
+    "timestamp": "2026-06-27T11:31:38.465181+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:54906 - \"GET /health HTTP/1.1\" 200"
+    "line": "127.0.0.1:64406 - \"POST /api/log/client-error HTTP/1.1\" 202"
   },
   {
-    "timestamp": "2026-06-25T16:20:18.800603+00:00",
+    "timestamp": "2026-06-27T11:31:38.465181+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/health\", \"status_code\": 200, \"duration_ms\": 0.2, \"client\": \"127.0.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/log/client-error\", \"status_code\": 202, \"duration_ms\": 1.3, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:20:01.878445+00:00",
+    "timestamp": "2026-06-27T11:31:38.463183+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:59038 - \"POST /api/log/client-error HTTP/1.1\" 202"
+    "line": "127.0.0.1:60067 - \"GET /api/tasks/460eca98-4854-436d-b091-8232aa194600 HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-25T16:20:01.878376+00:00",
+    "timestamp": "2026-06-27T11:31:38.463183+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/log/client-error\", \"status_code\": 202, \"duration_ms\": 0.5, \"client\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/tasks/460eca98-4854-436d-b091-8232aa194600\", \"status_code\": 200, \"duration_ms\": 6.2, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:20:01.876276+00:00",
+    "timestamp": "2026-06-27T11:31:38.455179+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:59024 - \"GET /api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337 HTTP/1.1\" 200"
+    "line": "127.0.0.1:53254 - \"GET /api/tasks/460eca98-4854-436d-b091-8232aa194600 HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-25T16:20:01.876149+00:00",
+    "timestamp": "2026-06-27T11:31:38.455179+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337\", \"status_code\": 200, \"duration_ms\": 5.2, \"client\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/tasks/460eca98-4854-436d-b091-8232aa194600\", \"status_code\": 200, \"duration_ms\": 17.5, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:20:01.869294+00:00",
+    "timestamp": "2026-06-27T11:31:38.436050+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:58986 - \"GET /api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337 HTTP/1.1\" 200"
+    "line": "127.0.0.1:60067 - \"OPTIONS /api/tasks/460eca98-4854-436d-b091-8232aa194600 HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-25T16:20:01.869186+00:00",
+    "timestamp": "2026-06-27T11:31:38.436050+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337\", \"status_code\": 200, \"duration_ms\": 8.3, \"client\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/tasks/460eca98-4854-436d-b091-8232aa194600\", \"status_code\": 200, \"duration_ms\": 1.1, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:20:01.859262+00:00",
+    "timestamp": "2026-06-27T11:31:38.436050+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:59020 - \"OPTIONS /api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337 HTTP/1.1\" 200"
+    "line": "127.0.0.1:51316 - \"OPTIONS /api/tasks/460eca98-4854-436d-b091-8232aa194600 HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-25T16:20:01.859193+00:00",
+    "timestamp": "2026-06-27T11:31:38.436050+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337\", \"status_code\": 200, \"duration_ms\": 0.5, \"client\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/tasks/460eca98-4854-436d-b091-8232aa194600\", \"status_code\": 200, \"duration_ms\": 0.3, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:20:01.858949+00:00",
+    "timestamp": "2026-06-27T11:31:34.887537+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:59024 - \"OPTIONS /api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337 HTTP/1.1\" 200"
+    "line": "127.0.0.1:51316 - \"GET /api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-25T16:20:01.858822+00:00",
+    "timestamp": "2026-06-27T11:31:34.887537+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337\", \"status_code\": 200, \"duration_ms\": 0.2, \"client\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec\", \"status_code\": 200, \"duration_ms\": 1.9, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.306258+00:00",
+    "timestamp": "2026-06-27T11:31:34.884448+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:59024 - \"GET /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks HTTP/1.1\" 200"
+    "line": "127.0.0.1:60067 - \"GET /api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.306176+00:00",
+    "timestamp": "2026-06-27T11:31:34.884448+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks\", \"status_code\": 200, \"duration_ms\": 4.2, \"client\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec\", \"status_code\": 200, \"duration_ms\": 68.1, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.305383+00:00",
+    "timestamp": "2026-06-27T11:31:34.825833+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:59020 - \"GET /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3 HTTP/1.1\" 200"
+    "line": "127.0.0.1:51316 - \"GET /api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec/tasks HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.305286+00:00",
+    "timestamp": "2026-06-27T11:31:34.825833+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3\", \"status_code\": 200, \"duration_ms\": 4.6, \"client\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec/tasks\", \"status_code\": 200, \"duration_ms\": 3.3, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.299889+00:00",
+    "timestamp": "2026-06-27T11:31:34.824525+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:58986 - \"GET /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks HTTP/1.1\" 200"
+    "line": "127.0.0.1:53254 - \"GET /api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec/tasks HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.299829+00:00",
+    "timestamp": "2026-06-27T11:31:34.824525+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks\", \"status_code\": 200, \"duration_ms\": 7.3, \"client\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec/tasks\", \"status_code\": 200, \"duration_ms\": 9.5, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.299440+00:00",
+    "timestamp": "2026-06-27T11:31:34.814419+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:59024 - \"GET /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3 HTTP/1.1\" 200"
+    "line": "127.0.0.1:51316 - \"OPTIONS /api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec/tasks HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.299334+00:00",
+    "timestamp": "2026-06-27T11:31:34.814419+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3\", \"status_code\": 200, \"duration_ms\": 5.1, \"client\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec/tasks\", \"status_code\": 200, \"duration_ms\": 1.8, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.296417+00:00",
+    "timestamp": "2026-06-27T11:31:34.813404+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:59020 - \"OPTIONS /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3 HTTP/1.1\" 200"
+    "line": "127.0.0.1:59146 - \"OPTIONS /api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.296058+00:00",
+    "timestamp": "2026-06-27T11:31:34.813404+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3\", \"status_code\": 200, \"duration_ms\": 3.3, \"client\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec\", \"status_code\": 200, \"duration_ms\": 1.5, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.294537+00:00",
+    "timestamp": "2026-06-27T11:31:34.813404+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:59008 - \"OPTIONS /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks HTTP/1.1\" 200"
+    "line": "127.0.0.1:60067 - \"OPTIONS /api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.294372+00:00",
+    "timestamp": "2026-06-27T11:31:34.813404+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks\", \"status_code\": 200, \"duration_ms\": 2.3, \"client\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec\", \"status_code\": 200, \"duration_ms\": 1.2, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.289741+00:00",
+    "timestamp": "2026-06-27T11:31:34.812901+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:58998 - \"OPTIONS /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3 HTTP/1.1\" 200"
+    "line": "127.0.0.1:53254 - \"OPTIONS /api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec/tasks HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.289666+00:00",
+    "timestamp": "2026-06-27T11:31:34.812568+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3\", \"status_code\": 200, \"duration_ms\": 0.7, \"client\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec/tasks\", \"status_code\": 200, \"duration_ms\": 0.8, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.289081+00:00",
+    "timestamp": "2026-06-27T11:31:31.124059+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:58986 - \"OPTIONS /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks HTTP/1.1\" 200"
+    "line": "127.0.0.1:61436 - \"POST /api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec/tasks HTTP/1.1\" 201"
   },
   {
-    "timestamp": "2026-06-25T16:19:58.288972+00:00",
+    "timestamp": "2026-06-27T11:31:31.124059+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks\", \"status_code\": 200, \"duration_ms\": 0.3, \"client\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec/tasks\", \"status_code\": 201, \"duration_ms\": 18.4, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:19:54.892004+00:00",
+    "timestamp": "2026-06-27T11:31:30.838134+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:38992 - \"POST /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks HTTP/1.1\" 201"
+    "line": "127.0.0.1:61434 - \"POST /api/projects/ HTTP/1.1\" 201"
   },
   {
-    "timestamp": "2026-06-25T16:19:54.891883+00:00",
+    "timestamp": "2026-06-27T11:31:30.838134+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks\", \"status_code\": 201, \"duration_ms\": 4.4, \"client\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/\", \"status_code\": 201, \"duration_ms\": 7.7, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:19:54.883945+00:00",
+    "timestamp": "2026-06-27T11:31:30.568404+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:38988 - \"POST /api/projects/ HTTP/1.1\" 201"
+    "line": "127.0.0.1:61430 - \"POST /api/auth/login HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-25T16:19:54.883760+00:00",
+    "timestamp": "2026-06-27T11:31:30.567354+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/\", \"status_code\": 201, \"duration_ms\": 3.4, \"client\": \"172.19.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/auth/login\", \"status_code\": 200, \"duration_ms\": 246.8, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-25T16:19:54.876807+00:00",
+    "timestamp": "2026-06-27T11:31:30.302540+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "172.19.0.1:38976 - \"POST /api/auth/login HTTP/1.1\" 200"
+    "line": "Application startup complete."
   },
   {
-    "timestamp": "2026-06-25T16:19:54.876654+00:00",
+    "timestamp": "2026-06-27T11:31:30.302540+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/auth/login\", \"status_code\": 200, \"duration_ms\": 169.9, \"client\": \"172.19.0.1\"}"
+    "line": "Waiting for application startup."
   },
   {
-    "timestamp": "2026-06-25T16:19:48.725482+00:00",
+    "timestamp": "2026-06-27T11:31:30.302540+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:46712 - \"GET /health HTTP/1.1\" 200"
+    "line": "Started server process [11896]"
   },
   {
-    "timestamp": "2026-06-25T16:19:48.725354+00:00",
+    "timestamp": "2026-06-27T11:31:27.213958+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/health\", \"status_code\": 200, \"duration_ms\": 0.2, \"client\": \"127.0.0.1\"}"
+    "line": "Shutting down"
   },
   {
-    "timestamp": "2026-06-25T16:20:18.800820+00:00",
+    "timestamp": "2026-06-27T11:31:29.149839+00:00",
     "labels": {
-      "detected_level": "info",
+      "detected_level": "warning",
+      "level": "warning",
       "service_name": "demo-backend"
     },
-    "line": "INFO:     127.0.0.1:54906 - \"GET /health HTTP/1.1\" 200 OK"
+    "line": "WatchFiles detected changes in 'app\\observability.py', 'app\\api\\client_log.py'. Reloading..."
   },
   {
-    "timestamp": "2026-06-25T16:20:01.878586+00:00",
+    "timestamp": "2026-06-27T11:31:27.183798+00:00",
     "labels": {
-      "detected_level": "info",
+      "detected_level": "warning",
+      "level": "warning",
       "service_name": "demo-backend"
     },
-    "line": "INFO:     172.19.0.1:59038 - \"POST /api/log/client-error HTTP/1.1\" 202"
+    "line": "WatchFiles detected changes in 'app\\observability.py', 'app\\api\\client_log.py'. Reloading..."
   },
   {
-    "timestamp": "2026-06-25T16:20:01.878512+00:00",
+    "timestamp": "2026-06-27T11:31:31.923000+00:00",
     "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
+      "route_from": "/login",
+      "route_to": "/login",
+      "scope_name": "demo-frontend",
+      "service_name": "demo-frontend",
+      "severity_text": "INFO"
     },
-    "line": "INFO:     172.19.0.1:59038 - \"POST /api/log/client-error HTTP/1.1\" 202 Accepted"
+    "line": "[ROUTE] /login → /login"
   },
   {
-    "timestamp": "2026-06-25T16:20:01.876405+00:00",
+    "timestamp": "2026-06-27T11:31:31.835000+00:00",
     "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
+      "route_from": "/login",
+      "route_to": "/login",
+      "scope_name": "demo-frontend",
+      "service_name": "demo-frontend",
+      "severity_text": "INFO"
     },
-    "line": "INFO:     172.19.0.1:59024 - \"GET /api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337 HTTP/1.1\" 200"
+    "line": "[ROUTE] /login → /login"
   },
   {
-    "timestamp": "2026-06-25T16:20:01.876370+00:00",
+    "timestamp": "2026-06-27T11:31:34.507000+00:00",
     "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
+      "route_from": "/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec",
+      "route_to": "/projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec",
+      "scope_name": "demo-frontend",
+      "service_name": "demo-frontend",
+      "severity_text": "INFO"
     },
-    "line": "INFO:     172.19.0.1:59024 - \"GET /api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337 HTTP/1.1\" 200 OK"
-  },
-  {
-    "timestamp": "2026-06-25T16:20:01.869445+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:58986 - \"GET /api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337 HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-25T16:20:01.869436+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:58986 - \"GET /api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337 HTTP/1.1\" 200 OK"
-  },
-  {
-    "timestamp": "2026-06-25T16:20:01.859376+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:59020 - \"OPTIONS /api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337 HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-25T16:20:01.859372+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:59020 - \"OPTIONS /api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337 HTTP/1.1\" 200 OK"
-  },
-  {
-    "timestamp": "2026-06-25T16:20:01.859101+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:59024 - \"OPTIONS /api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337 HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-25T16:20:01.859048+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:59024 - \"OPTIONS /api/tasks/27aae6ea-631b-4b92-b5ab-e8009d98b337 HTTP/1.1\" 200 OK"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.308125+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:59024 - \"GET /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.306322+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:59024 - \"GET /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks HTTP/1.1\" 200 OK"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.305557+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:59020 - \"GET /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3 HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.305508+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:59020 - \"GET /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3 HTTP/1.1\" 200 OK"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.299993+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:58986 - \"GET /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.299942+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:58986 - \"GET /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks HTTP/1.1\" 200 OK"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.299609+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:59024 - \"GET /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3 HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.299540+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:59024 - \"GET /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3 HTTP/1.1\" 200 OK"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.296600+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:59020 - \"OPTIONS /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3 HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.296552+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:59020 - \"OPTIONS /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3 HTTP/1.1\" 200 OK"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.294717+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:59008 - \"OPTIONS /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.294712+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:59008 - \"OPTIONS /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks HTTP/1.1\" 200 OK"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.289940+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:58998 - \"OPTIONS /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3 HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.289806+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:58998 - \"OPTIONS /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3 HTTP/1.1\" 200 OK"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.289227+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:58986 - \"OPTIONS /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:58.289166+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:58986 - \"OPTIONS /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks HTTP/1.1\" 200 OK"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:54.892110+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:38992 - \"POST /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks HTTP/1.1\" 201"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:54.892092+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:38992 - \"POST /api/projects/596fafc4-9234-49f9-a1ab-9190d873c4a3/tasks HTTP/1.1\" 201 Created"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:54.884119+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:38988 - \"POST /api/projects/ HTTP/1.1\" 201"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:54.884085+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:38988 - \"POST /api/projects/ HTTP/1.1\" 201 Created"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:54.878620+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:38976 - \"POST /api/auth/login HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:54.876900+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     172.19.0.1:38976 - \"POST /api/auth/login HTTP/1.1\" 200 OK"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:48.728109+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     127.0.0.1:46712 - \"GET /health HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-25T16:19:48.725566+00:00",
-    "labels": {
-      "detected_level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "INFO:     127.0.0.1:46712 - \"GET /health HTTP/1.1\" 200 OK"
+    "line": "[ROUTE] /projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec → /projects/17d0ff9d-7934-4821-8b5b-05fd1b58a4ec"
   }
 ]

@@ -46,7 +46,7 @@ injection:
 
     '
 trigger:
-  type: api_call
+  type: e2e_action
   steps:
   - action: login
     params:
@@ -68,10 +68,22 @@ trigger:
       data:
         name: Admin 专属
         description: admin only
-  - action: api_call
+  - action: ui_navigate
     params:
-      method: GET
-      path: /api/projects/
+      url: /projects
+  - action: wait
+    params:
+      seconds: 3
+  - action: collect_diff
+    params:
+      diff_type: access_control_anomaly
+      description: admin 的项目列表不应出现 alice 的项目
+      steps:
+      - method: GET
+        path: /api/projects/
+        label: "admin 查看项目列表"
+      expectation: GET /api/projects/ 应只返回 admin 拥有的项目（owner_id 过滤）
+      discrepancy: "列表返回了非当前用户拥有的项目（alice 的项目也在其中），owner_id 过滤被移除导致横向越权数据泄露"
   expected_observation:
     log_patterns:
     - pattern: '"path":"/api/projects/","status":200'
@@ -80,13 +92,15 @@ trigger:
       GET /api/projects/:
         status: OK
     api_response: null
-  ui_reachable: false
+  ui_reachable: true
   expected_evidence:
     browser_errors: none
     frontend_spans: expected
-    backend_signal: unexpected behavior in API response
+    backend_signal: access_control_anomaly
     symptom_tier: backend
     root_cause_tier: backend
+    required_signal_types:
+    - access_control_anomaly
 evaluation:
   must_mention_keywords:
   - owner_id
@@ -101,6 +115,11 @@ evaluation:
     并建议恢复按当前用户过滤。需体现“列表里出现了不属于当前用户的项目”这一点。
 
     '
-  min_confidence: 0.6
+  min_confidence: 0.5
+  note: |
+    No diff_evidence is provided (removed for authenticity).  The only signal
+    is the user_report describing "projects that don't belong to me".
+    Doctor must cross-reference the user's identity with the API response
+    and identify the missing owner_id filter.
 categories:
 - logic

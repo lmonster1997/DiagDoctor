@@ -55,18 +55,18 @@ injection:
 
     '
 trigger:
-  type: api_call
+  type: e2e_action
   steps:
   - action: login
     params:
       email: admin@example.com
       password: Admin123!
-  - action: api_call
+  - action: ui_navigate
     params:
-      method: GET
-      path: /api/tasks/00000000-0000-0000-0000-000000000000
-      expected_status:
-      - 500
+      url: /tasks/00000000-0000-0000-0000-000000000000
+  - action: wait
+    params:
+      seconds: 3
   expected_observation:
     log_patterns:
     - pattern: unhandled_exception.*NoResultFound
@@ -75,7 +75,7 @@ trigger:
       GET /api/tasks/{id}:
         status: ERROR
     api_response: null
-  ui_reachable: false
+  ui_reachable: true
   expected_evidence:
     browser_errors: optional
     frontend_spans: expected

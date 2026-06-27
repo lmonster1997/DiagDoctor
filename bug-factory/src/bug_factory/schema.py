@@ -44,6 +44,8 @@ class ExpectedEvidence(BaseModel):
     backend_signal: str = ""  # Key signal expected on the root-cause side
     symptom_tier: Literal["frontend", "backend"] = "backend"
     root_cause_tier: Literal["frontend", "backend", "data"] = "backend"
+    cross_layer: bool = False
+    required_signal_types: list[str] = []
 
 
 class ExpectedDiagnosis(BaseModel):
@@ -64,12 +66,24 @@ class Injection(BaseModel):
     target_file: str  # Path relative to the workspace root
     ai_instruction: str  # Natural-language instruction for the AI rewriter
     diff_patch: str | None = None  # Exact unified-diff patch (alternative to ai_instruction)
+    extra_files: list[dict[str, str]] = Field(
+        default_factory=list,
+        description=(
+            "Optional additional files to modify with their own instructions. "
+            "Each entry is {file: str, instruction: str} — the instruction "
+            "overrides the main ai_instruction for that file only. "
+            "Used for cross-layer bugs that require changes in both frontend "
+            "and backend (e.g. CASCADE-020)."
+        ),
+    )
 
 
 class TriggerStep(BaseModel):
     """A single step in a trigger sequence that activates the bug."""
 
-    action: Literal["login", "api_call", "ui_click", "create_data", "wait", "ui_navigate"]
+    action: Literal[
+        "login", "api_call", "ui_click", "create_data", "wait", "ui_navigate", "collect_diff"
+    ]
     params: dict[str, Any]
 
 
@@ -118,6 +132,7 @@ class Evaluation(BaseModel):
     should_mention_keywords: list[str] = []
     llm_judge_criteria: str
     min_confidence: float = 0.6
+    cross_layer_required: bool = False
 
 
 class BugRecipe(BaseModel):
@@ -198,6 +213,7 @@ class TriggerResult(BaseModel):
     steps: list[StepResult] = []
     error: str | None = None
     browser_errors: list[BrowserError] = []
+    diff_evidence: list[DiffEvidence] = []
 
 
 class TriggerError(Exception):
@@ -249,6 +265,10 @@ class BrowserError(BaseModel):
 
     Captures both uncaught exceptions (``pageerror``) and
     ``console.error`` messages from the browser's JavaScript context.
+
+    Rich fields (trace_id / span_id / component_stack / breadcrumbs)
+    enable back-linking to the unified trace tree and frontend source
+    location via source-map resolution (see from-scratch §13.1.2).
     """
 
     timestamp: str
@@ -257,6 +277,43 @@ class BrowserError(BaseModel):
     stack: str | None = None
     url: str | None = None
     line_number: int | None = None
+    trace_id: str | None = None
+    span_id: str | None = None
+    component_stack: str | None = None
+    breadcrumbs: list[str] = []
+
+
+class DiffEvidence(BaseModel):
+    """Behavioural diff evidence for "smokeless" bugs (logic/data/config).
+
+    Unlike error-signal bugs (crashes, 5xx, slow queries), logic and data
+    bugs produce normal HTTP responses and no error signals.  This model
+    captures the *discrepancy* between what the system did and what it
+    should have done — the key signal that a Doctor agent needs to
+    diagnose access-control violations, silent data loss, sort-order
+    bugs, and similar "invisible" issues.
+
+    See: bug-case-quality-review §3.2 (diagnostic path for non-crash bugs).
+    """
+
+    diff_type: str = Field(
+        ...,
+        description=(
+            "Semantic tag for the mismatch type: "
+            "access_control_anomaly | silent_data_loss | "
+            "data_invariant_broken | behavior_mismatch"
+        ),
+    )
+    description: str = Field(..., description="Human-readable summary of the mismatch")
+    request_context: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Who made the request, what endpoint, what was expected",
+    )
+    observation: dict[str, Any] = Field(
+        default_factory=dict,
+        description="What actually happened — raw data, counts, comparisons",
+    )
+    discrepancy: str = Field(..., description="One-sentence statement of what went wrong")
 
 
 class CollectedEvidence(BaseModel):
@@ -266,6 +323,7 @@ class CollectedEvidence(BaseModel):
     logs: list[LogEntry] = []
     traces: list[TraceSpan] = []
     browser_errors: list[BrowserError] = []
+    diff_evidence: list[DiffEvidence] = []
     time_window: tuple[str, str] | None = None
 
 

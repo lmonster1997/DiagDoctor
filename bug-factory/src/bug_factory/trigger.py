@@ -28,6 +28,7 @@ Usage::
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 import time
@@ -40,6 +41,7 @@ from aiohttp import ClientSession, ClientTimeout
 
 from bug_factory.schema import (
     BrowserError,
+    DiffEvidence,
     StepResult,
     Trigger,
     TriggerError,
@@ -58,6 +60,7 @@ _DEFAULT_TIMEOUT = ClientTimeout(total=30)
 _CREATE_ROUTES: dict[str, str] = {
     "project": "/api/projects/",
     "task": "/api/projects/{project_id}/tasks",
+    "comment": "/api/tasks/{task_id}/comments",
 }
 
 # Default auth header key inserted by _action_login.
@@ -98,12 +101,54 @@ class TriggerRunner:
             "created_tasks": [],
         }
         self.browser_errors: list[BrowserError] = []
+        self.diff_evidence: list[DiffEvidence] = []
         logger.info(
             "TriggerRunner initialised",
             base_url=self.base_url,
             frontend_url=self.frontend_url,
             log_flush_seconds=self.log_flush_seconds,
         )
+
+    async def _enrich_browser_errors_from_page(self, page: Any) -> None:
+        """Fill null trace_id/span_id in recent browser_errors via page.evaluate.
+
+        Reads ``window.__otelLastTraceId`` (set by the frontend OTel span
+        processor) and patches any :class:`BrowserError` whose ``trace_id``
+        is still ``None``.  Called just before ``browser.close()`` in UI
+        action handlers.
+        """
+        if not self.browser_errors:
+            return
+        try:
+            otel_ctx = await page.evaluate(
+                """() => ({
+                    trace_id: window.__otelLastTraceId || '',
+                    span_id: window.__otelLastSpanId || '',
+                })"""
+            )
+            _tid = (otel_ctx.get("trace_id") or "").strip()
+            _sid = (otel_ctx.get("span_id") or "").strip()
+            if not _tid and not _sid:
+                return
+            # Patch the last few errors that are still missing context.
+            patched = 0
+            for be in reversed(self.browser_errors):
+                if be.trace_id is None and _tid:
+                    be.trace_id = _tid
+                    patched += 1
+                if be.span_id is None and _sid:
+                    be.span_id = _sid
+                if patched >= 10:  # don't patch everything
+                    break
+            if patched:
+                logger.info(
+                    "Enriched browser errors with OTel context",
+                    patched=patched,
+                    trace_id=_tid,
+                    span_id=_sid,
+                )
+        except Exception as exc:
+            logger.debug("Failed to enrich browser errors from page", error=str(exc))
 
     # ── Public API ──────────────────────────────────────────────────
 
@@ -128,20 +173,21 @@ class TriggerRunner:
         steps: list[StepResult] = []
         overall_success = True
         error_msg: str | None = None
+        _browser_established = False  # True after first ui_navigate / ui_click
 
         try:
             for i, step in enumerate(trigger.steps):
                 # ── ui_reachable 门控 ──────────────────────────────────
                 # When ui_reachable=True (the default), api_call steps are
-                # rejected: triggering must happen through real browser UI so
-                # the frontend OTel-JS channel produces demo-frontend spans
-                # that share a trace_id with the backend (cross-tier trace).
-                # login / create_data / wait are exempt — they are data-setup
-                # steps, not the fault-triggering step.
+                # rejected UNLESS a browser session has already been
+                # established by a prior ui_navigate or ui_click step.
+                # login / create_data / wait are always exempt — they are
+                # data-setup steps, not the fault-triggering step.
                 if (
                     trigger.ui_reachable
                     and step.action == "api_call"
                     and step.action not in self._UI_REACHABLE_SAFE_ACTIONS
+                    and not _browser_established
                 ):
                     step_result = StepResult(
                         action=step.action,
@@ -167,6 +213,11 @@ class TriggerRunner:
 
                 step_result = await self._execute_step(i, step)
                 steps.append(step_result)
+
+                # Track that a browser session has been established so
+                # subsequent api_call steps are allowed.
+                if step_result.success and step.action in ("ui_navigate", "ui_click"):
+                    _browser_established = True
 
                 if not step_result.success:
                     overall_success = False
@@ -199,12 +250,14 @@ class TriggerRunner:
             steps=steps,
             error=error_msg,
             browser_errors=self.browser_errors,
+            diff_evidence=self.diff_evidence,
         )
         logger.info(
             "Trigger run complete",
             success=overall_success,
             step_count=len(steps),
             browser_error_count=len(self.browser_errors),
+            diff_evidence_count=len(self.diff_evidence),
         )
         return result
 
@@ -217,10 +270,13 @@ class TriggerRunner:
         "ui_navigate": "_action_ui_navigate",
         "create_data": "_action_create_data",
         "wait": "_action_wait",
+        "collect_diff": "_action_collect_diff",
     }
 
     # Actions that are always allowed even when ui_reachable=True (data setup, not triggering).
-    _UI_REACHABLE_SAFE_ACTIONS: frozenset[str] = frozenset({"login", "create_data", "wait"})
+    _UI_REACHABLE_SAFE_ACTIONS: frozenset[str] = frozenset(
+        {"login", "create_data", "wait", "collect_diff"}
+    )
 
     async def _execute_step(self, index: int, step: object) -> StepResult:
         """Dispatch a single trigger step to its action handler.
@@ -452,19 +508,45 @@ class TriggerRunner:
                 if msg.type in ("error", "warning"):
                     now = datetime.now(timezone.utc).isoformat()  # noqa: UP017
                     loc = msg.location
+                    text = msg.text[:2000] if msg.text else ""
+
+                    # ── Extract trace_id / span_id / component_stack / breadcrumbs ──
+                    _trace_id: str | None = None
+                    _span_id: str | None = None
+                    _comp_stack: str | None = None
+                    _breadcrumbs: list[str] = []
+                    _trace_match = re.search(r"trace_id=([a-f0-9]{32})", text)
+                    if _trace_match:
+                        _trace_id = _trace_match.group(1)
+                    _span_match = re.search(r"span_id=([a-f0-9]{16})", text)
+                    if _span_match:
+                        _span_id = _span_match.group(1)
+                    _comp_match = re.search(r"comp=(.*?)(?:\s+\w+=|$)", text)
+                    if _comp_match and _comp_match.group(1).strip():
+                        _comp_stack = _comp_match.group(1).strip()
+                    _crumbs_match = re.search(r"crumbs=(\d+)", text)
+                    if _crumbs_match:
+                        _breadcrumbs = [f"breadcrumb_count={_crumbs_match.group(1)}"]
+
                     self.browser_errors.append(
                         BrowserError(
                             timestamp=now,
                             type=f"console_{msg.type}",
-                            message=msg.text[:2000] if msg.text else "",
+                            message=text,
                             url=loc.get("url") if loc else None,
                             line_number=loc.get("lineNumber") if loc else None,
+                            trace_id=_trace_id,
+                            span_id=_span_id,
+                            component_stack=_comp_stack,
+                            breadcrumbs=_breadcrumbs,
                         )
                     )
                     logger.info(
                         "Captured browser console error",
                         type=msg.type,
                         message=msg.text[:200] if msg.text else "",
+                        trace_id=_trace_id,
+                        span_id=_span_id,
                     )
 
             def _capture_pageerror(err: Exception) -> None:
@@ -545,6 +627,7 @@ class TriggerRunner:
                     await asyncio.sleep(1)  # Let any navigation / animation settle.
 
             finally:
+                await self._enrich_browser_errors_from_page(page)
                 await browser.close()
 
         logger.info("UI click executed", selector=selector)
@@ -579,7 +662,7 @@ class TriggerRunner:
 
         result: dict[str, Any] | None = None
 
-        for _ in range(repeat):
+        for _rep_idx in range(repeat):
             resolved_data = self._resolve_template(data_template) if data_template else {}
 
             # Resolve project for task creation.
@@ -598,11 +681,26 @@ class TriggerRunner:
                         "Create a project first, or provide project_id in data.",
                     )
 
-            # Resolve the route path: use the resolved project_id if available,
-            # otherwise fall back to generic template resolution.
+            # Resolve task for comment creation — cycle through created tasks.
+            if entity == "comment":
+                tasks = self.session.get("created_tasks", [])
+                if not tasks:
+                    raise TriggerError(
+                        recipe_id="<unknown>",
+                        step_index=-1,
+                        detail="Cannot create comment: no task in session. "
+                        "Create a task first, or provide task_id in data.",
+                    )
+                task = tasks[_rep_idx % len(tasks)]
+                resolved_data["task_id"] = task["id"]
+
+            # Resolve the route path: use resolved project_id / task_id if available.
             project_id = resolved_data.get("project_id")
+            task_id = resolved_data.pop("task_id", None)
             if project_id and "{project_id}" in route:
                 resolved_path = route.replace("{project_id}", str(project_id))
+            elif task_id and "{task_id}" in route:
+                resolved_path = route.replace("{task_id}", str(task_id))
             else:
                 resolved_path = self._resolve_template(route)
             result = await self._http_post(
@@ -645,25 +743,23 @@ class TriggerRunner:
 
         # Resolve template variables and apply frontend_url override.
         target = self._resolve_template(target)
-        if self.frontend_url:
-            parsed_target = urlparse(target)
-            # If target is a relative path, prepend frontend_url origin.
-            if not parsed_target.netloc:
-                target = self.frontend_url.rstrip("/") + (
-                    "/" + target.lstrip("/") if target else ""
+        frontend_url = self.frontend_url or "http://localhost:5173"
+        parsed_target = urlparse(target)
+        # If target is a relative path, prepend frontend_url origin.
+        if not parsed_target.netloc:
+            target = frontend_url.rstrip("/") + ("/" + target.lstrip("/") if target else "")
+        else:
+            override_parsed = urlparse(frontend_url)
+            target = urlunparse(
+                (
+                    override_parsed.scheme or parsed_target.scheme or "http",
+                    override_parsed.netloc or parsed_target.netloc or "localhost:5173",
+                    parsed_target.path,
+                    parsed_target.params,
+                    parsed_target.query,
+                    parsed_target.fragment,
                 )
-            else:
-                override_parsed = urlparse(self.frontend_url)
-                target = urlunparse(
-                    (
-                        override_parsed.scheme or parsed_target.scheme or "http",
-                        override_parsed.netloc or parsed_target.netloc or "localhost:5173",
-                        parsed_target.path,
-                        parsed_target.params,
-                        parsed_target.query,
-                        parsed_target.fragment,
-                    )
-                )
+            )
 
         wait_until = params.get("wait_until", "networkidle")
         timeout_ms = int(params.get("timeout", 15000))
@@ -697,19 +793,45 @@ class TriggerRunner:
                 if msg.type in ("error", "warning"):
                     now = datetime.now(UTC).isoformat()
                     loc = msg.location
+                    text = msg.text[:2000] if msg.text else ""
+
+                    # ── Extract trace_id / span_id / component_stack / breadcrumbs ──
+                    _trace_id: str | None = None
+                    _span_id: str | None = None
+                    _comp_stack: str | None = None
+                    _breadcrumbs: list[str] = []
+                    _trace_match = re.search(r"trace_id=([a-f0-9]{32})", text)
+                    if _trace_match:
+                        _trace_id = _trace_match.group(1)
+                    _span_match = re.search(r"span_id=([a-f0-9]{16})", text)
+                    if _span_match:
+                        _span_id = _span_match.group(1)
+                    _comp_match = re.search(r"comp=(.*?)(?:\s+\w+=|$)", text)
+                    if _comp_match and _comp_match.group(1).strip():
+                        _comp_stack = _comp_match.group(1).strip()
+                    _crumbs_match = re.search(r"crumbs=(\d+)", text)
+                    if _crumbs_match:
+                        _breadcrumbs = [f"breadcrumb_count={_crumbs_match.group(1)}"]
+
                     self.browser_errors.append(
                         BrowserError(
                             timestamp=now,
                             type=f"console_{msg.type}",
-                            message=msg.text[:2000] if msg.text else "",
+                            message=text,
                             url=loc.get("url") if loc else None,
                             line_number=loc.get("lineNumber") if loc else None,
+                            trace_id=_trace_id,
+                            span_id=_span_id,
+                            component_stack=_comp_stack,
+                            breadcrumbs=_breadcrumbs,
                         )
                     )
                     logger.info(
                         "Captured browser console error",
                         type=msg.type,
                         message=msg.text[:200] if msg.text else "",
+                        trace_id=_trace_id,
+                        span_id=_span_id,
                     )
 
             def _capture_pageerror(err: Exception) -> None:
@@ -762,6 +884,7 @@ class TriggerRunner:
                 await asyncio.sleep(2)
 
             finally:
+                await self._enrich_browser_errors_from_page(page)
                 await browser.close()
 
         logger.info("UI navigate executed", target=target)
@@ -777,6 +900,90 @@ class TriggerRunner:
         logger.info("Waiting", seconds=seconds)
         await asyncio.sleep(seconds)
         return {"waited": seconds}
+
+    async def _action_collect_diff(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Collect behavioural diff evidence for "smokeless" bugs.
+
+        Unlike error-signal bugs, logic/data/config bugs produce normal
+        HTTP responses and no error signals.  This action makes one or
+        more follow-up API calls AFTER the bug has been triggered, then
+        compares the actual behaviour against expected behaviour to
+        produce explicit discrepancy evidence that a Doctor agent can use.
+
+        Required *params*:
+            diff_type (str): Semantic tag — one of:
+                ``access_control_anomaly`` | ``silent_data_loss`` |
+                ``data_invariant_broken`` | ``behavior_mismatch``
+            description (str): Human-readable summary of what is being checked.
+            steps (list[dict]): Sequence of API calls to collect comparison
+                data.  Each step dict has:
+                - method (str): HTTP method
+                - path (str): URL path (supports template vars)
+                - label (str): Human label for this data point
+                - body (dict, optional): JSON request body
+            expectation (str): What the correct behaviour SHOULD look like.
+            discrepancy (str): One-sentence template describing the mismatch;
+                ``{actual}`` and ``{expected}`` are replaced with collected data.
+
+        Example (LOGIC-020 IDOR)::
+
+            params:
+              diff_type: access_control_anomaly
+              description: "Verify that a user cannot see another user's project"
+              steps:
+                - method: GET
+                  path: /api/projects/{project_id}
+                  label: "admin accessing alice's project"
+              expectation: "Should return 404 or 403 — admin does not own this project"
+              discrepancy: "Returned 200 with full project data owned by another user"
+        """
+        diff_type = params.get("diff_type", "behavior_mismatch")
+        description = params.get("description", "")
+        steps_cfg: list[dict[str, Any]] = params.get("steps", [])
+        expectation = params.get("expectation", "")
+        discrepancy_tpl = params.get("discrepancy", "")
+
+        observations: dict[str, Any] = {}
+        for i, step_cfg in enumerate(steps_cfg):
+            label = step_cfg.get("label", f"step_{i}")
+            method = step_cfg.get("method", "GET").upper()
+            path = self._resolve_template(step_cfg.get("path", "/"))
+            body = self._resolve_template(step_cfg.get("body")) if step_cfg.get("body") else None
+            try:
+                result = await self._http_request(
+                    method=method,
+                    path=path,
+                    json_data=body,
+                    auth_required=True,
+                )
+                observations[label] = result
+                logger.info("Collect diff step succeeded", label=label, method=method, path=path)
+            except Exception as exc:
+                observations[label] = {"error": str(exc)}
+                logger.warning("Collect diff step failed", label=label, error=str(exc))
+
+        # Build discrepancy text
+        actual_summary = json.dumps(observations, ensure_ascii=False, default=str)
+        discrepancy = discrepancy_tpl.replace("{actual}", actual_summary[:2000])
+
+        diff = DiffEvidence(
+            diff_type=diff_type,
+            description=description,
+            request_context={
+                "current_user": self.session.get("current_user"),
+                "steps": steps_cfg,
+                "expectation": expectation,
+            },
+            observation=observations,
+            discrepancy=discrepancy,
+        )
+        self.diff_evidence.append(diff)
+        logger.info(
+            "Diff evidence collected",
+            diff_type=diff_type,
+            description=description[:100],
+        )
+        return {"diff_type": diff_type, "observations": observations}
 
     # ── HTTP helpers ─────────────────────────────────────────────────
 

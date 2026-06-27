@@ -1,0 +1,144 @@
+id: CASCADE-020
+title: 打开项目列表页越来越慢，刷新几次后直接超时打不开
+category: performance
+severity: critical
+tags:
+- cascade-failure
+- timeout
+- retry-storm
+- n+1
+- list_projects
+- difficulty:L4
+expected_diagnosis:
+  root_cause: |
+    list_projects 中的 N+1 查询（对每个 project 单独查询 tasks → PERF-021），
+    在项目数达到 30+ 时使单次请求耗时 > 5s。前端设置了 5s 超时 + 自动重试 3 次，
+    每次超时都重新发起请求，导致后端同时承受多倍负载。
+    级联效应：N+1 慢查询 → API 超时 → 前端重试 ×3 → 后端负载放大 4 倍 → 更慢 → 全部超时。
+  affected_file: demo-app/backend/app/api/projects.py
+  affected_line: null
+  fix_suggestion: |
+    方案 A（治本）：删除 list_projects 中对每个 project 的逐条 tasks 查询（N+1），
+    改用 GROUP BY + COUNT 聚合查询或用 selectinload 预加载。
+    方案 B（治标）：前端降低重试次数、加指数退避、加 circuit breaker。
+    方案 C（防护）：后端加请求超时（3s）、加 rate limiting。
+    建议 A + B 组合。
+  fix_keywords:
+  - 级联
+  - 超时
+  - 重试风暴
+  - N+1
+  - list_projects
+  - 聚合
+  retrieval_gold:
+    code_chunks:
+    - demo-app/backend/app/api/projects.py::list_projects
+    evidence_ids: []
+    similar_cases: []
+injection:
+  strategy: code_replace
+  target_file: demo-app/backend/app/api/projects.py
+  ai_instruction: |
+    在 list_projects 中，拿到 projects 后对每个 project 分别执行一次
+    select(Task).where(Task.project_id == project.id) 查询（构成 N+1），
+    同时在 GET /api/projects/ 端点中加入 await asyncio.sleep(20) 模拟慢接口。
+    需要 import asyncio 和 Task model。
+  diff_patch: |
+    --- a/demo-app/backend/app/api/projects.py
+    +++ b/demo-app/backend/app/api/projects.py
+    @@ -11,2 +11,4 @@
+     from app.models.project import Project
+    +from app.models.task import Task
+    +import asyncio
+     from app.models.user import User
+    @@ -24,2 +26,7 @@
+         result = await db.execute(select(Project).where(Project.owner_id == current_user.id))
+    -    return list(result.scalars().all())
+    +    projects = list(result.scalars().all())
+    +    # BUG(CASCADE-020): N+1 + artificial slowdown → timeout → retry storm
+    +    await asyncio.sleep(20)
+    +    for _p in projects:
+    +        _r = await db.execute(select(Task).where(Task.project_id == _p.id))
+    +        _ = _r.scalars().all()
+    +    return projects
+  extra_files:
+    - file: demo-app/frontend/src/services/api.ts
+      instruction: |
+        把 axios.create 中的 timeout 从 15000 改成 5000（5 秒超时）。
+        在响应拦截器的 error 处理中，对超时错误（error.code === 'ECONNABORTED'
+        或 axios.isCancel(error)）自动重试最多 3 次，每次重试前用指数退避等待
+        （第 1 次等 1s，第 2 次等 2s，第 3 次等 4s）。重试耗尽后仍然失败时，
+        用 console.error 输出 '[CASCADE] Retry exhausted' 以便 Playwright 采集。
+trigger:
+  type: e2e_action
+  steps:
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: create_data
+    params:
+      entity: project
+      data:
+        name: 级联测试
+        description: cascade
+      repeat: 30
+  - action: ui_navigate
+    params:
+      url: /projects
+  - action: wait
+    params:
+      seconds: 20
+  - action: collect_diff
+    params:
+      diff_type: behavior_mismatch
+      description: 验证级联故障——慢 API 导致超时 + 重试风暴
+      steps:
+      - method: GET
+        path: /api/projects/
+        label: "项目列表请求"
+      expectation: 应在 3s 内返回结果
+      discrepancy: "请求耗时超过 5s 或超时，多个前端重试请求同时打到后端形成重试风暴"
+  expected_observation:
+    log_patterns:
+    - pattern: SELECT .* FROM tasks .* WHERE tasks.project_id
+      min_occurrences: 30
+    - pattern: '"path":"/api/projects/","status":200'
+      min_occurrences: 1
+    trace_attributes:
+      GET /api/projects/:
+        duration_ms: '>3000'
+    api_response: null
+  ui_reachable: true
+  expected_evidence:
+    browser_errors: optional
+    frontend_spans: expected
+    backend_signal: cascade failure (N+1 → timeout → retry storm)
+    symptom_tier: frontend
+    root_cause_tier: backend
+    required_signal_types:
+    - repeated_query
+    - behavior_mismatch
+evaluation:
+  must_mention_keywords:
+  - 级联
+  - 超时
+  - N+1
+  should_mention_keywords:
+  - 重试
+  - 聚合
+  - list_projects
+  - circuit breaker
+  - 退避
+  llm_judge_criteria: |
+    诊断必须指出级联故障的因果链：
+    1. N+1 查询导致 list_projects 耗时过长（>3s）
+    2. API 超时触发前端自动重试
+    3. 重试请求放大后端负载 → 更慢 → 全部超时
+    需同时识别 N+1 模式（重复 SELECT tasks WHERE project_id）和级联效应，
+    并分别给出治本（修复 N+1）和治标（重试退避/circuit breaker）建议。
+    仅识别 N+1 而未解释级联效应的记低分（≤0.5）。
+  min_confidence: 0.5
+categories:
+- performance
+- logic

@@ -51,12 +51,18 @@ injection:
 
     '
 trigger:
-  type: api_call
+  type: e2e_action
   steps:
   - action: login
     params:
       email: admin@example.com
       password: Admin123!
+  - action: ui_navigate
+    params:
+      url: /projects
+  - action: wait
+    params:
+      seconds: 2
   - action: api_call
     params:
       method: POST
@@ -75,7 +81,7 @@ trigger:
       POST /api/tasks/{id}/comments:
         status: ERROR
     api_response: null
-  ui_reachable: false
+  ui_reachable: true
   expected_evidence:
     browser_errors: optional
     frontend_spans: expected

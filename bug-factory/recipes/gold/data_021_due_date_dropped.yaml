@@ -49,7 +49,7 @@ injection:
 
     '
 trigger:
-  type: api_call
+  type: e2e_action
   steps:
   - action: login
     params:
@@ -61,6 +61,12 @@ trigger:
       data:
         name: 截止日期测试
         description: due date loss
+  - action: ui_navigate
+    params:
+      url: /projects/{project_id}
+  - action: wait
+    params:
+      seconds: 2
   - action: api_call
     params:
       method: POST
@@ -68,6 +74,16 @@ trigger:
       body:
         title: 有截止日期的任务
         due_date: '2030-01-01T00:00:00Z'
+  - action: collect_diff
+    params:
+      diff_type: silent_data_loss
+      description: 验证创建任务时提交的 due_date 是否被保存
+      steps:
+      - method: GET
+        path: /api/tasks/{task_id}
+        label: "查看刚创建的任务"
+      expectation: due_date 应为 2030-01-01（用户提交的值）
+      discrepancy: "任务创建成功（201）但 due_date 为 null——create_task 用 due_date=None 覆盖了用户提交的 payload.due_date"
   expected_observation:
     log_patterns:
     - pattern: '"method":"POST","path":"/api/projects/.*/tasks","status":201'
@@ -76,13 +92,15 @@ trigger:
       POST /api/projects/{id}/tasks:
         status: OK
     api_response: null
-  ui_reachable: false
+  ui_reachable: true
   expected_evidence:
     browser_errors: none
     frontend_spans: expected
-    backend_signal: data corruption or wrong values
+    backend_signal: silent_data_loss
     symptom_tier: backend
     root_cause_tier: data
+    required_signal_types:
+    - silent_data_loss
 evaluation:
   must_mention_keywords:
   - due_date
@@ -96,6 +114,12 @@ evaluation:
     导致截止日期被丢弃，并建议改回 payload.due_date。
 
     '
-  min_confidence: 0.6
+  min_confidence: 0.5
+  note: |
+    No diff_evidence is provided (removed for authenticity).  Logs show
+    201 Created — the silent data loss produces no error signals.  Doctor
+    must detect the discrepancy from the user_report ("due_date disappeared
+    after creation") and investigate create_task for the due_date=None
+    assignment.
 categories:
 - data

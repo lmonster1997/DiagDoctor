@@ -48,7 +48,7 @@ injection:
 
     '
 trigger:
-  type: api_call
+  type: e2e_action
   steps:
   - action: login
     params:
@@ -64,10 +64,22 @@ trigger:
     params:
       email: admin@example.com
       password: Admin123!
-  - action: api_call
+  - action: ui_navigate
     params:
-      method: GET
-      path: /api/projects/{project_id}
+      url: /projects/{project_id}
+  - action: wait
+    params:
+      seconds: 3
+  - action: collect_diff
+    params:
+      diff_type: access_control_anomaly
+      description: admin 不应该能访问 alice 创建的项目
+      steps:
+      - method: GET
+        path: /api/projects/{project_id}
+        label: "admin 访问 alice 的项目"
+      expectation: GET /api/projects/{project_id} 应返回 404 或 403（admin 不是该项目属主）
+      discrepancy: "admin 以 200 OK 成功获取了 alice 的项目详情，缺少 owner_id 过滤导致越权读取"
   expected_observation:
     log_patterns:
     - pattern: '"path":"/api/projects/.*","status":200'
@@ -76,13 +88,15 @@ trigger:
       GET /api/projects/{id}:
         status: OK
     api_response: null
-  ui_reachable: false
+  ui_reachable: true
   expected_evidence:
     browser_errors: none
     frontend_spans: expected
-    backend_signal: unexpected behavior in API response
+    backend_signal: access_control_anomaly
     symptom_tier: backend
     root_cause_tier: backend
+    required_signal_types:
+    - access_control_anomaly
 evaluation:
   must_mention_keywords:
   - 越权
@@ -103,6 +117,11 @@ evaluation:
     而不是把 200 当作正常。
 
     '
-  min_confidence: 0.6
+  min_confidence: 0.5
+  note: |
+    No diff_evidence is provided (removed for authenticity — real users cannot
+    provide "expected vs actual" comparisons).  Doctor must infer an
+    access-control anomaly from the user_report alone and actively
+    investigate (code search for owner_id filtering).
 categories:
 - logic

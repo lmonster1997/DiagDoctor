@@ -41,7 +41,7 @@ injection:
     \ _p in projects:\n+        _r = await db.execute(select(Task).where(Task.project_id\
     \ == _p.id))\n+        _ = _r.scalars().all()\n+    return projects\n"
 trigger:
-  type: api_call
+  type: e2e_action
   steps:
   - action: login
     params:
@@ -54,10 +54,12 @@ trigger:
         name: 项目
         description: n+1
       repeat: 30
-  - action: api_call
+  - action: ui_navigate
     params:
-      method: GET
-      path: /api/projects/
+      url: /projects
+  - action: wait
+    params:
+      seconds: 3
   expected_observation:
     log_patterns:
     - pattern: SELECT .* FROM tasks .* WHERE tasks.project_id
@@ -66,7 +68,7 @@ trigger:
       GET /api/projects/:
         duration_ms: '>500'
     api_response: null
-  ui_reachable: false
+  ui_reachable: true
   expected_evidence:
     browser_errors: none
     frontend_spans: expected

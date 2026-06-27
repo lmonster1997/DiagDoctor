@@ -46,7 +46,7 @@ injection:
 
     '
 trigger:
-  type: api_call
+  type: e2e_action
   steps:
   - action: login
     params:
@@ -55,12 +55,12 @@ trigger:
   - action: wait
     params:
       seconds: 2
-  - action: api_call
+  - action: ui_navigate
     params:
-      method: GET
-      path: /api/projects/
-      expected_status:
-      - 401
+      url: /projects
+  - action: wait
+    params:
+      seconds: 3
   expected_observation:
     log_patterns:
     - pattern: '"path":"/api/projects/","status":401'
@@ -69,7 +69,7 @@ trigger:
       GET /api/projects/:
         status: OK
     api_response: null
-  ui_reachable: false
+  ui_reachable: true
   expected_evidence:
     browser_errors: none
     frontend_spans: expected

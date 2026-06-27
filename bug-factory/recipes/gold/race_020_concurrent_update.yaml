@@ -1,0 +1,143 @@
+id: RACE-020
+title: 两个人同时编辑同一任务，后保存的人覆盖了先保存的人的修改
+category: logic
+severity: critical
+tags:
+- race-condition
+- concurrent-write
+- lost-update
+- update_task
+- difficulty:L4
+expected_diagnosis:
+  root_cause: |
+    update_task 使用"先读取、再写入"模式（read-then-write），缺少乐观锁或悲观锁保护。
+    两个用户 A 和 B 同时编辑同一任务：A 修改 title，B 修改 status。
+    B 的 PATCH 在 A 之后到达，但 B 读取的是 A 修改前的旧数据，
+    导致 B 的写入覆盖了 A 的 title 修改（丢失更新 / lost update）。
+  affected_file: demo-app/backend/app/api/tasks.py
+  affected_line: null
+  fix_suggestion: |
+    方案 A（乐观锁）：给 Task 模型加 version 字段（Integer, default=0），
+    update_task 用 WHERE id={id} AND version={current_version} 条件更新，
+    version 不匹配时返回 409 Conflict 让客户端重试。
+    方案 B（字段级 PATCH）：将 update_task 改为只更新 payload 中显式传入的字段，
+    而非全量覆盖（当前已部分实现，需确认无全量覆盖逻辑）。
+  fix_keywords:
+  - 竞态
+  - lost update
+  - 乐观锁
+  - version
+  - '409'
+  - 并发
+  retrieval_gold:
+    code_chunks:
+    - demo-app/backend/app/api/tasks.py::update_task
+    evidence_ids: []
+    similar_cases: []
+injection:
+  strategy: code_replace
+  target_file: demo-app/backend/app/api/tasks.py
+  ai_instruction: |
+    在 update_task 中，将原来的"仅更新 payload 中显式传入的字段"模式，
+    改为"先读取当前所有字段值，合并 payload，再全量写回"模式。
+    这样单次 PATCH 行为不变（读到的就是当前值，写回不变），
+    但并发场景下另一个请求修改的字段会被覆盖（lost update）。
+  diff_patch: |
+    --- a/demo-app/backend/app/api/tasks.py
+    +++ b/demo-app/backend/app/api/tasks.py
+    @@ -106,3 +106,13 @@
+         update_data = payload.model_dump(exclude_unset=True)
+    -    for field, value in update_data.items():
+    -        setattr(task, field, value)
+    +    # BUG(RACE-020): Read-all-then-write-all — vulnerable to lost updates.
+    +    # Snapshot every mutable column BEFORE applying the payload, then
+    +    # write every column back.  A concurrent PATCH to a different field
+    +    # that lands between our read and write will be silently overwritten.
+    +    _snapshot = {
+    +        c.name: getattr(task, c.name)
+    +        for c in task.__table__.columns
+    +        if c.name not in ("id", "created_at", "updated_at")
+    +    }
+    +    _snapshot.update(update_data)
+    +    for field, value in _snapshot.items():
+    +        setattr(task, field, value)
+trigger:
+  type: api_call
+  ui_reachable: false
+  steps:
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: create_data
+    params:
+      entity: project
+      data:
+        name: 竞态测试
+        description: race condition
+  - action: create_data
+    params:
+      entity: task
+      data:
+        title: 原始任务
+        status: todo
+        project_index: 0
+  - action: wait
+    params:
+      seconds: 1
+  - action: api_call
+    params:
+      method: PATCH
+      path: /api/tasks/{task_id}
+      body:
+        title: Alice 的修改
+  - action: api_call
+    params:
+      method: PATCH
+      path: /api/tasks/{task_id}
+      body:
+        status: doing
+  - action: collect_diff
+    params:
+      diff_type: behavior_mismatch
+      description: 验证并发编辑时后写是否覆盖了先写
+      steps:
+      - method: GET
+        path: /api/tasks/{task_id}
+        label: "最终任务状态"
+      expectation: "title 应为 'Alice 的修改' 且 status 应为 'doing'（两个并发修改都生效）"
+      discrepancy: "title 被后续 PATCH 覆盖为空字符串（model_dump 全量覆盖把未传字段写为默认值），丢失了 Alice 的修改"
+  expected_observation:
+    log_patterns:
+    - pattern: '"method":"PATCH","path":"/api/tasks/.*","status":200'
+      min_occurrences: 1
+    trace_attributes:
+      PATCH /api/tasks/{id}:
+        status: OK
+    api_response: null
+  expected_evidence:
+    browser_errors: none
+    frontend_spans: none
+    backend_signal: behavior_mismatch
+    symptom_tier: backend
+    root_cause_tier: backend
+    required_signal_types:
+    - behavior_mismatch
+evaluation:
+  must_mention_keywords:
+  - 竞态
+  - 并发
+  - 覆盖
+  should_mention_keywords:
+  - lost update
+  - 乐观锁
+  - version
+  - model_dump
+  - exclude_unset
+  llm_judge_criteria: |
+    诊断必须指出 update_task 由于 model_dump() 全量覆盖导致并发编辑丢失（lost update），
+    并建议使用乐观锁（version 字段 + WHERE 条件）或恢复 exclude_unset=True。
+    需体现"两个并发请求，后者覆盖前者"的因果链，而非仅仅报告数据不一致。
+  min_confidence: 0.5
+categories:
+- logic

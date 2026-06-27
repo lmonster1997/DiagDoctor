@@ -45,7 +45,7 @@ injection:
     \    for _t in tasks:\n+        _c = await db.execute(select(Comment).where(Comment.task_id\
     \ == _t.id))\n+        _ = _c.scalars().all()\n+    return tasks\n"
 trigger:
-  type: api_call
+  type: e2e_action
   steps:
   - action: login
     params:
@@ -64,10 +64,18 @@ trigger:
         title: 批量任务
         project_index: 0
       repeat: 50
-  - action: api_call
+  - action: create_data
     params:
-      method: GET
-      path: /api/projects/{project_id}/tasks
+      entity: comment
+      data:
+        content: N+1 触发评论
+      repeat: 50
+  - action: ui_navigate
+    params:
+      url: /projects/{project_id}
+  - action: wait
+    params:
+      seconds: 3
   expected_observation:
     log_patterns:
     - pattern: SELECT .* FROM comments .* WHERE comments.task_id
@@ -76,7 +84,7 @@ trigger:
       GET /api/projects/{id}/tasks:
         duration_ms: '>1000'
     api_response: null
-  ui_reachable: false
+  ui_reachable: true
   expected_evidence:
     browser_errors: none
     frontend_spans: expected

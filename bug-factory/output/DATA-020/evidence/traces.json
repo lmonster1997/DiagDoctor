@@ -1,10 +1,85 @@
 [
   {
-    "trace_id": "ad507fa2c2c06066fbe42fe5679767c9",
-    "span_id": "",
-    "operation_name": "GET /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "f916aad936ca0ecc4028cdcf025b22ae",
+    "span_id": "7b59ce78df3c3068",
+    "parent_span_id": "840ba6f14a1333e6",
+    "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.728566+00:00",
+    "start_time": "2026-06-27T10:54:30.011442+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "f916aad936ca0ecc4028cdcf025b22ae",
+    "span_id": "8381b38fd9c44b48",
+    "parent_span_id": "840ba6f14a1333e6",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:30.011442+00:00",
+    "duration_ms": 0.9987,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-f916aad936ca0ecc4028cdcf025b22ae-b97029b109b232c3-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "f916aad936ca0ecc4028cdcf025b22ae",
+    "span_id": "40858d3d1019cb74",
+    "parent_span_id": "840ba6f14a1333e6",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:30.013170+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.project_id = $1::UUID ORDER BY tasks.created_at ASC /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-f916aad936ca0ecc4028cdcf025b22ae-cbd2c33be8a2166b-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "f916aad936ca0ecc4028cdcf025b22ae",
+    "span_id": "c2dd1e965d7c6e44",
+    "parent_span_id": "840ba6f14a1333e6",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:30.013170+00:00",
+    "duration_ms": 9.8257,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT comments.task_id AS comments_task_id, comments.id AS comments_id, comments.author_id AS comments_author_id, comments.content AS comments_content, comments.created_at AS comments_created_at \nFROM comments \nWHERE comments.task_id IN ($1::UUID, $2::UUID, $3::UUID, $4::UUID, $5::UUID) ORDER BY comments.created_at /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-f916aad936ca0ecc4028cdcf025b22ae-2fc4efbff28274c9-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "f916aad936ca0ecc4028cdcf025b22ae",
+    "span_id": "6fee80dcafbcba55",
+    "parent_span_id": "840ba6f14a1333e6",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:30.022995+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -13,11 +88,12 @@
     }
   },
   {
-    "trace_id": "ad507fa2c2c06066fbe42fe5679767c9",
-    "span_id": "",
-    "operation_name": "GET /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "f916aad936ca0ecc4028cdcf025b22ae",
+    "span_id": "656809df4b98799d",
+    "parent_span_id": "840ba6f14a1333e6",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.728566+00:00",
+    "start_time": "2026-06-27T10:54:30.022995+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -25,11 +101,12 @@
     }
   },
   {
-    "trace_id": "ad507fa2c2c06066fbe42fe5679767c9",
-    "span_id": "",
-    "operation_name": "GET /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "f916aad936ca0ecc4028cdcf025b22ae",
+    "span_id": "b8eae3f48da3a9a9",
+    "parent_span_id": "840ba6f14a1333e6",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.728566+00:00",
+    "start_time": "2026-06-27T10:54:30.022995+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -37,35 +114,222 @@
     }
   },
   {
-    "trace_id": "ad507fa2c2c06066fbe42fe5679767c9",
-    "span_id": "",
-    "operation_name": "GET /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+    "trace_id": "f916aad936ca0ecc4028cdcf025b22ae",
+    "span_id": "840ba6f14a1333e6",
+    "parent_span_id": "",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.721562+00:00",
-    "duration_ms": 7.0042,
+    "start_time": "2026-06-27T10:54:30.010441+00:00",
+    "duration_ms": 12.5545,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
       "http.host": "127.0.0.1:8000",
       "net.host.port": "8000",
       "http.flavor": "1.1",
-      "http.target": "/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "http.target": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.server_name": "localhost:8000",
       "http.user_agent": "Python/3.11 aiohttp/3.14.1",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "49611",
-      "http.route": "/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "net.peer.port": "56165",
+      "http.route": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.method": "GET",
-      "http.url": "http://localhost:8000/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "http.url": "http://localhost:8000/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.status_code": "200"
     }
   },
   {
-    "trace_id": "ad507fa2c2c06066fbe42fe5679767c9",
-    "span_id": "",
+    "trace_id": "6080910ecce709e0c7d819f9f3aa4f1f",
+    "span_id": "3a0f7477b0603199",
+    "parent_span_id": "622936853078fe1d",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:24.006683+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "6080910ecce709e0c7d819f9f3aa4f1f",
+    "span_id": "c53a80617352301b",
+    "parent_span_id": "622936853078fe1d",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:24.006683+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "6080910ecce709e0c7d819f9f3aa4f1f",
+    "span_id": "5d99a551ffbfe0e3",
+    "parent_span_id": "622936853078fe1d",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:24.006683+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "6080910ecce709e0c7d819f9f3aa4f1f",
+    "span_id": "622936853078fe1d",
+    "parent_span_id": "",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:24.003685+00:00",
+    "duration_ms": 2.9973,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "59155",
+      "http.route": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+      "http.method": "GET",
+      "http.url": "http://localhost:8000/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "6080910ecce709e0c7d819f9f3aa4f1f",
+    "span_id": "8a0b242ccd2ddf9e",
+    "parent_span_id": "622936853078fe1d",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.722566+00:00",
+    "start_time": "2026-06-27T10:54:24.003685+00:00",
+    "duration_ms": 0.997,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "6080910ecce709e0c7d819f9f3aa4f1f",
+    "span_id": "257da836d95f8295",
+    "parent_span_id": "622936853078fe1d",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:24.004683+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-6080910ecce709e0c7d819f9f3aa4f1f-7d2dd109e2c2986e-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "6080910ecce709e0c7d819f9f3aa4f1f",
+    "span_id": "0d709ab9efa2cf33",
+    "parent_span_id": "622936853078fe1d",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:24.005683+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT projects.id, projects.name, projects.description, projects.owner_id, projects.created_at \nFROM projects \nWHERE projects.id = $1::UUID AND projects.owner_id = $2::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-6080910ecce709e0c7d819f9f3aa4f1f-40293b38b789bf01-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "8b1bdb62cca580fddd6eab052aacd474",
+    "span_id": "edb82e10eaf3ee3c",
+    "parent_span_id": "8b9b0b0739b56366",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.974974+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "8b1bdb62cca580fddd6eab052aacd474",
+    "span_id": "1ccc10d77e11edf8",
+    "parent_span_id": "8b9b0b0739b56366",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.974974+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "8b1bdb62cca580fddd6eab052aacd474",
+    "span_id": "6d6b2e824debcafc",
+    "parent_span_id": "8b9b0b0739b56366",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.974974+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "8b1bdb62cca580fddd6eab052aacd474",
+    "span_id": "8b9b0b0739b56366",
+    "parent_span_id": "",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.974974+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "59155",
+      "http.route": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+      "http.method": "GET",
+      "http.url": "http://localhost:8000/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "8b1bdb62cca580fddd6eab052aacd474",
+    "span_id": "46094370a98525af",
+    "parent_span_id": "8b9b0b0739b56366",
+    "operation_name": "connect",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.974974+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -77,11 +341,12 @@
     }
   },
   {
-    "trace_id": "ad507fa2c2c06066fbe42fe5679767c9",
-    "span_id": "",
+    "trace_id": "8b1bdb62cca580fddd6eab052aacd474",
+    "span_id": "624397f657b57e4f",
+    "parent_span_id": "8b9b0b0739b56366",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.722566+00:00",
+    "start_time": "2026-06-27T10:54:23.974974+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -89,53 +354,1695 @@
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-8b1bdb62cca580fddd6eab052aacd474-9687936b3e0a93b3-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "ad507fa2c2c06066fbe42fe5679767c9",
-    "span_id": "",
+    "trace_id": "8b1bdb62cca580fddd6eab052aacd474",
+    "span_id": "7890581c2f6c39a2",
+    "parent_span_id": "8b9b0b0739b56366",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.723567+00:00",
-    "duration_ms": 1.0009,
+    "start_time": "2026-06-27T10:54:23.974974+00:00",
+    "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.project_id = $1::UUID ORDER BY tasks.created_at ASC",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.project_id = $1::UUID ORDER BY tasks.created_at ASC /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-8b1bdb62cca580fddd6eab052aacd474-2a880576aafec4ed-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "ad507fa2c2c06066fbe42fe5679767c9",
-    "span_id": "",
+    "trace_id": "8b1bdb62cca580fddd6eab052aacd474",
+    "span_id": "84165964ba1e3095",
+    "parent_span_id": "8b9b0b0739b56366",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.725568+00:00",
-    "duration_ms": 1.9982,
+    "start_time": "2026-06-27T10:54:23.974974+00:00",
+    "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT comments.task_id AS comments_task_id, comments.id AS comments_id, comments.author_id AS comments_author_id, comments.content AS comments_content, comments.created_at AS comments_created_at \nFROM comments \nWHERE comments.task_id IN ($1::UUID, $2::UUID, $3::UUID, $4::UUID, $5::UUID) ORDER BY comments.created_at",
+      "db.statement": "SELECT comments.task_id AS comments_task_id, comments.id AS comments_id, comments.author_id AS comments_author_id, comments.content AS comments_content, comments.created_at AS comments_created_at \nFROM comments \nWHERE comments.task_id IN ($1::UUID, $2::UUID, $3::UUID, $4::UUID, $5::UUID) ORDER BY comments.created_at /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-8b1bdb62cca580fddd6eab052aacd474-ceb06022ec043427-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "fae8ff18a73dda9a0c32dccc01289781",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http receive",
+    "trace_id": "88d06077d3ad81ea3426ffabed74267a",
+    "span_id": "96ab03f4dae3f0f4",
+    "parent_span_id": "43e247e9a660298c",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.455858+00:00",
+    "start_time": "2026-06-27T10:54:23.974974+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "88d06077d3ad81ea3426ffabed74267a",
+    "span_id": "874cb469a5e385ce",
+    "parent_span_id": "43e247e9a660298c",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.974974+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "88d06077d3ad81ea3426ffabed74267a",
+    "span_id": "d86500cb411ecceb",
+    "parent_span_id": "43e247e9a660298c",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.974974+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "88d06077d3ad81ea3426ffabed74267a",
+    "span_id": "43e247e9a660298c",
+    "parent_span_id": "",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940531+00:00",
+    "duration_ms": 34.443,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "63661",
+      "http.route": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+      "http.method": "GET",
+      "http.url": "http://localhost:8000/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "88d06077d3ad81ea3426ffabed74267a",
+    "span_id": "b0a4aa788c698a62",
+    "parent_span_id": "43e247e9a660298c",
+    "operation_name": "connect",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940531+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "88d06077d3ad81ea3426ffabed74267a",
+    "span_id": "6f87cf2df7ea24f6",
+    "parent_span_id": "43e247e9a660298c",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940531+00:00",
+    "duration_ms": 4.8514,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-88d06077d3ad81ea3426ffabed74267a-aa832e4e8d097d39-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "88d06077d3ad81ea3426ffabed74267a",
+    "span_id": "939f78e9e8b3d16d",
+    "parent_span_id": "43e247e9a660298c",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.945383+00:00",
+    "duration_ms": 25.9492,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.project_id = $1::UUID ORDER BY tasks.created_at ASC /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-88d06077d3ad81ea3426ffabed74267a-58c8679bac853b85-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "88d06077d3ad81ea3426ffabed74267a",
+    "span_id": "0e6010021565e2bf",
+    "parent_span_id": "43e247e9a660298c",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.972970+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT comments.task_id AS comments_task_id, comments.id AS comments_id, comments.author_id AS comments_author_id, comments.content AS comments_content, comments.created_at AS comments_created_at \nFROM comments \nWHERE comments.task_id IN ($1::UUID, $2::UUID, $3::UUID, $4::UUID, $5::UUID) ORDER BY comments.created_at /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-88d06077d3ad81ea3426ffabed74267a-f94ea68962dd83a3-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "f68b3ee15a85fc3283266f011d8bf2b9",
+    "span_id": "e506f577c0eb6e4a",
+    "parent_span_id": "809561da35c3bed0",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:24.002683+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "f68b3ee15a85fc3283266f011d8bf2b9",
+    "span_id": "7c982e451e0c0206",
+    "parent_span_id": "809561da35c3bed0",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:24.002683+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "f68b3ee15a85fc3283266f011d8bf2b9",
+    "span_id": "66a16ab6dc48d6e5",
+    "parent_span_id": "809561da35c3bed0",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:24.002683+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "f68b3ee15a85fc3283266f011d8bf2b9",
+    "span_id": "809561da35c3bed0",
+    "parent_span_id": "",
+    "operation_name": "GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940531+00:00",
+    "duration_ms": 62.1519,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "61730",
+      "http.route": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+      "http.method": "GET",
+      "http.url": "http://localhost:8000/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "f68b3ee15a85fc3283266f011d8bf2b9",
+    "span_id": "4bdae65699e05a4e",
+    "parent_span_id": "809561da35c3bed0",
+    "operation_name": "connect",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940531+00:00",
+    "duration_ms": 58.0132,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "f68b3ee15a85fc3283266f011d8bf2b9",
+    "span_id": "0e9007041d398c0b",
+    "parent_span_id": "809561da35c3bed0",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.998545+00:00",
+    "duration_ms": 2.1335,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-f68b3ee15a85fc3283266f011d8bf2b9-fbb24ccae5c2f393-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "f68b3ee15a85fc3283266f011d8bf2b9",
+    "span_id": "388ac5bda458c9dc",
+    "parent_span_id": "809561da35c3bed0",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:24.001685+00:00",
+    "duration_ms": 0.9987,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT projects.id, projects.name, projects.description, projects.owner_id, projects.created_at \nFROM projects \nWHERE projects.id = $1::UUID AND projects.owner_id = $2::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-f68b3ee15a85fc3283266f011d8bf2b9-c6d607ac0b06b52b-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "3f1e69a7f7e05459eb578fc06b812745",
+    "span_id": "b5ed22fea4efb282",
+    "parent_span_id": "b8cdfa6bff94de8d",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940531+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "3f1e69a7f7e05459eb578fc06b812745",
+    "span_id": "2b4ac214a0831d3f",
+    "parent_span_id": "b8cdfa6bff94de8d",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940531+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "3f1e69a7f7e05459eb578fc06b812745",
+    "span_id": "f69b603d8368ea93",
+    "parent_span_id": "b8cdfa6bff94de8d",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940531+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "3f1e69a7f7e05459eb578fc06b812745",
+    "span_id": "b8cdfa6bff94de8d",
+    "parent_span_id": "",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.939023+00:00",
+    "duration_ms": 1.5082,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "59155",
+      "http.route": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+      "http.method": "OPTIONS",
+      "http.url": "http://localhost:8000/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "665e52db0f04e78bc76d5fbb77d77488",
+    "span_id": "73caa4c01e2fc54f",
+    "parent_span_id": "e60dc860f678141a",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940531+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "665e52db0f04e78bc76d5fbb77d77488",
+    "span_id": "0255213f4074c127",
+    "parent_span_id": "e60dc860f678141a",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940531+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "665e52db0f04e78bc76d5fbb77d77488",
+    "span_id": "14eaf48bf2fcc3e5",
+    "parent_span_id": "e60dc860f678141a",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940531+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "665e52db0f04e78bc76d5fbb77d77488",
+    "span_id": "e60dc860f678141a",
+    "parent_span_id": "",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.939023+00:00",
+    "duration_ms": 1.5082,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "65303",
+      "http.route": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+      "http.method": "OPTIONS",
+      "http.url": "http://localhost:8000/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "eeac1b32ae666cfc0dae62defae01afd",
+    "span_id": "d078c78773258175",
+    "parent_span_id": "583ee14d88b7e067",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940531+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "eeac1b32ae666cfc0dae62defae01afd",
+    "span_id": "9b8d6198eb021e45",
+    "parent_span_id": "583ee14d88b7e067",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940531+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "eeac1b32ae666cfc0dae62defae01afd",
+    "span_id": "4afa1e8bf4f38b1f",
+    "parent_span_id": "583ee14d88b7e067",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940531+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "eeac1b32ae666cfc0dae62defae01afd",
+    "span_id": "583ee14d88b7e067",
+    "parent_span_id": "",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.938023+00:00",
+    "duration_ms": 2.5081,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "61730",
+      "http.route": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+      "http.method": "OPTIONS",
+      "http.url": "http://localhost:8000/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "1e8147b069f5298129a82aea6074b739",
+    "span_id": "0f21ab4daa77cc95",
+    "parent_span_id": "b9890fa478fd92d4",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.939023+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "1e8147b069f5298129a82aea6074b739",
+    "span_id": "14020ff2cc627bbe",
+    "parent_span_id": "b9890fa478fd92d4",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940028+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "1e8147b069f5298129a82aea6074b739",
+    "span_id": "50b57fc043ec9b0d",
+    "parent_span_id": "b9890fa478fd92d4",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.940028+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "1e8147b069f5298129a82aea6074b739",
+    "span_id": "b9890fa478fd92d4",
+    "parent_span_id": "",
+    "operation_name": "OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:23.938023+00:00",
+    "duration_ms": 2.0046,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "63661",
+      "http.route": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+      "http.method": "OPTIONS",
+      "http.url": "http://localhost:8000/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "31dfe1e0141f0c88",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "documentFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.967000+00:00",
+    "duration_ms": 2.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "631",
+      "http.url": "http://localhost:5173/login"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "4713c70cf2683d61",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.977000+00:00",
+    "duration_ms": 1.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/@vite/client"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "a0f8e0cd5bc4f5ea",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.977000+00:00",
+    "duration_ms": 1.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/main.tsx?t=1782557656089"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "99027e2bfc082f58",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.978500+00:00",
+    "duration_ms": 0.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/@react-refresh"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "cfaf8836bbf8f692",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.979800+00:00",
+    "duration_ms": 0.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/node_modules/.pnpm/vite@8.0.16_@types+node@24.13.2_jiti@2.7.0/node_modules/vite/dist/client/env.mjs"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "4d7e76d3d60b56b5",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.980200+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "38367",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "24b924b21868c238",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.980200+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "821152",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "9b07383d7742581e",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.980300+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "399565",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "bc32208e708589ae",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.980300+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "981132",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@sentry_react.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "425d0e92f856aebc",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.980300+00:00",
+    "duration_ms": 0.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/services/error-reporter.ts?t=1782557656089"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "165e7e77a36c0a34",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.980500+00:00",
+    "duration_ms": 0.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/observability/otel.ts?t=1782557656086"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "52d138b62a4bab56",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.980500+00:00",
+    "duration_ms": 1.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/observability/otel-logs.ts?t=1782557656074"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "391b5b48859c5545",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.980500+00:00",
+    "duration_ms": 1.4,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/observability/error-reporter.ts"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "f97ac20d958762f5",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.980500+00:00",
+    "duration_ms": 1.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/observability/instruments.ts"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "ded084bd8d4ddb1c",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.980500+00:00",
+    "duration_ms": 1.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/index.css?t=1782557656089"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "6c44f125487cc3f3",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.980500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10637",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "97376d52ceb1433b",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.980500+00:00",
+    "duration_ms": 2.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/App.tsx?t=1782557656089"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "349694a08d99c695",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.980700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "7614",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/chunk-B-1-B7_t.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "d4e0156b1fcda096",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.980800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "14728",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-dom.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "9ae5660cbafb0a34",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.983900+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4959",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_api.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "e4c3a3e0df87e84b",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.984500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4714",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_sdk-trace-web.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "b07824b7d94cc8a4",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.984700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "5865",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_exporter-trace-otlp-http.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "29bf6b90149f3c04",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.984800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "87502",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_context-zone.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "bcd39ec971017b90",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.984900+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2234",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_resources.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "bdfa50e48ec9a5b9",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.984900+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "141511",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_semantic-conventions.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "c67734d558d6c754",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.985300+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2405",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "9e0732a003a1bebb",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.985400+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "22014",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-fetch.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "2c9e0f27e556c4a0",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.985500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "21187",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-xml-http-request.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "111c9a9302977d42",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.985600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "11360",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-document-load.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "6edc4d1b78423b00",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.985700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "14206",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-user-interaction.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "36640394bc9dc7de",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.986000+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "45895",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-CHaCIvwP.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "03adc63e26c5460d",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.986100+00:00",
+    "duration_ms": 1.2,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ErrorBoundary.tsx?t=1782557656089"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "bde0c8deb8c1bcec",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.986200+00:00",
+    "duration_ms": 1.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ProtectedRoute.tsx"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "36adebdc4ee53a05",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.986300+00:00",
+    "duration_ms": 1.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/RegisterPage.tsx?t=1782557656083"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "56fdd8d17825e1f7",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.986200+00:00",
+    "duration_ms": 2.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/LoginPage.tsx?t=1782557656083"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "a38d58212113acd9",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.986200+00:00",
+    "duration_ms": 2.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/ProjectsPage.tsx?t=1782557656083"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "3ae31e0d35c2e295",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.986300+00:00",
+    "duration_ms": 2.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/TaskBoardPage.tsx?t=1782557656083"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "bde5fd401b518e28",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.986300+00:00",
+    "duration_ms": 3.3,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/TaskDetailPage.tsx?t=1782557656083"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "c4887a7b655a36ca",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.986600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "66078",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-DIDyjc4l.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "57b56b61ed793823",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.986700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "22541",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/create-legacy-browser-delegate-Dmych8N4.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "840da4f6c0a09bd6",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.986700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10856",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-DOs4RJ4A.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "771a17570a2d1bf0",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.986800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "275815",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-BzIo-9AA.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "9e4e5a18220bc339",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.986900+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "14779",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-Be2DXXst.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "202888ff75cf79a6",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.987000+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "33205",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-D4oLRWLv.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "8c3de66fa038dacc",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.987100+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "6800",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-D_0s551P.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "4004c3838d810970",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.990400+00:00",
+    "duration_ms": 0.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/stores/authStore.ts"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "8c443a1877f3c313",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.990500+00:00",
+    "duration_ms": 0.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/services/api.ts?t=1782557656083"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "d89c228a9d1c5d22",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.990600+00:00",
+    "duration_ms": 1.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/button.tsx"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "9ffeb5e55bd33db3",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.990600+00:00",
+    "duration_ms": 1.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/input.tsx"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "dd46e89292df65d6",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.990600+00:00",
+    "duration_ms": 1.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/label.tsx"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "89a8dcb00eef05a4",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.990600+00:00",
+    "duration_ms": 2.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/card.tsx"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "d245fe4b95649b82",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.990600+00:00",
+    "duration_ms": 3.2,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/dialog.tsx"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "0f9ab7b9fd833f2e",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.990800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1125418",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/lucide-react.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "148c90b1187c23a2",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.990800+00:00",
+    "duration_ms": 3.1,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/badge.tsx"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "372ba90fe19252f1",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.990900+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "6166",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_core.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "ba83dc8088a05b8c",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.990900+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "18185",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_sortable.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "80ed80553abc1a1b",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.991000+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "7337",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_utilities.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "c78028409902a840",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.991100+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "90058",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/core.esm-_5gF4dhK.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "3317c08f42f9b3b6",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.991100+00:00",
+    "duration_ms": 3.2,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/textarea.tsx"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "68affa1537cb9c7a",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.991100+00:00",
+    "duration_ms": 3.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/separator.tsx"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "e01ba16d609c73c5",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.994800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2173",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/zustand.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "8c7eb2ca2028857c",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.994800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "14109",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/zustand_middleware.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "73707752c5e0343f",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.995100+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "118194",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/axios.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "0941d9e45c59d8e9",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.995200+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1206",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_button.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "8daa555a88a33611",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.995300+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2801",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/class-variance-authority.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "c309235407e47043",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.995300+00:00",
+    "duration_ms": 0.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/lib/utils.ts"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "0462ba9935ea2dd1",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.995600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "13644",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_input.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "76a666b7f61f60c4",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.995800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "11248",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/useRenderElement-DwlGiZDv.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "dbf18831352cc89f",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.995800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "7664",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/useButton-BFYEIg_b.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "d88c10ace0cd3cbc",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.996100+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "628",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/clsx.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "43d33fe20af411de",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.996200+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10947",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-runtime.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "83be458da6423cd6",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.996400+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "5521",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/useIsoLayoutEffect-75NDodZ2.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "006901ca19fe4914",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.996400+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4456",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/owner-B9RWFV_H.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "121e941497c13994",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.996500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "157710",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_dialog.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "247c456ca21df2cd",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.996500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1264",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_merge-props.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "2e2e50000187c134",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.996600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "494",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_use-render.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "f2cfce1ca9b1a909",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.996600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "6778",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/merge-props-CHESzXJC.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "e9040bb59452cd44",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.996700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1015",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_separator.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "00479963307f9dd0",
+    "parent_span_id": "ffeac87a20773c5b",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.996800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "91422",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/tailwind-merge.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "c5da98850b9b2d3152444f37b5542a8d",
+    "span_id": "ffeac87a20773c5b",
+    "parent_span_id": "",
+    "operation_name": "documentLoad",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T10:54:20.967000+00:00",
+    "duration_ms": 54.8,
+    "status": "ok",
+    "attributes": {
+      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+      "http.url": "http://localhost:5173/login"
+    }
+  },
+  {
+    "trace_id": "493147cd14fe28e84d739dc9863e800b",
+    "span_id": "148a7154980d0ca7",
+    "parent_span_id": "f853715e1b42011e",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:20.218326+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -143,11 +2050,12 @@
     }
   },
   {
-    "trace_id": "fae8ff18a73dda9a0c32dccc01289781",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "493147cd14fe28e84d739dc9863e800b",
+    "span_id": "26a160dcbd517127",
+    "parent_span_id": "f853715e1b42011e",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.459130+00:00",
+    "start_time": "2026-06-27T10:54:20.220221+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -156,11 +2064,12 @@
     }
   },
   {
-    "trace_id": "fae8ff18a73dda9a0c32dccc01289781",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "493147cd14fe28e84d739dc9863e800b",
+    "span_id": "650b094fcf075c40",
+    "parent_span_id": "f853715e1b42011e",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.460129+00:00",
+    "start_time": "2026-06-27T10:54:20.220221+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -168,11 +2077,12 @@
     }
   },
   {
-    "trace_id": "fae8ff18a73dda9a0c32dccc01289781",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "493147cd14fe28e84d739dc9863e800b",
+    "span_id": "c5b512f5bc3b64df",
+    "parent_span_id": "f853715e1b42011e",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.460129+00:00",
+    "start_time": "2026-06-27T10:54:20.220221+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -180,35 +2090,37 @@
     }
   },
   {
-    "trace_id": "fae8ff18a73dda9a0c32dccc01289781",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+    "trace_id": "493147cd14fe28e84d739dc9863e800b",
+    "span_id": "f853715e1b42011e",
+    "parent_span_id": "",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.455858+00:00",
-    "duration_ms": 4.2715,
+    "start_time": "2026-06-27T10:54:20.217326+00:00",
+    "duration_ms": 2.8942,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
       "http.host": "127.0.0.1:8000",
       "net.host.port": "8000",
       "http.flavor": "1.1",
-      "http.target": "/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "http.target": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.server_name": "localhost:8000",
       "http.user_agent": "Python/3.11 aiohttp/3.14.1",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "49607",
-      "http.route": "/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "net.peer.port": "56463",
+      "http.route": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.method": "POST",
-      "http.url": "http://localhost:8000/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "http.url": "http://localhost:8000/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.status_code": "201"
     }
   },
   {
-    "trace_id": "fae8ff18a73dda9a0c32dccc01289781",
-    "span_id": "",
+    "trace_id": "493147cd14fe28e84d739dc9863e800b",
+    "span_id": "45c08b7ce8a93f38",
+    "parent_span_id": "f853715e1b42011e",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.457130+00:00",
+    "start_time": "2026-06-27T10:54:20.218326+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -220,29 +2132,31 @@
     }
   },
   {
-    "trace_id": "fae8ff18a73dda9a0c32dccc01289781",
-    "span_id": "",
+    "trace_id": "493147cd14fe28e84d739dc9863e800b",
+    "span_id": "dfe6d365f58fa951",
+    "parent_span_id": "f853715e1b42011e",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.457130+00:00",
-    "duration_ms": 0.0,
+    "start_time": "2026-06-27T10:54:20.219326+00:00",
+    "duration_ms": 0.8941,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-493147cd14fe28e84d739dc9863e800b-c5e485db664cd997-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "fae8ff18a73dda9a0c32dccc01289781",
-    "span_id": "",
+    "trace_id": "493147cd14fe28e84d739dc9863e800b",
+    "span_id": "c3c96da898833329",
+    "parent_span_id": "f853715e1b42011e",
     "operation_name": "INSERT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.458130+00:00",
+    "start_time": "2026-06-27T10:54:20.220221+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -250,17 +2164,18 @@
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "INSERT INTO tasks (id, project_id, title, description, status, priority, assignee_id, due_date) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::task_status, $6::INTEGER, $7::UUID, $8::TIMESTAMP WITH TIME ZONE) RETURNING tasks.created_at, tasks.updated_at",
+      "db.statement": "INSERT INTO tasks (id, project_id, title, description, status, priority, assignee_id, due_date) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::task_status, $6::INTEGER, $7::UUID, $8::TIMESTAMP WITH TIME ZONE) RETURNING tasks.created_at, tasks.updated_at /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-493147cd14fe28e84d739dc9863e800b-2e5780d88eeda8ae-03'*/",
       "db.system": "postgresql",
       "db.operation": "INSERT"
     }
   },
   {
-    "trace_id": "fae8ff18a73dda9a0c32dccc01289781",
-    "span_id": "",
+    "trace_id": "493147cd14fe28e84d739dc9863e800b",
+    "span_id": "5b1b5d8193e56c4c",
+    "parent_span_id": "f853715e1b42011e",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.459130+00:00",
+    "start_time": "2026-06-27T10:54:20.220221+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -268,17 +2183,18 @@
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-493147cd14fe28e84d739dc9863e800b-d31f91ca9aa8dff1-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "54a12f20e8995ebd920d7d28f2ac2dc",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http receive",
+    "trace_id": "f1c19fc9719930b1e1b27bcb4d431456",
+    "span_id": "b56c2030a1fd189b",
+    "parent_span_id": "0a7b2e70769d04a1",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http receive",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.192987+00:00",
+    "start_time": "2026-06-27T10:54:19.951179+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -286,11 +2202,12 @@
     }
   },
   {
-    "trace_id": "54a12f20e8995ebd920d7d28f2ac2dc",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "f1c19fc9719930b1e1b27bcb4d431456",
+    "span_id": "54977e4cd0b360b8",
+    "parent_span_id": "0a7b2e70769d04a1",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.193709+00:00",
+    "start_time": "2026-06-27T10:54:19.954182+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -299,11 +2216,12 @@
     }
   },
   {
-    "trace_id": "54a12f20e8995ebd920d7d28f2ac2dc",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "f1c19fc9719930b1e1b27bcb4d431456",
+    "span_id": "78f48a3d0c1fc799",
+    "parent_span_id": "0a7b2e70769d04a1",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.193709+00:00",
+    "start_time": "2026-06-27T10:54:19.954182+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -311,11 +2229,12 @@
     }
   },
   {
-    "trace_id": "54a12f20e8995ebd920d7d28f2ac2dc",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "f1c19fc9719930b1e1b27bcb4d431456",
+    "span_id": "3e63690dedc5f1a8",
+    "parent_span_id": "0a7b2e70769d04a1",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.193709+00:00",
+    "start_time": "2026-06-27T10:54:19.954182+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -323,35 +2242,37 @@
     }
   },
   {
-    "trace_id": "54a12f20e8995ebd920d7d28f2ac2dc",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+    "trace_id": "f1c19fc9719930b1e1b27bcb4d431456",
+    "span_id": "0a7b2e70769d04a1",
+    "parent_span_id": "",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.192987+00:00",
-    "duration_ms": 0.7215,
+    "start_time": "2026-06-27T10:54:19.951179+00:00",
+    "duration_ms": 3.0035,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
       "http.host": "127.0.0.1:8000",
       "net.host.port": "8000",
       "http.flavor": "1.1",
-      "http.target": "/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "http.target": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.server_name": "localhost:8000",
       "http.user_agent": "Python/3.11 aiohttp/3.14.1",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "49604",
-      "http.route": "/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "net.peer.port": "56461",
+      "http.route": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.method": "POST",
-      "http.url": "http://localhost:8000/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "http.url": "http://localhost:8000/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.status_code": "201"
     }
   },
   {
-    "trace_id": "54a12f20e8995ebd920d7d28f2ac2dc",
-    "span_id": "",
+    "trace_id": "f1c19fc9719930b1e1b27bcb4d431456",
+    "span_id": "df0c520e2e38e260",
+    "parent_span_id": "0a7b2e70769d04a1",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.193709+00:00",
+    "start_time": "2026-06-27T10:54:19.952181+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -363,47 +2284,50 @@
     }
   },
   {
-    "trace_id": "54a12f20e8995ebd920d7d28f2ac2dc",
-    "span_id": "",
+    "trace_id": "f1c19fc9719930b1e1b27bcb4d431456",
+    "span_id": "65fcf6e910eb48b2",
+    "parent_span_id": "0a7b2e70769d04a1",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.193709+00:00",
-    "duration_ms": 0.0,
+    "start_time": "2026-06-27T10:54:19.952181+00:00",
+    "duration_ms": 1.0027,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-f1c19fc9719930b1e1b27bcb4d431456-db92261c98c5708d-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "54a12f20e8995ebd920d7d28f2ac2dc",
-    "span_id": "",
+    "trace_id": "f1c19fc9719930b1e1b27bcb4d431456",
+    "span_id": "e13977a12a39cc01",
+    "parent_span_id": "0a7b2e70769d04a1",
     "operation_name": "INSERT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.193709+00:00",
-    "duration_ms": 0.0,
+    "start_time": "2026-06-27T10:54:19.953184+00:00",
+    "duration_ms": 0.9984,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "INSERT INTO tasks (id, project_id, title, description, status, priority, assignee_id, due_date) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::task_status, $6::INTEGER, $7::UUID, $8::TIMESTAMP WITH TIME ZONE) RETURNING tasks.created_at, tasks.updated_at",
+      "db.statement": "INSERT INTO tasks (id, project_id, title, description, status, priority, assignee_id, due_date) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::task_status, $6::INTEGER, $7::UUID, $8::TIMESTAMP WITH TIME ZONE) RETURNING tasks.created_at, tasks.updated_at /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-f1c19fc9719930b1e1b27bcb4d431456-00e8c3366e693431-03'*/",
       "db.system": "postgresql",
       "db.operation": "INSERT"
     }
   },
   {
-    "trace_id": "54a12f20e8995ebd920d7d28f2ac2dc",
-    "span_id": "",
+    "trace_id": "f1c19fc9719930b1e1b27bcb4d431456",
+    "span_id": "cd2e0734c52ecdff",
+    "parent_span_id": "0a7b2e70769d04a1",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:17.193709+00:00",
+    "start_time": "2026-06-27T10:54:19.954182+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -411,17 +2335,18 @@
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-f1c19fc9719930b1e1b27bcb4d431456-57c69ec203d986e1-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "629c7b38b9f6ab3f42965152b296ac94",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http receive",
+    "trace_id": "3335c12b9a3b070d63526edcde79a039",
+    "span_id": "4bd29215fa9f54ab",
+    "parent_span_id": "5b86494e65a5c6bc",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http receive",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.929796+00:00",
+    "start_time": "2026-06-27T10:54:19.685979+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -429,11 +2354,12 @@
     }
   },
   {
-    "trace_id": "629c7b38b9f6ab3f42965152b296ac94",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "3335c12b9a3b070d63526edcde79a039",
+    "span_id": "68dad4bd845f5f83",
+    "parent_span_id": "5b86494e65a5c6bc",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.929796+00:00",
+    "start_time": "2026-06-27T10:54:19.689367+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -442,11 +2368,12 @@
     }
   },
   {
-    "trace_id": "629c7b38b9f6ab3f42965152b296ac94",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "3335c12b9a3b070d63526edcde79a039",
+    "span_id": "0d6b9de7d896d39b",
+    "parent_span_id": "5b86494e65a5c6bc",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.929796+00:00",
+    "start_time": "2026-06-27T10:54:19.689884+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -454,11 +2381,12 @@
     }
   },
   {
-    "trace_id": "629c7b38b9f6ab3f42965152b296ac94",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "3335c12b9a3b070d63526edcde79a039",
+    "span_id": "fb374b68877aa094",
+    "parent_span_id": "5b86494e65a5c6bc",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.929796+00:00",
+    "start_time": "2026-06-27T10:54:19.689884+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -466,35 +2394,37 @@
     }
   },
   {
-    "trace_id": "629c7b38b9f6ab3f42965152b296ac94",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+    "trace_id": "3335c12b9a3b070d63526edcde79a039",
+    "span_id": "5b86494e65a5c6bc",
+    "parent_span_id": "",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.929796+00:00",
-    "duration_ms": 0.0,
+    "start_time": "2026-06-27T10:54:19.685446+00:00",
+    "duration_ms": 4.4386,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
       "http.host": "127.0.0.1:8000",
       "net.host.port": "8000",
       "http.flavor": "1.1",
-      "http.target": "/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "http.target": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.server_name": "localhost:8000",
       "http.user_agent": "Python/3.11 aiohttp/3.14.1",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "57205",
-      "http.route": "/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "net.peer.port": "56459",
+      "http.route": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.method": "POST",
-      "http.url": "http://localhost:8000/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "http.url": "http://localhost:8000/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.status_code": "201"
     }
   },
   {
-    "trace_id": "629c7b38b9f6ab3f42965152b296ac94",
-    "span_id": "",
+    "trace_id": "3335c12b9a3b070d63526edcde79a039",
+    "span_id": "4732e86d64c40819",
+    "parent_span_id": "5b86494e65a5c6bc",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.929796+00:00",
+    "start_time": "2026-06-27T10:54:19.686743+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -506,65 +2436,69 @@
     }
   },
   {
-    "trace_id": "629c7b38b9f6ab3f42965152b296ac94",
-    "span_id": "",
+    "trace_id": "3335c12b9a3b070d63526edcde79a039",
+    "span_id": "be49019cdd0149c4",
+    "parent_span_id": "5b86494e65a5c6bc",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.929796+00:00",
-    "duration_ms": 0.0,
+    "start_time": "2026-06-27T10:54:19.686743+00:00",
+    "duration_ms": 0.5443,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-3335c12b9a3b070d63526edcde79a039-171e9b6ba62db4b4-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "629c7b38b9f6ab3f42965152b296ac94",
-    "span_id": "",
+    "trace_id": "3335c12b9a3b070d63526edcde79a039",
+    "span_id": "65ce67b81f950ae4",
+    "parent_span_id": "5b86494e65a5c6bc",
     "operation_name": "INSERT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.929796+00:00",
-    "duration_ms": 0.0,
+    "start_time": "2026-06-27T10:54:19.687804+00:00",
+    "duration_ms": 0.516,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "INSERT INTO tasks (id, project_id, title, description, status, priority, assignee_id, due_date) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::task_status, $6::INTEGER, $7::UUID, $8::TIMESTAMP WITH TIME ZONE) RETURNING tasks.created_at, tasks.updated_at",
+      "db.statement": "INSERT INTO tasks (id, project_id, title, description, status, priority, assignee_id, due_date) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::task_status, $6::INTEGER, $7::UUID, $8::TIMESTAMP WITH TIME ZONE) RETURNING tasks.created_at, tasks.updated_at /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-3335c12b9a3b070d63526edcde79a039-34ab6e09b160571b-03'*/",
       "db.system": "postgresql",
       "db.operation": "INSERT"
     }
   },
   {
-    "trace_id": "629c7b38b9f6ab3f42965152b296ac94",
-    "span_id": "",
+    "trace_id": "3335c12b9a3b070d63526edcde79a039",
+    "span_id": "e986cf3798c9b05f",
+    "parent_span_id": "5b86494e65a5c6bc",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.929796+00:00",
-    "duration_ms": 0.0,
+    "start_time": "2026-06-27T10:54:19.688850+00:00",
+    "duration_ms": 0.5169,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-3335c12b9a3b070d63526edcde79a039-fae2f4d686cfe744-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "9f485e2106c466202e1c5c852891750b",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http receive",
+    "trace_id": "bbb82b1784809d1efb7d483ef54c0145",
+    "span_id": "8c2ea6fcee019bc9",
+    "parent_span_id": "3306c7343c4c54a2",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http receive",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.673696+00:00",
+    "start_time": "2026-06-27T10:54:19.420077+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -572,11 +2506,12 @@
     }
   },
   {
-    "trace_id": "9f485e2106c466202e1c5c852891750b",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "bbb82b1784809d1efb7d483ef54c0145",
+    "span_id": "e0d68482aa1cd71c",
+    "parent_span_id": "3306c7343c4c54a2",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.677176+00:00",
+    "start_time": "2026-06-27T10:54:19.424078+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -585,11 +2520,12 @@
     }
   },
   {
-    "trace_id": "9f485e2106c466202e1c5c852891750b",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "bbb82b1784809d1efb7d483ef54c0145",
+    "span_id": "6caebbeb7e2ee888",
+    "parent_span_id": "3306c7343c4c54a2",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.677176+00:00",
+    "start_time": "2026-06-27T10:54:19.424078+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -597,11 +2533,12 @@
     }
   },
   {
-    "trace_id": "9f485e2106c466202e1c5c852891750b",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "bbb82b1784809d1efb7d483ef54c0145",
+    "span_id": "615d1f47855f22ba",
+    "parent_span_id": "3306c7343c4c54a2",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.677176+00:00",
+    "start_time": "2026-06-27T10:54:19.424078+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -609,35 +2546,37 @@
     }
   },
   {
-    "trace_id": "9f485e2106c466202e1c5c852891750b",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+    "trace_id": "bbb82b1784809d1efb7d483ef54c0145",
+    "span_id": "3306c7343c4c54a2",
+    "parent_span_id": "",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.672398+00:00",
-    "duration_ms": 4.7783,
+    "start_time": "2026-06-27T10:54:19.420077+00:00",
+    "duration_ms": 4.0,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
       "http.host": "127.0.0.1:8000",
       "net.host.port": "8000",
       "http.flavor": "1.1",
-      "http.target": "/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "http.target": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.server_name": "localhost:8000",
       "http.user_agent": "Python/3.11 aiohttp/3.14.1",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "57203",
-      "http.route": "/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "net.peer.port": "56457",
+      "http.route": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.method": "POST",
-      "http.url": "http://localhost:8000/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "http.url": "http://localhost:8000/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.status_code": "201"
     }
   },
   {
-    "trace_id": "9f485e2106c466202e1c5c852891750b",
-    "span_id": "",
+    "trace_id": "bbb82b1784809d1efb7d483ef54c0145",
+    "span_id": "a215c7dc5c05294e",
+    "parent_span_id": "3306c7343c4c54a2",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.673696+00:00",
+    "start_time": "2026-06-27T10:54:19.421077+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -649,65 +2588,69 @@
     }
   },
   {
-    "trace_id": "9f485e2106c466202e1c5c852891750b",
-    "span_id": "",
+    "trace_id": "bbb82b1784809d1efb7d483ef54c0145",
+    "span_id": "7dfd2b0c469bd125",
+    "parent_span_id": "3306c7343c4c54a2",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.673696+00:00",
-    "duration_ms": 0.9982,
+    "start_time": "2026-06-27T10:54:19.421077+00:00",
+    "duration_ms": 1.0013,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-bbb82b1784809d1efb7d483ef54c0145-946c2d919d06e706-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "9f485e2106c466202e1c5c852891750b",
-    "span_id": "",
+    "trace_id": "bbb82b1784809d1efb7d483ef54c0145",
+    "span_id": "c313f6f7ee0a31ae",
+    "parent_span_id": "3306c7343c4c54a2",
     "operation_name": "INSERT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.675695+00:00",
-    "duration_ms": 0.425,
+    "start_time": "2026-06-27T10:54:19.422078+00:00",
+    "duration_ms": 1.0007,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "INSERT INTO tasks (id, project_id, title, description, status, priority, assignee_id, due_date) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::task_status, $6::INTEGER, $7::UUID, $8::TIMESTAMP WITH TIME ZONE) RETURNING tasks.created_at, tasks.updated_at",
+      "db.statement": "INSERT INTO tasks (id, project_id, title, description, status, priority, assignee_id, due_date) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::task_status, $6::INTEGER, $7::UUID, $8::TIMESTAMP WITH TIME ZONE) RETURNING tasks.created_at, tasks.updated_at /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-bbb82b1784809d1efb7d483ef54c0145-dbb13614af950f2d-03'*/",
       "db.system": "postgresql",
       "db.operation": "INSERT"
     }
   },
   {
-    "trace_id": "9f485e2106c466202e1c5c852891750b",
-    "span_id": "",
+    "trace_id": "bbb82b1784809d1efb7d483ef54c0145",
+    "span_id": "7a09d86b1044fd74",
+    "parent_span_id": "3306c7343c4c54a2",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.676120+00:00",
-    "duration_ms": 0.0,
+    "start_time": "2026-06-27T10:54:19.423079+00:00",
+    "duration_ms": 0.9987,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-bbb82b1784809d1efb7d483ef54c0145-e593a2bcb226793f-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "192b588d307ff6ee7d2ebe51252cdb07",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http receive",
+    "trace_id": "ae1cc3bb814b03ae97091ab9809e008e",
+    "span_id": "5727440276553522",
+    "parent_span_id": "4f5e4900db806df1",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http receive",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.396957+00:00",
+    "start_time": "2026-06-27T10:54:19.139850+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -715,11 +2658,12 @@
     }
   },
   {
-    "trace_id": "192b588d307ff6ee7d2ebe51252cdb07",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "ae1cc3bb814b03ae97091ab9809e008e",
+    "span_id": "b19352d51ad1cdc5",
+    "parent_span_id": "4f5e4900db806df1",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.414207+00:00",
+    "start_time": "2026-06-27T10:54:19.154597+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -728,11 +2672,12 @@
     }
   },
   {
-    "trace_id": "192b588d307ff6ee7d2ebe51252cdb07",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "ae1cc3bb814b03ae97091ab9809e008e",
+    "span_id": "6822a18e175df0a8",
+    "parent_span_id": "4f5e4900db806df1",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.414207+00:00",
+    "start_time": "2026-06-27T10:54:19.155600+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -740,11 +2685,12 @@
     }
   },
   {
-    "trace_id": "192b588d307ff6ee7d2ebe51252cdb07",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks http send",
+    "trace_id": "ae1cc3bb814b03ae97091ab9809e008e",
+    "span_id": "020d8cb9828aa3d3",
+    "parent_span_id": "4f5e4900db806df1",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.414207+00:00",
+    "start_time": "2026-06-27T10:54:19.155600+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -752,35 +2698,37 @@
     }
   },
   {
-    "trace_id": "192b588d307ff6ee7d2ebe51252cdb07",
-    "span_id": "",
-    "operation_name": "POST /api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+    "trace_id": "ae1cc3bb814b03ae97091ab9809e008e",
+    "span_id": "4f5e4900db806df1",
+    "parent_span_id": "",
+    "operation_name": "POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.396957+00:00",
-    "duration_ms": 18.2493,
+    "start_time": "2026-06-27T10:54:19.138845+00:00",
+    "duration_ms": 16.7552,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
       "http.host": "127.0.0.1:8000",
       "net.host.port": "8000",
       "http.flavor": "1.1",
-      "http.target": "/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "http.target": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.server_name": "localhost:8000",
       "http.user_agent": "Python/3.11 aiohttp/3.14.1",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "57201",
-      "http.route": "/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "net.peer.port": "56455",
+      "http.route": "/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.method": "POST",
-      "http.url": "http://localhost:8000/api/projects/ceab4593-cc79-41f7-9281-779521d8e0e8/tasks",
+      "http.url": "http://localhost:8000/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks",
       "http.status_code": "201"
     }
   },
   {
-    "trace_id": "192b588d307ff6ee7d2ebe51252cdb07",
-    "span_id": "",
+    "trace_id": "ae1cc3bb814b03ae97091ab9809e008e",
+    "span_id": "1587becbb8672940",
+    "parent_span_id": "4f5e4900db806df1",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.398962+00:00",
+    "start_time": "2026-06-27T10:54:19.140850+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -792,47 +2740,12 @@
     }
   },
   {
-    "trace_id": "192b588d307ff6ee7d2ebe51252cdb07",
-    "span_id": "",
+    "trace_id": "ae1cc3bb814b03ae97091ab9809e008e",
+    "span_id": "67e7611b4ee26f98",
+    "parent_span_id": "4f5e4900db806df1",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.398962+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID",
-      "db.system": "postgresql",
-      "db.operation": "SELECT"
-    }
-  },
-  {
-    "trace_id": "192b588d307ff6ee7d2ebe51252cdb07",
-    "span_id": "",
-    "operation_name": "INSERT",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.398962+00:00",
-    "duration_ms": 13.2452,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.statement": "INSERT INTO tasks (id, project_id, title, description, status, priority, assignee_id, due_date) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::task_status, $6::INTEGER, $7::UUID, $8::TIMESTAMP WITH TIME ZONE) RETURNING tasks.created_at, tasks.updated_at",
-      "db.system": "postgresql",
-      "db.operation": "INSERT"
-    }
-  },
-  {
-    "trace_id": "192b588d307ff6ee7d2ebe51252cdb07",
-    "span_id": "",
-    "operation_name": "SELECT",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.413208+00:00",
+    "start_time": "2026-06-27T10:54:19.140850+00:00",
     "duration_ms": 0.9988,
     "status": "ok",
     "attributes": {
@@ -840,17 +2753,56 @@
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-ae1cc3bb814b03ae97091ab9809e008e-65688699ee783230-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "d63b3c6e66d4bdd2770e9090d3bb39db",
-    "span_id": "",
+    "trace_id": "ae1cc3bb814b03ae97091ab9809e008e",
+    "span_id": "59468e3c8050e567",
+    "parent_span_id": "4f5e4900db806df1",
+    "operation_name": "INSERT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:19.142849+00:00",
+    "duration_ms": 8.5191,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "INSERT INTO tasks (id, project_id, title, description, status, priority, assignee_id, due_date) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::task_status, $6::INTEGER, $7::UUID, $8::TIMESTAMP WITH TIME ZONE) RETURNING tasks.created_at, tasks.updated_at /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-ae1cc3bb814b03ae97091ab9809e008e-849f711c1f13f411-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "INSERT"
+    }
+  },
+  {
+    "trace_id": "ae1cc3bb814b03ae97091ab9809e008e",
+    "span_id": "6e12c1d653061243",
+    "parent_span_id": "4f5e4900db806df1",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T10:54:19.153094+00:00",
+    "duration_ms": 1.5029,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-ae1cc3bb814b03ae97091ab9809e008e-fc07aed3b6d4d7fe-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "9be3c280670f75f8e71ab9ebffa06730",
+    "span_id": "400738700b5f9702",
+    "parent_span_id": "fbe017b0b1425263",
     "operation_name": "POST /api/projects/ http receive",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.122038+00:00",
+    "start_time": "2026-06-27T10:54:18.874083+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -858,11 +2810,12 @@
     }
   },
   {
-    "trace_id": "d63b3c6e66d4bdd2770e9090d3bb39db",
-    "span_id": "",
+    "trace_id": "9be3c280670f75f8e71ab9ebffa06730",
+    "span_id": "9cb29049c43fe2a6",
+    "parent_span_id": "fbe017b0b1425263",
     "operation_name": "POST /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.129792+00:00",
+    "start_time": "2026-06-27T10:54:18.881080+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -871,11 +2824,12 @@
     }
   },
   {
-    "trace_id": "d63b3c6e66d4bdd2770e9090d3bb39db",
-    "span_id": "",
+    "trace_id": "9be3c280670f75f8e71ab9ebffa06730",
+    "span_id": "432a762216ab5cdb",
+    "parent_span_id": "fbe017b0b1425263",
     "operation_name": "POST /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.129792+00:00",
+    "start_time": "2026-06-27T10:54:18.881080+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -883,11 +2837,12 @@
     }
   },
   {
-    "trace_id": "d63b3c6e66d4bdd2770e9090d3bb39db",
-    "span_id": "",
+    "trace_id": "9be3c280670f75f8e71ab9ebffa06730",
+    "span_id": "44b3da1288b75b67",
+    "parent_span_id": "fbe017b0b1425263",
     "operation_name": "POST /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.129792+00:00",
+    "start_time": "2026-06-27T10:54:18.881080+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -895,12 +2850,13 @@
     }
   },
   {
-    "trace_id": "d63b3c6e66d4bdd2770e9090d3bb39db",
-    "span_id": "",
+    "trace_id": "9be3c280670f75f8e71ab9ebffa06730",
+    "span_id": "fbe017b0b1425263",
+    "parent_span_id": "",
     "operation_name": "POST /api/projects/",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.121031+00:00",
-    "duration_ms": 9.7612,
+    "start_time": "2026-06-27T10:54:18.873080+00:00",
+    "duration_ms": 7.9991,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
@@ -911,7 +2867,7 @@
       "http.server_name": "localhost:8000",
       "http.user_agent": "Python/3.11 aiohttp/3.14.1",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "57199",
+      "net.peer.port": "56453",
       "http.route": "/api/projects/",
       "http.method": "POST",
       "http.url": "http://localhost:8000/api/projects/",
@@ -919,11 +2875,12 @@
     }
   },
   {
-    "trace_id": "d63b3c6e66d4bdd2770e9090d3bb39db",
-    "span_id": "",
+    "trace_id": "9be3c280670f75f8e71ab9ebffa06730",
+    "span_id": "f407055512b63c0a",
+    "parent_span_id": "fbe017b0b1425263",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.123030+00:00",
+    "start_time": "2026-06-27T10:54:18.875081+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -935,65 +2892,69 @@
     }
   },
   {
-    "trace_id": "d63b3c6e66d4bdd2770e9090d3bb39db",
-    "span_id": "",
+    "trace_id": "9be3c280670f75f8e71ab9ebffa06730",
+    "span_id": "bb83bac9a3b6f487",
+    "parent_span_id": "fbe017b0b1425263",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.123030+00:00",
-    "duration_ms": 1.5023,
+    "start_time": "2026-06-27T10:54:18.876082+00:00",
+    "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-9be3c280670f75f8e71ab9ebffa06730-1b2dd93ac3a436ee-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "d63b3c6e66d4bdd2770e9090d3bb39db",
-    "span_id": "",
+    "trace_id": "9be3c280670f75f8e71ab9ebffa06730",
+    "span_id": "e9d51591354c5cf2",
+    "parent_span_id": "fbe017b0b1425263",
     "operation_name": "INSERT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.125535+00:00",
-    "duration_ms": 1.2586,
+    "start_time": "2026-06-27T10:54:18.877081+00:00",
+    "duration_ms": 1.0008,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "INSERT INTO projects (id, name, description, owner_id) VALUES ($1::UUID, $2::VARCHAR, $3::VARCHAR, $4::UUID) RETURNING projects.created_at",
+      "db.statement": "INSERT INTO projects (id, name, description, owner_id) VALUES ($1::UUID, $2::VARCHAR, $3::VARCHAR, $4::UUID) RETURNING projects.created_at /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-9be3c280670f75f8e71ab9ebffa06730-79f9f45219dea030-03'*/",
       "db.system": "postgresql",
       "db.operation": "INSERT"
     }
   },
   {
-    "trace_id": "d63b3c6e66d4bdd2770e9090d3bb39db",
-    "span_id": "",
+    "trace_id": "9be3c280670f75f8e71ab9ebffa06730",
+    "span_id": "a23ac3203827ee68",
+    "parent_span_id": "fbe017b0b1425263",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:16.128791+00:00",
-    "duration_ms": 1.0012,
+    "start_time": "2026-06-27T10:54:18.880080+00:00",
+    "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT projects.id, projects.name, projects.description, projects.owner_id, projects.created_at \nFROM projects \nWHERE projects.id = $1::UUID",
+      "db.statement": "SELECT projects.id, projects.name, projects.description, projects.owner_id, projects.created_at \nFROM projects \nWHERE projects.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-9be3c280670f75f8e71ab9ebffa06730-65809e4b814ddef7-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "1772be7866593f803f0221dbebee6e48",
-    "span_id": "",
+    "trace_id": "c3373d0ac5fc5795696b8f0115b4c664",
+    "span_id": "2c2c6d5a5665f8af",
+    "parent_span_id": "5b537e2a52a421de",
     "operation_name": "POST /api/auth/login http receive",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:15.613270+00:00",
+    "start_time": "2026-06-27T10:54:18.385770+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -1001,11 +2962,12 @@
     }
   },
   {
-    "trace_id": "1772be7866593f803f0221dbebee6e48",
-    "span_id": "",
+    "trace_id": "c3373d0ac5fc5795696b8f0115b4c664",
+    "span_id": "64bcb522a5df29b0",
+    "parent_span_id": "5b537e2a52a421de",
     "operation_name": "POST /api/auth/login http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:15.857536+00:00",
+    "start_time": "2026-06-27T10:54:18.618801+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -1014,11 +2976,12 @@
     }
   },
   {
-    "trace_id": "1772be7866593f803f0221dbebee6e48",
-    "span_id": "",
+    "trace_id": "c3373d0ac5fc5795696b8f0115b4c664",
+    "span_id": "f75d42bad9dca3aa",
+    "parent_span_id": "5b537e2a52a421de",
     "operation_name": "POST /api/auth/login http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:15.858535+00:00",
+    "start_time": "2026-06-27T10:54:18.618801+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -1026,11 +2989,12 @@
     }
   },
   {
-    "trace_id": "1772be7866593f803f0221dbebee6e48",
-    "span_id": "",
+    "trace_id": "c3373d0ac5fc5795696b8f0115b4c664",
+    "span_id": "fb867a3c0ee82e81",
+    "parent_span_id": "5b537e2a52a421de",
     "operation_name": "POST /api/auth/login http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:15.858535+00:00",
+    "start_time": "2026-06-27T10:54:18.618801+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -1038,12 +3002,13 @@
     }
   },
   {
-    "trace_id": "1772be7866593f803f0221dbebee6e48",
-    "span_id": "",
+    "trace_id": "c3373d0ac5fc5795696b8f0115b4c664",
+    "span_id": "5b537e2a52a421de",
+    "parent_span_id": "",
     "operation_name": "POST /api/auth/login",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:15.608748+00:00",
-    "duration_ms": 249.7868,
+    "start_time": "2026-06-27T10:54:18.385770+00:00",
+    "duration_ms": 233.0309,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
@@ -1054,7 +3019,7 @@
       "http.server_name": "localhost:8000",
       "http.user_agent": "Python/3.11 aiohttp/3.14.1",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "57189",
+      "net.peer.port": "56445",
       "http.route": "/api/auth/login",
       "http.method": "POST",
       "http.url": "http://localhost:8000/api/auth/login",
@@ -1062,12 +3027,13 @@
     }
   },
   {
-    "trace_id": "1772be7866593f803f0221dbebee6e48",
-    "span_id": "",
+    "trace_id": "c3373d0ac5fc5795696b8f0115b4c664",
+    "span_id": "d9a3288bd5566dba",
+    "parent_span_id": "5b537e2a52a421de",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:15.614270+00:00",
-    "duration_ms": 62.9995,
+    "start_time": "2026-06-27T10:54:18.385770+00:00",
+    "duration_ms": 63.0017,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
@@ -1078,19 +3044,20 @@
     }
   },
   {
-    "trace_id": "1772be7866593f803f0221dbebee6e48",
-    "span_id": "",
+    "trace_id": "c3373d0ac5fc5795696b8f0115b4c664",
+    "span_id": "268eda9449260669",
+    "parent_span_id": "5b537e2a52a421de",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-25T14:20:15.685271+00:00",
-    "duration_ms": 2.0021,
+    "start_time": "2026-06-27T10:54:18.451779+00:00",
+    "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.email = $1::VARCHAR",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.email = $1::VARCHAR /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-c3373d0ac5fc5795696b8f0115b4c664-a87fa1ebd96d0633-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }

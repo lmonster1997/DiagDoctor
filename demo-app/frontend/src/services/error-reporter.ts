@@ -8,7 +8,13 @@
  *
  * Errors are sent via navigator.sendBeacon (fire-and-forget) to
  * POST /api/log/client-error, which the backend funnels into Loki.
+ *
+ * Each error payload now includes the active OTel trace_id and span_id
+ * so that the Doctor agent can correlate frontend crashes with backend
+ * API calls under the same distributed trace (cross-tier diagnosis).
  */
+
+import { trace } from "@opentelemetry/api";
 
 // ── Types (mirrors backend ClientErrorPayload) ──
 
@@ -25,6 +31,8 @@ interface ClientErrorPayload {
   componentStack: string | null;
   url: string | null;
   timestamp: string | null;
+  trace_id: string | null;
+  span_id: string | null;
   breadcrumbs: BreadcrumbEntry[];
 }
 
@@ -94,19 +102,50 @@ export interface ReportClientErrorParams {
  *
  * Called by ErrorBoundary.componentDidCatch and global error hooks.
  * Logs to console.error for E2E test visibility (Playwright can capture it).
+ *
+ * The active OTel trace_id and span_id are embedded so that
+ * bug-factory's Playwright trigger can capture them into
+ * browser_errors.json, enabling cross-tier trace correlation
+ * (see from-scratch §13.1.2 / §13.1.4).
  */
 export function reportClientError(params: ReportClientErrorParams): void {
+  // ── Extract active OTel trace context ──
+  // When called from ErrorBoundary the fetch span may already be ended,
+  // so fall back to window.__otelLastTraceId (set by SpanProcessor on
+  // every span start — see observability/otel.ts).
+  const activeSpan = trace.getActiveSpan();
+  const spanCtx = activeSpan?.spanContext();
+  const _win = window as unknown as Record<string, string>;
+  const _traceId = spanCtx?.traceId || _win.__otelLastTraceId || null;
+  const _spanId = spanCtx?.spanId || _win.__otelLastSpanId || null;
+
   const payload: ClientErrorPayload = {
     error: params.type ? `[${params.type}] ${params.error}` : params.error,
     stack: params.stack ?? null,
     componentStack: params.componentStack ?? null,
     url: window.location.href,
     timestamp: new Date().toISOString(),
+    trace_id: _traceId,
+    span_id: _spanId,
     breadcrumbs: snapshotBreadcrumbs(),
   };
 
-  // Visible in browser console + captured by Playwright E2E tests
-  console.error("[CLIENT_ERROR]", payload);
+  // Visible in browser console + captured by Playwright E2E tests.
+  // Structured prefix lets bug-factory's trigger.py extract trace_id,
+  // span_id, component_stack, and breadcrumb count via regex without
+  // evaluating JS arguments (see from-scratch §13.1.2).
+  const _compStackFirstLine = (params.componentStack ?? "")
+    .split("\n")
+    .find((l) => l.trim().startsWith("at "))?.trim()
+    .slice(0, 120) ?? "";
+  const _breadcrumbCount = snapshotBreadcrumbs().length;
+
+  console.error(
+    `[CLIENT_ERROR] trace_id=${_traceId ?? ""} span_id=${_spanId ?? ""}` +
+      ` comp=${_compStackFirstLine}` +
+      ` crumbs=${_breadcrumbCount}`,
+    payload,
+  );
 
   sendErrorPayload(payload);
 }
