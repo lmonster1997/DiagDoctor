@@ -1,5 +1,5 @@
 [tool.uv.workspace]
-members = ["doctor", "bug-factory", "benchmark"]
+members = ["doctor", "bug-factory", "benchmark", "demo-app/backend"]
 
 [tool.ruff]
 line-length = 100
