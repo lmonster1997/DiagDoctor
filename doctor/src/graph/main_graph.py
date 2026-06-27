@@ -24,33 +24,9 @@ from typing import Any
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 
+from src.graph.nodes.ingest import ingest_node
 from src.graph.nodes.triage import triage_node
 from src.graph.state import DiagnosisReport, DoctorState, NormalizedEvidence
-from src.ingest.normalizer import ingest
-
-# ── Graph nodes ─────────────────────────────────────────────────────
-
-
-async def ingest_node(state: DoctorState) -> dict[str, Any]:
-    """
-    Ingest node: normalize raw evidence before feeding to LLM agents.
-
-    Converts raw_evidence (user_report, logs, traces, browser_errors)
-    into NormalizedEvidence with golden_signals,
-    correlations, timeline.
-
-    This is a **non-LLM** node — pure Python processing.
-    """
-    raw = state.raw_evidence
-    raw_dict: dict[str, Any] = {
-        "user_report": raw.user_report,
-        "logs": [log.model_dump() for log in raw.logs],
-        "traces": [span.model_dump() for span in raw.traces],
-        "browser_errors": [err.model_dump() for err in (raw.browser_errors or [])],
-    }
-
-    normalized = ingest(raw_dict)
-    return {"evidence": normalized}
 
 
 async def reporter_node(state: DoctorState) -> dict[str, Any]:

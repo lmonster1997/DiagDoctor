@@ -29,24 +29,57 @@ class LogEntry(BaseModel):
     service: str = ""
     service_name: str = ""
     message: str = ""
+    line: str = Field(default="", exclude=True)
     trace_id: str | None = None
     span_id: str | None = None
     attributes: dict[str, Any] = Field(default_factory=dict)
+    labels: dict[str, str] = Field(default_factory=dict, exclude=True)
+
+    def model_post_init(self, __context: Any) -> None:
+        """Normalise bug-factory field names into doctor field names."""
+        # Map 'line' → 'message'
+        if not self.message and self.line:
+            object.__setattr__(self, "message", self.line)
+        # Extract service_name and level from labels if not set at top level
+        if self.labels:
+            if not self.service_name:
+                svc = self.labels.get("service_name", self.labels.get("service", ""))
+                if svc:
+                    object.__setattr__(self, "service_name", svc)
+            if not self.level or self.level == "INFO":
+                lvl = self.labels.get("detected_level", self.labels.get("level", ""))
+                if lvl:
+                    object.__setattr__(self, "level", lvl)
+            # Labels may carry trace_id too
+            if not self.trace_id:
+                tid = self.labels.get("trace_id", "")
+                if tid:
+                    object.__setattr__(self, "trace_id", tid)
 
 
 class TraceSpan(BaseModel):
     """A single trace span from Tempo."""
 
+    trace_id: str = ""
     span_id: str
     parent_span_id: str = ""
-    name: str = ""
+    name: str = Field(default="", validation_alias="name")
+    operation_name: str = Field(default="", exclude=True)
     service: str = ""
     service_name: str = ""
-    start: datetime | str = ""
+    start: datetime | str = Field(default="", validation_alias="start")
+    start_time: datetime | str = Field(default="", exclude=True)
     duration_ms: float = 0.0
     attributes: dict[str, Any] = Field(default_factory=dict)
     status: Literal["ok", "error", "unset"] = "unset"
     db_statement: str = ""
+
+    def model_post_init(self, __context: Any) -> None:
+        """Normalise bug-factory field names into doctor field names."""
+        if not self.name and self.operation_name:
+            object.__setattr__(self, "name", self.operation_name)
+        if not self.start and self.start_time:
+            object.__setattr__(self, "start", self.start_time)
 
 
 class BrowserError(BaseModel):

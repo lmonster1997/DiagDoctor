@@ -1625,6 +1625,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "alembic" },
     { name = "asyncpg" },
+    { name = "bcrypt" },
     { name = "email-validator" },
     { name = "fastapi" },
     { name = "opentelemetry-api" },
@@ -1654,6 +1655,7 @@ dev = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.13.0" },
     { name = "asyncpg", specifier = ">=0.29.0" },
+    { name = "bcrypt", specifier = ">=4.1" },
     { name = "email-validator", specifier = ">=2.3.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },

@@ -20,7 +20,7 @@ from bug_factory.schema import CollectedEvidence, LogEntry, TraceSpan
 logger = structlog.get_logger(__name__)
 _DEFAULT_TIMEOUT = ClientTimeout(total=60, connect=10)
 _LOKI_MAX_PER_PAGE = 5000
-_TEMPO_MIN_TRACES = 20
+_TEMPO_MIN_TRACES = 200
 
 
 class EvidenceCollector:
@@ -108,7 +108,7 @@ class EvidenceCollector:
             else:
                 logs, traces = await asyncio.gather(
                     self._fetch_logs(session, start, end, services),
-                    self._fetch_traces(session, start, end, services),
+                    self._fetch_traces(session, start, end, services, browser_errors),
                 )
         from bug_factory.schema import BrowserError  # noqa: F811
 
@@ -169,11 +169,14 @@ class EvidenceCollector:
             for stream in streams:
                 labels = stream.get("stream", {})
                 for ts_ns, line in stream.get("values", []):
+                    tid, sid = _extract_trace_ids_from_log(line, labels)
                     entries.append(
                         LogEntry(
                             timestamp=_ns_to_iso(ts_ns),
                             labels=dict(labels),
                             line=line,
+                            trace_id=tid,
+                            span_id=sid,
                         )
                     )
                     if min_ns is None or ts_ns < min_ns:
@@ -190,6 +193,7 @@ class EvidenceCollector:
         start: datetime,
         end: datetime,
         services: list[str],
+        browser_errors: list[Any] | None = None,
     ) -> list[TraceSpan]:
         start_epoch = str(int(start.timestamp()))
         end_epoch = str(int(end.timestamp()))
@@ -214,6 +218,17 @@ class EvidenceCollector:
             return []
         if not trace_ids:
             return []
+        # Also include any trace_ids from browser_errors (cross-layer evidence)
+        if browser_errors:
+            for be in browser_errors:
+                be_tid = (
+                    (be.trace_id if hasattr(be, "trace_id") else be.get("trace_id", ""))
+                    if isinstance(be, dict)
+                    else getattr(be, "trace_id", "")
+                )
+                if be_tid and be_tid not in trace_ids:
+                    trace_ids.append(be_tid)
+                    logger.info("Added browser_error trace_id to fetch list", trace_id=be_tid)
         all_spans: list[TraceSpan] = []
         for i in range(0, len(trace_ids), 5):
             results = await asyncio.gather(
@@ -312,6 +327,39 @@ class EvidenceCollector:
             encoding="utf-8",
         )
         logger.info("Evidence saved", recipe_id=recipe_id, path=str(d))
+
+
+def _extract_trace_ids_from_log(line: str, labels: dict[str, str]) -> tuple[str | None, str | None]:
+    """Extract trace_id / span_id from a Loki log entry.
+
+    Checks in priority order:
+    1. The log body (structured JSON — e.g. client_error payload carries the
+       browser-side trace_id that should take precedence over the server-side
+       OTel context)
+    2. Labels (Loki stream labels may carry trace_id from server OTel context)
+    """
+    tid: str | None = None
+    sid: str | None = None
+
+    # 1. Parse line as JSON — prefer body over labels (body=client truth)
+    try:
+        obj = json.loads(line)
+        tid = obj.get("trace_id") or obj.get("traceId") or obj.get("traceID") or None
+        sid = obj.get("span_id") or obj.get("spanId") or obj.get("spanID") or None
+        attrs = obj.get("attributes", {})
+        if isinstance(attrs, dict):
+            tid = tid or attrs.get("trace_id")
+            sid = sid or attrs.get("span_id")
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    # 2. Fallback to labels
+    if not tid:
+        tid = labels.get("trace_id") or labels.get("traceid") or None
+    if not sid:
+        sid = labels.get("span_id") or labels.get("spanid") or None
+
+    return tid, sid
 
 
 def _ns_to_iso(ns_str: str) -> str:

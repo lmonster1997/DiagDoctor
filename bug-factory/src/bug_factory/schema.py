@@ -244,6 +244,8 @@ class LogEntry(BaseModel):
     timestamp: str
     labels: dict[str, str] = {}
     line: str
+    trace_id: str | None = None
+    span_id: str | None = None
 
 
 class TraceSpan(BaseModel):

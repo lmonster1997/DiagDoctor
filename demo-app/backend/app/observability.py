@@ -10,6 +10,7 @@ from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.trace import get_current_span
 
 # Needed by the monkey-patch below
 from starlette.routing import Match, Route  # noqa: E402  # isort:skip
@@ -97,16 +98,44 @@ def setup_loki_logging(service_name: str = "demo-backend") -> None:
     _log_queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=10000)
     _shutdown = threading.Event()
 
+    def _otel_trace_context() -> tuple[str, str]:
+        """Return (trace_id, span_id) from the current OTel span context.
+
+        Returns empty strings when no active span exists (e.g. startup /
+        background threads outside request handling).
+        """
+        span = get_current_span()
+        ctx = span.get_span_context()
+        if ctx.is_valid:
+            # Format as 32-char / 16-char hex strings (standard OTel format)
+            tid = format(ctx.trace_id, "032x")
+            sid = format(ctx.span_id, "016x")
+            return tid, sid
+        return "", ""
+
     class _LokiHandler(logging.Handler):
-        """Push log records to a queue; a background thread sends them to Loki."""
+        """Push log records to a queue; a background thread sends them to Loki.
+
+        Each log entry carries the current OTel trace context (trace_id /
+        span_id) so that downstream consumers (Doctor ingest, Grafana) can
+        correlate logs with distributed traces.
+        """
 
         def emit(self, record: logging.LogRecord) -> None:
             try:
+                # Inject OTel trace context into Loki stream labels
+                stream_labels = {
+                    "service_name": service_name,
+                    "level": record.levelname.lower(),
+                }
+                tid, sid = _otel_trace_context()
+                if tid:
+                    stream_labels["trace_id"] = tid
+                if sid:
+                    stream_labels["span_id"] = sid
+
                 entry = {
-                    "stream": {
-                        "service_name": service_name,
-                        "level": record.levelname.lower(),
-                    },
+                    "stream": stream_labels,
                     "values": [[str(int(record.created * 1_000_000_000)), self.format(record)]],
                 }
                 _log_queue.put_nowait(entry)
