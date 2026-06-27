@@ -139,8 +139,17 @@ def route_after_triage(state: DoctorState) -> list[str]:
             second_node = category_to_specialist.get(second.category, "backend_specialist")
             if second_node not in targets:
                 targets.append(second_node)
-        elif triage.cross_layer_suspected and "frontend_specialist" not in targets:
-            targets.append("frontend_specialist")
+
+        # When cross_layer_suspected, ensure both frontend and backend tiers
+        # are covered — the second-highest category may not be the "other"
+        # tier (e.g. LLM may assign ``data`` over ``backend_error`` for a
+        # missing-fields root cause).  Fan out the opposite tier explicitly
+        # so the specialist on the root-cause side always gets a chance.
+        if triage.cross_layer_suspected:
+            if "frontend_specialist" in targets and "backend_specialist" not in targets:
+                targets.append("backend_specialist")
+            elif "backend_specialist" in targets and "frontend_specialist" not in targets:
+                targets.append("frontend_specialist")
 
     return list(dict.fromkeys(targets))  # dedup preserving order
 
