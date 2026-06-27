@@ -268,9 +268,7 @@ class TestTriageNode:
         assert triage_output.primary in VALID_CATEGORIES
 
     @pytest.mark.asyncio
-    async def test_returns_finding_with_correct_fields(
-        self, minimal_state: DoctorState
-    ) -> None:
+    async def test_returns_finding_with_correct_fields(self, minimal_state: DoctorState) -> None:
         """Should return findings list with required fields."""
         mock_llm = MagicMock()
         mock_llm.with_structured_output.return_value.ainvoke = AsyncMock(
@@ -330,9 +328,7 @@ class TestTriageNode:
         assert result["findings"][0].confidence <= 0.5
 
     @pytest.mark.asyncio
-    async def test_integrates_rag_similar_cases(
-        self, minimal_state: DoctorState
-    ) -> None:
+    async def test_integrates_rag_similar_cases(self, minimal_state: DoctorState) -> None:
         """Should call knowledge service and include similar cases."""
         mock_knowledge = MagicMock()
         mock_knowledge.search_historical_cases = AsyncMock(
