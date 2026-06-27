@@ -53,7 +53,14 @@ trigger:
       entity: project
       data:
         name: 白屏详情
-        description: fe crash null
+        description: fe crash null red-herring
+  - action: create_data
+    params:
+      entity: task
+      data:
+        title: 有负责人任务
+        assignee_id: '{project_owner_id}'
+        project_index: 0
   - action: create_data
     params:
       entity: task
@@ -62,17 +69,29 @@ trigger:
         project_index: 0
   - action: ui_click
     params:
-      frontend_url: http://localhost:5173/projects/{project_id}
-      selector: '[data-testid^=''task-link-'']'
+      frontend_url: http://localhost:5173/tasks/{task_id:0}
+      selector: body
+  - action: wait
+    params:
+      seconds: 2
+  - action: ui_click
+    params:
+      frontend_url: http://localhost:5173/tasks/{task_id}
+      selector: body
+  - action: wait
+    params:
+      seconds: 5
   expected_observation:
-    log_patterns: []
+    log_patterns:
+    - pattern: client_error.*Cannot read properties of null.*slice
+      min_occurrences: 1
     trace_attributes: {}
     api_response: null
   ui_reachable: true
   expected_evidence:
     browser_errors: expected
     frontend_spans: expected
-    backend_signal: ''
+    backend_signal: 'SQL traces 中有两个任务的 INSERT：一个有 assignee_id（项目 owner），一个 assignee_id IS NULL。前者详情页正常渲染，后者触发 TypeError。'
     symptom_tier: frontend
     root_cause_tier: frontend
 evaluation:
@@ -84,13 +103,17 @@ evaluation:
   - 可选链
   - 判空
   - 未分配
+  - 仅部分任务
   llm_judge_criteria: '诊断必须指出详情页对 task.assignee_id.slice 的无判空调用，在 assignee_id 为 null
 
-    的未分配任务上崩溃白屏，并建议判空/可选链。需体现“只有未分配负责人的任务才白屏”的因果，
+    的未分配任务上崩溃白屏，并建议判空/可选链。需体现"只有未分配负责人的任务才白屏"的因果
 
-    而非把它当作随机或后端问题。
+    （red-herring：项目中同时存在有负责人和无负责人任务，前者正常、后者崩溃），
+
+    而非把它当作所有任务都崩溃或后端问题。
 
     '
   min_confidence: 0.6
+  cross_layer_required: false
 categories:
 - frontend_crash

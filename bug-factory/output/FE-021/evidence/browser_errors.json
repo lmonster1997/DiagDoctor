@@ -1,28 +1,28 @@
 [
   {
-    "timestamp": "2026-06-27T11:31:38.461182+00:00",
+    "timestamp": "2026-06-27T12:15:16.657973+00:00",
     "type": "console_error",
-    "message": "%o\n\n%s\n\n%s\n TypeError: Cannot read properties of null (reading 'slice')\n    at TaskDetailPage (http://localhost:5173/src/pages/TaskDetailPage.tsx?t=1782559889387:222:79)\n    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:12868:12)\n    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:4213:19)\n    at updateFunctionComponent (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:5569:16)\n    at beginWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:6140:20)\n    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:851:66)\n    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:8429:92)\n    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:8325:37)\n    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:8309:6)\n    at performWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:7994:27) The above error occurred in the <TaskDetailPage> component. React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundaryClass.",
+    "message": "%o\n\n%s\n\n%s\n TypeError: Cannot read properties of null (reading 'slice')\n    at TaskDetailPage (http://localhost:5173/src/pages/TaskDetailPage.tsx?t=1782562501221:222:79)\n    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:12868:12)\n    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:4213:19)\n    at updateFunctionComponent (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:5569:16)\n    at beginWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:6140:20)\n    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:851:66)\n    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:8429:92)\n    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:8325:37)\n    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:8309:6)\n    at performWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9:7994:27) The above error occurred in the <TaskDetailPage> component. React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundaryClass.",
     "stack": null,
     "url": "http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9",
     "line_number": 5273,
-    "trace_id": "5ced39bb306b161c8c47d0c801dd4a72",
-    "span_id": "7cd8af59bc4d3080",
+    "trace_id": "fac1481c91e5cfb5ed5c380a6eb0c625",
+    "span_id": "f56c2bc025c295e8",
     "component_stack": null,
     "breadcrumbs": []
   },
   {
-    "timestamp": "2026-06-27T11:31:38.462182+00:00",
+    "timestamp": "2026-06-27T12:15:16.658973+00:00",
     "type": "console_error",
-    "message": "[CLIENT_ERROR] trace_id=6ccd3d525b158c966b6c39efacb8de08 span_id=690e7d0e155e8dc3 comp=at TaskDetailPage (http://localhost:5173/src/pages/TaskDetailPage.tsx?t=1782559889387:26:25) crumbs=2 {error: [react_render] Cannot read properties of null (reading 'slice'), stack: TypeError: Cannot read properties of null (reading…vite/deps/react-dom_client.js?v=71c858a9:7994:27), componentStack: \n    at TaskDetailPage (http://localhost:5173/src/…vite/deps/react-router-dom.js?v=71c858a9:7209:26), url: http://localhost:5173/tasks/460eca98-4854-436d-b091-8232aa194600, timestamp: 2026-06-27T11:31:38.461Z}",
+    "message": "[CLIENT_ERROR] trace_id=b115ed03a16c7cb965a1ad6387cffe5d span_id=ce719f90f73f2518 comp=at TaskDetailPage (http://localhost:5173/src/pages/TaskDetailPage.tsx?t=1782562501221:26:25) crumbs=0 {error: [react_render] Cannot read properties of null (reading 'slice'), stack: TypeError: Cannot read properties of null (reading…vite/deps/react-dom_client.js?v=71c858a9:7994:27), componentStack: \n    at TaskDetailPage (http://localhost:5173/src/…vite/deps/react-router-dom.js?v=71c858a9:7209:26), url: http://localhost:5173/tasks/0eeb5ea5-2774-47cd-a27b-8866e61f37e6, timestamp: 2026-06-27T12:15:16.657Z}",
     "stack": null,
-    "url": "http://localhost:5173/src/services/error-reporter.ts?t=1782559889082",
+    "url": "http://localhost:5173/src/services/error-reporter.ts?t=1782560994202",
     "line_number": 91,
-    "trace_id": "6ccd3d525b158c966b6c39efacb8de08",
-    "span_id": "690e7d0e155e8dc3",
-    "component_stack": "at TaskDetailPage (http://localhost:5173/src/pages/TaskDetailPage.tsx?t=1782559889387:26:25)",
+    "trace_id": "b115ed03a16c7cb965a1ad6387cffe5d",
+    "span_id": "ce719f90f73f2518",
+    "component_stack": "at TaskDetailPage (http://localhost:5173/src/pages/TaskDetailPage.tsx?t=1782562501221:26:25)",
     "breadcrumbs": [
-      "breadcrumb_count=2"
+      "breadcrumb_count=0"
     ]
   }
 ]

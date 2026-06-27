@@ -1,0 +1,98 @@
+[
+  {
+    "timestamp": "2026-06-27T12:26:57.487257+00:00",
+    "type": "console_error",
+    "message": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "stack": null,
+    "url": "http://localhost:8000/api/projects/",
+    "line_number": 0,
+    "trace_id": "edd51bd90c2b6e382bf9e80e7bebbcd7",
+    "span_id": "f21c58f5d6906bb7",
+    "component_stack": null,
+    "breadcrumbs": []
+  },
+  {
+    "timestamp": "2026-06-27T12:26:57.487257+00:00",
+    "type": "console_warning",
+    "message": "[API_UNAUTHORIZED] {url: /api/projects/}",
+    "stack": null,
+    "url": "http://localhost:5173/src/main.tsx?t=1782562657579",
+    "line_number": 22,
+    "trace_id": "edd51bd90c2b6e382bf9e80e7bebbcd7",
+    "span_id": "f21c58f5d6906bb7",
+    "component_stack": null,
+    "breadcrumbs": []
+  },
+  {
+    "timestamp": "2026-06-27T12:26:57.500113+00:00",
+    "type": "console_error",
+    "message": "[API_RESPONSE_ERROR] {status: 401, url: /api/projects/, error: Request failed with status code 401}",
+    "stack": null,
+    "url": "http://localhost:5173/src/services/api.ts?t=1782561140363",
+    "line_number": 30,
+    "trace_id": "edd51bd90c2b6e382bf9e80e7bebbcd7",
+    "span_id": "f21c58f5d6906bb7",
+    "component_stack": null,
+    "breadcrumbs": []
+  },
+  {
+    "timestamp": "2026-06-27T12:26:57.504693+00:00",
+    "type": "console_error",
+    "message": "[PROJECTS_LOAD_FAIL] {error: 无效的认证凭据}",
+    "stack": null,
+    "url": "http://localhost:5173/src/pages/ProjectsPage.tsx?t=1782561140363",
+    "line_number": 31,
+    "trace_id": "edd51bd90c2b6e382bf9e80e7bebbcd7",
+    "span_id": "f21c58f5d6906bb7",
+    "component_stack": null,
+    "breadcrumbs": []
+  },
+  {
+    "timestamp": "2026-06-27T12:26:57.505693+00:00",
+    "type": "console_error",
+    "message": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "stack": null,
+    "url": "http://localhost:8000/api/projects/",
+    "line_number": 0,
+    "trace_id": "edd51bd90c2b6e382bf9e80e7bebbcd7",
+    "span_id": "f21c58f5d6906bb7",
+    "component_stack": null,
+    "breadcrumbs": []
+  },
+  {
+    "timestamp": "2026-06-27T12:26:57.506692+00:00",
+    "type": "console_warning",
+    "message": "[API_UNAUTHORIZED] {url: /api/projects/}",
+    "stack": null,
+    "url": "http://localhost:5173/src/main.tsx?t=1782562657579",
+    "line_number": 22,
+    "trace_id": "edd51bd90c2b6e382bf9e80e7bebbcd7",
+    "span_id": "f21c58f5d6906bb7",
+    "component_stack": null,
+    "breadcrumbs": []
+  },
+  {
+    "timestamp": "2026-06-27T12:26:57.506692+00:00",
+    "type": "console_error",
+    "message": "[API_RESPONSE_ERROR] {status: 401, url: /api/projects/, error: Request failed with status code 401}",
+    "stack": null,
+    "url": "http://localhost:5173/src/services/api.ts?t=1782561140363",
+    "line_number": 30,
+    "trace_id": "edd51bd90c2b6e382bf9e80e7bebbcd7",
+    "span_id": "f21c58f5d6906bb7",
+    "component_stack": null,
+    "breadcrumbs": []
+  },
+  {
+    "timestamp": "2026-06-27T12:26:57.508477+00:00",
+    "type": "console_error",
+    "message": "[PROJECTS_LOAD_FAIL] {error: 无效的认证凭据}",
+    "stack": null,
+    "url": "http://localhost:5173/src/pages/ProjectsPage.tsx?t=1782561140363",
+    "line_number": 31,
+    "trace_id": "edd51bd90c2b6e382bf9e80e7bebbcd7",
+    "span_id": "f21c58f5d6906bb7",
+    "component_stack": null,
+    "breadcrumbs": []
+  }
+]

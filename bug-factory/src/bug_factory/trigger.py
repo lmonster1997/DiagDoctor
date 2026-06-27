@@ -1092,6 +1092,8 @@ class TriggerRunner:
         Supported patterns:
         - ``{project_id}`` → last created project's ``id``
         - ``{project_id:0}`` → first created project's ``id``
+        - ``{project_owner_id}`` → last created project's ``owner_id``
+        - ``{project_owner_id:0}`` → first created project's ``owner_id``
         - ``{task_id}`` → last created task's ``id``
         - ``{task_id:1}`` → second created task's ``id``
 
@@ -1121,6 +1123,15 @@ class TriggerRunner:
                 elif projects:
                     return str(projects[-1].get("id", ""))
                 return match.group(0)  # Keep as-is if unresolvable.
+
+            if var_name == "project_owner_id":
+                projects = self.session.get("created_projects", [])
+                idx = int(index_str) if index_str else -1
+                if 0 <= idx < len(projects):
+                    return str(projects[idx].get("owner_id", ""))
+                elif projects:
+                    return str(projects[-1].get("owner_id", ""))
+                return match.group(0)
 
             if var_name == "task_id":
                 tasks = self.session.get("created_tasks", [])

@@ -1,285 +1,294 @@
 [
   {
-    "timestamp": "2026-06-27T10:54:30.022995+00:00",
+    "timestamp": "2026-06-27T12:22:42.456897+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:56165 - \"GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks HTTP/1.1\" 200"
+    "line": "127.0.0.1:50590 - \"GET /api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-27T10:54:30.022995+00:00",
+    "timestamp": "2026-06-27T12:22:42.456897+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks\", \"status_code\": 200, \"duration_ms\": 13.7, \"client\": \"127.0.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks\", \"status_code\": 200, \"duration_ms\": 13.0, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:54:24.006683+00:00",
+    "timestamp": "2026-06-27T12:22:36.494869+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:59155 - \"GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e HTTP/1.1\" 200"
+    "line": "127.0.0.1:52233 - \"GET /api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905 HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-27T10:54:24.005683+00:00",
+    "timestamp": "2026-06-27T12:22:36.494869+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e\", \"status_code\": 200, \"duration_ms\": 2.4, \"client\": \"127.0.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905\", \"status_code\": 200, \"duration_ms\": 1.9, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:54:24.002683+00:00",
+    "timestamp": "2026-06-27T12:22:36.491867+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:61730 - \"GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e HTTP/1.1\" 200"
+    "line": "127.0.0.1:51225 - \"GET /api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905 HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-27T10:54:24.002683+00:00",
+    "timestamp": "2026-06-27T12:22:36.491867+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e\", \"status_code\": 200, \"duration_ms\": 59.7, \"client\": \"127.0.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905\", \"status_code\": 200, \"duration_ms\": 63.6, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:54:23.974974+00:00",
+    "timestamp": "2026-06-27T12:22:36.441888+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:59155 - \"GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks HTTP/1.1\" 200"
+    "line": "127.0.0.1:52233 - \"GET /api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-27T10:54:23.974974+00:00",
+    "timestamp": "2026-06-27T12:22:36.441888+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks\", \"status_code\": 200, \"duration_ms\": 3.0, \"client\": \"127.0.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks\", \"status_code\": 200, \"duration_ms\": 3.9, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:54:23.974974+00:00",
+    "timestamp": "2026-06-27T12:22:36.436521+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:63661 - \"GET /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks HTTP/1.1\" 200"
+    "line": "127.0.0.1:65117 - \"GET /api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-27T10:54:23.974974+00:00",
+    "timestamp": "2026-06-27T12:22:36.435522+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks\", \"status_code\": 200, \"duration_ms\": 33.1, \"client\": \"127.0.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks\", \"status_code\": 200, \"duration_ms\": 9.0, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:54:23.940531+00:00",
+    "timestamp": "2026-06-27T12:22:36.426522+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:59155 - \"OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e HTTP/1.1\" 200"
+    "line": "127.0.0.1:52233 - \"OPTIONS /api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-27T10:54:23.940531+00:00",
+    "timestamp": "2026-06-27T12:22:36.426522+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:65303 - \"OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks HTTP/1.1\" 200"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks\", \"status_code\": 200, \"duration_ms\": 1.3, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:54:23.940531+00:00",
+    "timestamp": "2026-06-27T12:22:36.425515+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks\", \"status_code\": 200, \"duration_ms\": 1.9, \"client\": \"127.0.0.1\"}"
+    "line": "127.0.0.1:57845 - \"OPTIONS /api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905 HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-27T10:54:23.940531+00:00",
+    "timestamp": "2026-06-27T12:22:36.425515+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:61730 - \"OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e HTTP/1.1\" 200"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905\", \"status_code\": 200, \"duration_ms\": 1.3, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:54:23.940531+00:00",
+    "timestamp": "2026-06-27T12:22:36.425515+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e\", \"status_code\": 200, \"duration_ms\": 1.8, \"client\": \"127.0.0.1\"}"
+    "line": "127.0.0.1:51225 - \"OPTIONS /api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905 HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-27T10:54:23.939023+00:00",
+    "timestamp": "2026-06-27T12:22:36.425515+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:63661 - \"OPTIONS /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks HTTP/1.1\" 200"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905\", \"status_code\": 200, \"duration_ms\": 1.1, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:54:23.939023+00:00",
+    "timestamp": "2026-06-27T12:22:36.425354+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks\", \"status_code\": 200, \"duration_ms\": 1.1, \"client\": \"127.0.0.1\"}"
+    "line": "127.0.0.1:65117 - \"OPTIONS /api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-27T10:54:20.220220+00:00",
+    "timestamp": "2026-06-27T12:22:36.424352+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:56463 - \"POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks HTTP/1.1\" 201"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks\", \"status_code\": 200, \"duration_ms\": 0.7, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:54:20.220220+00:00",
+    "timestamp": "2026-06-27T12:22:32.789965+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks\", \"status_code\": 201, \"duration_ms\": 4.2, \"client\": \"127.0.0.1\"}"
+    "line": "127.0.0.1:55554 - \"POST /api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks HTTP/1.1\" 201"
   },
   {
-    "timestamp": "2026-06-27T10:54:19.954182+00:00",
+    "timestamp": "2026-06-27T12:22:32.789965+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:56461 - \"POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks HTTP/1.1\" 201"
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks\", \"status_code\": 201, \"duration_ms\": 3.5, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:54:19.954182+00:00",
+    "timestamp": "2026-06-27T12:22:32.522756+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks\", \"status_code\": 201, \"duration_ms\": 3.6, \"client\": \"127.0.0.1\"}"
+    "line": "127.0.0.1:55552 - \"POST /api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks HTTP/1.1\" 201"
   },
   {
-    "timestamp": "2026-06-27T10:54:19.689884+00:00",
+    "timestamp": "2026-06-27T12:22:32.520752+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:56459 - \"POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks HTTP/1.1\" 201"
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks\", \"status_code\": 201, \"duration_ms\": 4.6, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:54:19.689367+00:00",
+    "timestamp": "2026-06-27T12:22:32.256255+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks\", \"status_code\": 201, \"duration_ms\": 4.0, \"client\": \"127.0.0.1\"}"
+    "line": "127.0.0.1:55550 - \"POST /api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks HTTP/1.1\" 201"
   },
   {
-    "timestamp": "2026-06-27T10:54:19.424077+00:00",
+    "timestamp": "2026-06-27T12:22:32.256255+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:56457 - \"POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks HTTP/1.1\" 201"
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks\", \"status_code\": 201, \"duration_ms\": 3.4, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:54:19.424077+00:00",
+    "timestamp": "2026-06-27T12:22:31.990364+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks\", \"status_code\": 201, \"duration_ms\": 3.7, \"client\": \"127.0.0.1\"}"
+    "line": "127.0.0.1:55548 - \"POST /api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks HTTP/1.1\" 201"
   },
   {
-    "timestamp": "2026-06-27T10:54:19.154597+00:00",
+    "timestamp": "2026-06-27T12:22:31.990364+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:56455 - \"POST /api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks HTTP/1.1\" 201"
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks\", \"status_code\": 201, \"duration_ms\": 3.4, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:54:19.154597+00:00",
+    "timestamp": "2026-06-27T12:22:31.718005+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/693a43c2-d10c-4283-b6dc-1f8d405cf09e/tasks\", \"status_code\": 201, \"duration_ms\": 15.7, \"client\": \"127.0.0.1\"}"
+    "line": "127.0.0.1:55546 - \"POST /api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks HTTP/1.1\" 201"
   },
   {
-    "timestamp": "2026-06-27T10:54:18.881079+00:00",
+    "timestamp": "2026-06-27T12:22:31.704623+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:56453 - \"POST /api/projects/ HTTP/1.1\" 201"
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/a37b7f75-982b-43ed-afa9-5825a37a2905/tasks\", \"status_code\": 201, \"duration_ms\": 13.5, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:54:18.881079+00:00",
+    "timestamp": "2026-06-27T12:22:31.435243+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/\", \"status_code\": 201, \"duration_ms\": 8.0, \"client\": \"127.0.0.1\"}"
+    "line": "127.0.0.1:55544 - \"POST /api/projects/ HTTP/1.1\" 201"
   },
   {
-    "timestamp": "2026-06-27T10:54:18.618801+00:00",
+    "timestamp": "2026-06-27T12:22:31.435243+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:56445 - \"POST /api/auth/login HTTP/1.1\" 200"
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/\", \"status_code\": 201, \"duration_ms\": 7.7, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:54:18.618801+00:00",
+    "timestamp": "2026-06-27T12:22:31.168650+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/auth/login\", \"status_code\": 200, \"duration_ms\": 240.9, \"client\": \"127.0.0.1\"}"
+    "line": "127.0.0.1:55538 - \"POST /api/auth/login HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-27T10:54:18.384192+00:00",
+    "timestamp": "2026-06-27T12:22:31.168650+00:00",
+    "labels": {
+      "detected_level": "info",
+      "level": "info",
+      "service_name": "demo-backend"
+    },
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/auth/login\", \"status_code\": 200, \"duration_ms\": 243.3, \"client\": \"127.0.0.1\"}"
+  },
+  {
+    "timestamp": "2026-06-27T12:22:30.930915+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
@@ -288,7 +297,7 @@
     "line": "Application startup complete."
   },
   {
-    "timestamp": "2026-06-27T10:54:18.384192+00:00",
+    "timestamp": "2026-06-27T12:22:30.930915+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
@@ -297,16 +306,16 @@
     "line": "Waiting for application startup."
   },
   {
-    "timestamp": "2026-06-27T10:54:18.383508+00:00",
+    "timestamp": "2026-06-27T12:22:30.929915+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "Started server process [4884]"
+    "line": "Started server process [32544]"
   },
   {
-    "timestamp": "2026-06-27T10:54:13.597119+00:00",
+    "timestamp": "2026-06-27T12:22:28.231719+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
@@ -315,7 +324,7 @@
     "line": "Shutting down"
   },
   {
-    "timestamp": "2026-06-27T10:54:16.765321+00:00",
+    "timestamp": "2026-06-27T12:22:29.802558+00:00",
     "labels": {
       "detected_level": "warning",
       "level": "warning",
@@ -324,25 +333,16 @@
     "line": "WatchFiles detected changes in 'app\\api\\tasks.py'. Reloading..."
   },
   {
-    "timestamp": "2026-06-27T10:54:16.153322+00:00",
+    "timestamp": "2026-06-27T12:22:28.201393+00:00",
     "labels": {
       "detected_level": "warning",
       "level": "warning",
       "service_name": "demo-backend"
     },
-    "line": "WatchFiles detected changes in 'app\\observability.py', 'app\\api\\client_log.py'. Reloading..."
+    "line": "WatchFiles detected changes in 'app\\api\\tasks.py'. Reloading..."
   },
   {
-    "timestamp": "2026-06-27T10:54:13.524378+00:00",
-    "labels": {
-      "detected_level": "warning",
-      "level": "warning",
-      "service_name": "demo-backend"
-    },
-    "line": "WatchFiles detected changes in 'app\\observability.py', 'app\\api\\client_log.py'. Reloading..."
-  },
-  {
-    "timestamp": "2026-06-27T10:54:21.049000+00:00",
+    "timestamp": "2026-06-27T12:22:33.525000+00:00",
     "labels": {
       "route_from": "/login",
       "route_to": "/login",
@@ -353,7 +353,7 @@
     "line": "[ROUTE] /login → /login"
   },
   {
-    "timestamp": "2026-06-27T10:54:20.950000+00:00",
+    "timestamp": "2026-06-27T12:22:33.428000+00:00",
     "labels": {
       "route_from": "/login",
       "route_to": "/login",
