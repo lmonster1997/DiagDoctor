@@ -107,7 +107,8 @@ def assert_readonly(sql: str) -> None:
         raise UnsafeSQLError("SQL string is empty")
 
     # ── Parse ────────────────────────────────────────────────────
-    statements: list[Statement] = sqlparse.parse(stripped)
+    # sqlparse.parse() returns tuple[Statement, ...]; use list() for mutable.
+    statements = list(sqlparse.parse(stripped))
     # sqlparse returns trailing empty statements — filter them out.
     real_statements = [s for s in statements if s.tokens and str(s).strip()]
 
@@ -132,7 +133,7 @@ def assert_readonly(sql: str) -> None:
 
     # 3. Must be SELECT or a CTE (WITH ... SELECT ...).
     #    sqlparse returns 'UNKNOWN' for DDL / DCL statements.
-    stmt_type = stmt.get_type()
+    stmt_type: str = stmt.get_type()  # type: ignore[no-untyped-call]
     if stmt_type not in ("SELECT", "UNKNOWN"):
         raise UnsafeSQLError(
             f"Statement type is '{stmt_type}', not SELECT. "
@@ -166,7 +167,7 @@ def _check_dangerous_tokens(stmt: Statement, original_sql: str) -> None:
     Also catches multi-statement injection within a single parsed
     statement (e.g. sub-select containing dangerous tokens).
     """
-    for token in stmt.flatten():
+    for token in stmt.flatten():  # type: ignore[no-untyped-call]
         if token.ttype in (Keyword, DML, DDL):
             val_upper = token.value.upper()
             if val_upper in _DANGEROUS_KEYWORDS:
