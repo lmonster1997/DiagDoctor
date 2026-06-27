@@ -302,7 +302,7 @@ def _convert_otlp_span_to_trace_span(
 
     return TraceSpan(
         span_id=span_id,
-        parent_id=parent_id if parent_id else None,
+        parent_span_id=str(parent_id) if parent_id else "",
         name=_parse_span_name(raw_span),
         service=service,
         start=start,

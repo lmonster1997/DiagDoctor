@@ -15,8 +15,7 @@ node_modules/
 .vscode/
 
 # Docs - internal design documents (not for public repo)
-docs/diagdoctor-execution-handbook.md
-docs/diagdoctor-from-scratch.md
+docs/
 
 # Docker
 .env

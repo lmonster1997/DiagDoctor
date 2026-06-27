@@ -1,8 +1,9 @@
 """
 Diagnose endpoint — runs the full LangGraph diagnosis pipeline.
 
-Accepts Evidence (user_report + optional logs/traces) and returns
-a structured DiagnosisReport. Supports streaming via ?stream=true.
+Accepts Evidence (user_report + optional logs/traces/browser_errors)
+and returns a structured DiagnosisReport (v2 multi-label).
+Supports streaming via ?stream=true.
 """
 
 from __future__ import annotations
@@ -28,7 +29,9 @@ class DiagnoseRequest(BaseModel):
 
     evidence: Evidence = Field(
         default_factory=Evidence,
-        description="Evidence collected for diagnosis (user_report required).",
+        description=(
+            "Evidence collected for diagnosis (user_report + optional logs/traces/browser_errors)."
+        ),
     )
     thread_id: str | None = Field(
         default=None,
@@ -37,11 +40,12 @@ class DiagnoseRequest(BaseModel):
 
 
 class DiagnoseResponse(BaseModel):
-    """Standard (non-streaming) response from the diagnose endpoint."""
+    """Standard (non-streaming) response from the diagnose endpoint (v2)."""
 
     thread_id: str
     report: DiagnosisReport | None = None
-    bug_category: str | None = None
+    primary_category: str | None = None
+    categories: list[str] = Field(default_factory=list)
     findings_count: int = 0
 
 
@@ -49,9 +53,9 @@ class DiagnoseResponse(BaseModel):
 
 
 def _build_initial_state(request: DiagnoseRequest, thread_id: str) -> dict[str, Any]:
-    """Build the initial DoctorState dict for the graph invocation."""
+    """Build the initial DoctorState dict for the graph invocation (v2)."""
     return {
-        "evidence": request.evidence,
+        "raw_evidence": request.evidence,
         "case_id": thread_id,
         "trace_id": thread_id,
         "session_id": thread_id,
@@ -76,7 +80,7 @@ async def _stream_graph(thread_id: str, state: dict[str, Any]) -> AsyncIterator[
             event_type = event.get("event", "")
             event_name = event.get("name", "")
 
-            # Only stream relevant events to avoid noise
+            # Stream chat model events
             if event_type in ("on_chat_model_start", "on_chat_model_stream", "on_chat_model_end"):
                 data = {
                     "event": event_type,
@@ -97,12 +101,11 @@ async def _stream_graph(thread_id: str, state: dict[str, Any]) -> AsyncIterator[
                         "report": report,
                     }
                     yield f"data: {json.dumps(data, default=str)}\n\n"
-
-        # Signal completion
+    except Exception as exc:
+        error_data = {"event": "error", "message": str(exc)}
+        yield f"data: {json.dumps(error_data, default=str)}\n\n"
+    finally:
         yield "data: [DONE]\n\n"
-
-    except Exception:
-        yield f"data: {json.dumps({'event': 'error', 'error': 'Graph execution failed'})}\n\n"
 
 
 # ── Routes ──────────────────────────────────────────────────────────
@@ -154,12 +157,20 @@ async def diagnose(
         ) from e
 
     report = final_state.get("report")
-    bug_category = final_state.get("bug_category")
+    triage = final_state.get("triage")
+    primary_category: str | None = None
+    categories: list[str] = []
+    if triage is not None:
+        if hasattr(triage, "primary"):
+            primary_category = triage.primary
+        if hasattr(triage, "scores"):
+            categories = [s.category for s in triage.scores]
     findings = final_state.get("findings", [])
 
     return DiagnoseResponse(
         thread_id=thread_id,
         report=report,
-        bug_category=bug_category,
+        primary_category=primary_category,
+        categories=categories,
         findings_count=len(findings),
     )
