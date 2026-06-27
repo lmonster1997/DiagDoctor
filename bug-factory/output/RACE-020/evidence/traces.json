@@ -1,0 +1,920 @@
+[
+  {
+    "trace_id": "f2fbb80294ccca359ce906ea76764e6",
+    "span_id": "14ff49846bf2abd8",
+    "parent_span_id": "26e129744b84e663",
+    "operation_name": "GET /api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80 http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.357994+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "f2fbb80294ccca359ce906ea76764e6",
+    "span_id": "8507d62f5975ec4c",
+    "parent_span_id": "26e129744b84e663",
+    "operation_name": "GET /api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80 http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.357994+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "f2fbb80294ccca359ce906ea76764e6",
+    "span_id": "17c609ccf2869e3e",
+    "parent_span_id": "26e129744b84e663",
+    "operation_name": "GET /api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80 http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.359018+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "f2fbb80294ccca359ce906ea76764e6",
+    "span_id": "26e129744b84e663",
+    "parent_span_id": "",
+    "operation_name": "GET /api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.348212+00:00",
+    "duration_ms": 10.806,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "64681",
+      "http.route": "/api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80",
+      "http.method": "GET",
+      "http.url": "http://localhost:8000/api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "f2fbb80294ccca359ce906ea76764e6",
+    "span_id": "0651fc65533a9cf6",
+    "parent_span_id": "26e129744b84e663",
+    "operation_name": "connect",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.348212+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "f2fbb80294ccca359ce906ea76764e6",
+    "span_id": "e656f9f0bd803ae1",
+    "parent_span_id": "26e129744b84e663",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.348212+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-0f2fbb80294ccca359ce906ea76764e6-5db48aa44a412d4f-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "f2fbb80294ccca359ce906ea76764e6",
+    "span_id": "5a8a3b5fcc5288c8",
+    "parent_span_id": "26e129744b84e663",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.348212+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-0f2fbb80294ccca359ce906ea76764e6-76e474f96992f623-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "f2fbb80294ccca359ce906ea76764e6",
+    "span_id": "f4b28fffd61fd5a6",
+    "parent_span_id": "26e129744b84e663",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.352900+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT tasks_1.id AS tasks_1_id, tags.id AS tags_id, tags.name AS tags_name, tags.color AS tags_color \nFROM tasks AS tasks_1 JOIN task_tags AS task_tags_1 ON tasks_1.id = task_tags_1.task_id JOIN tags ON tags.id = task_tags_1.tag_id \nWHERE tasks_1.id IN ($1::UUID) /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-0f2fbb80294ccca359ce906ea76764e6-70d7950f1f43c309-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "f2fbb80294ccca359ce906ea76764e6",
+    "span_id": "be67854a649ee7c0",
+    "parent_span_id": "26e129744b84e663",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.352900+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT comments.task_id AS comments_task_id, comments.id AS comments_id, comments.author_id AS comments_author_id, comments.content AS comments_content, comments.created_at AS comments_created_at \nFROM comments \nWHERE comments.task_id IN ($1::UUID) ORDER BY comments.created_at /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-0f2fbb80294ccca359ce906ea76764e6-2e927b5a43ab6eb9-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "a51b79b3f0181bda71cf03f02822751d",
+    "span_id": "d663cb264b35ce76",
+    "parent_span_id": "9ca075727bae47bc",
+    "operation_name": "PATCH /api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80 http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.091831+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "a51b79b3f0181bda71cf03f02822751d",
+    "span_id": "6ef87f96a0960858",
+    "parent_span_id": "9ca075727bae47bc",
+    "operation_name": "PATCH /api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80 http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.097064+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "a51b79b3f0181bda71cf03f02822751d",
+    "span_id": "2677faa5ad1ef338",
+    "parent_span_id": "9ca075727bae47bc",
+    "operation_name": "PATCH /api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80 http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.097064+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "a51b79b3f0181bda71cf03f02822751d",
+    "span_id": "5232f9b4b633ee98",
+    "parent_span_id": "9ca075727bae47bc",
+    "operation_name": "PATCH /api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80 http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.097064+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "a51b79b3f0181bda71cf03f02822751d",
+    "span_id": "9ca075727bae47bc",
+    "parent_span_id": "",
+    "operation_name": "PATCH /api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.091831+00:00",
+    "duration_ms": 5.233,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "64679",
+      "http.route": "/api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80",
+      "http.method": "PATCH",
+      "http.url": "http://localhost:8000/api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "a51b79b3f0181bda71cf03f02822751d",
+    "span_id": "59b7287c2e899b4d",
+    "parent_span_id": "9ca075727bae47bc",
+    "operation_name": "connect",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.091831+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "a51b79b3f0181bda71cf03f02822751d",
+    "span_id": "6d07aee07917420f",
+    "parent_span_id": "9ca075727bae47bc",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.091831+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-a51b79b3f0181bda71cf03f02822751d-1c64bfe505976ae3-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "a51b79b3f0181bda71cf03f02822751d",
+    "span_id": "53ee24f5154dfe99",
+    "parent_span_id": "9ca075727bae47bc",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.091831+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-a51b79b3f0181bda71cf03f02822751d-958ff2e479d0b798-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "a51b79b3f0181bda71cf03f02822751d",
+    "span_id": "47ee33bd3e16264c",
+    "parent_span_id": "9ca075727bae47bc",
+    "operation_name": "UPDATE",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.091831+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "UPDATE tasks SET status=$1::task_status, updated_at=now() WHERE tasks.id = $2::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-a51b79b3f0181bda71cf03f02822751d-fb9f99220652e459-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "UPDATE"
+    }
+  },
+  {
+    "trace_id": "a51b79b3f0181bda71cf03f02822751d",
+    "span_id": "79dc1c678f9ce752",
+    "parent_span_id": "9ca075727bae47bc",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:25.091831+00:00",
+    "duration_ms": 5.233,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-a51b79b3f0181bda71cf03f02822751d-24ed7c71773f97ab-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "826d7f566004c6303b2422bc3c4dbf3d",
+    "span_id": "9d2588c96ac12a6a",
+    "parent_span_id": "b8c448da0395c3c4",
+    "operation_name": "PATCH /api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80 http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:24.823073+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "826d7f566004c6303b2422bc3c4dbf3d",
+    "span_id": "3979c08d2a0f14f8",
+    "parent_span_id": "b8c448da0395c3c4",
+    "operation_name": "PATCH /api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80 http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:24.830354+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "826d7f566004c6303b2422bc3c4dbf3d",
+    "span_id": "99d41a93638e8ee4",
+    "parent_span_id": "b8c448da0395c3c4",
+    "operation_name": "PATCH /api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80 http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:24.830354+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "826d7f566004c6303b2422bc3c4dbf3d",
+    "span_id": "12501af1f2280cf7",
+    "parent_span_id": "b8c448da0395c3c4",
+    "operation_name": "PATCH /api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80 http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:24.830354+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "826d7f566004c6303b2422bc3c4dbf3d",
+    "span_id": "b8c448da0395c3c4",
+    "parent_span_id": "",
+    "operation_name": "PATCH /api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:24.822069+00:00",
+    "duration_ms": 8.2854,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "64677",
+      "http.route": "/api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80",
+      "http.method": "PATCH",
+      "http.url": "http://localhost:8000/api/tasks/a3f44e2f-af5c-4fb7-988d-667f361fdc80",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "826d7f566004c6303b2422bc3c4dbf3d",
+    "span_id": "6bb6163cad39d777",
+    "parent_span_id": "b8c448da0395c3c4",
+    "operation_name": "connect",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:24.824074+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "826d7f566004c6303b2422bc3c4dbf3d",
+    "span_id": "5eba49fd26507ff2",
+    "parent_span_id": "b8c448da0395c3c4",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:24.824074+00:00",
+    "duration_ms": 1.0003,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-826d7f566004c6303b2422bc3c4dbf3d-fae48645aab3313a-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "826d7f566004c6303b2422bc3c4dbf3d",
+    "span_id": "edae407279489b44",
+    "parent_span_id": "b8c448da0395c3c4",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:24.825668+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-826d7f566004c6303b2422bc3c4dbf3d-ab9415239c0e35e0-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "826d7f566004c6303b2422bc3c4dbf3d",
+    "span_id": "60838075bee8e388",
+    "parent_span_id": "b8c448da0395c3c4",
+    "operation_name": "UPDATE",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:24.825668+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "UPDATE tasks SET title=$1::VARCHAR, updated_at=now() WHERE tasks.id = $2::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-826d7f566004c6303b2422bc3c4dbf3d-14133bb0eafccb7a-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "UPDATE"
+    }
+  },
+  {
+    "trace_id": "826d7f566004c6303b2422bc3c4dbf3d",
+    "span_id": "6003ba53c94dabb2",
+    "parent_span_id": "b8c448da0395c3c4",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:24.830354+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-826d7f566004c6303b2422bc3c4dbf3d-0ab3f64f40f72dc2-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "ee9d4f96383713cf3064f52f25764c17",
+    "span_id": "69e166496b35542d",
+    "parent_span_id": "c4c3724e7dc89265",
+    "operation_name": "POST /api/projects/770d7379-ac49-46b3-90d9-29e2e8d33469/tasks http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.529171+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "ee9d4f96383713cf3064f52f25764c17",
+    "span_id": "08608a81f72bf490",
+    "parent_span_id": "c4c3724e7dc89265",
+    "operation_name": "POST /api/projects/770d7379-ac49-46b3-90d9-29e2e8d33469/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.544698+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "ee9d4f96383713cf3064f52f25764c17",
+    "span_id": "e7fef49785cc1ecb",
+    "parent_span_id": "c4c3724e7dc89265",
+    "operation_name": "POST /api/projects/770d7379-ac49-46b3-90d9-29e2e8d33469/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.544698+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "ee9d4f96383713cf3064f52f25764c17",
+    "span_id": "33e70ab8376aabe8",
+    "parent_span_id": "c4c3724e7dc89265",
+    "operation_name": "POST /api/projects/770d7379-ac49-46b3-90d9-29e2e8d33469/tasks http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.544698+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "ee9d4f96383713cf3064f52f25764c17",
+    "span_id": "c4c3724e7dc89265",
+    "parent_span_id": "",
+    "operation_name": "POST /api/projects/770d7379-ac49-46b3-90d9-29e2e8d33469/tasks",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.528167+00:00",
+    "duration_ms": 16.5307,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/770d7379-ac49-46b3-90d9-29e2e8d33469/tasks",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "64671",
+      "http.route": "/api/projects/770d7379-ac49-46b3-90d9-29e2e8d33469/tasks",
+      "http.method": "POST",
+      "http.url": "http://localhost:8000/api/projects/770d7379-ac49-46b3-90d9-29e2e8d33469/tasks",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "ee9d4f96383713cf3064f52f25764c17",
+    "span_id": "db1704281b9817fc",
+    "parent_span_id": "c4c3724e7dc89265",
+    "operation_name": "connect",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.530171+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "ee9d4f96383713cf3064f52f25764c17",
+    "span_id": "91687c62b151ace3",
+    "parent_span_id": "c4c3724e7dc89265",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.530171+00:00",
+    "duration_ms": 1.0074,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-ee9d4f96383713cf3064f52f25764c17-4a065178f79894df-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "ee9d4f96383713cf3064f52f25764c17",
+    "span_id": "0b0591cb090781ef",
+    "parent_span_id": "c4c3724e7dc89265",
+    "operation_name": "INSERT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.532170+00:00",
+    "duration_ms": 9.5295,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "INSERT INTO tasks (id, project_id, title, description, status, priority, assignee_id, due_date) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::task_status, $6::INTEGER, $7::UUID, $8::TIMESTAMP WITH TIME ZONE) RETURNING tasks.created_at, tasks.updated_at /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-ee9d4f96383713cf3064f52f25764c17-a2612811d7d05be8-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "INSERT"
+    }
+  },
+  {
+    "trace_id": "ee9d4f96383713cf3064f52f25764c17",
+    "span_id": "70e274b9ed5c55a0",
+    "parent_span_id": "c4c3724e7dc89265",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.542699+00:00",
+    "duration_ms": 1.0068,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-ee9d4f96383713cf3064f52f25764c17-72197453e75e51c2-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "d9decf4f3b517071af18828e84a66cce",
+    "span_id": "cabca89ffe011360",
+    "parent_span_id": "a89e3af6f5aae04c",
+    "operation_name": "POST /api/projects/ http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.246156+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "d9decf4f3b517071af18828e84a66cce",
+    "span_id": "8fc70e16e4116221",
+    "parent_span_id": "a89e3af6f5aae04c",
+    "operation_name": "POST /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.259132+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "d9decf4f3b517071af18828e84a66cce",
+    "span_id": "2dcc7ddf264ffeb9",
+    "parent_span_id": "a89e3af6f5aae04c",
+    "operation_name": "POST /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.259132+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "d9decf4f3b517071af18828e84a66cce",
+    "span_id": "e67af2efb3b44551",
+    "parent_span_id": "a89e3af6f5aae04c",
+    "operation_name": "POST /api/projects/ http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.259132+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "d9decf4f3b517071af18828e84a66cce",
+    "span_id": "a89e3af6f5aae04c",
+    "parent_span_id": "",
+    "operation_name": "POST /api/projects/",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.246156+00:00",
+    "duration_ms": 12.9753,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/projects/",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "64669",
+      "http.route": "/api/projects/",
+      "http.method": "POST",
+      "http.url": "http://localhost:8000/api/projects/",
+      "http.status_code": "201"
+    }
+  },
+  {
+    "trace_id": "d9decf4f3b517071af18828e84a66cce",
+    "span_id": "1ffffe82dd31647e",
+    "parent_span_id": "a89e3af6f5aae04c",
+    "operation_name": "connect",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.251593+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "d9decf4f3b517071af18828e84a66cce",
+    "span_id": "bd3933487b414a1c",
+    "parent_span_id": "a89e3af6f5aae04c",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.251593+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-d9decf4f3b517071af18828e84a66cce-67edc43a1053e4e0-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "d9decf4f3b517071af18828e84a66cce",
+    "span_id": "dcb6e10a2813696b",
+    "parent_span_id": "a89e3af6f5aae04c",
+    "operation_name": "INSERT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.251593+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "INSERT INTO projects (id, name, description, owner_id) VALUES ($1::UUID, $2::VARCHAR, $3::VARCHAR, $4::UUID) RETURNING projects.created_at /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-d9decf4f3b517071af18828e84a66cce-03cfcd8d52b52075-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "INSERT"
+    }
+  },
+  {
+    "trace_id": "d9decf4f3b517071af18828e84a66cce",
+    "span_id": "332679fd80df91de",
+    "parent_span_id": "a89e3af6f5aae04c",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:23.256094+00:00",
+    "duration_ms": 2.04,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT projects.id, projects.name, projects.description, projects.owner_id, projects.created_at \nFROM projects \nWHERE projects.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-d9decf4f3b517071af18828e84a66cce-4ec08268b655e03f-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "1215c0e798766a5d26a0ff12047a13b9",
+    "span_id": "e4ed936d73874940",
+    "parent_span_id": "eefc970dce7e6c68",
+    "operation_name": "POST /api/auth/login http receive",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:22.743972+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.request"
+    }
+  },
+  {
+    "trace_id": "1215c0e798766a5d26a0ff12047a13b9",
+    "span_id": "7f70186b2831b292",
+    "parent_span_id": "eefc970dce7e6c68",
+    "operation_name": "POST /api/auth/login http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:22.989562+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.start",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "1215c0e798766a5d26a0ff12047a13b9",
+    "span_id": "d616bebc949793bd",
+    "parent_span_id": "eefc970dce7e6c68",
+    "operation_name": "POST /api/auth/login http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:22.989562+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "1215c0e798766a5d26a0ff12047a13b9",
+    "span_id": "fdc99ed26192703e",
+    "parent_span_id": "eefc970dce7e6c68",
+    "operation_name": "POST /api/auth/login http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:22.989562+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "1215c0e798766a5d26a0ff12047a13b9",
+    "span_id": "eefc970dce7e6c68",
+    "parent_span_id": "",
+    "operation_name": "POST /api/auth/login",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:22.739697+00:00",
+    "duration_ms": 249.865,
+    "status": "ok",
+    "attributes": {
+      "http.scheme": "http",
+      "http.host": "127.0.0.1:8000",
+      "net.host.port": "8000",
+      "http.flavor": "1.1",
+      "http.target": "/api/auth/login",
+      "http.server_name": "localhost:8000",
+      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
+      "net.peer.ip": "127.0.0.1",
+      "net.peer.port": "52011",
+      "http.route": "/api/auth/login",
+      "http.method": "POST",
+      "http.url": "http://localhost:8000/api/auth/login",
+      "http.status_code": "200"
+    }
+  },
+  {
+    "trace_id": "1215c0e798766a5d26a0ff12047a13b9",
+    "span_id": "c89e968e49e13a78",
+    "parent_span_id": "eefc970dce7e6c68",
+    "operation_name": "connect",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:22.745352+00:00",
+    "duration_ms": 62.6773,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.system": "postgresql"
+    }
+  },
+  {
+    "trace_id": "1215c0e798766a5d26a0ff12047a13b9",
+    "span_id": "e799b2a5aada2805",
+    "parent_span_id": "eefc970dce7e6c68",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:30:22.815771+00:00",
+    "duration_ms": 1.9927,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "localhost",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.email = $1::VARCHAR /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-1215c0e798766a5d26a0ff12047a13b9-328689e3945988d9-03'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  }
+]

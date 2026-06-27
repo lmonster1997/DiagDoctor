@@ -1,25 +1,25 @@
 [
   {
-    "trace_id": "f8013200286df988de6795f5cf1ef884",
-    "span_id": "f1fb63ef54700310",
-    "parent_span_id": "16fee743f5cf2b8d",
-    "operation_name": "GET /api/projects/ http send",
+    "trace_id": "1e0518752d787622e8540aad65fe1729",
+    "span_id": "9141eb0cd0474187",
+    "parent_span_id": "a07e89452dc91713",
+    "operation_name": "GET /api/tasks/00000000-0000-0000-0000-000000000000 http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.989340+00:00",
+    "start_time": "2026-06-27T12:17:44.351918+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "asgi.event.type": "http.response.start",
-      "http.status_code": "200"
+      "http.status_code": "500"
     }
   },
   {
-    "trace_id": "f8013200286df988de6795f5cf1ef884",
-    "span_id": "235d139277b29583",
-    "parent_span_id": "16fee743f5cf2b8d",
-    "operation_name": "GET /api/projects/ http send",
+    "trace_id": "1e0518752d787622e8540aad65fe1729",
+    "span_id": "e6da0fc29696b8c8",
+    "parent_span_id": "a07e89452dc91713",
+    "operation_name": "GET /api/tasks/00000000-0000-0000-0000-000000000000 http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.989340+00:00",
+    "start_time": "2026-06-27T12:17:44.352919+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -27,50 +27,37 @@
     }
   },
   {
-    "trace_id": "f8013200286df988de6795f5cf1ef884",
-    "span_id": "088d8837873fc9bc",
-    "parent_span_id": "16fee743f5cf2b8d",
-    "operation_name": "GET /api/projects/ http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.989340+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.body"
-    }
-  },
-  {
-    "trace_id": "f8013200286df988de6795f5cf1ef884",
-    "span_id": "16fee743f5cf2b8d",
+    "trace_id": "1e0518752d787622e8540aad65fe1729",
+    "span_id": "a07e89452dc91713",
     "parent_span_id": "",
-    "operation_name": "GET /api/projects/",
+    "operation_name": "GET /api/tasks/00000000-0000-0000-0000-000000000000",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.985296+00:00",
-    "duration_ms": 4.044,
+    "start_time": "2026-06-27T12:17:44.339974+00:00",
+    "duration_ms": 12.9446,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
       "http.host": "127.0.0.1:8000",
       "net.host.port": "8000",
       "http.flavor": "1.1",
-      "http.target": "/api/projects/",
+      "http.target": "/api/tasks/00000000-0000-0000-0000-000000000000",
       "http.server_name": "localhost:8000",
       "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "64791",
-      "http.route": "/api/projects/",
+      "net.peer.port": "54362",
+      "http.route": "/api/tasks/00000000-0000-0000-0000-000000000000",
       "http.method": "GET",
-      "http.url": "http://localhost:8000/api/projects/",
-      "http.status_code": "200"
+      "http.url": "http://localhost:8000/api/tasks/00000000-0000-0000-0000-000000000000",
+      "http.status_code": "500"
     }
   },
   {
-    "trace_id": "f8013200286df988de6795f5cf1ef884",
-    "span_id": "bb734d5fea6a73be",
-    "parent_span_id": "16fee743f5cf2b8d",
+    "trace_id": "1e0518752d787622e8540aad65fe1729",
+    "span_id": "10a98a1f6d337787",
+    "parent_span_id": "a07e89452dc91713",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.985296+00:00",
+    "start_time": "2026-06-27T12:17:44.339974+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -82,64 +69,64 @@
     }
   },
   {
-    "trace_id": "f8013200286df988de6795f5cf1ef884",
-    "span_id": "3805c6b7c768e0aa",
-    "parent_span_id": "16fee743f5cf2b8d",
+    "trace_id": "1e0518752d787622e8540aad65fe1729",
+    "span_id": "3a92ae16bfe570f8",
+    "parent_span_id": "a07e89452dc91713",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.986303+00:00",
-    "duration_ms": 0.0,
+    "start_time": "2026-06-27T12:17:44.347530+00:00",
+    "duration_ms": 0.846,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-f8013200286df988de6795f5cf1ef884-6163a8c6e0caf386-03'*/",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-1e0518752d787622e8540aad65fe1729-37a8d88070ee4987-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "f8013200286df988de6795f5cf1ef884",
-    "span_id": "df3ad2a4928c62dc",
-    "parent_span_id": "16fee743f5cf2b8d",
+    "trace_id": "1e0518752d787622e8540aad65fe1729",
+    "span_id": "72d44077a4c7136a",
+    "parent_span_id": "a07e89452dc91713",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.986303+00:00",
-    "duration_ms": 1.5022,
+    "start_time": "2026-06-27T12:17:44.348376+00:00",
+    "duration_ms": 1.0051,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT projects.id, projects.name, projects.description, projects.owner_id, projects.created_at \nFROM projects \nWHERE projects.owner_id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-f8013200286df988de6795f5cf1ef884-7b96fddadcda6761-03'*/",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-1e0518752d787622e8540aad65fe1729-31da958c916fb207-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "a554848b9736f4a710d690b527bbe3b3",
-    "span_id": "64bf05e2700b90cb",
-    "parent_span_id": "ccdcfcef5bd44113",
-    "operation_name": "GET /api/projects/ http send",
+    "trace_id": "d2dd4d858969557a2dbdb146e9fbec88",
+    "span_id": "b196c324ff3fbc8d",
+    "parent_span_id": "3ff4056c6435c331",
+    "operation_name": "GET /api/tasks/00000000-0000-0000-0000-000000000000 http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.984436+00:00",
+    "start_time": "2026-06-27T12:17:44.339974+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "asgi.event.type": "http.response.start",
-      "http.status_code": "200"
+      "http.status_code": "500"
     }
   },
   {
-    "trace_id": "a554848b9736f4a710d690b527bbe3b3",
-    "span_id": "01ea1ca7a24286ac",
-    "parent_span_id": "ccdcfcef5bd44113",
-    "operation_name": "GET /api/projects/ http send",
+    "trace_id": "d2dd4d858969557a2dbdb146e9fbec88",
+    "span_id": "67540f2540b4606a",
+    "parent_span_id": "3ff4056c6435c331",
+    "operation_name": "GET /api/tasks/00000000-0000-0000-0000-000000000000 http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.984436+00:00",
+    "start_time": "2026-06-27T12:17:44.339974+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -147,50 +134,37 @@
     }
   },
   {
-    "trace_id": "a554848b9736f4a710d690b527bbe3b3",
-    "span_id": "9bdcb65d4ca31482",
-    "parent_span_id": "ccdcfcef5bd44113",
-    "operation_name": "GET /api/projects/ http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.984436+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.body"
-    }
-  },
-  {
-    "trace_id": "a554848b9736f4a710d690b527bbe3b3",
-    "span_id": "ccdcfcef5bd44113",
+    "trace_id": "d2dd4d858969557a2dbdb146e9fbec88",
+    "span_id": "3ff4056c6435c331",
     "parent_span_id": "",
-    "operation_name": "GET /api/projects/",
+    "operation_name": "GET /api/tasks/00000000-0000-0000-0000-000000000000",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.973589+00:00",
-    "duration_ms": 10.8463,
+    "start_time": "2026-06-27T12:17:44.324484+00:00",
+    "duration_ms": 15.4908,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
       "http.host": "127.0.0.1:8000",
       "net.host.port": "8000",
       "http.flavor": "1.1",
-      "http.target": "/api/projects/",
+      "http.target": "/api/tasks/00000000-0000-0000-0000-000000000000",
       "http.server_name": "localhost:8000",
       "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "52505",
-      "http.route": "/api/projects/",
+      "net.peer.port": "62233",
+      "http.route": "/api/tasks/00000000-0000-0000-0000-000000000000",
       "http.method": "GET",
-      "http.url": "http://localhost:8000/api/projects/",
-      "http.status_code": "200"
+      "http.url": "http://localhost:8000/api/tasks/00000000-0000-0000-0000-000000000000",
+      "http.status_code": "500"
     }
   },
   {
-    "trace_id": "a554848b9736f4a710d690b527bbe3b3",
-    "span_id": "c1c3f1bfd8bc13ff",
-    "parent_span_id": "ccdcfcef5bd44113",
+    "trace_id": "d2dd4d858969557a2dbdb146e9fbec88",
+    "span_id": "d252c5ad2b6c945f",
+    "parent_span_id": "3ff4056c6435c331",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.973589+00:00",
+    "start_time": "2026-06-27T12:17:44.325485+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -202,50 +176,50 @@
     }
   },
   {
-    "trace_id": "a554848b9736f4a710d690b527bbe3b3",
-    "span_id": "a4ae572023677ef5",
-    "parent_span_id": "ccdcfcef5bd44113",
+    "trace_id": "d2dd4d858969557a2dbdb146e9fbec88",
+    "span_id": "30cc3c251f957a57",
+    "parent_span_id": "3ff4056c6435c331",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.973589+00:00",
-    "duration_ms": 0.0,
+    "start_time": "2026-06-27T12:17:44.325485+00:00",
+    "duration_ms": 1.0004,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-a554848b9736f4a710d690b527bbe3b3-35df4dc76eff751e-03'*/",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-d2dd4d858969557a2dbdb146e9fbec88-1577ab43b4d6d6f5-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "a554848b9736f4a710d690b527bbe3b3",
-    "span_id": "d0bc966cf87b5fa2",
-    "parent_span_id": "ccdcfcef5bd44113",
+    "trace_id": "d2dd4d858969557a2dbdb146e9fbec88",
+    "span_id": "85e1b6bd307824d3",
+    "parent_span_id": "3ff4056c6435c331",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.973589+00:00",
-    "duration_ms": 0.0,
+    "start_time": "2026-06-27T12:17:44.328484+00:00",
+    "duration_ms": 7.4675,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT projects.id, projects.name, projects.description, projects.owner_id, projects.created_at \nFROM projects \nWHERE projects.owner_id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-a554848b9736f4a710d690b527bbe3b3-489b801ec3c13887-03'*/",
+      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-d2dd4d858969557a2dbdb146e9fbec88-554aa7d9345e1134-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "36a1a6a0f8650e1028d292da8a70faaf",
-    "span_id": "f5aed305fa339c90",
-    "parent_span_id": "93c8ad6f2e17682d",
-    "operation_name": "OPTIONS /api/projects/ http send",
+    "trace_id": "b1adcb1727a0f70beff1bee4740a5461",
+    "span_id": "fa0dfe3444882bc1",
+    "parent_span_id": "65ef8051bdb4f58c",
+    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000 http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.973589+00:00",
+    "start_time": "2026-06-27T12:17:44.323484+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -254,12 +228,12 @@
     }
   },
   {
-    "trace_id": "36a1a6a0f8650e1028d292da8a70faaf",
-    "span_id": "629fdd40a591ad7b",
-    "parent_span_id": "93c8ad6f2e17682d",
-    "operation_name": "OPTIONS /api/projects/ http send",
+    "trace_id": "b1adcb1727a0f70beff1bee4740a5461",
+    "span_id": "7f840780d5b5c2fe",
+    "parent_span_id": "65ef8051bdb4f58c",
+    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000 http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.973589+00:00",
+    "start_time": "2026-06-27T12:17:44.323484+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -267,12 +241,12 @@
     }
   },
   {
-    "trace_id": "36a1a6a0f8650e1028d292da8a70faaf",
-    "span_id": "a34ce9b5cc916f01",
-    "parent_span_id": "93c8ad6f2e17682d",
-    "operation_name": "OPTIONS /api/projects/ http send",
+    "trace_id": "b1adcb1727a0f70beff1bee4740a5461",
+    "span_id": "273f3f2a5981fc98",
+    "parent_span_id": "65ef8051bdb4f58c",
+    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000 http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.973589+00:00",
+    "start_time": "2026-06-27T12:17:44.323484+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -280,37 +254,37 @@
     }
   },
   {
-    "trace_id": "36a1a6a0f8650e1028d292da8a70faaf",
-    "span_id": "93c8ad6f2e17682d",
+    "trace_id": "b1adcb1727a0f70beff1bee4740a5461",
+    "span_id": "65ef8051bdb4f58c",
     "parent_span_id": "",
-    "operation_name": "OPTIONS /api/projects/",
+    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.973589+00:00",
-    "duration_ms": 0.0,
+    "start_time": "2026-06-27T12:17:44.322484+00:00",
+    "duration_ms": 0.9997,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
       "http.host": "127.0.0.1:8000",
       "net.host.port": "8000",
       "http.flavor": "1.1",
-      "http.target": "/api/projects/",
+      "http.target": "/api/tasks/00000000-0000-0000-0000-000000000000",
       "http.server_name": "localhost:8000",
       "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "64791",
-      "http.route": "/api/projects/",
+      "net.peer.port": "54362",
+      "http.route": "/api/tasks/00000000-0000-0000-0000-000000000000",
       "http.method": "OPTIONS",
-      "http.url": "http://localhost:8000/api/projects/",
+      "http.url": "http://localhost:8000/api/tasks/00000000-0000-0000-0000-000000000000",
       "http.status_code": "200"
     }
   },
   {
-    "trace_id": "3eb02428c676030e2ee1971d85f3d7f6",
-    "span_id": "b217aa098c1495f2",
-    "parent_span_id": "a0ab9a1f033d283d",
-    "operation_name": "OPTIONS /api/projects/ http send",
+    "trace_id": "cef065c3d3b5ad9bf95916d3471fac34",
+    "span_id": "9d3874151b0c3a9c",
+    "parent_span_id": "7f34003e62ad52b7",
+    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000 http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.973589+00:00",
+    "start_time": "2026-06-27T12:17:44.322484+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -319,12 +293,25 @@
     }
   },
   {
-    "trace_id": "3eb02428c676030e2ee1971d85f3d7f6",
-    "span_id": "9854f6f34ea79816",
-    "parent_span_id": "a0ab9a1f033d283d",
-    "operation_name": "OPTIONS /api/projects/ http send",
+    "trace_id": "cef065c3d3b5ad9bf95916d3471fac34",
+    "span_id": "3e2b583d8a1d6fd4",
+    "parent_span_id": "7f34003e62ad52b7",
+    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000 http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.973589+00:00",
+    "start_time": "2026-06-27T12:17:44.322484+00:00",
+    "duration_ms": 0.9997,
+    "status": "ok",
+    "attributes": {
+      "asgi.event.type": "http.response.body"
+    }
+  },
+  {
+    "trace_id": "cef065c3d3b5ad9bf95916d3471fac34",
+    "span_id": "86e45f7c34e6925e",
+    "parent_span_id": "7f34003e62ad52b7",
+    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000 http send",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-27T12:17:44.323484+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -332,50 +319,37 @@
     }
   },
   {
-    "trace_id": "3eb02428c676030e2ee1971d85f3d7f6",
-    "span_id": "2313d67c01e6f837",
-    "parent_span_id": "a0ab9a1f033d283d",
-    "operation_name": "OPTIONS /api/projects/ http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.973589+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.body"
-    }
-  },
-  {
-    "trace_id": "3eb02428c676030e2ee1971d85f3d7f6",
-    "span_id": "a0ab9a1f033d283d",
+    "trace_id": "cef065c3d3b5ad9bf95916d3471fac34",
+    "span_id": "7f34003e62ad52b7",
     "parent_span_id": "",
-    "operation_name": "OPTIONS /api/projects/",
+    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:17.973589+00:00",
-    "duration_ms": 0.0,
+    "start_time": "2026-06-27T12:17:44.322484+00:00",
+    "duration_ms": 0.9997,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
       "http.host": "127.0.0.1:8000",
       "net.host.port": "8000",
       "http.flavor": "1.1",
-      "http.target": "/api/projects/",
+      "http.target": "/api/tasks/00000000-0000-0000-0000-000000000000",
       "http.server_name": "localhost:8000",
       "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "52505",
-      "http.route": "/api/projects/",
+      "net.peer.port": "62233",
+      "http.route": "/api/tasks/00000000-0000-0000-0000-000000000000",
       "http.method": "OPTIONS",
-      "http.url": "http://localhost:8000/api/projects/",
+      "http.url": "http://localhost:8000/api/tasks/00000000-0000-0000-0000-000000000000",
       "http.status_code": "200"
     }
   },
   {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "b2a508fcdb7f968b",
-    "parent_span_id": "c8ec14af84d027c3",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "dd9f903cffb50751",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "documentFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:14.988200+00:00",
+    "start_time": "2026-06-27T12:17:41.337900+00:00",
     "duration_ms": 2.1,
     "status": "ok",
     "attributes": {
@@ -384,13 +358,13 @@
     }
   },
   {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "07b38546a0e4dfd9",
-    "parent_span_id": "c8ec14af84d027c3",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "b72ec02d7310e762",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:14.996900+00:00",
-    "duration_ms": 1.1,
+    "start_time": "2026-06-27T12:17:41.346200+00:00",
+    "duration_ms": 0.9,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -398,27 +372,27 @@
     }
   },
   {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "e1697e2ad67b72e2",
-    "parent_span_id": "c8ec14af84d027c3",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "7f9272250e3c4b2c",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:14.996900+00:00",
+    "start_time": "2026-06-27T12:17:41.346300+00:00",
     "duration_ms": 1.3,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/main.tsx?t=1782557159792"
+      "http.url": "http://localhost:5173/src/main.tsx?t=1782562657579"
     }
   },
   {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "7eee403ec92435d6",
-    "parent_span_id": "c8ec14af84d027c3",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "b122f2730e8f0469",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:14.998600+00:00",
-    "duration_ms": 0.5,
+    "start_time": "2026-06-27T12:17:41.349000+00:00",
+    "duration_ms": 0.6,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -426,13 +400,13 @@
     }
   },
   {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "7d54c008282852c4",
-    "parent_span_id": "c8ec14af84d027c3",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "d630a4b8eb2b2e82",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.000100+00:00",
-    "duration_ms": 0.8,
+    "start_time": "2026-06-27T12:17:41.351400+00:00",
+    "duration_ms": 0.7,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -440,12 +414,12 @@
     }
   },
   {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "6309aebc10275050",
-    "parent_span_id": "c8ec14af84d027c3",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "c79a2641e167b2b1",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.000700+00:00",
+    "start_time": "2026-06-27T12:17:41.352100+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -454,12 +428,12 @@
     }
   },
   {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "975ca1e4457810ca",
-    "parent_span_id": "c8ec14af84d027c3",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "58cb500a01033494",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.000800+00:00",
+    "start_time": "2026-06-27T12:17:41.352100+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -468,12 +442,12 @@
     }
   },
   {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "bed72bdce04c4b2e",
-    "parent_span_id": "c8ec14af84d027c3",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "f377b4457a304603",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.000900+00:00",
+    "start_time": "2026-06-27T12:17:41.352100+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -482,12 +456,12 @@
     }
   },
   {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "a3d6816539c21de8",
-    "parent_span_id": "c8ec14af84d027c3",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "ae4b92cab41c8fcf",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.001000+00:00",
+    "start_time": "2026-06-27T12:17:41.352200+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -496,55 +470,55 @@
     }
   },
   {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "9136368da3d7de09",
-    "parent_span_id": "c8ec14af84d027c3",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "76298c47b3b9bbf1",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.001100+00:00",
+    "start_time": "2026-06-27T12:17:41.352200+00:00",
+    "duration_ms": 0.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/services/error-reporter.ts?t=1782560994202"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "18825fe15aa1c4de",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.352200+00:00",
+    "duration_ms": 0.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/observability/otel.ts?t=1782560994205"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "b3fe02c6cde53051",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.352300+00:00",
+    "duration_ms": 1.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/observability/otel-logs.ts?t=1782560994196"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "a5a4deac5b5dd16d",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.352300+00:00",
     "duration_ms": 1.4,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/services/error-reporter.ts?t=1782557159792"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "482193ab06622d6c",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.001200+00:00",
-    "duration_ms": 1.6,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/observability/otel.ts?t=1782557159789"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "bec78a2cf4c10111",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.001200+00:00",
-    "duration_ms": 2.3,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/observability/otel-logs.ts?t=1782557159780"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "f49f7f7364128db1",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.001300+00:00",
-    "duration_ms": 2.4,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -552,13 +526,13 @@
     }
   },
   {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "896b337d2a13e904",
-    "parent_span_id": "c8ec14af84d027c3",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "ce9e814a7de803b7",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.001200+00:00",
-    "duration_ms": 2.7,
+    "start_time": "2026-06-27T12:17:41.352300+00:00",
+    "duration_ms": 1.7,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -566,1604 +540,26 @@
     }
   },
   {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "d187073ef4a081ce",
-    "parent_span_id": "c8ec14af84d027c3",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "5f70826e848ed857",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.001300+00:00",
-    "duration_ms": 3.4,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/index.css?t=1782557159792"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "fbecfe9cc3f22260",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.001300+00:00",
-    "duration_ms": 4.4,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/App.tsx?t=1782557159792"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "95f204aacc12830c",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.001500+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "10637",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "8fefd470667bd4c5",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.001900+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "7614",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/chunk-B-1-B7_t.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "6ea33ccf21aa4266",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.002000+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "14728",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-dom.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "ffb2c69070fd5492",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.006200+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "4959",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_api.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "d444bb5214f50343",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.006500+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "4714",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_sdk-trace-web.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "5b5b3d8f2fe96e51",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.006600+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "5865",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_exporter-trace-otlp-http.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "f94ac199c6c82a85",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.006700+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "87502",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_context-zone.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "452f79b5fab16abe",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.006700+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "2234",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_resources.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "1e3efe10355f7aba",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.006800+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "141511",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_semantic-conventions.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "80e7ceedaf12ffc2",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.007800+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "45895",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-CHaCIvwP.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "047128f3a6dc5c6a",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.008200+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "66078",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-DIDyjc4l.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "b56469f3a382a307",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.008400+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "22541",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/create-legacy-browser-delegate-Dmych8N4.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "4b7354204d3d0d12",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.008500+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "10856",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-DOs4RJ4A.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "5c837c66b28f96c1",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.008700+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "275815",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-BzIo-9AA.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "22ab0d0d860ef5d5",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.008900+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "2405",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "6f6f1e39ee8b00ee",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.009000+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "22014",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-fetch.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "7a39d7d2d5783d87",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.009100+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "21187",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-xml-http-request.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "c07b3ff6e1c9caf2",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.009200+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "11360",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-document-load.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "af4cc13d88679600",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.009400+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "14206",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-user-interaction.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "03c8eca59ee32978",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.009600+00:00",
-    "duration_ms": 1.1,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/components/ErrorBoundary.tsx?t=1782557159792"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "42217ca77c4dd050",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.009700+00:00",
-    "duration_ms": 1.2,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/components/ProtectedRoute.tsx"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "08f3e5d58aa2fe82",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.009800+00:00",
-    "duration_ms": 1.2,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/pages/LoginPage.tsx?t=1782557159786"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "23b26f120da15a17",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.009800+00:00",
-    "duration_ms": 1.5,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/pages/RegisterPage.tsx?t=1782557159786"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "e01c57c84349f91d",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.009800+00:00",
-    "duration_ms": 1.5,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/pages/ProjectsPage.tsx?t=1782557159786"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "ac42c059f60f7144",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.009700+00:00",
-    "duration_ms": 2.2,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/pages/TaskBoardPage.tsx?t=1782557159786"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "b5a81c864ee4cc6b",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.009700+00:00",
-    "duration_ms": 2.4,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/pages/TaskDetailPage.tsx?t=1782557159786"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "f966f67ad9947d5c",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.010200+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "33205",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-D4oLRWLv.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "378e45d618029203",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.010400+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "14779",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-Be2DXXst.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "0dbc91c91476f8d5",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.010600+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "6800",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-D_0s551P.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "e0a4eef948d843bd",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.012500+00:00",
-    "duration_ms": 1.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/stores/authStore.ts"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "c6656194c80cd186",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.012600+00:00",
-    "duration_ms": 1.4,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/services/api.ts?t=1782557159786"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "5be54fe08ce5feed",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.012600+00:00",
-    "duration_ms": 1.7,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/components/ui/button.tsx"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "3466ec4110c20e20",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.012600+00:00",
+    "start_time": "2026-06-27T12:17:41.352300+00:00",
     "duration_ms": 1.8,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/components/ui/input.tsx"
+      "http.url": "http://localhost:5173/src/index.css?t=1782562657579"
     }
   },
   {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "07e7af1f5f2d625f",
-    "parent_span_id": "c8ec14af84d027c3",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "9e123c74c9f9f78f",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.012600+00:00",
-    "duration_ms": 2.8,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/components/ui/label.tsx"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "b485d7aa5b830f83",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.012600+00:00",
-    "duration_ms": 3.4,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/components/ui/card.tsx"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "678051545bceb6a9",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.013900+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "1125418",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/lucide-react.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "8bb3a0520e2c99a7",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.013900+00:00",
-    "duration_ms": 3.4,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/components/ui/dialog.tsx"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "bfb744eec6e96541",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.014000+00:00",
-    "duration_ms": 3.4,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/components/ui/badge.tsx"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "1bd14d77794951df",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.014100+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "6166",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_core.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "ed2bf9a590e188ea",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.014100+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "18185",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_sortable.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "e5ab0e9cbff9e989",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.014200+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "7337",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_utilities.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "8e987ce624ba2028",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.014200+00:00",
-    "duration_ms": 3.3,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/components/ui/textarea.tsx"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "21374035e29edede",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.014200+00:00",
-    "duration_ms": 3.8,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/components/ui/separator.tsx"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "4cc08801f5628d59",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.014400+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "90058",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/core.esm-_5gF4dhK.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "81b8801872cb6499",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.018200+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "2173",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/zustand.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "83babccfd2582516",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.018400+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "14109",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/zustand_middleware.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "275e01382cc745b7",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.018900+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "118194",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/axios.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "0b99605ddc09f68e",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.019500+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "1206",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_button.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "516307c985e272aa",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.019600+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "2801",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/class-variance-authority.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "b76168fded37be3a",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.019600+00:00",
-    "duration_ms": 0.8,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/lib/utils.ts"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "cb693a77c7f2d3c6",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.020100+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "13644",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_input.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "9c84bffcb9bad10f",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.020200+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "157710",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_dialog.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "c3188124cf1ec9dd",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.020400+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "1264",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_merge-props.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "d94bb583d1122b7e",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.020500+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "494",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_use-render.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "9259fc84c66d3366",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.020700+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "11248",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/useRenderElement-DwlGiZDv.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "d3a09e4f99cc9ae9",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.020700+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "7664",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/useButton-BFYEIg_b.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "7d6a6af7c7f81e92",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.020900+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "628",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/clsx.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "a3bc7e79b4c5035e",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.021100+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "1015",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_separator.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "0d9ecc626e070f00",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.021100+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "10947",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-runtime.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "0aa5843ed43f3ee7",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.021200+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "5521",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/useIsoLayoutEffect-75NDodZ2.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "9cae864e3147c66b",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.021300+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "4456",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/owner-B9RWFV_H.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "d4a7c08a495803f4",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.021400+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "6778",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/merge-props-CHESzXJC.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "edbc8d16423418a8",
-    "parent_span_id": "c8ec14af84d027c3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:15.021700+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "91422",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/tailwind-merge.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "ca2f923ad31af616b7809de018472e74",
-    "span_id": "c8ec14af84d027c3",
-    "parent_span_id": "",
-    "operation_name": "documentLoad",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:14.988300+00:00",
-    "duration_ms": 56.9,
-    "status": "ok",
-    "attributes": {
-      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
-      "http.url": "http://localhost:5173/login"
-    }
-  },
-  {
-    "trace_id": "e392232d14b3ffbc4add9b1e87c77b93",
-    "span_id": "684d1ee17ebb4225",
-    "parent_span_id": "27a82f758f683d22",
-    "operation_name": "POST /api/auth/login http receive",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:14.104158+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.request"
-    }
-  },
-  {
-    "trace_id": "e392232d14b3ffbc4add9b1e87c77b93",
-    "span_id": "f969455a0b6c6f8d",
-    "parent_span_id": "27a82f758f683d22",
-    "operation_name": "POST /api/auth/login http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:14.353762+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.start",
-      "http.status_code": "200"
-    }
-  },
-  {
-    "trace_id": "e392232d14b3ffbc4add9b1e87c77b93",
-    "span_id": "f824b2ed03425f59",
-    "parent_span_id": "27a82f758f683d22",
-    "operation_name": "POST /api/auth/login http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:14.354766+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.body"
-    }
-  },
-  {
-    "trace_id": "e392232d14b3ffbc4add9b1e87c77b93",
-    "span_id": "9a9cf7cb40d416dc",
-    "parent_span_id": "27a82f758f683d22",
-    "operation_name": "POST /api/auth/login http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:14.354766+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.body"
-    }
-  },
-  {
-    "trace_id": "e392232d14b3ffbc4add9b1e87c77b93",
-    "span_id": "27a82f758f683d22",
-    "parent_span_id": "",
-    "operation_name": "POST /api/auth/login",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:14.104158+00:00",
-    "duration_ms": 250.6084,
-    "status": "ok",
-    "attributes": {
-      "http.scheme": "http",
-      "http.host": "127.0.0.1:8000",
-      "net.host.port": "8000",
-      "http.flavor": "1.1",
-      "http.target": "/api/auth/login",
-      "http.server_name": "localhost:8000",
-      "http.user_agent": "Python/3.11 aiohttp/3.14.1",
-      "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "64662",
-      "http.route": "/api/auth/login",
-      "http.method": "POST",
-      "http.url": "http://localhost:8000/api/auth/login",
-      "http.status_code": "200"
-    }
-  },
-  {
-    "trace_id": "e392232d14b3ffbc4add9b1e87c77b93",
-    "span_id": "6e17b3ae5a5f6608",
-    "parent_span_id": "27a82f758f683d22",
-    "operation_name": "connect",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:14.104158+00:00",
-    "duration_ms": 66.7759,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.system": "postgresql"
-    }
-  },
-  {
-    "trace_id": "e392232d14b3ffbc4add9b1e87c77b93",
-    "span_id": "e88e0a79ffa82405",
-    "parent_span_id": "27a82f758f683d22",
-    "operation_name": "SELECT",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:14.180909+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.email = $1::VARCHAR /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-e392232d14b3ffbc4add9b1e87c77b93-c39a20876550718f-03'*/",
-      "db.system": "postgresql",
-      "db.operation": "SELECT"
-    }
-  },
-  {
-    "trace_id": "c53741b428245536d4e79cc70a7a6c66",
-    "span_id": "119fa46a242ae1ea",
-    "parent_span_id": "09a1388903e0ba29",
-    "operation_name": "GET /api/tasks/00000000-0000-0000-0000-000000000000 http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.101578+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.start",
-      "http.status_code": "500"
-    }
-  },
-  {
-    "trace_id": "c53741b428245536d4e79cc70a7a6c66",
-    "span_id": "e2ac96a0905a1974",
-    "parent_span_id": "09a1388903e0ba29",
-    "operation_name": "GET /api/tasks/00000000-0000-0000-0000-000000000000 http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.102577+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.body"
-    }
-  },
-  {
-    "trace_id": "c53741b428245536d4e79cc70a7a6c66",
-    "span_id": "09a1388903e0ba29",
-    "parent_span_id": "",
-    "operation_name": "GET /api/tasks/00000000-0000-0000-0000-000000000000",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.096573+00:00",
-    "duration_ms": 6.0042,
-    "status": "ok",
-    "attributes": {
-      "http.scheme": "http",
-      "http.host": "127.0.0.1:8000",
-      "net.host.port": "8000",
-      "http.flavor": "1.1",
-      "http.target": "/api/tasks/00000000-0000-0000-0000-000000000000",
-      "http.server_name": "localhost:8000",
-      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
-      "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "49990",
-      "http.route": "/api/tasks/00000000-0000-0000-0000-000000000000",
-      "http.method": "GET",
-      "http.url": "http://localhost:8000/api/tasks/00000000-0000-0000-0000-000000000000",
-      "http.status_code": "500"
-    }
-  },
-  {
-    "trace_id": "c53741b428245536d4e79cc70a7a6c66",
-    "span_id": "aa8cc0cd5a98c3f8",
-    "parent_span_id": "09a1388903e0ba29",
-    "operation_name": "connect",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.097577+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.system": "postgresql"
-    }
-  },
-  {
-    "trace_id": "c53741b428245536d4e79cc70a7a6c66",
-    "span_id": "6b690d55f1d630a5",
-    "parent_span_id": "09a1388903e0ba29",
-    "operation_name": "SELECT",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.097577+00:00",
-    "duration_ms": 1.0014,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-c53741b428245536d4e79cc70a7a6c66-fe63d8a3517f2dc6-03'*/",
-      "db.system": "postgresql",
-      "db.operation": "SELECT"
-    }
-  },
-  {
-    "trace_id": "c53741b428245536d4e79cc70a7a6c66",
-    "span_id": "89e47ac26e8fba6b",
-    "parent_span_id": "09a1388903e0ba29",
-    "operation_name": "SELECT",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.098578+00:00",
-    "duration_ms": 0.9992,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-c53741b428245536d4e79cc70a7a6c66-43cf1f1bfcee130e-03'*/",
-      "db.system": "postgresql",
-      "db.operation": "SELECT"
-    }
-  },
-  {
-    "trace_id": "322ba9d7e5b4924c211927374b500e00",
-    "span_id": "1c26ac73d3741711",
-    "parent_span_id": "c4e44c4dcfcbb2e4",
-    "operation_name": "GET /api/tasks/00000000-0000-0000-0000-000000000000 http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.092362+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.start",
-      "http.status_code": "500"
-    }
-  },
-  {
-    "trace_id": "322ba9d7e5b4924c211927374b500e00",
-    "span_id": "d66fe73ca0afc5bf",
-    "parent_span_id": "c4e44c4dcfcbb2e4",
-    "operation_name": "GET /api/tasks/00000000-0000-0000-0000-000000000000 http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.092362+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.body"
-    }
-  },
-  {
-    "trace_id": "322ba9d7e5b4924c211927374b500e00",
-    "span_id": "c4e44c4dcfcbb2e4",
-    "parent_span_id": "",
-    "operation_name": "GET /api/tasks/00000000-0000-0000-0000-000000000000",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.074106+00:00",
-    "duration_ms": 18.2568,
-    "status": "ok",
-    "attributes": {
-      "http.scheme": "http",
-      "http.host": "127.0.0.1:8000",
-      "net.host.port": "8000",
-      "http.flavor": "1.1",
-      "http.target": "/api/tasks/00000000-0000-0000-0000-000000000000",
-      "http.server_name": "localhost:8000",
-      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
-      "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "49321",
-      "http.route": "/api/tasks/00000000-0000-0000-0000-000000000000",
-      "http.method": "GET",
-      "http.url": "http://localhost:8000/api/tasks/00000000-0000-0000-0000-000000000000",
-      "http.status_code": "500"
-    }
-  },
-  {
-    "trace_id": "322ba9d7e5b4924c211927374b500e00",
-    "span_id": "9923c0ebedf9bcca",
-    "parent_span_id": "c4e44c4dcfcbb2e4",
-    "operation_name": "connect",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.075104+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.system": "postgresql"
-    }
-  },
-  {
-    "trace_id": "322ba9d7e5b4924c211927374b500e00",
-    "span_id": "6a20f60ae0e7ccaa",
-    "parent_span_id": "c4e44c4dcfcbb2e4",
-    "operation_name": "SELECT",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.075104+00:00",
-    "duration_ms": 0.9984,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-322ba9d7e5b4924c211927374b500e00-398cd71ea38f8057-03'*/",
-      "db.system": "postgresql",
-      "db.operation": "SELECT"
-    }
-  },
-  {
-    "trace_id": "322ba9d7e5b4924c211927374b500e00",
-    "span_id": "d5583868cf5f309a",
-    "parent_span_id": "c4e44c4dcfcbb2e4",
-    "operation_name": "SELECT",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.078103+00:00",
-    "duration_ms": 10.0004,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.statement": "SELECT tasks.id, tasks.project_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.assignee_id, tasks.due_date, tasks.created_at, tasks.updated_at \nFROM tasks \nWHERE tasks.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-322ba9d7e5b4924c211927374b500e00-4323f2790b3e8a7e-03'*/",
-      "db.system": "postgresql",
-      "db.operation": "SELECT"
-    }
-  },
-  {
-    "trace_id": "fbed84c7f5f81ff87c22f7eac23382a",
-    "span_id": "a85aa7c845e129cf",
-    "parent_span_id": "e55daac06b178ce3",
-    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000 http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.073103+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.start",
-      "http.status_code": "200"
-    }
-  },
-  {
-    "trace_id": "fbed84c7f5f81ff87c22f7eac23382a",
-    "span_id": "333a126439d4f473",
-    "parent_span_id": "e55daac06b178ce3",
-    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000 http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.073103+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.body"
-    }
-  },
-  {
-    "trace_id": "fbed84c7f5f81ff87c22f7eac23382a",
-    "span_id": "7c2a87c3636ccc02",
-    "parent_span_id": "e55daac06b178ce3",
-    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000 http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.073103+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.body"
-    }
-  },
-  {
-    "trace_id": "fbed84c7f5f81ff87c22f7eac23382a",
-    "span_id": "e55daac06b178ce3",
-    "parent_span_id": "",
-    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.072116+00:00",
-    "duration_ms": 0.9876,
-    "status": "ok",
-    "attributes": {
-      "http.scheme": "http",
-      "http.host": "127.0.0.1:8000",
-      "net.host.port": "8000",
-      "http.flavor": "1.1",
-      "http.target": "/api/tasks/00000000-0000-0000-0000-000000000000",
-      "http.server_name": "localhost:8000",
-      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
-      "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "49990",
-      "http.route": "/api/tasks/00000000-0000-0000-0000-000000000000",
-      "http.method": "OPTIONS",
-      "http.url": "http://localhost:8000/api/tasks/00000000-0000-0000-0000-000000000000",
-      "http.status_code": "200"
-    }
-  },
-  {
-    "trace_id": "45cf5632df7c48ff136a7e6ff9b6aac7",
-    "span_id": "d1a8a46dff39c819",
-    "parent_span_id": "1169c2be893e225b",
-    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000 http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.072116+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.start",
-      "http.status_code": "200"
-    }
-  },
-  {
-    "trace_id": "45cf5632df7c48ff136a7e6ff9b6aac7",
-    "span_id": "c5acf0feacc59ac6",
-    "parent_span_id": "1169c2be893e225b",
-    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000 http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.073103+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.body"
-    }
-  },
-  {
-    "trace_id": "45cf5632df7c48ff136a7e6ff9b6aac7",
-    "span_id": "f91bb3687c2409f3",
-    "parent_span_id": "1169c2be893e225b",
-    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000 http send",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.073103+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "asgi.event.type": "http.response.body"
-    }
-  },
-  {
-    "trace_id": "45cf5632df7c48ff136a7e6ff9b6aac7",
-    "span_id": "1169c2be893e225b",
-    "parent_span_id": "",
-    "operation_name": "OPTIONS /api/tasks/00000000-0000-0000-0000-000000000000",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:06.072116+00:00",
-    "duration_ms": 0.9876,
-    "status": "ok",
-    "attributes": {
-      "http.scheme": "http",
-      "http.host": "127.0.0.1:8000",
-      "net.host.port": "8000",
-      "http.flavor": "1.1",
-      "http.target": "/api/tasks/00000000-0000-0000-0000-000000000000",
-      "http.server_name": "localhost:8000",
-      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
-      "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "49321",
-      "http.route": "/api/tasks/00000000-0000-0000-0000-000000000000",
-      "http.method": "OPTIONS",
-      "http.url": "http://localhost:8000/api/tasks/00000000-0000-0000-0000-000000000000",
-      "http.status_code": "200"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "2c465ff0770dfbde",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "documentFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.105500+00:00",
-    "duration_ms": 2.2,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "631",
-      "http.url": "http://localhost:5173/login"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "193977efb5a89833",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.115100+00:00",
-    "duration_ms": 0.7,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/@vite/client"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "2d899ba8ab5dbc57",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.115200+00:00",
-    "duration_ms": 0.7,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/main.tsx?t=1782557159792"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "0ee0941875361489",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.116500+00:00",
-    "duration_ms": 0.6,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/@react-refresh"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "74be086c4fb87ce7",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.118000+00:00",
-    "duration_ms": 0.5,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/node_modules/.pnpm/vite@8.0.16_@types+node@24.13.2_jiti@2.7.0/node_modules/vite/dist/client/env.mjs"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "16670b9a72d7970b",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.118400+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "38367",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/react.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "4e066ab235e2bd73",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.118400+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "821152",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "a39fe5d6fde9456c",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.118500+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "399565",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "37db63950bc2b699",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.118500+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "981132",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@sentry_react.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "8d5f15fe576e3146",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.118500+00:00",
-    "duration_ms": 0.7,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/services/error-reporter.ts?t=1782557159792"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "dee60f925d0e3905",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.118600+00:00",
-    "duration_ms": 0.8,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/observability/otel.ts?t=1782557159789"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "aa3d9d52c511f5cc",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.118600+00:00",
-    "duration_ms": 0.9,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/observability/otel-logs.ts?t=1782557159780"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "74a2eec4d8cdabaf",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.118600+00:00",
-    "duration_ms": 1.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/observability/error-reporter.ts"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "d87fe2888251e5c6",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.118600+00:00",
-    "duration_ms": 1.4,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/observability/instruments.ts"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "eff660338049471f",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.118600+00:00",
-    "duration_ms": 2.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/index.css?t=1782557159792"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "cd0b7743b08687fe",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.118700+00:00",
+    "start_time": "2026-06-27T12:17:41.352400+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2172,26 +568,26 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "8f859ce4dbea7292",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "fad29872cb5b7a81",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.118700+00:00",
-    "duration_ms": 2.0,
+    "start_time": "2026-06-27T12:17:41.352300+00:00",
+    "duration_ms": 2.1,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/App.tsx?t=1782557159792"
+      "http.url": "http://localhost:5173/src/App.tsx?t=1782562657579"
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "f3f51b556dbc01f1",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "efd59ee88581c3e5",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.118900+00:00",
+    "start_time": "2026-06-27T12:17:41.352600+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2200,12 +596,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "00b936a23864a218",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "7054ed34dbe068c0",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.118900+00:00",
+    "start_time": "2026-06-27T12:17:41.352600+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2214,12 +610,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "91506d1f5da7d662",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "af6bf31b83f5306a",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.121800+00:00",
+    "start_time": "2026-06-27T12:17:41.355300+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2228,12 +624,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "e7fae115f0b4a38c",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "3f644f7a69a4aa16",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.122500+00:00",
+    "start_time": "2026-06-27T12:17:41.355500+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2242,12 +638,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "6037504dccb9b928",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "d0d48318f1490f22",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.122600+00:00",
+    "start_time": "2026-06-27T12:17:41.355500+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2256,12 +652,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "62d6fc780812ccf1",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "15301f6d3ba0c463",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.122700+00:00",
+    "start_time": "2026-06-27T12:17:41.355500+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2270,12 +666,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "f7bf58c20e36c5f7",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "9ea83fe4fefb9d6b",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.122800+00:00",
+    "start_time": "2026-06-27T12:17:41.355500+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2284,12 +680,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "dab374b3f74a27b6",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "db475c55f3ee86c3",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.122900+00:00",
+    "start_time": "2026-06-27T12:17:41.355600+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2298,12 +694,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "61402b98ebc1dd25",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "e5c9752deea491fb",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.123300+00:00",
+    "start_time": "2026-06-27T12:17:41.355800+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2312,12 +708,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "e399a97661b305a5",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "983350318410fad3",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.123400+00:00",
+    "start_time": "2026-06-27T12:17:41.355900+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2326,12 +722,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "543544d02bb00a71",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "842e2969e61b2862",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.123500+00:00",
+    "start_time": "2026-06-27T12:17:41.355900+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2340,12 +736,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "bec9b53fb11c1414",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "51f0cd0f7c008530",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.123600+00:00",
+    "start_time": "2026-06-27T12:17:41.355900+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2354,12 +750,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "b5aaa8cf705e8f05",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "36bd2add3950840f",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.123700+00:00",
+    "start_time": "2026-06-27T12:17:41.355900+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2368,12 +764,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "db6bee68f815e4b7",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "6912a855647bdb0e",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.123900+00:00",
+    "start_time": "2026-06-27T12:17:41.356000+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2382,110 +778,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "8f89d7472b316de9",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "162ab12dd8f6ece7",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.124100+00:00",
-    "duration_ms": 0.8,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/components/ErrorBoundary.tsx?t=1782557159792"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "b22a5324664f4df6",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.124100+00:00",
-    "duration_ms": 0.9,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/components/ProtectedRoute.tsx"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "9886a132605b5e20",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.124200+00:00",
-    "duration_ms": 0.8,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/pages/LoginPage.tsx?t=1782557159786"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "a325a5566227c2c9",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.124200+00:00",
-    "duration_ms": 0.9,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/pages/RegisterPage.tsx?t=1782557159786"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "df0d993e86681474",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.124400+00:00",
-    "duration_ms": 1.4,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/pages/ProjectsPage.tsx?t=1782557159786"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "eb704b3bc4f4286d",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.124500+00:00",
-    "duration_ms": 1.5,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/pages/TaskBoardPage.tsx?t=1782557159786"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "6e41b32de70047ae",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.124500+00:00",
-    "duration_ms": 1.7,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/pages/TaskDetailPage.tsx?t=1782557159786"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "0fec93e4ffd89f06",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.124900+00:00",
+    "start_time": "2026-06-27T12:17:41.356200+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2494,12 +792,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "82b5ab50ec4abd95",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "23996db424d102c0",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.124900+00:00",
+    "start_time": "2026-06-27T12:17:41.356300+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2508,12 +806,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "d1343af113096876",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "9834234b6106d312",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.125000+00:00",
+    "start_time": "2026-06-27T12:17:41.356400+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2522,12 +820,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "6e23faddcd954ee3",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "f623fed69f213e21",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.125100+00:00",
+    "start_time": "2026-06-27T12:17:41.356500+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2536,12 +834,110 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "5605147f5bad39c9",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "f6970da3ea5e089d",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.125200+00:00",
+    "start_time": "2026-06-27T12:17:41.356500+00:00",
+    "duration_ms": 0.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ErrorBoundary.tsx?t=1782560994202"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "9bdb18ff47cc2b32",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.356500+00:00",
+    "duration_ms": 0.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ProtectedRoute.tsx"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "d720efd4adc524a6",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.356500+00:00",
+    "duration_ms": 1.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/LoginPage.tsx?t=1782561140363"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "2765c6f3754cd581",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.356500+00:00",
+    "duration_ms": 1.1,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/RegisterPage.tsx?t=1782561140363"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "d5972d9d42b2d6d8",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.356500+00:00",
+    "duration_ms": 1.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/ProjectsPage.tsx?t=1782561140363"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "8334adff6f13d53b",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.356500+00:00",
+    "duration_ms": 1.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/TaskBoardPage.tsx?t=1782562099024"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "82184d215916f204",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.356500+00:00",
+    "duration_ms": 1.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/TaskDetailPage.tsx?t=1782562657579"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "8fc201d413692487",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.356600+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2550,12 +946,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "7373b581704be892",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "f4328f8d6aed0a98",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.125400+00:00",
+    "start_time": "2026-06-27T12:17:41.356600+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2564,12 +960,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "470901b70d247744",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "70f2e82fb7095db2",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.125500+00:00",
+    "start_time": "2026-06-27T12:17:41.356800+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2578,13 +974,13 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "340ba2ddb14ea15f",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "74d5fc8424652227",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.127100+00:00",
-    "duration_ms": 0.6,
+    "start_time": "2026-06-27T12:17:41.359900+00:00",
+    "duration_ms": 0.5,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -2592,26 +988,26 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "eb3c14574d9d0b12",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "f0d868012527da42",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.127200+00:00",
+    "start_time": "2026-06-27T12:17:41.360100+00:00",
     "duration_ms": 0.5,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/services/api.ts?t=1782557159786"
+      "http.url": "http://localhost:5173/src/services/api.ts?t=1782561140363"
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "a05586d105b8d9c0",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "b88446495ad59ddd",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.127200+00:00",
+    "start_time": "2026-06-27T12:17:41.360100+00:00",
     "duration_ms": 0.9,
     "status": "ok",
     "attributes": {
@@ -2620,13 +1016,13 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "a81dd1c0a9e9c29a",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "a02f4ccd8211e6f8",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.127200+00:00",
-    "duration_ms": 1.0,
+    "start_time": "2026-06-27T12:17:41.360100+00:00",
+    "duration_ms": 1.2,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -2634,13 +1030,13 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "7a9e8b8b27b7e751",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "470c2aee2843fd23",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.127300+00:00",
-    "duration_ms": 1.1,
+    "start_time": "2026-06-27T12:17:41.360200+00:00",
+    "duration_ms": 1.3,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -2648,12 +1044,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "1fd8b06ce3353d71",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "2d83623a5a4c904f",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.127300+00:00",
+    "start_time": "2026-06-27T12:17:41.360300+00:00",
     "duration_ms": 1.2,
     "status": "ok",
     "attributes": {
@@ -2662,13 +1058,13 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "0029c1c44b6129c9",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "cdf4360a00e26b1c",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.127200+00:00",
-    "duration_ms": 1.5,
+    "start_time": "2026-06-27T12:17:41.360400+00:00",
+    "duration_ms": 1.4,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -2676,12 +1072,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "f383790e76b884cf",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "b513b68ee24554f2",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.127300+00:00",
+    "start_time": "2026-06-27T12:17:41.360500+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2690,12 +1086,26 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "0d3aabb2df806bf2",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "8bf82bb709a2e79b",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.127400+00:00",
+    "start_time": "2026-06-27T12:17:41.360700+00:00",
+    "duration_ms": 1.3,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/badge.tsx"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "298269653f721b7e",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.360800+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2704,12 +1114,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "dd66ad2e9536a8ea",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "f93603e18baa9321",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.127400+00:00",
+    "start_time": "2026-06-27T12:17:41.360800+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2718,26 +1128,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "aa63b871a5e54303",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "09ddfb122b70e5ea",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.127400+00:00",
-    "duration_ms": 1.6,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/components/ui/badge.tsx"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "890c6f6f6d5b2f82",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.127500+00:00",
+    "start_time": "2026-06-27T12:17:41.360900+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2746,26 +1142,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "6e1cd1ead10014d7",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "29c858a5b0b4c216",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.127500+00:00",
-    "duration_ms": 1.7,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "0",
-      "http.url": "http://localhost:5173/src/components/ui/textarea.tsx"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "f2d583fc1d15572e",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.127600+00:00",
+    "start_time": "2026-06-27T12:17:41.361000+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2774,13 +1156,27 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "8841f4d373cfeb88",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "1474315356cc6bf9",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.127600+00:00",
-    "duration_ms": 1.7,
+    "start_time": "2026-06-27T12:17:41.361000+00:00",
+    "duration_ms": 1.1,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/textarea.tsx"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "d5f4ec69e3802344",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.361000+00:00",
+    "duration_ms": 1.1,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -2788,12 +1184,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "059035a971c2daa4",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "b769fdcce3820220",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.129700+00:00",
+    "start_time": "2026-06-27T12:17:41.363100+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2802,12 +1198,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "812603210fef04b2",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "1826c897288d8dc8",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.129700+00:00",
+    "start_time": "2026-06-27T12:17:41.363200+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2816,12 +1212,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "df72f87c3be797c5",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "329501b52750b9b8",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.130000+00:00",
+    "start_time": "2026-06-27T12:17:41.363800+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2830,12 +1226,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "607f88c629e04f80",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "dd213de5ec58b1c8",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.130400+00:00",
+    "start_time": "2026-06-27T12:17:41.364000+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2844,12 +1240,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "9302c9540e695076",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "fe644a14b0f107fe",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.130500+00:00",
+    "start_time": "2026-06-27T12:17:41.364100+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2858,13 +1254,13 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "99bd7603cc38d1c8",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "cd608ee9ee313066",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.130500+00:00",
-    "duration_ms": 0.6,
+    "start_time": "2026-06-27T12:17:41.364200+00:00",
+    "duration_ms": 0.7,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -2872,12 +1268,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "fe45e8249e460ae3",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "e8e06ad100b7a97e",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.130600+00:00",
+    "start_time": "2026-06-27T12:17:41.365100+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2886,68 +1282,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "dea79700d128528f",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "55b29aec56d4149f",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.130700+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "157710",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_dialog.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "75332a4caf0a2a21",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.130800+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "1264",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_merge-props.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "e5b4149628c433f9",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.130800+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "494",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_use-render.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "9a7f7bab693f11df",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.130800+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "1015",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_separator.js?v=71c858a9"
-    }
-  },
-  {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "5cc85799a5bfea29",
-    "parent_span_id": "ad154fa16991edbe",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.131000+00:00",
+    "start_time": "2026-06-27T12:17:41.365300+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2956,12 +1296,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "7eb04042f4c0e086",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "81e14ffccc08613f",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.131000+00:00",
+    "start_time": "2026-06-27T12:17:41.365300+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2970,12 +1310,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "60aee3bb6c1e48d8",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "2f54ec0dee5055ea",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.131000+00:00",
+    "start_time": "2026-06-27T12:17:41.365400+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2984,12 +1324,68 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "e6ad4804ed2d62a6",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "575b1ec130ee238d",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.131000+00:00",
+    "start_time": "2026-06-27T12:17:41.365600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "157710",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_dialog.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "719faf8765e714b8",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.365700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1264",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_merge-props.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "3f43c3ffb7da8ba5",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.365800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "494",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_use-render.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "5ee24666b1bfa067",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.366000+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1015",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_separator.js?v=71c858a9"
+    }
+  },
+  {
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "bfabeda1bd5d0c14",
+    "parent_span_id": "33c7057a1dadc39f",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-27T12:17:41.366300+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -2998,12 +1394,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "e9dfdcae9c5cc3a2",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "e5dfc632c619b4de",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.131100+00:00",
+    "start_time": "2026-06-27T12:17:41.366400+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -3012,12 +1408,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "b22702e7227fe275",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "aa20b6b19967d2a1",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.131200+00:00",
+    "start_time": "2026-06-27T12:17:41.366500+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -3026,12 +1422,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "b84c171448ea2eda",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "eff058b22537edd3",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.131300+00:00",
+    "start_time": "2026-06-27T12:17:41.366700+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -3040,12 +1436,12 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "3ff3195fc62b2119",
-    "parent_span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "2ae9234e668df309",
+    "parent_span_id": "33c7057a1dadc39f",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.131400+00:00",
+    "start_time": "2026-06-27T12:17:41.366900+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -3054,13 +1450,13 @@
     }
   },
   {
-    "trace_id": "29f6fc168c6b10fafaa48d18398b03ac",
-    "span_id": "ad154fa16991edbe",
+    "trace_id": "784f200a35625ff2d6d368ab6f074a5",
+    "span_id": "33c7057a1dadc39f",
     "parent_span_id": "",
     "operation_name": "documentLoad",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-27T10:46:03.105500+00:00",
-    "duration_ms": 49.8,
+    "start_time": "2026-06-27T12:17:41.338000+00:00",
+    "duration_ms": 55.3,
     "status": "ok",
     "attributes": {
       "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
@@ -3068,12 +1464,12 @@
     }
   },
   {
-    "trace_id": "ab4688c7217b413ab75736d2fde2dd9c",
-    "span_id": "46986341eea1386b",
-    "parent_span_id": "d613b8527f7dcecc",
+    "trace_id": "49e7ec751ccb97b7a517913c7fc544c7",
+    "span_id": "e0f2398bde87023d",
+    "parent_span_id": "55e4828ca13e70a0",
     "operation_name": "POST /api/auth/login http receive",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:02.114753+00:00",
+    "start_time": "2026-06-27T12:17:40.375297+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -3081,12 +1477,12 @@
     }
   },
   {
-    "trace_id": "ab4688c7217b413ab75736d2fde2dd9c",
-    "span_id": "ff74f66c98f8a832",
-    "parent_span_id": "d613b8527f7dcecc",
+    "trace_id": "49e7ec751ccb97b7a517913c7fc544c7",
+    "span_id": "f7f7799bab5b43d3",
+    "parent_span_id": "55e4828ca13e70a0",
     "operation_name": "POST /api/auth/login http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:02.362644+00:00",
+    "start_time": "2026-06-27T12:17:40.624555+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -3095,12 +1491,12 @@
     }
   },
   {
-    "trace_id": "ab4688c7217b413ab75736d2fde2dd9c",
-    "span_id": "86ea78bf439aedac",
-    "parent_span_id": "d613b8527f7dcecc",
+    "trace_id": "49e7ec751ccb97b7a517913c7fc544c7",
+    "span_id": "09ce97e863cc9456",
+    "parent_span_id": "55e4828ca13e70a0",
     "operation_name": "POST /api/auth/login http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:02.362644+00:00",
+    "start_time": "2026-06-27T12:17:40.625556+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -3108,12 +1504,12 @@
     }
   },
   {
-    "trace_id": "ab4688c7217b413ab75736d2fde2dd9c",
-    "span_id": "af05b1ae63fc810f",
-    "parent_span_id": "d613b8527f7dcecc",
+    "trace_id": "49e7ec751ccb97b7a517913c7fc544c7",
+    "span_id": "4242807e83f2aedd",
+    "parent_span_id": "55e4828ca13e70a0",
     "operation_name": "POST /api/auth/login http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:02.362644+00:00",
+    "start_time": "2026-06-27T12:17:40.625556+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -3121,13 +1517,13 @@
     }
   },
   {
-    "trace_id": "ab4688c7217b413ab75736d2fde2dd9c",
-    "span_id": "d613b8527f7dcecc",
+    "trace_id": "49e7ec751ccb97b7a517913c7fc544c7",
+    "span_id": "55e4828ca13e70a0",
     "parent_span_id": "",
     "operation_name": "POST /api/auth/login",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:02.114753+00:00",
-    "duration_ms": 247.8913,
+    "start_time": "2026-06-27T12:17:40.362673+00:00",
+    "duration_ms": 262.8827,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
@@ -3138,7 +1534,7 @@
       "http.server_name": "localhost:8000",
       "http.user_agent": "Python/3.11 aiohttp/3.14.1",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "54591",
+      "net.peer.port": "51105",
       "http.route": "/api/auth/login",
       "http.method": "POST",
       "http.url": "http://localhost:8000/api/auth/login",
@@ -3146,13 +1542,13 @@
     }
   },
   {
-    "trace_id": "ab4688c7217b413ab75736d2fde2dd9c",
-    "span_id": "023c03ef31a33713",
-    "parent_span_id": "d613b8527f7dcecc",
+    "trace_id": "49e7ec751ccb97b7a517913c7fc544c7",
+    "span_id": "bf7ef7f2f33992c5",
+    "parent_span_id": "55e4828ca13e70a0",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:02.114753+00:00",
-    "duration_ms": 64.6196,
+    "start_time": "2026-06-27T12:17:40.378561+00:00",
+    "duration_ms": 66.6918,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
@@ -3163,20 +1559,20 @@
     }
   },
   {
-    "trace_id": "ab4688c7217b413ab75736d2fde2dd9c",
-    "span_id": "582a0d445ba1c469",
-    "parent_span_id": "d613b8527f7dcecc",
+    "trace_id": "49e7ec751ccb97b7a517913c7fc544c7",
+    "span_id": "5d80e107a73509da",
+    "parent_span_id": "55e4828ca13e70a0",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-27T10:46:02.179372+00:00",
-    "duration_ms": 0.0,
+    "start_time": "2026-06-27T12:17:40.453758+00:00",
+    "duration_ms": 1.9999,
     "status": "ok",
     "attributes": {
       "net.peer.name": "localhost",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.email = $1::VARCHAR /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-ab4688c7217b413ab75736d2fde2dd9c-f95527f1cd5d5634-03'*/",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.email = $1::VARCHAR /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-49e7ec751ccb97b7a517913c7fc544c7-f3def08ae5b17e3f-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }

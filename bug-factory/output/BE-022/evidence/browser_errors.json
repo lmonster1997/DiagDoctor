@@ -1,0 +1,98 @@
+[
+  {
+    "timestamp": "2026-06-27T12:18:45.327544+00:00",
+    "type": "console_error",
+    "message": "Access to XMLHttpRequest at 'http://localhost:8000/api/tasks/33cf8eb9-e7c6-4fc8-bc52-42aa9214fdf0' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "stack": null,
+    "url": "http://localhost:5173/tasks/33cf8eb9-e7c6-4fc8-bc52-42aa9214fdf0",
+    "line_number": 0,
+    "trace_id": "8f6365babfd8c62a6dd56d6dc981c80a",
+    "span_id": "cb14a4a0d1cf82de",
+    "component_stack": null,
+    "breadcrumbs": []
+  },
+  {
+    "timestamp": "2026-06-27T12:18:45.328546+00:00",
+    "type": "console_error",
+    "message": "[API_RESPONSE_ERROR] {status: undefined, url: /api/tasks/33cf8eb9-e7c6-4fc8-bc52-42aa9214fdf0, error: Network Error}",
+    "stack": null,
+    "url": "http://localhost:5173/src/services/api.ts?t=1782561140363",
+    "line_number": 30,
+    "trace_id": "8f6365babfd8c62a6dd56d6dc981c80a",
+    "span_id": "cb14a4a0d1cf82de",
+    "component_stack": null,
+    "breadcrumbs": []
+  },
+  {
+    "timestamp": "2026-06-27T12:18:45.328546+00:00",
+    "type": "console_error",
+    "message": "[TASK_DETAIL_LOAD_FAIL] {taskId: 33cf8eb9-e7c6-4fc8-bc52-42aa9214fdf0, error: 加载任务详情失败}",
+    "stack": null,
+    "url": "http://localhost:5173/src/pages/TaskDetailPage.tsx?t=1782562657579",
+    "line_number": 41,
+    "trace_id": "8f6365babfd8c62a6dd56d6dc981c80a",
+    "span_id": "cb14a4a0d1cf82de",
+    "component_stack": null,
+    "breadcrumbs": []
+  },
+  {
+    "timestamp": "2026-06-27T12:18:45.328546+00:00",
+    "type": "console_error",
+    "message": "Failed to load resource: net::ERR_FAILED",
+    "stack": null,
+    "url": "http://localhost:8000/api/tasks/33cf8eb9-e7c6-4fc8-bc52-42aa9214fdf0",
+    "line_number": 0,
+    "trace_id": "8f6365babfd8c62a6dd56d6dc981c80a",
+    "span_id": "cb14a4a0d1cf82de",
+    "component_stack": null,
+    "breadcrumbs": []
+  },
+  {
+    "timestamp": "2026-06-27T12:18:45.338063+00:00",
+    "type": "console_error",
+    "message": "Access to XMLHttpRequest at 'http://localhost:8000/api/tasks/33cf8eb9-e7c6-4fc8-bc52-42aa9214fdf0' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "stack": null,
+    "url": "http://localhost:5173/tasks/33cf8eb9-e7c6-4fc8-bc52-42aa9214fdf0",
+    "line_number": 0,
+    "trace_id": "8f6365babfd8c62a6dd56d6dc981c80a",
+    "span_id": "cb14a4a0d1cf82de",
+    "component_stack": null,
+    "breadcrumbs": []
+  },
+  {
+    "timestamp": "2026-06-27T12:18:45.338063+00:00",
+    "type": "console_error",
+    "message": "[API_RESPONSE_ERROR] {status: undefined, url: /api/tasks/33cf8eb9-e7c6-4fc8-bc52-42aa9214fdf0, error: Network Error}",
+    "stack": null,
+    "url": "http://localhost:5173/src/services/api.ts?t=1782561140363",
+    "line_number": 30,
+    "trace_id": "8f6365babfd8c62a6dd56d6dc981c80a",
+    "span_id": "cb14a4a0d1cf82de",
+    "component_stack": null,
+    "breadcrumbs": []
+  },
+  {
+    "timestamp": "2026-06-27T12:18:45.339064+00:00",
+    "type": "console_error",
+    "message": "[TASK_DETAIL_LOAD_FAIL] {taskId: 33cf8eb9-e7c6-4fc8-bc52-42aa9214fdf0, error: 加载任务详情失败}",
+    "stack": null,
+    "url": "http://localhost:5173/src/pages/TaskDetailPage.tsx?t=1782562657579",
+    "line_number": 41,
+    "trace_id": "8f6365babfd8c62a6dd56d6dc981c80a",
+    "span_id": "cb14a4a0d1cf82de",
+    "component_stack": null,
+    "breadcrumbs": []
+  },
+  {
+    "timestamp": "2026-06-27T12:18:45.339064+00:00",
+    "type": "console_error",
+    "message": "Failed to load resource: net::ERR_FAILED",
+    "stack": null,
+    "url": "http://localhost:8000/api/tasks/33cf8eb9-e7c6-4fc8-bc52-42aa9214fdf0",
+    "line_number": 0,
+    "trace_id": "8f6365babfd8c62a6dd56d6dc981c80a",
+    "span_id": "cb14a4a0d1cf82de",
+    "component_stack": null,
+    "breadcrumbs": []
+  }
+]

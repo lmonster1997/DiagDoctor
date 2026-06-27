@@ -1,6 +1,6 @@
 [
   {
-    "timestamp": "2026-06-27T10:47:44.599000+00:00",
+    "timestamp": "2026-06-27T12:26:57.496000+00:00",
     "labels": {
       "console_severity": "warn",
       "scope_name": "demo-frontend",
@@ -10,25 +10,16 @@
     "line": "[CONSOLE_WARN] [API_UNAUTHORIZED]"
   },
   {
-    "timestamp": "2026-06-27T10:48:09.280716+00:00",
+    "timestamp": "2026-06-27T12:26:57.487257+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "Shutting down"
+    "line": "127.0.0.1:62256 - \"GET /api/projects/ HTTP/1.1\" 401"
   },
   {
-    "timestamp": "2026-06-27T10:47:44.595538+00:00",
-    "labels": {
-      "detected_level": "info",
-      "level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "127.0.0.1:64997 - \"GET /api/projects/ HTTP/1.1\" 401"
-  },
-  {
-    "timestamp": "2026-06-27T10:47:44.595538+00:00",
+    "timestamp": "2026-06-27T12:26:57.487257+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
@@ -37,97 +28,79 @@
     "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/\", \"status_code\": 401, \"duration_ms\": 0.4, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:47:44.595538+00:00",
+    "timestamp": "2026-06-27T12:26:57.487257+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:59146 - \"GET /api/projects/ HTTP/1.1\" 401"
+    "line": "127.0.0.1:53857 - \"GET /api/projects/ HTTP/1.1\" 401"
   },
   {
-    "timestamp": "2026-06-27T10:47:44.595538+00:00",
+    "timestamp": "2026-06-27T12:26:57.487257+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/\", \"status_code\": 401, \"duration_ms\": 0.6, \"client\": \"127.0.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/\", \"status_code\": 401, \"duration_ms\": 1.0, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:47:44.595538+00:00",
+    "timestamp": "2026-06-27T12:26:57.487257+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:64997 - \"OPTIONS /api/projects/ HTTP/1.1\" 200"
+    "line": "127.0.0.1:62256 - \"OPTIONS /api/projects/ HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-27T10:47:44.595538+00:00",
+    "timestamp": "2026-06-27T12:26:57.487257+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/\", \"status_code\": 200, \"duration_ms\": 0.8, \"client\": \"127.0.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/\", \"status_code\": 200, \"duration_ms\": 0.7, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:47:44.594252+00:00",
+    "timestamp": "2026-06-27T12:26:57.487257+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:59146 - \"OPTIONS /api/projects/ HTTP/1.1\" 200"
+    "line": "127.0.0.1:53857 - \"OPTIONS /api/projects/ HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-27T10:47:44.594252+00:00",
+    "timestamp": "2026-06-27T12:26:57.487257+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/\", \"status_code\": 200, \"duration_ms\": 0.6, \"client\": \"127.0.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/\", \"status_code\": 200, \"duration_ms\": 0.4, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:47:38.923210+00:00",
+    "timestamp": "2026-06-27T12:26:51.831042+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "127.0.0.1:56186 - \"GET /api/projects/ HTTP/1.1\" 200"
+    "line": "127.0.0.1:52127 - \"POST /api/auth/login HTTP/1.1\" 200"
   },
   {
-    "timestamp": "2026-06-27T10:47:38.922210+00:00",
+    "timestamp": "2026-06-27T12:26:51.831042+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/\", \"status_code\": 200, \"duration_ms\": 278.9, \"client\": \"127.0.0.1\"}"
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/auth/login\", \"status_code\": 200, \"duration_ms\": 250.5, \"client\": \"127.0.0.1\"}"
   },
   {
-    "timestamp": "2026-06-27T10:47:38.918671+00:00",
-    "labels": {
-      "detected_level": "info",
-      "level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "127.0.0.1:56185 - \"POST /api/auth/login HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-27T10:47:38.918671+00:00",
-    "labels": {
-      "detected_level": "info",
-      "level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/auth/login\", \"status_code\": 200, \"duration_ms\": 279.1, \"client\": \"127.0.0.1\"}"
-  },
-  {
-    "timestamp": "2026-06-27T10:47:38.622931+00:00",
+    "timestamp": "2026-06-27T12:26:51.575902+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
@@ -136,7 +109,7 @@
     "line": "Application startup complete."
   },
   {
-    "timestamp": "2026-06-27T10:47:38.622931+00:00",
+    "timestamp": "2026-06-27T12:26:51.575902+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
@@ -145,16 +118,16 @@
     "line": "Waiting for application startup."
   },
   {
-    "timestamp": "2026-06-27T10:47:38.622931+00:00",
+    "timestamp": "2026-06-27T12:26:51.575902+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "Started server process [26084]"
+    "line": "Started server process [16236]"
   },
   {
-    "timestamp": "2026-06-27T10:47:35.336535+00:00",
+    "timestamp": "2026-06-27T12:26:48.960289+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
@@ -163,61 +136,16 @@
     "line": "Shutting down"
   },
   {
-    "timestamp": "2026-06-27T10:47:13.610170+00:00",
-    "labels": {
-      "detected_level": "info",
-      "level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "127.0.0.1:59326 - \"GET /api/projects/ HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-27T10:47:13.610170+00:00",
-    "labels": {
-      "detected_level": "info",
-      "level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/\", \"status_code\": 200, \"duration_ms\": 3193.3, \"client\": \"127.0.0.1\"}"
-  },
-  {
-    "timestamp": "2026-06-27T10:47:10.416073+00:00",
-    "labels": {
-      "detected_level": "info",
-      "level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "127.0.0.1:61541 - \"GET /api/projects/ HTTP/1.1\" 200"
-  },
-  {
-    "timestamp": "2026-06-27T10:47:10.416073+00:00",
-    "labels": {
-      "detected_level": "info",
-      "level": "info",
-      "service_name": "demo-backend"
-    },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/\", \"status_code\": 200, \"duration_ms\": 3165.1, \"client\": \"127.0.0.1\"}"
-  },
-  {
-    "timestamp": "2026-06-27T10:48:09.217157+00:00",
+    "timestamp": "2026-06-27T12:26:50.414921+00:00",
     "labels": {
       "detected_level": "warning",
       "level": "warning",
       "service_name": "demo-backend"
     },
-    "line": "WatchFiles detected changes in 'app\\observability.py', 'app\\api\\client_log.py'. Reloading..."
+    "line": "WatchFiles detected changes in 'app\\config.py'. Reloading..."
   },
   {
-    "timestamp": "2026-06-27T10:47:37.372035+00:00",
-    "labels": {
-      "detected_level": "warning",
-      "level": "warning",
-      "service_name": "demo-backend"
-    },
-    "line": "WatchFiles detected changes in 'app\\observability.py', 'app\\config.py', 'app\\api\\client_log.py'. Reloading..."
-  },
-  {
-    "timestamp": "2026-06-27T10:47:35.937581+00:00",
+    "timestamp": "2026-06-27T12:26:48.869151+00:00",
     "labels": {
       "detected_level": "warning",
       "level": "warning",
@@ -226,16 +154,7 @@
     "line": "WatchFiles detected changes in 'app\\api\\projects.py'. Reloading..."
   },
   {
-    "timestamp": "2026-06-27T10:47:35.249579+00:00",
-    "labels": {
-      "detected_level": "warning",
-      "level": "warning",
-      "service_name": "demo-backend"
-    },
-    "line": "WatchFiles detected changes in 'app\\observability.py', 'app\\api\\client_log.py'. Reloading..."
-  },
-  {
-    "timestamp": "2026-06-27T10:47:41.699000+00:00",
+    "timestamp": "2026-06-27T12:26:54.591000+00:00",
     "labels": {
       "route_from": "/login",
       "route_to": "/login",
@@ -246,7 +165,7 @@
     "line": "[ROUTE] /login → /login"
   },
   {
-    "timestamp": "2026-06-27T10:47:41.598000+00:00",
+    "timestamp": "2026-06-27T12:26:54.492000+00:00",
     "labels": {
       "route_from": "/login",
       "route_to": "/login",
@@ -257,7 +176,7 @@
     "line": "[ROUTE] /login → /login"
   },
   {
-    "timestamp": "2026-06-27T10:47:44.281000+00:00",
+    "timestamp": "2026-06-27T12:26:57.173000+00:00",
     "labels": {
       "route_from": "/projects",
       "route_to": "/projects",
