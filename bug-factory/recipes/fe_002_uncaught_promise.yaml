@@ -1,148 +1,120 @@
-# FE-002: Uncaught Promise rejection + render crash from un-awaited async call
-# A common React mistake: calling an async function during render without await,
-# then using the returned Promise as if it were data — causes TypeError crash.
-# The Promise itself is also unhandled (no .catch / no await).
-
 id: FE-002
-title: "任务详情页未捕获 Promise 导致渲染崩溃（白屏）"
+title: 任务详情页未捕获 Promise 导致渲染崩溃（白屏）
 category: frontend_crash
 severity: high
 tags:
-  - "uncaught-promise"
-  - "async-render"
-  - "react"
-  - "typescript"
-  - "typeerror"
-
+- uncaught-promise
+- async-render
+- react
+- typescript
+- typeerror
 expected_diagnosis:
-  root_cause: "TaskDetailPage 在渲染期间调用了异步函数 fetchRelatedTasks 但未使用 await，返回的 Promise 对象被当作 Task[] 数组使用，调用 .map() 时触发 TypeError: relatedTasks.map is not a function"
-  affected_file: "demo-app/frontend/src/pages/TaskDetailPage.tsx"
+  root_cause: 'TaskDetailPage 在渲染期间调用了异步函数 fetchRelatedTasks 但未使用 await，返回的 Promise
+    对象被当作 Task[] 数组使用，调用 .map() 时触发 TypeError: relatedTasks.map is not a function'
+  affected_file: demo-app/frontend/src/pages/TaskDetailPage.tsx
   affected_line: null
-  fix_suggestion: "将异步数据获取移到 useEffect 中，用 useState 管理数据状态。或者使用 React 18 的 use() hook（在 Suspense 包裹下）。不要在组件渲染函数体中直接调用异步函数并使用其 Promise 结果。"
+  fix_suggestion: 将异步数据获取移到 useEffect 中，用 useState 管理数据状态。或者使用 React 18 的 use() hook（在
+    Suspense 包裹下）。不要在组件渲染函数体中直接调用异步函数并使用其 Promise 结果。
   fix_keywords:
-    - "useEffect"
-    - "useState"
-    - "await"
-    - ".map"
-    - "Promise"
-
+  - useEffect
+  - useState
+  - await
+  - .map
+  - Promise
+  retrieval_gold:
+    code_chunks:
+    - demo-app/frontend/src/pages/TaskDetailPage.tsx::root_cause
+    evidence_ids: []
+    similar_cases: []
 injection:
   strategy: code_insert
-  target_file: "demo-app/frontend/src/pages/TaskDetailPage.tsx"
-  ai_instruction: |
-    在 TaskDetailPage 组件中，在现有的"任务信息卡片"（Card）之后、"评论区域"之前，添加一个"相关任务"区块。
-
-    具体操作：
-
-    1. 在组件函数体顶部（return 语句之前，fetchTask 定义之后），添加以下异步函数定义：
-
-    ```tsx
-    const fetchRelatedTasks = async () => {
-      const res = await api.get<Task[]>(`/api/projects/${task?.project_id}/tasks`);
-      return res.data.filter((t: Task) => t.id !== task?.id).slice(0, 3);
-    };
-
-    const relatedTasks = fetchRelatedTasks();
-    ```
-
-    2. 在 JSX 中，在 </Card> 闭合标签之后、{/* Comments section */} 注释之前，插入以下相关任务区块：
-
-    ```tsx
-        {/* Related tasks */}
-        {relatedTasks && (
-          <div className="mb-6">
-            <h2 className="mb-3 text-lg font-semibold text-foreground">
-              相关任务
-            </h2>
-            <div className="flex flex-col gap-2">
-              {relatedTasks.map((t) => (
-                <div
-                  key={t.id}
-                  className="cursor-pointer rounded-lg border border-border bg-card p-3 text-sm transition-shadow hover:shadow-md"
-                  onClick={() => navigate(`/tasks/${t.id}`)}
-                >
-                  <span className="font-medium">{t.title}</span>
-                  <Badge
-                    variant={STATUS_VARIANTS[t.status] || "secondary"}
-                    className="ml-2 text-xs"
-                  >
-                    {STATUS_LABELS[t.status]}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-    ```
-
-    关键要求：
-    - fetchRelatedTasks() 调用时不要加 await（这是故意的 bug）
-    - relatedTasks 的类型是 Promise<Task[]> 但代码中直接当 Task[] 使用
-    - 不要添加 try/catch 或 .catch() 错误处理
-    - 不要修改 import 语句和其他已有代码
-    - 确保插入位置准确：在 </Card> 之后、{/* Comments section */} 注释之前
-    - 注意：如果 TypeScript 报错，可以通过添加 `// @ts-expect-error 故意不 await` 来抑制类型检查
+  target_file: demo-app/frontend/src/pages/TaskDetailPage.tsx
+  ai_instruction: "在 TaskDetailPage 组件中，在现有的\"任务信息卡片\"（Card）之后、\"评论区域\"之前，添加一个\"相关任务\"\
+    区块。\n\n具体操作：\n\n1. 在组件函数体顶部（return 语句之前，fetchTask 定义之后），添加以下异步函数定义：\n\n```tsx\n\
+    const fetchRelatedTasks = async () => {\n  const res = await api.get<Task[]>(`/api/projects/${task?.project_id}/tasks`);\n\
+    \  return res.data.filter((t: Task) => t.id !== task?.id).slice(0, 3);\n};\n\n\
+    const relatedTasks = fetchRelatedTasks();\n```\n\n2. 在 JSX 中，在 </Card> 闭合标签之后、{/*\
+    \ Comments section */} 注释之前，插入以下相关任务区块：\n\n```tsx\n    {/* Related tasks */}\n\
+    \    {relatedTasks && (\n      <div className=\"mb-6\">\n        <h2 className=\"\
+    mb-3 text-lg font-semibold text-foreground\">\n          相关任务\n        </h2>\n\
+    \        <div className=\"flex flex-col gap-2\">\n          {relatedTasks.map((t)\
+    \ => (\n            <div\n              key={t.id}\n              className=\"\
+    cursor-pointer rounded-lg border border-border bg-card p-3 text-sm transition-shadow\
+    \ hover:shadow-md\"\n              onClick={() => navigate(`/tasks/${t.id}`)}\n\
+    \            >\n              <span className=\"font-medium\">{t.title}</span>\n\
+    \              <Badge\n                variant={STATUS_VARIANTS[t.status] || \"\
+    secondary\"}\n                className=\"ml-2 text-xs\"\n              >\n  \
+    \              {STATUS_LABELS[t.status]}\n              </Badge>\n           \
+    \ </div>\n          ))}\n        </div>\n      </div>\n    )}\n```\n\n关键要求：\n\
+    - fetchRelatedTasks() 调用时不要加 await（这是故意的 bug）\n- relatedTasks 的类型是 Promise<Task[]>\
+    \ 但代码中直接当 Task[] 使用\n- 不要添加 try/catch 或 .catch() 错误处理\n- 不要修改 import 语句和其他已有代码\n\
+    - 确保插入位置准确：在 </Card> 之后、{/* Comments section */} 注释之前\n- 注意：如果 TypeScript 报错，可以通过添加\
+    \ `// @ts-expect-error 故意不 await` 来抑制类型检查\n"
   diff_patch: null
-
 trigger:
   type: api_call
   steps:
-    - action: login
-      params:
-        email: "admin@example.com"
-        password: "Admin123!"
-    - action: create_data
-      params:
-        entity: "project"
-        data:
-          name: "FE-002 Test Project"
-    - action: create_data
-      params:
-        entity: "task"
-        data:
-          title: "Bug Task"
-          description: "This task will trigger the crash when viewed"
-          project_index: 0
-    - action: create_data
-      params:
-        entity: "task"
-        data:
-          title: "Related Task A"
-          project_index: 0
-    - action: create_data
-      params:
-        entity: "task"
-        data:
-          title: "Related Task B"
-          project_index: 0
-    - action: api_call
-      params:
-        method: "GET"
-        path: "/api/tasks/{task_id}"
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: create_data
+    params:
+      entity: project
+      data:
+        name: FE-002 Test Project
+  - action: create_data
+    params:
+      entity: task
+      data:
+        title: Bug Task
+        description: This task will trigger the crash when viewed
+        project_index: 0
+  - action: create_data
+    params:
+      entity: task
+      data:
+        title: Related Task A
+        project_index: 0
+  - action: create_data
+    params:
+      entity: task
+      data:
+        title: Related Task B
+        project_index: 0
+  - action: api_call
+    params:
+      method: GET
+      path: /api/tasks/{task_id}
   expected_observation:
     log_patterns:
-      - pattern: "TypeError.*map.*is not a function|Unhandled.*Promise.*Rejection"
-        min_occurrences: 1
+    - pattern: TypeError.*map.*is not a function|Unhandled.*Promise.*Rejection
+      min_occurrences: 1
     trace_attributes: {}
     api_response: null
-
+  ui_reachable: false
+  expected_evidence:
+    browser_errors: expected
+    frontend_spans: expected
+    backend_signal: ''
+    symptom_tier: frontend
+    root_cause_tier: frontend
 evaluation:
   must_mention_keywords:
-    - "Promise"
-    - ".map"
-    - "TypeError"
-    - "async"
+  - Promise
+  - .map
+  - TypeError
+  - async
   should_mention_keywords:
-    - "useEffect"
-    - "useState"
-    - "await"
-    - "渲染"
-    - "Suspense"
-  llm_judge_criteria: |
-    诊断必须明确指出两个关键问题：
-    1. 在 React 组件渲染期间调用了异步函数但未使用 await，导致返回的 Promise 对象被当作数组使用，
-       调用 .map() 方法时抛出 TypeError 使页面崩溃。
-    2. 该 Promise 的 rejection 也没有被捕获（unhandled promise rejection），
-       这是一个双重错误——既没有正确处理异步数据，也没有处理异步错误。
-    修复建议应包含：将异步数据获取移入 useEffect + useState 管理，或使用 React Suspense + use() hook。
+  - useEffect
+  - useState
+  - await
+  - 渲染
+  - Suspense
+  llm_judge_criteria: "诊断必须明确指出两个关键问题：\n1. 在 React 组件渲染期间调用了异步函数但未使用 await，导致返回的 Promise\
+    \ 对象被当作数组使用，\n   调用 .map() 方法时抛出 TypeError 使页面崩溃。\n2. 该 Promise 的 rejection 也没有被捕获（unhandled\
+    \ promise rejection），\n   这是一个双重错误——既没有正确处理异步数据，也没有处理异步错误。\n修复建议应包含：将异步数据获取移入\
+    \ useEffect + useState 管理，或使用 React Suspense + use() hook。\n"
   min_confidence: 0.7
+categories:
+- frontend_crash

@@ -1,81 +1,108 @@
-# LOGIC-020 (L2) — IDOR: owner check removed from get_project
-# REQUIRES: P0 access-log middleware (status/path/trace_id) — done.
-# Signal: access-log shows "GET /api/projects/{id}" -> 200 for a project the
-#         caller does NOT own; the 200 response body's owner_id != caller.
-# Difficulty L2: no error/stack — the bug is "wrong data returned 200". Must be
-#         caught by reasoning about the missing owner_id filter, not by a crash.
-
 id: LOGIC-020
-title: "用户能打开并查看别人项目的详情"
+title: 用户能打开并查看别人项目的详情
 category: logic
 severity: critical
-tags: ["idor", "authz", "broken-access-control", "get_project", "difficulty:L2"]
-
+tags:
+- idor
+- authz
+- broken-access-control
+- get_project
+- difficulty:L2
 expected_diagnosis:
-  root_cause: "get_project 的查询删除了 Project.owner_id == current_user.id 过滤，任何登录用户都能按 ID 读取他人项目 (IDOR / 越权读取)"
-  affected_file: "demo-app/backend/app/api/projects.py"
+  root_cause: get_project 的查询删除了 Project.owner_id == current_user.id 过滤，任何登录用户都能按
+    ID 读取他人项目 (IDOR / 越权读取)
+  affected_file: demo-app/backend/app/api/projects.py
   affected_line: null
-  fix_suggestion: "在 get_project 的 where 子句恢复 owner_id == current_user.id 限定，非属主返回 404/403"
-  fix_keywords: ["IDOR", "越权", "owner_id", "访问控制", "get_project"]
-
+  fix_suggestion: 在 get_project 的 where 子句恢复 owner_id == current_user.id 限定，非属主返回
+    404/403
+  fix_keywords:
+  - IDOR
+  - 越权
+  - owner_id
+  - 访问控制
+  - get_project
+  retrieval_gold:
+    code_chunks:
+    - demo-app/backend/app/api/projects.py::root_cause
+    evidence_ids: []
+    similar_cases: []
 injection:
   strategy: code_replace
-  target_file: "demo-app/backend/app/api/projects.py"
-  ai_instruction: |
-    在 get_project 的 select(Project).where(...) 中，删除 Project.owner_id == current_user.id 条件，
-    只按 Project.id == project_id 查询，造成越权读取。
-  diff_patch: |
-    --- a/demo-app/backend/app/api/projects.py
-    +++ b/demo-app/backend/app/api/projects.py
-    @@ -55,1 +55,1 @@
-    -        select(Project).where(Project.id == project_id, Project.owner_id == current_user.id)
-    +        select(Project).where(Project.id == project_id)  # BUG(LOGIC-020): owner check removed (IDOR)
+  target_file: demo-app/backend/app/api/projects.py
+  ai_instruction: '在 get_project 的 select(Project).where(...) 中，删除 Project.owner_id
+    == current_user.id 条件，
 
+    只按 Project.id == project_id 查询，造成越权读取。
+
+    '
+  diff_patch: '--- a/demo-app/backend/app/api/projects.py
+
+    +++ b/demo-app/backend/app/api/projects.py
+
+    @@ -55,1 +55,1 @@
+
+    -        select(Project).where(Project.id == project_id, Project.owner_id == current_user.id)
+
+    +        select(Project).where(Project.id == project_id)  # BUG(LOGIC-020): owner
+    check removed (IDOR)
+
+    '
 trigger:
   type: api_call
   steps:
-    - action: login
-      params: { email: "alice@example.com", password: "Alice123!" }
-    - action: create_data
-      params:
-        entity: "project"
-        data: { name: "Alice 的私密项目", description: "owned by alice" }
-    - action: login
-      params: { email: "admin@example.com", password: "Admin123!" }
-    - action: api_call
-      params:
-        method: "GET"
-        path: "/api/projects/{project_id}"
+  - action: login
+    params:
+      email: alice@example.com
+      password: Alice123!
+  - action: create_data
+    params:
+      entity: project
+      data:
+        name: Alice 的私密项目
+        description: owned by alice
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: api_call
+    params:
+      method: GET
+      path: /api/projects/{project_id}
   expected_observation:
-
     log_patterns:
-
-      - pattern: "\"path\":\"/api/projects/.*\",\"status\":200"
-
-        min_occurrences: 1
-
+    - pattern: '"path":"/api/projects/.*","status":200'
+      min_occurrences: 1
     trace_attributes:
-
-      "GET /api/projects/{id}":
-
-        status: "OK"
-
+      GET /api/projects/{id}:
+        status: OK
     api_response: null
-
-
-
+  ui_reachable: false
+  expected_evidence:
+    browser_errors: none
+    frontend_spans: expected
+    backend_signal: unexpected behavior in API response
+    symptom_tier: backend
+    root_cause_tier: backend
 evaluation:
-
-  must_mention_keywords: ["越权", "owner_id"]
-
-  should_mention_keywords: ["IDOR", "访问控制", "get_project", "属主"]
-
-  llm_judge_criteria: |
+  must_mention_keywords:
+  - 越权
+  - owner_id
+  should_mention_keywords:
+  - IDOR
+  - 访问控制
+  - get_project
+  - 属主
+  llm_judge_criteria: '
 
     诊断必须指出 get_project 缺少 owner_id 限定导致用户可读取他人项目（越权/IDOR），
 
+
     并建议恢复 owner_id == current_user.id 过滤。需体现“返回了非属主的数据”这一逻辑越权，
+
 
     而不是把 200 当作正常。
 
+    '
   min_confidence: 0.6
+categories:
+- logic

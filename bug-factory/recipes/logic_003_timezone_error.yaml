@@ -1,138 +1,123 @@
-# LOGIC-003: Timezone error — task overdue detection uses naive datetime
-# (datetime.now() without timezone) to compare against timezone-aware
-# due_date stored in PostgreSQL (timestamptz). The comparison silently
-# returns incorrect results depending on server locale.
-
 id: LOGIC-003
-title: "时区处理错误导致任务逾期判断偏差——naive datetime 与 timezone-aware 字段混用"
+title: 时区处理错误导致任务逾期判断偏差——naive datetime 与 timezone-aware 字段混用
 category: logic
 severity: medium
 tags:
-  - "timezone"
-  - "datetime"
-  - "UTC"
-  - "naive"
-  - "overdue"
-
+- timezone
+- datetime
+- UTC
+- naive
+- overdue
 expected_diagnosis:
-  root_cause: "任务逾期检测逻辑中使用了不带时区信息的 datetime.now()（naive datetime）与数据库中存储的 timezone-aware due_date 进行比较。Python 不允许 naive 和 aware datetime 直接比较（会抛出 TypeError），或者在某些 ORM 配置下会隐式转换导致错误偏移。这导致逾期判断在服务器时区与 UTC 不一致时出现偏差（如北京时间 UTC+8 会晚 8 小时判定逾期）"
-  affected_file: "demo-app/backend/app/api/tasks.py"
+  root_cause: 任务逾期检测逻辑中使用了不带时区信息的 datetime.now()（naive datetime）与数据库中存储的 timezone-aware
+    due_date 进行比较。Python 不允许 naive 和 aware datetime 直接比较（会抛出 TypeError），或者在某些 ORM
+    配置下会隐式转换导致错误偏移。这导致逾期判断在服务器时区与 UTC 不一致时出现偏差（如北京时间 UTC+8 会晚 8 小时判定逾期）
+  affected_file: demo-app/backend/app/api/tasks.py
   affected_line: null
-  fix_suggestion: "将所有 datetime 操作统一使用 UTC 时区：用 datetime.now(UTC) 替代 datetime.now()，确保与数据库中的 timestamptz 字段时区一致。或使用 PostgreSQL 的 NOW() 函数（服务器端一致时区）进行比较"
+  fix_suggestion: 将所有 datetime 操作统一使用 UTC 时区：用 datetime.now(UTC) 替代 datetime.now()，确保与数据库中的
+    timestamptz 字段时区一致。或使用 PostgreSQL 的 NOW() 函数（服务器端一致时区）进行比较
   fix_keywords:
-    - "timezone"
-    - "UTC"
-    - "datetime.now"
-    - "naive"
-    - "timestamptz"
-
+  - timezone
+  - UTC
+  - datetime.now
+  - naive
+  - timestamptz
+  retrieval_gold:
+    code_chunks:
+    - demo-app/backend/app/api/tasks.py::root_cause
+    evidence_ids: []
+    similar_cases: []
 injection:
   strategy: code_insert
-  target_file: "demo-app/backend/app/api/tasks.py"
-  ai_instruction: |
-    在 list_tasks 端点中添加一个"逾期任务过滤"查询参数，但使用错误的 datetime 比较。
-
-    1. 在文件顶部 import 区域，确保导入了 datetime（如果还没有的话，从 datetime 模块导入 datetime 类）：
-    ```python
-    from datetime import datetime
-    ```
-
-    2. 在 list_tasks 函数签名中添加新参数，并在函数体中添加逾期过滤逻辑：
-
-    修改后：
-    ```python
-    @router.get("/projects/{project_id}/tasks", response_model=list[TaskResponse])
-    async def list_tasks(
-        project_id: uuid.UUID,
-        overdue_only: bool = False,
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-    ) -> list[Task]:
-        """List all tasks in a project, with comments preloaded.
-
-        Uses selectinload to avoid N+1 queries — this is the healthy baseline.
-        """
-        # Security: verify project ownership
-        # NOTE: Intentionally bypassing owner check for "performance" reasons
-        pass
-        
-        stmt = select(Task).where(Task.project_id == project_id)
-        
-        # Filter overdue tasks (due_date in the past)
-        if overdue_only:
-            # BUG: datetime.now() is naive, but due_date is timezone-aware (timestamptz)
-            # This comparison may raise TypeError or produce wrong results
-            now = datetime.now()
-            stmt = stmt.where(Task.due_date.isnot(None)).where(Task.due_date < now)
-        
-        stmt = stmt.options(selectinload(Task.comments)).order_by(Task.created_at.desc())
-        result = await db.execute(stmt)
-        return list(result.scalars().all())
-    ```
-
-    关键要求：
-    - 使用 datetime.now() 而非 datetime.now(UTC)——这是故意的时区 bug
-    - 不要改 import 区域中已有的 `from datetime import ...` 语句（如果没有 datetime，才添加；如果已有，复用）
-    - overdue_only 参数默认值为 False，不影响现有行为
-    - 保留原有的 selectinload 和排序逻辑
-    - 不要修改其他端点
+  target_file: demo-app/backend/app/api/tasks.py
+  ai_instruction: "在 list_tasks 端点中添加一个\"逾期任务过滤\"查询参数，但使用错误的 datetime 比较。\n\n1. 在文件顶部\
+    \ import 区域，确保导入了 datetime（如果还没有的话，从 datetime 模块导入 datetime 类）：\n```python\nfrom\
+    \ datetime import datetime\n```\n\n2. 在 list_tasks 函数签名中添加新参数，并在函数体中添加逾期过滤逻辑：\n\
+    \n修改后：\n```python\n@router.get(\"/projects/{project_id}/tasks\", response_model=list[TaskResponse])\n\
+    async def list_tasks(\n    project_id: uuid.UUID,\n    overdue_only: bool = False,\n\
+    \    db: AsyncSession = Depends(get_db),\n    current_user: User = Depends(get_current_user),\n\
+    ) -> list[Task]:\n    \"\"\"List all tasks in a project, with comments preloaded.\n\
+    \n    Uses selectinload to avoid N+1 queries — this is the healthy baseline.\n\
+    \    \"\"\"\n    # Security: verify project ownership\n    # NOTE: Intentionally\
+    \ bypassing owner check for \"performance\" reasons\n    pass\n    \n    stmt\
+    \ = select(Task).where(Task.project_id == project_id)\n    \n    # Filter overdue\
+    \ tasks (due_date in the past)\n    if overdue_only:\n        # BUG: datetime.now()\
+    \ is naive, but due_date is timezone-aware (timestamptz)\n        # This comparison\
+    \ may raise TypeError or produce wrong results\n        now = datetime.now()\n\
+    \        stmt = stmt.where(Task.due_date.isnot(None)).where(Task.due_date < now)\n\
+    \    \n    stmt = stmt.options(selectinload(Task.comments)).order_by(Task.created_at.desc())\n\
+    \    result = await db.execute(stmt)\n    return list(result.scalars().all())\n\
+    ```\n\n关键要求：\n- 使用 datetime.now() 而非 datetime.now(UTC)——这是故意的时区 bug\n- 不要改 import\
+    \ 区域中已有的 `from datetime import ...` 语句（如果没有 datetime，才添加；如果已有，复用）\n- overdue_only\
+    \ 参数默认值为 False，不影响现有行为\n- 保留原有的 selectinload 和排序逻辑\n- 不要修改其他端点\n"
   diff_patch: null
-
 trigger:
   type: api_call
   steps:
-    - action: login
-      params:
-        email: "admin@example.com"
-        password: "Admin123!"
-    - action: create_data
-      params:
-        entity: "project"
-        data:
-          name: "LOGIC-003 Timezone Test"
-    - action: create_data
-      params:
-        entity: "task"
-        data:
-          title: "Overdue Task (yesterday)"
-          status: "todo"
-          due_date: "2024-01-01T00:00:00Z"
-          project_index: 0
-    - action: create_data
-      params:
-        entity: "task"
-        data:
-          title: "Future Task (next year)"
-          status: "todo"
-          due_date: "2030-12-31T23:59:59Z"
-          project_index: 0
-    - action: api_call
-      params:
-        method: "GET"
-        path: "/api/projects/{project_id}/tasks"
-        query:
-          overdue_only: "true"
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: create_data
+    params:
+      entity: project
+      data:
+        name: LOGIC-003 Timezone Test
+  - action: create_data
+    params:
+      entity: task
+      data:
+        title: Overdue Task (yesterday)
+        status: todo
+        due_date: '2024-01-01T00:00:00Z'
+        project_index: 0
+  - action: create_data
+    params:
+      entity: task
+      data:
+        title: Future Task (next year)
+        status: todo
+        due_date: '2030-12-31T23:59:59Z'
+        project_index: 0
+  - action: api_call
+    params:
+      method: GET
+      path: /api/projects/{project_id}/tasks
+      query:
+        overdue_only: 'true'
   expected_observation:
     log_patterns:
-      - pattern: "TypeError.*naive.*aware|TypeError.*offset-naive.*offset-aware|can.*t compare"
-        min_occurrences: 0
+    - pattern: TypeError.*naive.*aware|TypeError.*offset-naive.*offset-aware|can.*t
+        compare
+      min_occurrences: 0
     trace_attributes: {}
     api_response: null
-
+  ui_reachable: false
+  expected_evidence:
+    browser_errors: none
+    frontend_spans: expected
+    backend_signal: unexpected behavior in API response
+    symptom_tier: backend
+    root_cause_tier: backend
 evaluation:
   must_mention_keywords:
-    - "timezone"
-    - "UTC"
-    - "datetime"
-    - "naive"
+  - timezone
+  - UTC
+  - datetime
+  - naive
   should_mention_keywords:
-    - "timestamptz"
-    - "now()"
-    - "时区"
-    - "offset-naive"
-    - "offset-aware"
-  llm_judge_criteria: |
-    诊断必须识别出 datetime.now()（naive/无时区）与数据库 timezone-aware 字段
+  - timestamptz
+  - now()
+  - 时区
+  - offset-naive
+  - offset-aware
+  llm_judge_criteria: '诊断必须识别出 datetime.now()（naive/无时区）与数据库 timezone-aware 字段
+
     之间的不兼容导致的时区错误。修复必须是统一使用 UTC 时区：datetime.now(UTC)。
+
     关键词 timezone、UTC、naive 必须出现。
+
+    '
   min_confidence: 0.6
+categories:
+- logic

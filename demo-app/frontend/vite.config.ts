@@ -14,6 +14,10 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // Retain source maps for Doctor's source_map_resolve tool (see §13.1.2).
+  build: {
+    sourcemap: true,
+  },
   server: {
     // SPA fallback — redirect all non-file requests to index.html
     // so React Router can handle client-side routes like /tasks/:id.

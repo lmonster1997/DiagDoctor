@@ -1,64 +1,101 @@
-# BE-020 (L1) — Foreign-key IntegrityError: task-existence check removed
-# REQUIRES: P0 global exception handler (structured stack to stdout) — done.
-# Signal: {"event":"unhandled_exception","exc_type":"IntegrityError"...} + 500 in Loki.
-# NOTE: the final POST returns 500 by design — ``expected_status: [500]`` tells
-#       the trigger runner to treat it as a successful reproduction, not a failure.
-
 id: BE-020
-title: "给任务发评论时偶发 500，但页面没提示哪里错了"
+title: 给任务发评论时偶发 500，但页面没提示哪里错了
 category: backend_error
 severity: high
-tags: ["integrity-error", "foreign-key", "comments", "difficulty:L1"]
-
+tags:
+- integrity-error
+- foreign-key
+- comments
+- difficulty:L1
 expected_diagnosis:
-  root_cause: "create_comment 删除了任务存在性检查，对不存在的 task_id 直接插入 comment，触发外键约束违反 (IntegrityError) 导致 500"
-  affected_file: "demo-app/backend/app/api/comments.py"
+  root_cause: create_comment 删除了任务存在性检查，对不存在的 task_id 直接插入 comment，触发外键约束违反 (IntegrityError)
+    导致 500
+  affected_file: demo-app/backend/app/api/comments.py
   affected_line: null
-  fix_suggestion: "恢复 create_comment 中的任务存在性校验：查询 Task，不存在则返回 404，避免外键违反"
-  fix_keywords: ["IntegrityError", "外键", "ForeignKey", "task 存在性", "404"]
-
+  fix_suggestion: 恢复 create_comment 中的任务存在性校验：查询 Task，不存在则返回 404，避免外键违反
+  fix_keywords:
+  - IntegrityError
+  - 外键
+  - ForeignKey
+  - task 存在性
+  - '404'
+  retrieval_gold:
+    code_chunks:
+    - demo-app/backend/app/api/comments.py::root_cause
+    evidence_ids: []
+    similar_cases: []
 injection:
   strategy: code_replace
-  target_file: "demo-app/backend/app/api/comments.py"
-  ai_instruction: |
-    删除 create_comment 中“校验任务存在”的四行（查询 Task + 不存在则抛 404），
+  target_file: demo-app/backend/app/api/comments.py
+  ai_instruction: '删除 create_comment 中“校验任务存在”的四行（查询 Task + 不存在则抛 404），
+
     使得对不存在 task 的评论插入会触发外键约束错误。
+
     diff_patch: |
+
     --- a/demo-app/backend/app/api/comments.py
+
     +++ b/demo-app/backend/app/api/comments.py
+
     @@ -31,4 +31,1 @@
+
     -    # Verify the task exists
+
     -    task_result = await db.execute(select(Task).where(Task.id == task_id))
+
     -    if task_result.scalar_one_or_none() is None:
+
     -        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+
     +    # BUG(BE-020): task-existence check removed — bad task_id hits a FK violation
 
+    '
 trigger:
   type: api_call
   steps:
-    - action: login
-      params: { email: "admin@example.com", password: "Admin123!" }
-    - action: api_call
-      params:
-        method: "POST"
-        path: "/api/tasks/00000000-0000-0000-0000-000000000000/comments"
-        body: { content: "this should 404, not 500" }
-        expected_status: [500]
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: api_call
+    params:
+      method: POST
+      path: /api/tasks/00000000-0000-0000-0000-000000000000/comments
+      body:
+        content: this should 404, not 500
+      expected_status:
+      - 500
   expected_observation:
     log_patterns:
-      - pattern: "unhandled_exception.*IntegrityError"
-        min_occurrences: 1
-      - pattern: "ForeignKeyViolation|violates foreign key"
-        min_occurrences: 1
+    - pattern: unhandled_exception.*IntegrityError
+      min_occurrences: 1
+    - pattern: ForeignKeyViolation|violates foreign key
+      min_occurrences: 1
     trace_attributes:
-      "POST /api/tasks/{id}/comments":
-        status: "ERROR"
+      POST /api/tasks/{id}/comments:
+        status: ERROR
     api_response: null
-
+  ui_reachable: false
+  expected_evidence:
+    browser_errors: optional
+    frontend_spans: expected
+    backend_signal: 500 error in logs
+    symptom_tier: backend
+    root_cause_tier: backend
 evaluation:
-  must_mention_keywords: ["外键", "IntegrityError"]
-  should_mention_keywords: ["task 存在性", "404", "ForeignKey", "create_comment"]
-  llm_judge_criteria: |
-    诊断必须指出 create_comment 缺少任务存在性校验，导致对不存在 task 插入评论时
+  must_mention_keywords:
+  - 外键
+  - IntegrityError
+  should_mention_keywords:
+  - task 存在性
+  - '404'
+  - ForeignKey
+  - create_comment
+  llm_judge_criteria: '诊断必须指出 create_comment 缺少任务存在性校验，导致对不存在 task 插入评论时
+
     触发外键约束违反（IntegrityError）返回 500，并建议恢复校验改返回 404。
+
+    '
   min_confidence: 0.6
+categories:
+- backend_error

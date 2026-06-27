@@ -1,174 +1,138 @@
-# PERF-002: Cache penetration — naive in-memory cache added to task detail
-# endpoint does NOT cache negative results (task not found / 404).
-# Attackers can flood the DB with queries for random non-existent task UUIDs.
-
 id: PERF-002
-title: "任务详情接口缓存不缓存空结果导致缓存穿透——大量 404 请求击穿缓存直击数据库"
+title: 任务详情接口缓存不缓存空结果导致缓存穿透——大量 404 请求击穿缓存直击数据库
 category: performance
 severity: medium
 tags:
-  - "cache-penetration"
-  - "negative-cache"
-  - "null-cache"
-  - "performance"
-  - "fastapi"
-
+- cache-penetration
+- negative-cache
+- null-cache
+- performance
+- fastapi
 expected_diagnosis:
-  root_cause: "get_task 端点添加了简易内存缓存，但只缓存了成功查到的任务结果（cache-aside 写入），未缓存'任务不存在'的负面结果。当大量请求查询不存在的随机 UUID 时，每个请求都穿透缓存执行数据库查询，形成缓存穿透（Cache Penetration），可被用于 DoS 攻击"
-  affected_file: "demo-app/backend/app/api/tasks.py"
+  root_cause: get_task 端点添加了简易内存缓存，但只缓存了成功查到的任务结果（cache-aside 写入），未缓存'任务不存在'的负面结果。当大量请求查询不存在的随机
+    UUID 时，每个请求都穿透缓存执行数据库查询，形成缓存穿透（Cache Penetration），可被用于 DoS 攻击
+  affected_file: demo-app/backend/app/api/tasks.py
   affected_line: null
-  fix_suggestion: "缓存'任务不存在'的负面结果（如缓存一个特殊标记 None 或 null），设置较短的 TTL（如 30-60 秒），防止恶意请求绕过缓存直达数据库。更好的方案是使用布隆过滤器（Bloom Filter）预先过滤不存在的 ID"
+  fix_suggestion: 缓存'任务不存在'的负面结果（如缓存一个特殊标记 None 或 null），设置较短的 TTL（如 30-60 秒），防止恶意请求绕过缓存直达数据库。更好的方案是使用布隆过滤器（Bloom
+    Filter）预先过滤不存在的 ID
   fix_keywords:
-    - "缓存穿透"
-    - "negative cache"
-    - "None"
-    - "null"
-    - "cache penetration"
-
+  - 缓存穿透
+  - negative cache
+  - None
+  - 'null'
+  - cache penetration
+  retrieval_gold:
+    code_chunks:
+    - demo-app/backend/app/api/tasks.py::root_cause
+    evidence_ids: []
+    similar_cases: []
 injection:
   strategy: code_insert
-  target_file: "demo-app/backend/app/api/tasks.py"
-  ai_instruction: |
-    在 get_task 端点中添加一个简单的内存缓存层，但故意不缓存负面结果。
-
-    1. 在文件顶部（import 区域之后、router 定义之前）添加：
-    ```python
-    # Simple in-memory cache for task detail
-    _task_cache: dict[str, Task | None] = {}
-    ```
-
-    2. 修改 get_task 函数，在数据库查询之前添加缓存读取，在查询成功之后添加缓存写入：
-    
-    修改前：
-    ```python
-    @router.get("/tasks/{task_id}", response_model=TaskDetailResponse)
-    async def get_task(
-        task_id: uuid.UUID,
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-    ) -> Task:
-        """Get task details, including comments and tags."""
-        result = await db.execute(
-            select(Task)
-            .where(Task.id == task_id)
-            .options(
-                selectinload(Task.comments),
-                selectinload(Task.tags),
-            )
-        )
-        task = result.scalar_one_or_none()
-        if task is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
-        return task
-    ```
-
-    修改后：
-    ```python
-    @router.get("/tasks/{task_id}", response_model=TaskDetailResponse)
-    async def get_task(
-        task_id: uuid.UUID,
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-    ) -> Task:
-        """Get task details, including comments and tags."""
-        # Check cache first
-        cache_key = str(task_id)
-        if cache_key in _task_cache:
-            cached = _task_cache[cache_key]
-            if cached is not None:
-                return cached
-            # BUG: negative result (None) is NOT cached — cache penetration!
-        
-        result = await db.execute(
-            select(Task)
-            .where(Task.id == task_id)
-            .options(
-                selectinload(Task.comments),
-                selectinload(Task.tags),
-            )
-        )
-        task = result.scalar_one_or_none()
-        if task is None:
-            # BUG: should cache the negative result here, but we don't
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
-        
-        # Cache successful result
-        _task_cache[cache_key] = task
-        return task
-    ```
-
-    关键要求：
-    - 成功查询的任务结果要缓存（这样才能骗过 code review）
-    - 404 的情况绝不缓存（这就是缓存穿透的根因）
-    - 不要修改 import 语句（uuid 已经在用了，不需要额外 import）
-    - 保留原有的 docstring
-    - 缓存没有过期机制（这也是问题的一部分，但不影响 bug 的核心表现）
+  target_file: demo-app/backend/app/api/tasks.py
+  ai_instruction: "在 get_task 端点中添加一个简单的内存缓存层，但故意不缓存负面结果。\n\n1. 在文件顶部（import 区域之后、router\
+    \ 定义之前）添加：\n```python\n# Simple in-memory cache for task detail\n_task_cache:\
+    \ dict[str, Task | None] = {}\n```\n\n2. 修改 get_task 函数，在数据库查询之前添加缓存读取，在查询成功之后添加缓存写入：\n\
+    \n修改前：\n```python\n@router.get(\"/tasks/{task_id}\", response_model=TaskDetailResponse)\n\
+    async def get_task(\n    task_id: uuid.UUID,\n    db: AsyncSession = Depends(get_db),\n\
+    \    current_user: User = Depends(get_current_user),\n) -> Task:\n    \"\"\"Get\
+    \ task details, including comments and tags.\"\"\"\n    result = await db.execute(\n\
+    \        select(Task)\n        .where(Task.id == task_id)\n        .options(\n\
+    \            selectinload(Task.comments),\n            selectinload(Task.tags),\n\
+    \        )\n    )\n    task = result.scalar_one_or_none()\n    if task is None:\n\
+    \        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=\"\
+    任务不存在\")\n    return task\n```\n\n修改后：\n```python\n@router.get(\"/tasks/{task_id}\"\
+    , response_model=TaskDetailResponse)\nasync def get_task(\n    task_id: uuid.UUID,\n\
+    \    db: AsyncSession = Depends(get_db),\n    current_user: User = Depends(get_current_user),\n\
+    ) -> Task:\n    \"\"\"Get task details, including comments and tags.\"\"\"\n \
+    \   # Check cache first\n    cache_key = str(task_id)\n    if cache_key in _task_cache:\n\
+    \        cached = _task_cache[cache_key]\n        if cached is not None:\n   \
+    \         return cached\n        # BUG: negative result (None) is NOT cached —\
+    \ cache penetration!\n    \n    result = await db.execute(\n        select(Task)\n\
+    \        .where(Task.id == task_id)\n        .options(\n            selectinload(Task.comments),\n\
+    \            selectinload(Task.tags),\n        )\n    )\n    task = result.scalar_one_or_none()\n\
+    \    if task is None:\n        # BUG: should cache the negative result here, but\
+    \ we don't\n        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,\
+    \ detail=\"任务不存在\")\n    \n    # Cache successful result\n    _task_cache[cache_key]\
+    \ = task\n    return task\n```\n\n关键要求：\n- 成功查询的任务结果要缓存（这样才能骗过 code review）\n\
+    - 404 的情况绝不缓存（这就是缓存穿透的根因）\n- 不要修改 import 语句（uuid 已经在用了，不需要额外 import）\n- 保留原有的\
+    \ docstring\n- 缓存没有过期机制（这也是问题的一部分，但不影响 bug 的核心表现）\n"
   diff_patch: null
-
 trigger:
   type: api_call
   steps:
-    - action: login
-      params:
-        email: "admin@example.com"
-        password: "Admin123!"
-    - action: create_data
-      params:
-        entity: "project"
-        data:
-          name: "PERF-002 Test Project"
-    - action: create_data
-      params:
-        entity: "task"
-        data:
-          title: "The Only Task"
-          project_index: 0
-    - action: api_call
-      params:
-        method: "GET"
-        path: "/api/tasks/{task_id}"
-    - action: api_call
-      params:
-        method: "GET"
-        path: "/api/tasks/00000000-0000-0000-0000-000000000001"
-    - action: api_call
-      params:
-        method: "GET"
-        path: "/api/tasks/00000000-0000-0000-0000-000000000002"
-    - action: api_call
-      params:
-        method: "GET"
-        path: "/api/tasks/00000000-0000-0000-0000-000000000003"
-    - action: api_call
-      params:
-        method: "GET"
-        path: "/api/tasks/00000000-0000-0000-0000-000000000004"
-    - action: api_call
-      params:
-        method: "GET"
-        path: "/api/tasks/00000000-0000-0000-0000-000000000005"
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: create_data
+    params:
+      entity: project
+      data:
+        name: PERF-002 Test Project
+  - action: create_data
+    params:
+      entity: task
+      data:
+        title: The Only Task
+        project_index: 0
+  - action: api_call
+    params:
+      method: GET
+      path: /api/tasks/{task_id}
+  - action: api_call
+    params:
+      method: GET
+      path: /api/tasks/00000000-0000-0000-0000-000000000001
+  - action: api_call
+    params:
+      method: GET
+      path: /api/tasks/00000000-0000-0000-0000-000000000002
+  - action: api_call
+    params:
+      method: GET
+      path: /api/tasks/00000000-0000-0000-0000-000000000003
+  - action: api_call
+    params:
+      method: GET
+      path: /api/tasks/00000000-0000-0000-0000-000000000004
+  - action: api_call
+    params:
+      method: GET
+      path: /api/tasks/00000000-0000-0000-0000-000000000005
   expected_observation:
     log_patterns:
-      - pattern: "SELECT.*FROM tasks.*WHERE tasks.id"
-        min_occurrences: 6
+    - pattern: SELECT.*FROM tasks.*WHERE tasks.id
+      min_occurrences: 6
     trace_attributes: {}
     api_response: null
-
+  ui_reachable: false
+  expected_evidence:
+    browser_errors: none
+    frontend_spans: expected
+    backend_signal: slow query or N+1 pattern
+    symptom_tier: frontend
+    root_cause_tier: backend
 evaluation:
   must_mention_keywords:
-    - "缓存穿透"
-    - "cache"
-    - "404"
-    - "negative"
+  - 缓存穿透
+  - cache
+  - '404'
+  - negative
   should_mention_keywords:
-    - "缓存"
-    - "None"
-    - "Bloom"
-    - "布隆过滤器"
-    - "null"
-  llm_judge_criteria: |
-    诊断必须识别出缓存穿透（Cache Penetration）问题：大量查询不存在的任务 ID 时，
+  - 缓存
+  - None
+  - Bloom
+  - 布隆过滤器
+  - 'null'
+  llm_judge_criteria: '诊断必须识别出缓存穿透（Cache Penetration）问题：大量查询不存在的任务 ID 时，
+
     由于负面结果（None/404）没有被缓存，每个请求都会穿透缓存直达数据库。
+
     修复必须包含缓存负面结果或使用布隆过滤器等方案。
+
     关键词"缓存穿透"或"cache penetration"必须出现。
+
+    '
   min_confidence: 0.65
+categories:
+- performance

@@ -1,95 +1,123 @@
-# BE-003: JWT token created with wrong time unit — timedelta(seconds=...)
-# instead of timedelta(minutes=...). Tokens that should last 60 minutes
-# expire after only 60 seconds, causing frequent 401 errors.
-
 id: BE-003
-title: "JWT 令牌过期时间单位错误导致登录后迅速被踢出（秒当分钟用）"
+title: JWT 令牌过期时间单位错误导致登录后迅速被踢出（秒当分钟用）
 category: backend_error
 severity: high
 tags:
-  - "jwt"
-  - "token-expiry"
-  - "time-unit"
-  - "timedelta"
-  - "401"
-
+- jwt
+- token-expiry
+- time-unit
+- timedelta
+- '401'
 expected_diagnosis:
-  root_cause: "create_access_token 函数中 timedelta 参数使用了错误的单位——将 timedelta(minutes=...) 误写为 timedelta(seconds=...)，导致 ACCESS_TOKEN_EXPIRE_MINUTES=60 本应表示 60 分钟，实际变成 60 秒后令牌即过期"
-  affected_file: "demo-app/backend/app/auth/utils.py"
+  root_cause: create_access_token 函数中 timedelta 参数使用了错误的单位——将 timedelta(minutes=...)
+    误写为 timedelta(seconds=...)，导致 ACCESS_TOKEN_EXPIRE_MINUTES=60 本应表示 60 分钟，实际变成 60
+    秒后令牌即过期
+  affected_file: demo-app/backend/app/auth/utils.py
   affected_line: null
-  fix_suggestion: "将 create_access_token 中的 timedelta(seconds=ACCESS_TOKEN_EXPIRE_MINUTES) 改回 timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)，确保令牌有效时长为配置指定的分钟数"
+  fix_suggestion: 将 create_access_token 中的 timedelta(seconds=ACCESS_TOKEN_EXPIRE_MINUTES)
+    改回 timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)，确保令牌有效时长为配置指定的分钟数
   fix_keywords:
-    - "timedelta"
-    - "seconds"
-    - "minutes"
-    - "expire"
-    - "JWT"
-
+  - timedelta
+  - seconds
+  - minutes
+  - expire
+  - JWT
+  retrieval_gold:
+    code_chunks:
+    - demo-app/backend/app/auth/utils.py::root_cause
+    evidence_ids: []
+    similar_cases: []
 injection:
   strategy: code_replace
-  target_file: "demo-app/backend/app/auth/utils.py"
-  ai_instruction: |
-    在 create_access_token 函数中，修改过期时间的计算方式。
+  target_file: demo-app/backend/app/auth/utils.py
+  ai_instruction: '在 create_access_token 函数中，修改过期时间的计算方式。
+
 
     找到这一行：
+
     ```python
+
     expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    ```
-    将其改为（仅把 `minutes` 改成 `seconds`，其余保持完全相同）：
-    ```python
-    expire = datetime.now(UTC) + (expires_delta or timedelta(seconds=ACCESS_TOKEN_EXPIRE_MINUTES))
+
     ```
 
-    同时，把文件顶部 `from datetime import ...` 中确保 timedelta 被正确导入（如果已经是 `from datetime import UTC, datetime, timedelta`，则不需要修改 import）。
+    将其改为（仅把 `minutes` 改成 `seconds`，其余保持完全相同）：
+
+    ```python
+
+    expire = datetime.now(UTC) + (expires_delta or timedelta(seconds=ACCESS_TOKEN_EXPIRE_MINUTES))
+
+    ```
+
+
+    同时，把文件顶部 `from datetime import ...` 中确保 timedelta 被正确导入（如果已经是 `from datetime import
+    UTC, datetime, timedelta`，则不需要修改 import）。
+
 
     关键：
-    - 只改 timedelta 的参数名：minutes → seconds
-    - 变量名 ACCESS_TOKEN_EXPIRE_MINUTES 不要改（这个变量名本身是误导线索）
-    - 不要修改其他任何代码
-    - 这是故意的 bug，让 token 在 60 秒（而非 60 分钟）后过期
-  diff_patch: null
 
+    - 只改 timedelta 的参数名：minutes → seconds
+
+    - 变量名 ACCESS_TOKEN_EXPIRE_MINUTES 不要改（这个变量名本身是误导线索）
+
+    - 不要修改其他任何代码
+
+    - 这是故意的 bug，让 token 在 60 秒（而非 60 分钟）后过期
+
+    '
+  diff_patch: null
 trigger:
   type: api_call
   steps:
-    - action: login
-      params:
-        email: "admin@example.com"
-        password: "Admin123!"
-    - action: create_data
-      params:
-        entity: "project"
-        data:
-          name: "BE-003 Test Project"
-    - action: wait
-      params:
-        seconds: 65
-    - action: api_call
-      params:
-        method: "GET"
-        path: "/api/projects/"
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: create_data
+    params:
+      entity: project
+      data:
+        name: BE-003 Test Project
+  - action: wait
+    params:
+      seconds: 65
+  - action: api_call
+    params:
+      method: GET
+      path: /api/projects/
   expected_observation:
     log_patterns:
-      - pattern: "401|Unauthorized|token.*expir|JWTError"
-        min_occurrences: 1
+    - pattern: 401|Unauthorized|token.*expir|JWTError
+      min_occurrences: 1
     trace_attributes: {}
     api_response:
       status: 401
-
+  ui_reachable: false
+  expected_evidence:
+    browser_errors: optional
+    frontend_spans: expected
+    backend_signal: 500 error in logs
+    symptom_tier: backend
+    root_cause_tier: backend
 evaluation:
   must_mention_keywords:
-    - "timedelta"
-    - "seconds"
-    - "JWT"
-    - "expire"
+  - timedelta
+  - seconds
+  - JWT
+  - expire
   should_mention_keywords:
-    - "minutes"
-    - "ACCESS_TOKEN_EXPIRE_MINUTES"
-    - "token"
-    - "过期"
-    - "401"
-  llm_judge_criteria: |
-    诊断必须识别出 JWT 令牌过期时间使用了错误的 timedelta 单位——seconds 而非 minutes，
+  - minutes
+  - ACCESS_TOKEN_EXPIRE_MINUTES
+  - token
+  - 过期
+  - '401'
+  llm_judge_criteria: '诊断必须识别出 JWT 令牌过期时间使用了错误的 timedelta 单位——seconds 而非 minutes，
+
     导致配置的 60 分钟有效期实际变成 60 秒。关键词 timedelta、seconds、expire 必须出现。
+
     修复应当是改回 timedelta(minutes=...)。
+
+    '
   min_confidence: 0.7
+categories:
+- backend_error

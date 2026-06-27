@@ -5,6 +5,7 @@ Evidence Collector — fetches logs and traces from Loki and Tempo.
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,9 +52,36 @@ class EvidenceCollector:
         start: datetime,
         end: datetime,
         services: list[str] | None = None,
+        expected_evidence: Any = None,
     ) -> CollectedEvidence:
+        """Collect logs and traces for *recipe_id* within the time window.
+
+        Args:
+            expected_evidence: Optional :class:`ExpectedEvidence` from the
+                recipe's trigger.  When provided, evidence collection is
+                clipped accordingly — e.g. frontend-crash-only cases skip
+                trace fetching, and backend-only cases skip browser errors.
+        """
         if services is None:
             services = ["demo-backend", "demo-frontend"]
+
+        # ── Evidence clipping based on expected_evidence ──────────────
+        skip_traces = False
+        if expected_evidence is not None:
+            # Import here to avoid circular dependency at module level.
+            from bug_factory.schema import ExpectedEvidence
+
+            if (
+                isinstance(expected_evidence, ExpectedEvidence)
+                and expected_evidence.frontend_spans == "none"
+            ):
+                skip_traces = True
+                logger.info(
+                    "Skipping trace collection per expected_evidence",
+                    recipe_id=recipe_id,
+                    frontend_spans=expected_evidence.frontend_spans,
+                )
+
         logger.info(
             "Starting evidence collection",
             recipe_id=recipe_id,
@@ -63,10 +91,17 @@ class EvidenceCollector:
         async with aiohttp.ClientSession(
             timeout=_DEFAULT_TIMEOUT, connector=TCPConnector(limit=5)
         ) as session:
-            logs, traces = await asyncio.gather(
-                self._fetch_logs(session, start, end, services),
-                self._fetch_traces(session, start, end, services),
-            )
+            if skip_traces:
+                logs, _ = await asyncio.gather(
+                    self._fetch_logs(session, start, end, services),
+                    asyncio.sleep(0),  # no-op instead of trace fetch
+                )
+                traces: list[TraceSpan] = []
+            else:
+                logs, traces = await asyncio.gather(
+                    self._fetch_logs(session, start, end, services),
+                    self._fetch_traces(session, start, end, services),
+                )
         evidence = CollectedEvidence(
             recipe_id=recipe_id,
             logs=logs,
@@ -206,7 +241,10 @@ class EvidenceCollector:
                     spans.append(
                         TraceSpan(
                             trace_id=trace_id,
-                            span_id=sd.get("spanID", ""),
+                            span_id=_b64_to_hex(sd.get("spanID", "")),
+                            parent_span_id=_b64_to_hex(
+                                sd.get("parentSpanId") or sd.get("parentSpanID", "")
+                            ),
                             operation_name=sd.get("name", ""),
                             service_name=svc or sattrs.get("service.name", ""),
                             start_time=_ns_to_iso(str(start_ns)),
@@ -250,6 +288,16 @@ class EvidenceCollector:
             json.dumps([t.model_dump() for t in evidence.traces], indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
+        # ── Save browser_errors.json (independent channel, see §13.1.2) ──
+        if evidence.browser_errors:
+            (d / "browser_errors.json").write_text(
+                json.dumps(
+                    [b.model_dump() for b in evidence.browser_errors],
+                    indent=2,
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
         logger.info("Evidence saved", recipe_id=recipe_id, path=str(d))
 
 
@@ -259,6 +307,21 @@ def _ns_to_iso(ns_str: str) -> str:
         return datetime.fromtimestamp(ns / 1_000_000_000, tz=timezone.utc).isoformat()  # noqa: UP017
     except (ValueError, OSError):
         return ns_str
+
+
+def _b64_to_hex(v: str) -> str:
+    """Decode a base64-encoded span/parentSpanId to hex.
+
+    OTLP/JSON transports ``spanId`` and ``parentSpanId`` as base64 strings.
+    This helper converts them to 16-char hex for human readability and
+    tree reconstruction.
+    """
+    if not v:
+        return ""
+    try:
+        return base64.b64decode(v).hex()
+    except Exception:
+        return v  # Already hex, or malformed — pass through.
 
 
 def _flatten_attrs(attrs: list[dict[str, Any]]) -> dict[str, str]:

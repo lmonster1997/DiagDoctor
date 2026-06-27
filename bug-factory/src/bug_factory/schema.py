@@ -13,11 +13,37 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, model_validator
 
 # ---------------------------------------------------------------------------
 # Sub-models
 # ---------------------------------------------------------------------------
+
+
+class RetrievalGold(BaseModel):
+    """Ground-truth for evaluating retrieval quality of the Doctor agent.
+
+    Specifies which code chunks, evidence IDs, and similar cases
+    should be retrieved from the knowledge base for this bug.
+    """
+
+    code_chunks: list[str] = []  # Function-level chunks that code_search should recall
+    evidence_ids: list[str] = []  # Evidence IDs that evidence_refs should reference
+    similar_cases: list[str] = []  # Historical case IDs that should be recalled
+
+
+class ExpectedEvidence(BaseModel):
+    """Expected evidence profile for a bug — which tiers should show signals.
+
+    Used by the evidence collector to verify the bug was activated,
+    and by the Doctor agent to guide its search strategy.
+    """
+
+    browser_errors: Literal["expected", "optional", "none"] = "optional"
+    frontend_spans: Literal["expected", "none"] = "expected"
+    backend_signal: str = ""  # Key signal expected on the root-cause side
+    symptom_tier: Literal["frontend", "backend"] = "backend"
+    root_cause_tier: Literal["frontend", "backend", "data"] = "backend"
 
 
 class ExpectedDiagnosis(BaseModel):
@@ -28,6 +54,7 @@ class ExpectedDiagnosis(BaseModel):
     affected_line: int | None = None
     fix_suggestion: str
     fix_keywords: list[str]  # Keywords that MUST appear in the fix suggestion
+    retrieval_gold: RetrievalGold | None = None
 
 
 class Injection(BaseModel):
@@ -42,7 +69,7 @@ class Injection(BaseModel):
 class TriggerStep(BaseModel):
     """A single step in a trigger sequence that activates the bug."""
 
-    action: Literal["login", "api_call", "ui_click", "create_data", "wait"]
+    action: Literal["login", "api_call", "ui_click", "create_data", "wait", "ui_navigate"]
     params: dict[str, Any]
 
 
@@ -71,6 +98,17 @@ class Trigger(BaseModel):
     type: Literal["e2e_action", "api_call", "scheduled"]
     steps: list[TriggerStep]
     expected_observation: ExpectedObservation
+    ui_reachable: bool = True
+    expected_evidence: ExpectedEvidence | None = None
+
+    @model_validator(mode="after")
+    def _validate_ui_reachable(self) -> Trigger:
+        """If ui_reachable is True, trigger.type must be 'e2e_action'."""
+        if self.ui_reachable and self.type != "e2e_action":
+            raise ValueError(
+                f"ui_reachable=True requires trigger.type='e2e_action', got '{self.type}'"
+            )
+        return self
 
 
 class Evaluation(BaseModel):
@@ -93,6 +131,7 @@ class BugRecipe(BaseModel):
     id: str = Field(pattern=r"^[A-Z]+-\d{3}$")
     title: str
     category: Literal["frontend_crash", "backend_error", "performance", "logic", "data", "config"]
+    categories: list[str] = []  # Multi-label ground truth (backward compatible)
     severity: Literal["low", "medium", "high", "critical"]
     expected_diagnosis: ExpectedDiagnosis
     injection: Injection
@@ -196,6 +235,7 @@ class TraceSpan(BaseModel):
 
     trace_id: str
     span_id: str
+    parent_span_id: str = ""
     operation_name: str
     service_name: str = ""
     start_time: str
@@ -246,10 +286,16 @@ class EvaluationCaseExpected(BaseModel):
     """The expected diagnosis for evaluation."""
 
     category: str
+    categories: list[str] = []  # Multi-label ground truth (v2)
     root_cause_summary: str
     affected_files: list[str] = []
     fix_keywords: list[str] = []
     llm_judge_criteria: str = ""
+    cross_layer: bool = False
+    symptom_tier: str = "backend"
+    root_cause_tier: str = "backend"
+    noise_ratio: float = 0.0
+    retrieval_gold: RetrievalGold | None = None
 
 
 class EvaluationCase(BaseModel):

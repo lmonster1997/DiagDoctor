@@ -1,94 +1,120 @@
-# LOGIC-001: Authorization bypass — user can access another user's project tasks
-# Category: logic — permission/authorization bug
-
 id: LOGIC-001
-title: "权限校验缺失导致用户可越权查看和修改他人项目任务"
+title: 权限校验缺失导致用户可越权查看和修改他人项目任务
 category: logic
 severity: high
-tags: ["authorization", "permission", "access-control", "security"]
-
+tags:
+- authorization
+- permission
+- access-control
+- security
 expected_diagnosis:
-  root_cause: "tasks API 端点（list_tasks / create_task）未校验当前用户与项目的所有权关系，导致任意认证用户可通过 project_id 访问或修改他人项目"
-  affected_file: "demo-app/backend/app/api/tasks.py"
+  root_cause: tasks API 端点（list_tasks / create_task）未校验当前用户与项目的所有权关系，导致任意认证用户可通过 project_id
+    访问或修改他人项目
+  affected_file: demo-app/backend/app/api/tasks.py
   affected_line: null
-  fix_suggestion: "在 list_tasks / create_task 端点中添加项目所有权校验：查询 project 并检查 project.owner_id == current_user.id，不匹配返回 403 Forbidden"
+  fix_suggestion: 在 list_tasks / create_task 端点中添加项目所有权校验：查询 project 并检查 project.owner_id
+    == current_user.id，不匹配返回 403 Forbidden
   fix_keywords:
-    - "owner_id"
-    - "403"
-    - "Forbidden"
-    - "权限"
-    - "authorization"
-
+  - owner_id
+  - '403'
+  - Forbidden
+  - 权限
+  - authorization
+  retrieval_gold:
+    code_chunks:
+    - demo-app/backend/app/api/tasks.py::root_cause
+    evidence_ids: []
+    similar_cases: []
 injection:
   strategy: code_insert
-  target_file: "demo-app/backend/app/api/tasks.py"
-  ai_instruction: |
-    在 list_tasks 函数中，在数据库查询之前添加以下注释和代码（假装添加了权限检查，但实际上不做任何过滤）：
-    
-    ```python
-    # Security: verify project ownership
-    # NOTE: Intentionally bypassing owner check for "performance" reasons
-    pass
-    ```
-    
-    这段代码看起来像是权限检查，但实际上 pass 不做任何事情——允许任意用户访问任意项目。
-    确保：
-    - 不要修改现有机能
-    - 不要添加真正的权限检查
-    - 让代码看起来像是"有意为之"的性能优化
-  diff_patch: null
+  target_file: demo-app/backend/app/api/tasks.py
+  ai_instruction: '在 list_tasks 函数中，在数据库查询之前添加以下注释和代码（假装添加了权限检查，但实际上不做任何过滤）：
 
+
+    ```python
+
+    # Security: verify project ownership
+
+    # NOTE: Intentionally bypassing owner check for "performance" reasons
+
+    pass
+
+    ```
+
+
+    这段代码看起来像是权限检查，但实际上 pass 不做任何事情——允许任意用户访问任意项目。
+
+    确保：
+
+    - 不要修改现有机能
+
+    - 不要添加真正的权限检查
+
+    - 让代码看起来像是"有意为之"的性能优化
+
+    '
+  diff_patch: null
 trigger:
   type: api_call
   steps:
-    - action: login
-      params:
-        email: "admin@example.com"
-        password: "Admin123!"
-    - action: create_data
-      params:
-        entity: "project"
-        data:
-          name: "Admin's Private Project"
-          description: "Should only be accessible by admin"
-    - action: create_data
-      params:
-        entity: "task"
-        data:
-          title: "Admin's Secret Task"
-          project_index: 0
-    - action: login
-      params:
-        email: "alice@example.com"
-        password: "Alice123!"
-    - action: api_call
-      params:
-        method: "GET"
-        path: "/api/projects/{project_id}/tasks"
-    - action: api_call
-      params:
-        method: "POST"
-        path: "/api/projects/{project_id}/tasks"
-        body:
-          title: "Alice's unauthorized task"
-          description: "This should not be allowed"
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: create_data
+    params:
+      entity: project
+      data:
+        name: Admin's Private Project
+        description: Should only be accessible by admin
+  - action: create_data
+    params:
+      entity: task
+      data:
+        title: Admin's Secret Task
+        project_index: 0
+  - action: login
+    params:
+      email: alice@example.com
+      password: Alice123!
+  - action: api_call
+    params:
+      method: GET
+      path: /api/projects/{project_id}/tasks
+  - action: api_call
+    params:
+      method: POST
+      path: /api/projects/{project_id}/tasks
+      body:
+        title: Alice's unauthorized task
+        description: This should not be allowed
   expected_observation:
     log_patterns: []
     trace_attributes: {}
     api_response:
       status: 200
-
+  ui_reachable: false
+  expected_evidence:
+    browser_errors: none
+    frontend_spans: expected
+    backend_signal: unexpected behavior in API response
+    symptom_tier: backend
+    root_cause_tier: backend
 evaluation:
   must_mention_keywords:
-    - "权限"
-    - "owner"
-    - "authorization"
+  - 权限
+  - owner
+  - authorization
   should_mention_keywords:
-    - "403"
-    - "Forbidden"
-    - "越权"
-    - "access control"
-  llm_judge_criteria: |
-    诊断必须明确指出缺少项目所有权校验，使得任意用户可访问和操作他人项目的任务数据。
+  - '403'
+  - Forbidden
+  - 越权
+  - access control
+  llm_judge_criteria: '诊断必须明确指出缺少项目所有权校验，使得任意用户可访问和操作他人项目的任务数据。
+
     修复建议应包含检查 project.owner_id 与 current_user.id 是否匹配，不匹配返回 403。
+
+    '
   min_confidence: 0.7
+categories:
+- logic

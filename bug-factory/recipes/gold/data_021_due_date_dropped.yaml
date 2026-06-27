@@ -1,92 +1,101 @@
-# DATA-021 (L2) — Data loss: due_date silently dropped on task creation
-# REQUIRES: P0 access-log middleware — done.
-# Signal: POST /api/tasks -> 201, but the created/returned task has due_date=null
-#         even though the request body set it. No error; a persisted-data loss bug.
-
 id: DATA-021
-title: "创建任务时填的截止日期没保存，建完就没了"
+title: 创建任务时填的截止日期没保存，建完就没了
 category: data
 severity: high
-tags: ["data-loss", "create_task", "due_date", "difficulty:L2"]
-
+tags:
+- data-loss
+- create_task
+- due_date
+- difficulty:L2
 expected_diagnosis:
-  root_cause: "create_task 把 due_date=payload.due_date 改成了 due_date=None，用户传入的截止日期被丢弃，任务始终无截止日期"
-  affected_file: "demo-app/backend/app/api/tasks.py"
+  root_cause: create_task 把 due_date=payload.due_date 改成了 due_date=None，用户传入的截止日期被丢弃，任务始终无截止日期
+  affected_file: demo-app/backend/app/api/tasks.py
   affected_line: null
-  fix_suggestion: "将 create_task 中的 due_date=None 改回 due_date=payload.due_date，写入用户提交的截止日期"
-  fix_keywords: ["due_date", "create_task", "payload.due_date", "数据丢失", "None"]
-
+  fix_suggestion: 将 create_task 中的 due_date=None 改回 due_date=payload.due_date，写入用户提交的截止日期
+  fix_keywords:
+  - due_date
+  - create_task
+  - payload.due_date
+  - 数据丢失
+  - None
+  retrieval_gold:
+    code_chunks:
+    - demo-app/backend/app/api/tasks.py::root_cause
+    evidence_ids: []
+    similar_cases: []
 injection:
   strategy: code_replace
-  target_file: "demo-app/backend/app/api/tasks.py"
-  ai_instruction: |
-    在 create_task 构造 Task(...) 时，把 due_date=payload.due_date 改成 due_date=None，
+  target_file: demo-app/backend/app/api/tasks.py
+  ai_instruction: '在 create_task 构造 Task(...) 时，把 due_date=payload.due_date 改成 due_date=None，
+
     使提交的截止日期被丢弃。
-  diff_patch: |
+
+    '
+  diff_patch: '
 
     --- a/demo-app/backend/app/api/tasks.py
 
+
     +++ b/demo-app/backend/app/api/tasks.py
+
 
     @@ -64,1 +64,1 @@
 
+
     -        due_date=payload.due_date,
+
 
     +        due_date=None,  # BUG(DATA-021): due_date silently dropped on create
 
-
-
+    '
 trigger:
-
   type: api_call
-
   steps:
-
-    - action: login
-
-      params: { email: "admin@example.com", password: "Admin123!" }
-
-    - action: create_data
-
-      params:
-
-        entity: "project"
-
-        data: { name: "截止日期测试", description: "due date loss" }
-
-    - action: api_call
-
-      params:
-
-        method: "POST"
-
-        path: "/api/projects/{project_id}/tasks"
-
-        body: { title: "有截止日期的任务", due_date: "2030-01-01T00:00:00Z" }
-
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: create_data
+    params:
+      entity: project
+      data:
+        name: 截止日期测试
+        description: due date loss
+  - action: api_call
+    params:
+      method: POST
+      path: /api/projects/{project_id}/tasks
+      body:
+        title: 有截止日期的任务
+        due_date: '2030-01-01T00:00:00Z'
   expected_observation:
-
     log_patterns:
-
-      - pattern: "\"method\":\"POST\",\"path\":\"/api/projects/.*/tasks\",\"status\":201"
-
-        min_occurrences: 1
-
+    - pattern: '"method":"POST","path":"/api/projects/.*/tasks","status":201'
+      min_occurrences: 1
     trace_attributes:
-
-      "POST /api/projects/{id}/tasks":
-
-        status: "OK"
-
+      POST /api/projects/{id}/tasks:
+        status: OK
     api_response: null
-
-
-
+  ui_reachable: false
+  expected_evidence:
+    browser_errors: none
+    frontend_spans: expected
+    backend_signal: data corruption or wrong values
+    symptom_tier: backend
+    root_cause_tier: data
 evaluation:
+  must_mention_keywords:
+  - due_date
+  should_mention_keywords:
+  - create_task
+  - 数据丢失
+  - payload.due_date
+  - None
+  llm_judge_criteria: '诊断必须指出 create_task 用 due_date=None 覆盖了用户提交的 payload.due_date，
 
-  must_mention_keywords: ["due_date"]
-  should_mention_keywords: ["create_task", "数据丢失", "payload.due_date", "None"]
-  llm_judge_criteria: |
-    诊断必须指出 create_task 用 due_date=None 覆盖了用户提交的 payload.due_date，
     导致截止日期被丢弃，并建议改回 payload.due_date。
+
+    '
   min_confidence: 0.6
+categories:
+- data

@@ -1,138 +1,120 @@
-# LOGIC-002: Race condition — concurrent PATCH requests to the same task
-# cause silent "last-write-wins" data loss. No optimistic concurrency control
-# (no version field / ETag / If-Match header), so two users editing the same
-# task simultaneously will silently overwrite each other's changes.
-
 id: LOGIC-002
-title: "并发编辑同一任务导致数据静默丢失（Last-Write-Wins 竞态条件）"
+title: 并发编辑同一任务导致数据静默丢失（Last-Write-Wins 竞态条件）
 category: logic
 severity: high
 tags:
-  - "race-condition"
-  - "concurrency"
-  - "last-write-wins"
-  - "optimistic-lock"
-  - "data-loss"
-
+- race-condition
+- concurrency
+- last-write-wins
+- optimistic-lock
+- data-loss
 expected_diagnosis:
-  root_cause: "update_task 端点缺乏乐观并发控制（Optimistic Concurrency Control），没有使用版本号（version）或 ETag/If-Match 机制。当两个客户端几乎同时 PATCH 同一任务时，后到达的请求会静默覆盖先到达请求的修改，导致数据丢失而没有任何错误提示"
-  affected_file: "demo-app/backend/app/api/tasks.py"
+  root_cause: update_task 端点缺乏乐观并发控制（Optimistic Concurrency Control），没有使用版本号（version）或
+    ETag/If-Match 机制。当两个客户端几乎同时 PATCH 同一任务时，后到达的请求会静默覆盖先到达请求的修改，导致数据丢失而没有任何错误提示
+  affected_file: demo-app/backend/app/api/tasks.py
   affected_line: null
-  fix_suggestion: "在 Task 模型中添加 version 字段（Integer, default=0），每次 update 时检查 version 是否匹配并自增。客户端在 PATCH 请求中携带 If-Match 头或 version 字段，服务端在 WHERE 子句中校验 `Task.id == id AND Task.version == expected_version`，若匹配行数为 0 则返回 409 Conflict"
+  fix_suggestion: 在 Task 模型中添加 version 字段（Integer, default=0），每次 update 时检查 version
+    是否匹配并自增。客户端在 PATCH 请求中携带 If-Match 头或 version 字段，服务端在 WHERE 子句中校验 `Task.id == id
+    AND Task.version == expected_version`，若匹配行数为 0 则返回 409 Conflict
   fix_keywords:
-    - "version"
-    - "409"
-    - "Conflict"
-    - "竞态"
-    - "concurrency"
-
+  - version
+  - '409'
+  - Conflict
+  - 竞态
+  - concurrency
+  retrieval_gold:
+    code_chunks:
+    - demo-app/backend/app/api/tasks.py::root_cause
+    evidence_ids: []
+    similar_cases: []
 injection:
   strategy: code_insert
-  target_file: "demo-app/backend/app/api/tasks.py"
-  ai_instruction: |
-    在 update_task 端点中注入一个人工延迟，使竞态条件更容易被触发和观察。
-
-    1. 在文件顶部 import 区域添加：
-    ```python
-    import asyncio
-    ```
-
-    2. 在 update_task 函数中，在执行数据库查询之前，添加一个随机延迟：
-
-    修改后的 update_task 函数开头部分：
-    ```python
-    @router.patch("/tasks/{task_id}", response_model=TaskResponse)
-    async def update_task(
-        task_id: uuid.UUID,
-        payload: TaskUpdate,
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-    ) -> Task:
-        """Update an existing task."""
-        # BUG: Artificial delay makes race condition deterministic
-        await asyncio.sleep(0.5)
-        
-        result = await db.execute(select(Task).where(Task.id == task_id))
-        task = result.scalar_one_or_none()
-        if task is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
-        
-        update_data = payload.model_dump(exclude_unset=True)
-        for field, value in update_data.items():
-            setattr(task, field, value)
-
-        await db.flush()
-        await db.refresh(task)
-        return task
-    ```
-
-    关键要求：
-    - 添加 asyncio.sleep(0.5) 延迟（使两个并发请求几乎同时读取、先后写入）
-    - 不要添加任何版本检查、乐观锁、或冲突检测逻辑
-    - 保留原有的所有 import 和函数签名
-    - 不要删除或修改 docstring
-    - 延迟时间不要太长（0.5 秒足够制造竞态窗口）
+  target_file: demo-app/backend/app/api/tasks.py
+  ai_instruction: "在 update_task 端点中注入一个人工延迟，使竞态条件更容易被触发和观察。\n\n1. 在文件顶部 import 区域添加：\n\
+    ```python\nimport asyncio\n```\n\n2. 在 update_task 函数中，在执行数据库查询之前，添加一个随机延迟：\n\n\
+    修改后的 update_task 函数开头部分：\n```python\n@router.patch(\"/tasks/{task_id}\", response_model=TaskResponse)\n\
+    async def update_task(\n    task_id: uuid.UUID,\n    payload: TaskUpdate,\n  \
+    \  db: AsyncSession = Depends(get_db),\n    current_user: User = Depends(get_current_user),\n\
+    ) -> Task:\n    \"\"\"Update an existing task.\"\"\"\n    # BUG: Artificial delay\
+    \ makes race condition deterministic\n    await asyncio.sleep(0.5)\n    \n   \
+    \ result = await db.execute(select(Task).where(Task.id == task_id))\n    task\
+    \ = result.scalar_one_or_none()\n    if task is None:\n        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,\
+    \ detail=\"任务不存在\")\n    \n    update_data = payload.model_dump(exclude_unset=True)\n\
+    \    for field, value in update_data.items():\n        setattr(task, field, value)\n\
+    \n    await db.flush()\n    await db.refresh(task)\n    return task\n```\n\n关键要求：\n\
+    - 添加 asyncio.sleep(0.5) 延迟（使两个并发请求几乎同时读取、先后写入）\n- 不要添加任何版本检查、乐观锁、或冲突检测逻辑\n- 保留原有的所有\
+    \ import 和函数签名\n- 不要删除或修改 docstring\n- 延迟时间不要太长（0.5 秒足够制造竞态窗口）\n"
   diff_patch: null
-
 trigger:
   type: api_call
   steps:
-    - action: login
-      params:
-        email: "admin@example.com"
-        password: "Admin123!"
-    - action: create_data
-      params:
-        entity: "project"
-        data:
-          name: "LOGIC-002 Test Project"
-    - action: create_data
-      params:
-        entity: "task"
-        data:
-          title: "Original Title"
-          description: "Original description"
-          project_index: 0
-    - action: api_call
-      params:
-        method: "PATCH"
-        path: "/api/tasks/{task_id}"
-        body:
-          title: "User A's Edit"
-    - action: api_call
-      params:
-        method: "PATCH"
-        path: "/api/tasks/{task_id}"
-        body:
-          description: "User B's Edit"
-    - action: wait
-      params:
-        seconds: 2
-    - action: api_call
-      params:
-        method: "GET"
-        path: "/api/tasks/{task_id}"
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: create_data
+    params:
+      entity: project
+      data:
+        name: LOGIC-002 Test Project
+  - action: create_data
+    params:
+      entity: task
+      data:
+        title: Original Title
+        description: Original description
+        project_index: 0
+  - action: api_call
+    params:
+      method: PATCH
+      path: /api/tasks/{task_id}
+      body:
+        title: User A's Edit
+  - action: api_call
+    params:
+      method: PATCH
+      path: /api/tasks/{task_id}
+      body:
+        description: User B's Edit
+  - action: wait
+    params:
+      seconds: 2
+  - action: api_call
+    params:
+      method: GET
+      path: /api/tasks/{task_id}
   expected_observation:
     log_patterns: []
     trace_attributes: {}
     api_response:
-      title: "User A's Edit"
-      description: "User B's Edit"
-
+      title: User A's Edit
+      description: User B's Edit
+  ui_reachable: false
+  expected_evidence:
+    browser_errors: none
+    frontend_spans: expected
+    backend_signal: unexpected behavior in API response
+    symptom_tier: backend
+    root_cause_tier: backend
 evaluation:
   must_mention_keywords:
-    - "竞态"
-    - "concurrency"
-    - "version"
-    - "乐观锁"
+  - 竞态
+  - concurrency
+  - version
+  - 乐观锁
   should_mention_keywords:
-    - "409"
-    - "Conflict"
-    - "Last-Write-Wins"
-    - "ETag"
-    - "If-Match"
-  llm_judge_criteria: |
-    诊断必须识别出并发编辑同一资源时的竞态条件——缺乏乐观并发控制导致后写覆盖先写的数据丢失。
+  - '409'
+  - Conflict
+  - Last-Write-Wins
+  - ETag
+  - If-Match
+  llm_judge_criteria: '诊断必须识别出并发编辑同一资源时的竞态条件——缺乏乐观并发控制导致后写覆盖先写的数据丢失。
+
     修复方案必须提及添加 version 字段或使用 ETag/If-Match 进行乐观锁校验。
+
     关键词"竞态"或"race condition"以及"version"或"乐观锁"或"optimistic lock"必须出现。
+
+    '
   min_confidence: 0.65
+categories:
+- logic

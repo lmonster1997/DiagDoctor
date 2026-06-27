@@ -1,6 +1,7 @@
 import React from "react";
 import * as Sentry from "@sentry/react";
 import { reportClientError } from "@/services/error-reporter";
+import { reportClientErrorSpan } from "@/observability/error-reporter";
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -40,6 +41,15 @@ class ErrorBoundaryClass extends React.Component<
     // Report to backend → Loki via the unified error reporter
     // (includes console.error for E2E test visibility + sendBeacon to Loki)
     reportClientError({
+      error: error.message,
+      stack: error.stack ?? null,
+      componentStack: errorInfo.componentStack ?? null,
+      type: "react_render",
+    });
+
+    // Report to OTel → Tempo as client_error span event
+    // (links the render error into the active distributed trace)
+    reportClientErrorSpan({
       error: error.message,
       stack: error.stack ?? null,
       componentStack: errorInfo.componentStack ?? null,

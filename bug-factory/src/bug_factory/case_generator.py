@@ -4,6 +4,7 @@ Case Generator — produces evaluation cases from bug-factory pipeline results.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -24,6 +25,10 @@ if TYPE_CHECKING:
     from bug_factory.schema import BugRecipe, InjectionResult, TriggerResult
 
 logger = structlog.get_logger(__name__)
+
+# Regex to extract new-file line number from unified diff hunk header.
+# Example: "@@ -10,6 +10,8 @@ def some_function():" → group(1)="10"
+_DIFF_HUNK_RE = re.compile(r"^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,\d+)?\s+@@")
 
 _USER_REPORT_PROMPT = """\
 你是一个普通用户，正在使用 TaskFlow 任务管理应用。
@@ -68,9 +73,46 @@ class CaseGenerator:
         evidence_files = {
             "logs_file": "evidence/logs.json",
             "traces_file": "evidence/traces.json",
+            "browser_errors_file": "evidence/browser_errors.json",
         }
+
+        # ── Derive cross_layer / symptom_tier / root_cause_tier ──────
+        cross_layer = False
+        symptom_tier = "backend"
+        root_cause_tier = "backend"
+        if recipe.trigger.expected_evidence is not None:
+            ee = recipe.trigger.expected_evidence
+            symptom_tier = ee.symptom_tier
+            root_cause_tier = ee.root_cause_tier
+            # Cross-layer: symptom is frontend but root cause is backend/data
+            cross_layer = symptom_tier == "frontend" and root_cause_tier in ("backend", "data")
+
+        # ── Extract affected_line from git diff ──────────────────────
+        affected_line = (
+            self._extract_line_from_diff(
+                injection_result.diff, recipe.expected_diagnosis.affected_file
+            )
+            or recipe.expected_diagnosis.affected_line
+        )
+        if affected_line:
+            logger.debug(
+                "Extracted affected_line from git diff",
+                recipe_id=recipe.id,
+                affected_line=affected_line,
+            )
+
+        # ── Derive retrieval_gold from recipe ─────────────────────────
+        retrieval_gold = self._derive_retrieval_gold(recipe)
+
+        # ── Derive categories (multi-label) ───────────────────────────
+        categories: list[str] = list(recipe.categories) if recipe.categories else [recipe.category]
+
+        # ── Compute noise_ratio ───────────────────────────────────────
+        noise_ratio = self._compute_noise_ratio(evidence)
+
         expected = EvaluationCaseExpected(
             category=recipe.category,
+            categories=categories,
             root_cause_summary=recipe.expected_diagnosis.root_cause,
             affected_files=(
                 [recipe.expected_diagnosis.affected_file]
@@ -79,6 +121,11 @@ class CaseGenerator:
             ),
             fix_keywords=recipe.evaluation.must_mention_keywords,
             llm_judge_criteria=recipe.evaluation.llm_judge_criteria,
+            cross_layer=cross_layer,
+            symptom_tier=symptom_tier,
+            root_cause_tier=root_cause_tier,
+            noise_ratio=noise_ratio,
+            retrieval_gold=retrieval_gold,
         )
         case = EvaluationCase(
             case_id=recipe.id,
@@ -150,3 +197,75 @@ class CaseGenerator:
         )
         path.write_text(header + body, encoding="utf-8")
         logger.info("Evaluation case saved", path=str(path))
+
+    # ── Diff parsing ─────────────────────────────────────────────────
+
+    @staticmethod
+    def _extract_line_from_diff(diff: str, target_file: str) -> int | None:
+        """Extract the first added line number for *target_file* from a unified diff.
+
+        Parses hunk headers like ``@@ -10,6 +10,8 @@`` to get the new-file
+        starting line number (the ``+10`` part).  Returns the first such
+        line found, or ``None`` if the diff could not be parsed.
+        """
+        if not diff:
+            return None
+        target_marker = target_file.replace("\\", "/")
+        in_target = target_marker in diff.replace("\\", "/")
+        for line in diff.split("\n"):
+            # Switch into target-file section when we see its header.
+            if line.startswith("+++ ") and not in_target:
+                in_target = target_marker in line.replace("\\", "/")
+                continue
+            if not in_target:
+                continue
+            m = _DIFF_HUNK_RE.match(line)
+            if m:
+                return int(m.group(1))
+        return None
+
+    # ── retrieval_gold derivation ────────────────────────────────────
+
+    @staticmethod
+    def _derive_retrieval_gold(recipe: BugRecipe) -> RetrievalGold | None:  # type: ignore[name-defined]  # noqa: F821
+        """Derive retrieval gold-standard from the recipe."""
+        from bug_factory.schema import RetrievalGold
+
+        diag = recipe.expected_diagnosis
+        # If recipe already specifies retrieval_gold, use it directly.
+        if diag.retrieval_gold is not None:
+            return diag.retrieval_gold
+        # Otherwise build a minimal gold from affected_files.
+        chunks: list[str] = []
+        if diag.affected_file:
+            # Use file::function notation for code chunks.
+            base = diag.affected_file.replace("\\", "/")
+            chunks.append(f"{base}::{diag.root_cause[:40]}")
+        return (
+            RetrievalGold(
+                code_chunks=chunks,
+                evidence_ids=[],
+                similar_cases=[],
+            )
+            if chunks
+            else None
+        )
+
+    # ── noise_ratio ──────────────────────────────────────────────────
+
+    @staticmethod
+    def _compute_noise_ratio(evidence: CollectedEvidence) -> float:
+        """Compute the noise ratio of collected evidence.
+
+        Returns a value in [0, 1] where higher values mean more noise.
+        Simplified heuristic: ratio of non-error log lines to total.
+        """
+        total = len(evidence.logs)
+        if total == 0:
+            return 0.0
+        error_keywords = ("error", "exception", "traceback", "fail", "500", "critical")
+        signal_count = sum(
+            1 for e in evidence.logs if any(kw in e.line.lower() for kw in error_keywords)
+        )
+        noise = total - signal_count
+        return round(noise / total, 2)

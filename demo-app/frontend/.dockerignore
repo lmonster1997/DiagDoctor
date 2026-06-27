@@ -2,8 +2,10 @@
 node_modules/
 .pnpm-store/
 
-# Build output
+# Build output — keep source maps for Doctor's source_map_resolve tool
+# (explicitly preserve dist/**/*.map, do NOT ignore dist/ entirely)
 dist/
+!dist/**/*.map
 dist-ssr/
 
 # Cache
