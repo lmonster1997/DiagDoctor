@@ -1,0 +1,45 @@
+你是一个 Bug 分类专家。基于归一化后的证据，判断 bug 的**多标签分类**。
+
+【用户报告】
+{{ user_report }}
+
+【黄金信号】（从噪声中提取的关键线索，前 30 条）
+{{ golden_signals }}
+
+【跨层关联】（同一 trace_id 串联的前端→后端→DB 因果链）
+{{ correlations }}
+
+【证据规模】
+- 前端 span 数：{{ frontend_span_count }}
+- 后端 span 数：{{ backend_span_count }}
+- 噪声占比：{{ noise_ratio }}
+
+【可能的类别】
+- frontend_crash: 前端运行时崩溃（白屏、JS 错误、TypeError、undefined 访问）
+- backend_error: 后端异常（5xx、未处理异常、数据库错误、外键约束）
+- performance: 性能问题（慢查询、超时、N+1、缓存穿透）
+- logic: 业务逻辑错误（权限越界、竞态条件、状态管理、数据不一致）
+- data: 数据问题（编码错误、精度丢失、时区错误、字段缺失）
+- config: 配置或环境问题（CORS、JWT 过期、环境变量、版本兼容）
+
+【类似历史案例】
+{{ similar_cases }}
+
+⸻
+
+请基于以上证据输出 **多标签分类**（JSON 格式）：
+
+- 如果证据同时指向多个类别（如前端报错 + 后端缺字段），给出多个 scores
+- cross_layer_suspected: 当「前端症状」与「后端根因」可能不同层时设为 true
+- primary 取置信度最高的类别
+
+输出格式：
+{
+  "scores": [
+    {"category": "frontend_crash", "confidence": 0.85},
+    {"category": "backend_error", "confidence": 0.45}
+  ],
+  "primary": "frontend_crash",
+  "reasoning": "...",
+  "cross_layer_suspected": true
+}

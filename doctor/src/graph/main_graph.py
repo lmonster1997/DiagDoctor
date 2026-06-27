@@ -1,18 +1,19 @@
 """
-Main LangGraph definition for DiagDoctor diagnosis pipeline.
+Main LangGraph definition for DiagDoctor diagnosis pipeline (v2).
 
-Implements a minimal runnable graph with:
-- dummy_triage_node: classifies bug category via LLM (structured output)
-- dummy_reporter_node: generates a diagnosis report
+Implements the refactored graph topology (Phase 1):
+    START → ingest → triage → reporter → END
 
-Graph flow: START → triage → reporter → END
+Future (Phase 2+):
+    START → ingest → triage → {specialist ×N fan-out} → synthesis → critic
+    ├─ accept → reporter → case_store → END
+    └─ retry  → triage (loop)
 
-Uses MemorySaver for checkpoint persistence, enabling:
-- Resumable diagnosis sessions via thread_id
-- State inspection and replay
-
-Note: For production, switch to AsyncSqliteSaver from
-langgraph.checkpoint.sqlite.aio for persistent storage.
+v2 key changes from v1:
+- Added ingest node (evidence normalization) before triage
+- Triage now outputs multi-label TriageOutput (not single Literal)
+- Removed bug_category field (migrated to triage.primary)
+- DiagnosisReport uses primary_category + categories (not bug_category)
 """
 
 from __future__ import annotations
@@ -22,108 +23,45 @@ from typing import Any
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
-from pydantic import BaseModel, Field
 
-from src.config import settings
-from src.graph.state import DiagnosisReport, DoctorState, Finding
-
-# ── Structured output models ────────────────────────────────────────
-
-
-class TriageOutput(BaseModel):
-    """Structured output from the triage LLM call."""
-
-    category: str = Field(description="Bug category classification")
-    confidence: float = Field(default=0.7, ge=0.0, le=1.0)
-    reasoning: str = Field(default="", description="Brief reasoning for the classification")
-
+from src.graph.nodes.triage import triage_node
+from src.graph.state import DiagnosisReport, DoctorState, NormalizedEvidence
+from src.ingest.normalizer import ingest
 
 # ── Graph nodes ─────────────────────────────────────────────────────
 
 
-async def dummy_triage_node(state: DoctorState) -> dict[str, Any]:
+async def ingest_node(state: DoctorState) -> dict[str, Any]:
     """
-    Triage node: calls LLM with structured output to classify bug category.
+    Ingest node: normalize raw evidence before feeding to LLM agents.
 
-    Uses LangChain's with_structured_output() to guarantee parseable JSON.
-    Returns updated bug_category, a Finding, and messages.
+    Converts raw_evidence (user_report, logs, traces, browser_errors)
+    into NormalizedEvidence with golden_signals, correlations, timeline.
+
+    This is a **non-LLM** node — pure Python processing.
     """
-    from langchain_openai import ChatOpenAI
-
-    llm = ChatOpenAI(
-        api_key=settings.llm_api_key,
-        base_url=settings.llm_base_url,
-        model=settings.llm_model,
-        temperature=0.1,
-    )
-
-    user_report = state.evidence.user_report
-
-    prompt = f"""你是一个 Bug 分类专家。基于以下用户报告，判断 bug 的类别。
-
-【用户报告】
-{user_report}
-
-【可能的类别】
-- frontend_crash: 前端运行时崩溃（白屏、JS 错误）
-- backend_error: 后端异常（5xx、未处理异常）
-- performance: 性能问题（慢、超时）
-- logic: 业务逻辑错误（数据不对、流程错乱）
-- data: 数据问题（编码、精度、时区）
-- config: 配置或环境问题"""
-
-    valid_categories = {
-        "frontend_crash",
-        "backend_error",
-        "performance",
-        "logic",
-        "data",
-        "config",
+    raw = state.raw_evidence
+    raw_dict: dict[str, Any] = {
+        "user_report": raw.user_report,
+        "logs": [log.model_dump() for log in raw.logs],
+        "traces": [span.model_dump() for span in raw.traces],
+        "browser_errors": [err.model_dump() for err in (raw.browser_errors or [])],
     }
 
-    try:
-        structured_llm = llm.with_structured_output(TriageOutput)
-        raw_output = await structured_llm.ainvoke(prompt)
-        triage_output = (
-            TriageOutput.model_validate(raw_output) if isinstance(raw_output, dict) else raw_output
-        )
-
-        category = triage_output.category.strip().lower()
-        if category not in valid_categories:
-            category = "backend_error"
-
-        finding = Finding(
-            agent="TriageAgent",
-            summary=triage_output.reasoning or f"Bug classified as: {category}",
-            confidence=triage_output.confidence,
-        )
-    except Exception:
-        # Fallback: unstructured call if structured output fails
-        response = await llm.ainvoke(prompt)
-        category = str(response.content).strip().lower()
-        if category not in valid_categories:
-            category = "backend_error"
-
-        finding = Finding(
-            agent="TriageAgent",
-            summary=f"Bug classified as: {category}",
-            confidence=0.5,
-        )
-
-    return {
-        "bug_category": category,
-        "findings": [finding],
-    }
+    normalized = ingest(raw_dict)
+    return {"evidence": normalized}
 
 
-async def dummy_reporter_node(state: DoctorState) -> dict[str, Any]:
+async def reporter_node(state: DoctorState) -> dict[str, Any]:
     """
-    Reporter node: generates a diagnosis report based on triage result.
+    Reporter node (v2): generates a diagnosis report from triage result.
 
-    In future iterations this will synthesize all findings and hypotheses
-    into a comprehensive report.
+    Uses multi-label triage output (primary + categories) and
+    DiagnosisReport v2 fields.
     """
-    bug_category = state.bug_category or "unknown"
+    triage = state.triage
+    primary = triage.primary or "backend_error"
+    categories = [s.category for s in triage.scores] if triage.scores else [primary]
 
     category_descriptions: dict[str, str] = {
         "frontend_crash": "前端运行时崩溃，可能与 JS 错误、组件渲染异常或未捕获的 Promise 相关。",
@@ -134,14 +72,26 @@ async def dummy_reporter_node(state: DoctorState) -> dict[str, Any]:
         "config": "配置或环境问题，可能与 CORS、环境变量或服务发现相关。",
     }
 
-    description = category_descriptions.get(bug_category, "需要进一步排查。")
+    description = category_descriptions.get(primary, "需要进一步排查。")
+
+    # Determine tiers from normalized evidence signals
+    evidence: NormalizedEvidence = state.evidence
+    has_frontend_signal = any(s.service_tier == "frontend" for s in evidence.golden_signals)
+    has_backend_signal = any(s.service_tier == "backend" for s in evidence.golden_signals)
+
+    symptom_tier: str = "frontend" if has_frontend_signal else "backend"
+    root_cause_tier: str = "backend" if has_backend_signal else "frontend"
 
     report = DiagnosisReport(
-        bug_category=bug_category,
-        root_cause=f"初步分析：此问题属于 {bug_category} 类型。{description}",
+        primary_category=primary,
+        categories=categories,
+        symptom_tier=symptom_tier,  # type: ignore[arg-type]
+        root_cause_tier=root_cause_tier,  # type: ignore[arg-type]
+        root_cause=f"初步分析：此问题属于 {primary} 类型。{description}",
         fix_suggestion="建议检查相关日志和 Trace 以定位具体根因。",
-        evidence_chain=["TriageAgent 分类"],
-        confidence=0.5,
+        evidence_chain=["TriageAgent 多标签分类"],
+        confidence=triage.scores[0].confidence if triage.scores else 0.5,
+        early_stopped=False,
     )
 
     return {"report": report}
@@ -149,26 +99,34 @@ async def dummy_reporter_node(state: DoctorState) -> dict[str, Any]:
 
 # ── Graph construction ──────────────────────────────────────────────
 
+
 _graph_instance: Any = None
 
 
 def _get_checkpointer() -> MemorySaver:
-    """Create a MemorySaver checkpointer for development.
-
-    Note: For production, replace with AsyncSqliteSaver which requires
-    async context manager lifecycle management at the application level.
-    """
+    """Create a MemorySaver checkpointer for development."""
     return MemorySaver()
 
 
 def build_graph() -> Any:
-    """Build (but do not compile) the DiagDoctor diagnosis graph."""
+    """
+    Build (but not compile) the DiagDoctor diagnosis graph (v2).
+
+    Phase 1 topology:
+        START → ingest → triage → reporter → END
+
+    Phase 2+ will add specialist fan-out, synthesis, and critic loop.
+    """
     graph: StateGraph[DoctorState, None, DoctorState, DoctorState] = StateGraph(DoctorState)
 
-    graph.add_node("triage", dummy_triage_node)
-    graph.add_node("reporter", dummy_reporter_node)
+    # ── Nodes ──
+    graph.add_node("ingest", ingest_node)
+    graph.add_node("triage", triage_node)
+    graph.add_node("reporter", reporter_node)
 
-    graph.set_entry_point("triage")
+    # ── Edges (linear for Phase 1) ──
+    graph.set_entry_point("ingest")
+    graph.add_edge("ingest", "triage")
     graph.add_edge("triage", "reporter")
     graph.add_edge("reporter", END)
 
@@ -177,7 +135,7 @@ def build_graph() -> Any:
 
 def get_graph() -> Any:
     """
-    Get or create the compiled DiagDoctor graph with SqliteSaver checkpointer.
+    Get or create the compiled DiagDoctor graph with MemorySaver checkpointer.
 
     The graph is cached at module level for reuse across requests.
     Uses SqliteSaver so diagnosis sessions can be resumed via thread_id.

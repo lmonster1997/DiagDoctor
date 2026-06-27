@@ -1,12 +1,11 @@
 """
-TriageAgent node — classifies bug category from evidence.
+TriageAgent node (v2) — multi-label classification + confidence gating.
 
-Implements the first step of the diagnosis pipeline:
-1. Summarize logs and traces from evidence
-2. RAG retrieve similar historical cases
-3. Call LLM with structured output to classify bug category
-
-The output is a TriageOutput with category, confidence, and reasoning.
+Key changes from v1:
+- Input: NormalizedEvidence (golden_signals + correlations) instead of raw logs/traces
+- Output: TriageOutput(scores=list[CategoryScore], primary, cross_layer_suspected)
+- Added: confidence gating logic (route_after_triage) for dynamic fan-out
+- Added: three-tier fallback (gate→retry→general_agent)
 """
 
 from __future__ import annotations
@@ -17,121 +16,67 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 from src.config import settings
-from src.graph.state import DoctorState, Evidence, Finding, LogEntry, TraceSpan
+from src.graph.state import (
+    VALID_CATEGORIES,
+    CategoryScore,
+    DoctorState,
+    Finding,
+    NormalizedEvidence,
+    TriageOutput,
+)
 from src.knowledge.hybrid_service import get_knowledge_service
 from src.prompts.registry import render_prompt
 
-# ── Structured output model ─────────────────────────────────────────
+# ── Structured output model (v2 multi-label) ────────────────────────
 
 
-class TriageOutput(BaseModel):
-    """Structured output from the triage LLM call."""
+class _LLMTriageOutput(BaseModel):
+    """Internal LLM structured output — maps to TriageOutput."""
 
-    category: str = Field(description="Bug category classification")
-    confidence: float = Field(default=0.7, ge=0.0, le=1.0)
-    reasoning: str = Field(default="", description="Brief reasoning for the classification")
-
-
-# ── Valid categories ─────────────────────────────────────────────────
-
-VALID_CATEGORIES: frozenset[str] = frozenset(
-    {
-        "frontend_crash",
-        "backend_error",
-        "performance",
-        "logic",
-        "data",
-        "config",
-    }
-)
-
-# ── Summarization helpers ───────────────────────────────────────────
+    scores: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="List of {category, confidence} dicts",
+    )
+    primary: str = Field(default="", description="Highest-confidence category")
+    reasoning: str = Field(default="")
+    cross_layer_suspected: bool = Field(
+        default=False,
+        description="Whether this bug likely spans frontend+backend",
+    )
 
 
-def summarize_logs(logs: list[LogEntry], max_entries: int = 50) -> str:
-    """
-    Summarize log entries into a compact string for the prompt.
+# ── Formatting helpers (use normalized evidence) ────────────────────
 
-    Prioritizes ERROR/WARNING level logs and deduplicates repeated messages.
 
-    Args:
-        logs: List of LogEntry objects from evidence.
-        max_entries: Maximum number of entries to include.
-
-    Returns:
-        Formatted log summary string.
-    """
-    if not logs:
-        return "（无日志数据）"
-
-    # Sort by severity: ERROR > WARNING > INFO > DEBUG
-    severity_order = {"ERROR": 0, "WARNING": 1, "INFO": 2, "DEBUG": 3}
-
-    sorted_logs = sorted(logs, key=lambda entry: severity_order.get(entry.level.upper(), 4))
-    truncated = sorted_logs[:max_entries]
+def _format_golden_signals(evidence: NormalizedEvidence) -> str:
+    """Format golden signals for the LLM prompt."""
+    if not evidence.golden_signals:
+        return "（无关键信号）"
 
     lines: list[str] = []
-    for entry in truncated:
-        ts = entry.timestamp.isoformat() if entry.timestamp else "N/A"
-        lines.append(f"[{ts}] [{entry.level}] [{entry.service}] {entry.message}")
-
+    for sig in evidence.golden_signals[:30]:
+        tier_label = "🖥前端" if sig.service_tier == "frontend" else "🖧后端"
+        sev_label = {"error": "❌", "warning": "⚠️", "info": "ℹ️"}.get(sig.severity, "•")
+        lines.append(f"{sev_label} [{tier_label}] [{sig.source}] {sig.summary}")
     return "\n".join(lines)
 
 
-def summarize_traces(
-    traces: list[TraceSpan],
-    max_entries: int = 50,
-    slow_threshold_ms: float = 200.0,
-) -> str:
-    """
-    Summarize trace spans into a compact string for the prompt.
-
-    Prioritizes error spans and slow spans above the threshold.
-
-    Args:
-        traces: List of TraceSpan objects from evidence.
-        max_entries: Maximum number of entries to include.
-        slow_threshold_ms: Threshold in ms above which a span is considered slow.
-
-    Returns:
-        Formatted trace summary string.
-    """
-    if not traces:
-        return "（无 Trace 数据）"
-
-    # Separate error and slow spans
-    error_spans = [t for t in traces if t.status == "error"]
-    slow_spans = [t for t in traces if t.status != "error" and t.duration_ms >= slow_threshold_ms]
-    other_spans = [t for t in traces if t.status != "error" and t.duration_ms < slow_threshold_ms]
-
-    prioritized = error_spans + slow_spans + other_spans
-    truncated = prioritized[:max_entries]
+def _format_correlations(evidence: NormalizedEvidence) -> str:
+    """Format cross-layer correlations for the LLM prompt."""
+    if not evidence.correlations:
+        return "（无跨层关联）"
 
     lines: list[str] = []
-    for span in truncated:
-        status_mark = (
-            "❌"
-            if span.status == "error"
-            else ("🐢" if span.duration_ms >= slow_threshold_ms else "✓")
-        )
+    for corr in evidence.correlations[:10]:
         lines.append(
-            f"{status_mark} [{span.service}] {span.name} "
-            f"({span.duration_ms:.1f}ms, status={span.status})"
+            f"- [{corr.correlation_id}] {corr.description} "
+            f"(trace={corr.trace_id}, confidence={corr.confidence:.1f})"
         )
-
     return "\n".join(lines)
 
 
-def format_similar_cases(cases: list[dict[str, Any]]) -> str:
-    """
-    Format similar historical cases for display in the prompt.
-
-    Args:
-        cases: List of dicts from KnowledgeService.search_historical_cases.
-
-    Returns:
-        Formatted string of similar cases.
-    """
+def _format_similar_cases(cases: list[dict[str, Any]]) -> str:
+    """Format similar historical cases."""
     if not cases:
         return "（无类似历史案例）"
 
@@ -143,48 +88,107 @@ def format_similar_cases(cases: list[dict[str, Any]]) -> str:
             f"类别: {case.get('category', 'N/A')} | "
             f"根因: {case.get('root_cause', 'N/A')}"
         )
-
     return "\n".join(lines)
 
 
-# ── Main node function ──────────────────────────────────────────────
+# ── Confidence gating function ──────────────────────────────────────
+
+
+def route_after_triage(state: DoctorState) -> list[str]:
+    """
+    Determine which specialist agents to activate based on triage confidence.
+
+    Gate strategy (from-scratch §5.5):
+    1. primary confidence < 0.5 → only general_agent (full-toolset fallback)
+    2. cross_layer_suspected or 2nd category > 0.4 → fan-out two specialists
+    3. Otherwise → single specialist
+
+    Returns:
+        List of node names to fan out to (LangGraph runs them in parallel).
+    """
+    triage = state.triage
+    if not triage.scores:
+        return ["general_agent"]
+
+    # Sort by confidence descending
+    sorted_scores = sorted(triage.scores, key=lambda s: -s.confidence)
+    top = sorted_scores[0]
+    second = sorted_scores[1] if len(sorted_scores) > 1 else None
+
+    # Low confidence → full fallback
+    if top.confidence < 0.5:
+        return ["general_agent"]
+
+    # Map category to specialist node name
+    category_to_specialist: dict[str, str] = {
+        "frontend_crash": "frontend_specialist",
+        "backend_error": "backend_specialist",
+        "performance": "perf_specialist",
+        "logic": "logic_specialist",
+        "data": "logic_specialist",
+        "config": "backend_specialist",
+    }
+
+    targets: list[str] = []
+    primary_node = category_to_specialist.get(top.category, "backend_specialist")
+    targets.append(primary_node)
+
+    # Cross-layer or high-confidence second → fan out two
+    if triage.cross_layer_suspected or (second and second.confidence > 0.4):
+        if second:
+            second_node = category_to_specialist.get(second.category, "backend_specialist")
+            if second_node not in targets:
+                targets.append(second_node)
+        elif triage.cross_layer_suspected and "frontend_specialist" not in targets:
+            targets.append("frontend_specialist")
+
+    return list(dict.fromkeys(targets))  # dedup preserving order
+
+
+# ── Main node function (v2) ─────────────────────────────────────────
 
 
 async def triage_node(state: DoctorState) -> dict[str, Any]:
     """
-    Triage node: analyze evidence and classify bug category.
+    Multi-label triage node: analyze normalized evidence → TriageOutput.
+
+    Uses the NormalizedEvidence produced by the Ingest layer (golden_signals,
+    correlations, timeline) — NOT raw logs/traces directly.
 
     Workflow:
-    1. Summarize logs and traces from evidence
-    2. RAG retrieve similar historical cases from knowledge base
-    3. Render prompt template with all context
+    1. Format golden_signals + correlations for prompt context
+    2. RAG retrieve similar historical cases
+    3. Render triage_v2.j2 template
     4. Call LLM with structured output (TriageOutput)
-    5. Return updated bug_category, findings
+    5. Return updated triage + findings
 
     Args:
-        state: Current DoctorState with evidence.
+        state: Current DoctorState with evidence (NormalizedEvidence).
 
     Returns:
-        Dict with keys 'bug_category' and 'findings' to merge into state.
+        Dict with 'triage' and 'findings' to merge into state.
     """
-    evidence: Evidence = state.evidence
+    evidence: NormalizedEvidence = state.evidence
 
-    # 1. Summarize evidence
-    logs_summary = summarize_logs(evidence.logs)
-    traces_summary = summarize_traces(evidence.traces)
+    # 1. Format normalized evidence for prompt
+    signals_text = _format_golden_signals(evidence)
+    correlations_text = _format_correlations(evidence)
 
     # 2. RAG retrieve similar historical cases
     knowledge_service = get_knowledge_service()
     similar = await knowledge_service.search_historical_cases(evidence.user_report, k=3)
-    similar_text = format_similar_cases(similar)
+    similar_text = _format_similar_cases(similar)
 
-    # 3. Render the prompt
+    # 3. Render prompt (v2 template with normalized evidence context)
     prompt = render_prompt(
-        "triage.j2",
+        "triage_v2.j2",
         user_report=evidence.user_report or "（无用户报告）",
-        logs_summary=logs_summary,
-        traces_summary=traces_summary,
+        golden_signals=signals_text,
+        correlations=correlations_text,
         similar_cases=similar_text,
+        frontend_span_count=str(evidence.frontend_span_count),
+        backend_span_count=str(evidence.backend_span_count),
+        noise_ratio=f"{evidence.noise_ratio:.1%}",
     )
 
     # 4. Call LLM with structured output
@@ -196,40 +200,74 @@ async def triage_node(state: DoctorState) -> dict[str, Any]:
     )
 
     try:
-        structured_llm = llm.with_structured_output(TriageOutput)
+        structured_llm = llm.with_structured_output(_LLMTriageOutput)
         raw_output = await structured_llm.ainvoke(prompt)
-        triage_output = (
-            TriageOutput.model_validate(raw_output) if isinstance(raw_output, dict) else raw_output
-        )
+        raw_dict = raw_output if isinstance(raw_output, dict) else raw_output.model_dump()
 
-        category = triage_output.category.strip().lower()
-        if category not in VALID_CATEGORIES:
-            category = "backend_error"
+        scores_raw: list[dict[str, Any]] = raw_dict.get("scores", [])
+        primary = str(raw_dict.get("primary", "")).strip().lower()
+        reasoning = str(raw_dict.get("reasoning", ""))
+        cross_layer = bool(raw_dict.get("cross_layer_suspected", False))
+
+        # Build CategoryScore list
+        scores: list[CategoryScore] = []
+        for s in scores_raw:
+            cat = str(s.get("category", "")).strip().lower()
+            if cat in VALID_CATEGORIES:
+                conf = float(s.get("confidence", 0.0))
+                scores.append(CategoryScore(category=cat, confidence=conf))
+
+        # Fallback: if no valid scores, create one from primary
+        if not scores:
+            primary = primary if primary in VALID_CATEGORIES else "backend_error"
+            scores.append(CategoryScore(category=primary, confidence=0.5))
+
+        # Ensure primary is set
+        if primary not in VALID_CATEGORIES:
+            primary = scores[0].category if scores else "backend_error"
+
+        triage_output = TriageOutput(
+            scores=scores,
+            primary=primary,
+            reasoning=reasoning,
+            cross_layer_suspected=cross_layer,
+        )
 
         finding = Finding(
             agent="TriageAgent",
-            summary=triage_output.reasoning or f"Bug classified as: {category}",
-            confidence=triage_output.confidence,
+            summary=f"Multi-label triage: primary={primary}, "
+            f"cross_layer={cross_layer}, "
+            f"scores={[(s.category, f'{s.confidence:.2f}') for s in scores]}",
+            confidence=scores[0].confidence if scores else 0.5,
         )
+
     except Exception:
-        # Fallback: unstructured call if structured output fails
+        # Fallback: unstructured call
         response = await llm.ainvoke(prompt)
         content = str(response.content).strip().lower()
 
-        # Try to find a valid category in the response
-        category = "backend_error"
+        # Find primary category
+        primary = "backend_error"
         for valid_cat in VALID_CATEGORIES:
             if valid_cat in content:
-                category = valid_cat
+                primary = valid_cat
                 break
+
+        scores = [CategoryScore(category=primary, confidence=0.5)]
+        triage_output = TriageOutput(
+            scores=scores,
+            primary=primary,
+            reasoning=f"Fallback classification: {content[:200]}",
+            cross_layer_suspected=False,
+        )
 
         finding = Finding(
             agent="TriageAgent",
-            summary=f"Bug classified as: {category}",
-            confidence=0.5,
+            summary=f"Fallback triage: primary={primary}",
+            confidence=0.3,
         )
 
     return {
-        "bug_category": category,
+        "triage": triage_output,
         "findings": [finding],
     }

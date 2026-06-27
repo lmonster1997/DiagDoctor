@@ -219,7 +219,8 @@ class KnowledgeService:
         doc = Document(
             page_content="\n".join(content_parts),
             metadata={
-                "category": report.bug_category,
+                "category": report.primary_category,
+                "categories": report.categories,
                 "root_cause": report.root_cause,
                 "affected_file": report.affected_file,
                 "affected_line": report.affected_line,
@@ -233,7 +234,7 @@ class KnowledgeService:
         await self._vector_kb.add_documents(COLLECTION_HISTORICAL_CASES, [doc])
         logger.info(
             "Indexed diagnosis: category=%s, confidence=%.2f",
-            report.bug_category,
+            report.primary_category,
             report.confidence,
         )
 

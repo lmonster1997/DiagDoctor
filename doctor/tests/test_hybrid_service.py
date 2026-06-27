@@ -228,7 +228,7 @@ class TestIndexDiagnosis:
     ) -> None:
         """Should index a diagnosis with confidence >= 0.6."""
         report = DiagnosisReport(
-            bug_category="performance",
+            primary_category="performance",
             root_cause="N+1 query in task listing",
             affected_file="tasks.py",
             affected_line=42,
@@ -254,7 +254,7 @@ class TestIndexDiagnosis:
     ) -> None:
         """Should skip indexing when confidence < 0.6."""
         report = DiagnosisReport(
-            bug_category="backend_error",
+            primary_category="backend_error",
             root_cause="Unknown",
             confidence=0.3,
         )

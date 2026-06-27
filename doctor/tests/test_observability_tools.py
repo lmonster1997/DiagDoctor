@@ -287,7 +287,7 @@ class TestTempoTraceParsing:
 
         assert isinstance(span, TraceSpan)
         assert span.span_id == "span-001"
-        assert span.parent_id is None
+        assert span.parent_span_id == ""
         assert span.name == "GET /api/tasks"
         assert span.service == "demo-backend"
         assert span.duration_ms == 500.0
@@ -374,7 +374,7 @@ class TestTempoTraceParsing:
         assert spans[0].service == "demo-backend"
         assert spans[0].status == "ok"
         assert spans[1].span_id == "span-002"
-        assert spans[1].parent_id == "span-001"
+        assert spans[1].parent_span_id == "span-001"
         assert spans[1].name == "SQL SELECT tasks"
         assert spans[1].duration_ms == 350.0
 
