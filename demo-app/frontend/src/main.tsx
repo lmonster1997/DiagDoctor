@@ -3,11 +3,28 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 import { initErrorReporting } from "@/services/error-reporter";
+// OTel-JS observability channel (D5 Task 5.2)
+import { initOtel } from "@/observability/otel";
+import { initFrontendLogs } from "@/observability/otel-logs";
+import { installGlobalErrorHooks } from "@/observability/error-reporter";
+import { initInstruments } from "@/observability/instruments";
 import "./index.css";
 import App from "./App.tsx";
 
-// ── Initialize client-side error reporting (MUST run before React renders) ──
-// Installs window.onerror, unhandledrejection hooks, and breadcrumb tracking.
+// ── OTel-JS: trace channel (WebTracerProvider → :4318/v1/traces) ──
+// MUST be called first so the provider is ready before any span is created.
+initOtel();
+
+// ── OTel-JS: logs channel (LoggerProvider → :4318/v1/logs) ──
+initFrontendLogs();
+
+// ── OTel-JS: global error hooks → client_error spans ──
+installGlobalErrorHooks();
+
+// ── OTel-JS: auto-instrumentations (fetch / document-load / user-interaction) ──
+initInstruments();
+
+// ── Existing client error reporting (sendBeacon → Loki direct-push) ──
 initErrorReporting();
 
 // Initialize Sentry if DSN is configured

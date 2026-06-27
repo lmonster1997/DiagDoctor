@@ -1,102 +1,104 @@
-# PERF-020 (L1) — N+1 query in task list endpoint
-# REQUIRES: demo-app P0 observability (SQL echo ON, SQLAlchemy instrumented) — done.
-# Signal: ~50 repeated "SELECT ... FROM comments WHERE comments.task_id" in Loki
-#         + 50 SQL child spans under the GET /projects/{id}/tasks span in Tempo.
-
 id: PERF-020
-title: "打开任务看板要等很久，任务越多越慢"
+title: 打开任务看板要等很久，任务越多越慢
 category: performance
 severity: high
-tags: ["n+1", "sqlalchemy", "orm", "difficulty:L1"]
-
+tags:
+- n+1
+- sqlalchemy
+- orm
+- difficulty:L1
 expected_diagnosis:
-  root_cause: "list_tasks 删除了 selectinload(Task.comments) 预加载，改为对每个 task 单独查询 comments，构成 N+1 查询"
-  affected_file: "demo-app/backend/app/api/tasks.py"
+  root_cause: list_tasks 删除了 selectinload(Task.comments) 预加载，改为对每个 task 单独查询 comments，构成
+    N+1 查询
+  affected_file: demo-app/backend/app/api/tasks.py
   affected_line: null
-  fix_suggestion: "恢复 .options(selectinload(Task.comments)) 预加载，或用单条聚合查询统计评论，删除按 task 循环的逐条查询"
-  fix_keywords: ["N+1", "selectinload", "eager loading", "list_tasks", "预加载"]
-
+  fix_suggestion: 恢复 .options(selectinload(Task.comments)) 预加载，或用单条聚合查询统计评论，删除按 task
+    循环的逐条查询
+  fix_keywords:
+  - N+1
+  - selectinload
+  - eager loading
+  - list_tasks
+  - 预加载
+  retrieval_gold:
+    code_chunks:
+    - demo-app/backend/app/api/tasks.py::root_cause
+    evidence_ids: []
+    similar_cases: []
 injection:
   strategy: code_replace
-  target_file: "demo-app/backend/app/api/tasks.py"
-  ai_instruction: |
-    在 list_tasks 中删除 .options(selectinload(Task.comments))，并在拿到 tasks 列表后
-    对每个 task 用 select(Comment).where(Comment.task_id == task.id) 单独查询一次评论，
-    构成 N+1。需新增 from app.models.comment import Comment。
-  diff_patch: |
-    --- a/demo-app/backend/app/api/tasks.py
-    +++ b/demo-app/backend/app/api/tasks.py
-    @@ -17,2 +17,3 @@
-     from app.models.task import Task
-    +from app.models.comment import Comment
-     from app.models.user import User
-    @@ -40,4 +40,8 @@
-    -        .options(selectinload(Task.comments))
-             .order_by(Task.created_at.desc())
-         )
-    -    return list(result.scalars().all())
-    +    tasks = list(result.scalars().all())
-    +    # BUG(PERF-020): N+1 — fetch each task's comments in a separate query
-    +    for _t in tasks:
-    +        _c = await db.execute(select(Comment).where(Comment.task_id == _t.id))
-    +        _ = _c.scalars().all()
-    +    return tasks
+  target_file: demo-app/backend/app/api/tasks.py
+  ai_instruction: '在 list_tasks 中删除 .options(selectinload(Task.comments))，并在拿到 tasks
+    列表后
 
+    对每个 task 用 select(Comment).where(Comment.task_id == task.id) 单独查询一次评论，
+
+    构成 N+1。需新增 from app.models.comment import Comment。
+
+    '
+  diff_patch: "--- a/demo-app/backend/app/api/tasks.py\n+++ b/demo-app/backend/app/api/tasks.py\n\
+    @@ -17,2 +17,3 @@\n from app.models.task import Task\n+from app.models.comment\
+    \ import Comment\n from app.models.user import User\n@@ -40,4 +40,8 @@\n-    \
+    \    .options(selectinload(Task.comments))\n         .order_by(Task.created_at.desc())\n\
+    \     )\n-    return list(result.scalars().all())\n+    tasks = list(result.scalars().all())\n\
+    +    # BUG(PERF-020): N+1 — fetch each task's comments in a separate query\n+\
+    \    for _t in tasks:\n+        _c = await db.execute(select(Comment).where(Comment.task_id\
+    \ == _t.id))\n+        _ = _c.scalars().all()\n+    return tasks\n"
 trigger:
   type: api_call
   steps:
-    - action: login
-      params: { email: "admin@example.com", password: "Admin123!" }
-    - action: create_data
-      params:
-        entity: "project"
-        data: { name: "N+1 看板", description: "perf test" }
-    - action: create_data
-
-      params:
-
-        entity: "task"
-
-        data: { title: "批量任务", project_index: 0 }
-
-        repeat: 50
-
-    - action: api_call
-
-      params:
-
-        method: "GET"
-
-        path: "/api/projects/{project_id}/tasks"
-
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: create_data
+    params:
+      entity: project
+      data:
+        name: N+1 看板
+        description: perf test
+  - action: create_data
+    params:
+      entity: task
+      data:
+        title: 批量任务
+        project_index: 0
+      repeat: 50
+  - action: api_call
+    params:
+      method: GET
+      path: /api/projects/{project_id}/tasks
   expected_observation:
-
     log_patterns:
-
-      - pattern: "SELECT .* FROM comments .* WHERE comments.task_id"
-
-        min_occurrences: 50
-
+    - pattern: SELECT .* FROM comments .* WHERE comments.task_id
+      min_occurrences: 50
     trace_attributes:
-
-      "GET /api/projects/{id}/tasks":
-
-        duration_ms: ">1000"
-
+      GET /api/projects/{id}/tasks:
+        duration_ms: '>1000'
     api_response: null
-
-
-
+  ui_reachable: false
+  expected_evidence:
+    browser_errors: none
+    frontend_spans: expected
+    backend_signal: slow query or N+1 pattern
+    symptom_tier: frontend
+    root_cause_tier: backend
 evaluation:
-
-  must_mention_keywords: ["N+1"]
-
-  should_mention_keywords: ["selectinload", "预加载", "eager", "list_tasks"]
-
-  llm_judge_criteria: |
+  must_mention_keywords:
+  - N+1
+  should_mention_keywords:
+  - selectinload
+  - 预加载
+  - eager
+  - list_tasks
+  llm_judge_criteria: '
 
     诊断必须指出 list_tasks 对每个 task 单独查询 comments 形成 N+1，
 
+
     并建议恢复 selectinload 预加载或改聚合查询。关键词 "N+1" 必须出现。
 
+    '
   min_confidence: 0.6
+categories:
+- performance

@@ -1,8 +1,11 @@
-"""Exact-match evaluator — binary checks on category and affected file.
+"""Classification evaluator — multi-label P/R/F1 on bug categories.
 
-Evaluates whether the Doctor agent:
-1. Correctly classified the bug category.
-2. Identified the correct affected file.
+Evaluates whether the Doctor agent correctly classified the bug:
+
+1. Multi-label precision / recall / F1 on categories.
+2. Primary-category hit (the top-ranked category matches expected primary).
+3. Cross-layer hit (when expected.cross_layer=True, checks whether the
+   diagnosis spans both symptom and root-cause tiers).
 """
 
 from __future__ import annotations
@@ -16,23 +19,41 @@ from bug_factory.schema import EvaluationCase
 logger = structlog.get_logger(__name__)
 
 
-class ExactMatchEvaluator(BaseEvaluator):
-    """Scores a diagnosis by exact match on category and affected file.
+def eval_multi_label(pred: list[str], gold: list[str]) -> dict[str, float]:
+    """Compute multi-label precision, recall, and F1.
 
-    Scoring (0 or 1):
-    * +0.5 if ``result.diagnosis.bug_category`` equals
-      ``case.expected.category`` (case-insensitive).
-    * +0.5 if ``result.diagnosis.affected_file`` appears in
-      ``case.expected.affected_files``.
-    * 0.0 if ``result.diagnosis`` is ``None`` or ``result.success`` is ``False``.
+    Args:
+        pred: Predicted category labels.
+        gold: Ground-truth category labels.
 
-    Example:
-        >>> evaluator = ExactMatchEvaluator()
-        >>> score = await evaluator.evaluate(case, run_result)
-        >>> assert score.score in (0.0, 0.5, 1.0)
+    Returns:
+        Dict with keys ``precision``, ``recall``, ``f1`` (each in [0, 1]).
+    """
+    p, g = set(pred), set(gold)
+    tp = len(p & g)
+    precision = tp / len(p) if p else 0.0
+    recall = tp / len(g) if g else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+    return {"precision": precision, "recall": recall, "f1": f1}
+
+
+class ClassificationEvaluator(BaseEvaluator):
+    """Multi-label classification evaluator (replaces v1 ExactMatchEvaluator).
+
+    Scoring strategy:
+
+    * **Multi-label F1** (weight 0.6): P/R/F1 on ``categories`` sets.
+    * **Primary-category hit** (weight 0.2): 1.0 if the diagnosis's
+      ``primary_category`` equals the expected ``category``, else 0.0.
+    * **Cross-layer hit** (weight 0.2): When ``case.expected.cross_layer``
+      is True, 1.0 if ``diagnosis.symptom_tier`` and
+      ``diagnosis.root_cause_tier`` match expected; 0.0 otherwise.
+      When ``cross_layer`` is False this sub-score is 1.0 (no penalty).
+
+    The overall score = 0.6 * f1 + 0.2 * primary_hit + 0.2 * cross_hit.
     """
 
-    name = "exact_match"
+    name = "classification"
 
     async def evaluate(self, case: EvaluationCase, result: RunResult) -> EvaluationScore:
         if not result.success or result.diagnosis is None:
@@ -44,42 +65,71 @@ class ExactMatchEvaluator(BaseEvaluator):
 
         diagnosis = result.diagnosis
         reasons: list[str] = []
-        score = 0.0
 
-        # ── Check 1: bug category ──────────────────────────────────
-        expected_cat = case.expected.category.lower()
-        actual_cat = str(diagnosis.get("bug_category", "")).lower()
-        category_match = expected_cat == actual_cat
+        # ── Extract predicted categories (multi-label) ──────────────
+        pred_categories: list[str] = diagnosis.get("categories", [])
+        if not pred_categories:
+            # Fallback: try to extract from triage scores
+            triage = diagnosis.get("triage", {})
+            scores = triage.get("scores", [])
+            if scores:
+                # Take categories with confidence > 0.3 as predicted set
+                pred_categories = [
+                    s.get("category", "") for s in scores if s.get("confidence", 0) > 0.3
+                ]
+        if not pred_categories:
+            # Last resort: use primary_category as singleton
+            primary = diagnosis.get("primary_category", "")
+            if primary:
+                pred_categories = [primary]
 
-        if category_match:
-            score += 0.5
-            reasons.append(f"Category matched: {actual_cat}")
+        # ── Multi-label P/R/F1 ──────────────────────────────────────
+        gold_categories = (
+            list(case.expected.categories) if case.expected.categories else [case.expected.category]
+        )
+        ml = eval_multi_label(pred_categories, gold_categories)
+        reasons.append(
+            f"Multi-label: P={ml['precision']:.2f} R={ml['recall']:.2f} F1={ml['f1']:.2f} "
+            f"(pred={pred_categories}, gold={gold_categories})"
+        )
+
+        # ── Primary-category hit ────────────────────────────────────
+        pred_primary = diagnosis.get("primary_category", "")
+        expected_primary = case.expected.category
+        primary_hit = 1.0 if pred_primary.lower() == expected_primary.lower() else 0.0
+        reasons.append(
+            f"Primary: {'HIT' if primary_hit else 'MISS'} "
+            f"(expected='{expected_primary}', got='{pred_primary}')"
+        )
+
+        # ── Cross-layer hit ─────────────────────────────────────────
+        cross_hit = 1.0
+        if case.expected.cross_layer:
+            pred_symptom = diagnosis.get("symptom_tier", "")
+            pred_root = diagnosis.get("root_cause_tier", "")
+            exp_symptom = case.expected.symptom_tier
+            exp_root = case.expected.root_cause_tier
+            symptom_ok = pred_symptom == exp_symptom
+            root_ok = pred_root == exp_root
+            cross_hit = 1.0 if (symptom_ok and root_ok) else 0.5 if (symptom_ok or root_ok) else 0.0
+            reasons.append(
+                f"Cross-layer: score={cross_hit} "
+                f"(symptom: {pred_symptom}=={exp_symptom}={symptom_ok}, "
+                f"root: {pred_root}=={exp_root}={root_ok})"
+            )
         else:
-            reasons.append(f"Category mismatch: expected '{expected_cat}', got '{actual_cat}'")
+            reasons.append("Cross-layer: N/A (not a cross-layer case)")
 
-        # ── Check 2: affected file ─────────────────────────────────
-        expected_files = {f.lower() for f in case.expected.affected_files}
-        actual_file = str(diagnosis.get("affected_file", "")).lower()
-        file_match = actual_file in expected_files if expected_files else False
-
-        if file_match:
-            score += 0.5
-            reasons.append(f"Affected file matched: {actual_file}")
-        else:
-            if expected_files:
-                reasons.append(
-                    f"Affected file mismatch: expected one of {expected_files}, got '{actual_file}'"
-                )
-            else:
-                reasons.append("No expected affected files defined; file check skipped.")
-                score += 0.5  # No file expectation → full credit for this sub-check
+        # ── Overall score ───────────────────────────────────────────
+        score = round(0.6 * ml["f1"] + 0.2 * primary_hit + 0.2 * cross_hit, 4)
 
         logger.debug(
-            "ExactMatch evaluation",
+            "Classification evaluation",
             case_id=case.case_id,
             score=score,
-            category_match=category_match,
-            file_match=file_match,
+            f1=ml["f1"],
+            primary_hit=primary_hit,
+            cross_hit=cross_hit,
         )
 
         return EvaluationScore(
@@ -87,7 +137,16 @@ class ExactMatchEvaluator(BaseEvaluator):
             score=score,
             reasoning=" | ".join(reasons),
             metadata={
-                "category_match": category_match,
-                "file_match": file_match,
+                "precision": ml["precision"],
+                "recall": ml["recall"],
+                "f1": ml["f1"],
+                "primary_category_hit": bool(primary_hit),
+                "cross_layer_hit": cross_hit,
+                "pred_categories": pred_categories,
+                "gold_categories": gold_categories,
             },
         )
+
+
+# ── Backward-compatible alias ────────────────────────────────────────
+ExactMatchEvaluator = ClassificationEvaluator

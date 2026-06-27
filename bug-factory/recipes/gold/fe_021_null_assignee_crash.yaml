@@ -1,70 +1,96 @@
-# FE-021 (L2) — Frontend crash: detail page reads task.assignee_id.slice on null
-# HONEST NOTE: browser-side React render crash; no server-side Loki/Tempo signal.
-# Primary evidence = user_report (only SOME task detail pages white-screen) +
-# source diff + console TypeError. Verify with the frontend running / Playwright.
-# WHY L2 (intermittent): assignee_id is nullable. Tasks WITH an assignee render
-# fine; only UNASSIGNED tasks crash, so it looks random until you correlate.
-
 id: FE-021
-title: "部分任务详情页白屏，另一些却能正常打开"
+title: 部分任务详情页白屏，另一些却能正常打开
 category: frontend_crash
 severity: high
-tags: ["react", "typeerror", "null", "task-detail", "difficulty:L2", "red-herring"]
-
+tags:
+- react
+- typeerror
+- 'null'
+- task-detail
+- difficulty:L2
+- red-herring
 expected_diagnosis:
-  root_cause: "任务详情页新增了 task.assignee_id.slice(0, 8) 渲染，但 assignee_id 可为 null；未分配负责人的任务渲染时抛 TypeError（Cannot read properties of null）导致详情页白屏"
-  affected_file: "demo-app/frontend/src/pages/TaskDetailPage.tsx"
+  root_cause: 任务详情页新增了 task.assignee_id.slice(0, 8) 渲染，但 assignee_id 可为 null；未分配负责人的任务渲染时抛
+    TypeError（Cannot read properties of null）导致详情页白屏
+  affected_file: demo-app/frontend/src/pages/TaskDetailPage.tsx
   affected_line: null
-  fix_suggestion: "渲染前判空（task.assignee_id ? task.assignee_id.slice(0,8) : '未分配'）或用可选链；不要假设每个任务都有负责人"
-  fix_keywords: ["assignee_id", "null", "slice", "可选链", "判空"]
-
+  fix_suggestion: '渲染前判空（task.assignee_id ? task.assignee_id.slice(0,8) : ''未分配''）或用可选链；不要假设每个任务都有负责人'
+  fix_keywords:
+  - assignee_id
+  - 'null'
+  - slice
+  - 可选链
+  - 判空
+  retrieval_gold:
+    code_chunks:
+    - demo-app/frontend/src/pages/TaskDetailPage.tsx::root_cause
+    evidence_ids: []
+    similar_cases: []
 injection:
   strategy: code_insert
-  target_file: "demo-app/frontend/src/pages/TaskDetailPage.tsx"
-  ai_instruction: |
-    在任务详情信息网格里、优先级一项之后，插入一个“负责人”项，渲染
-    task.assignee_id.slice(0, 8)（不加判空）。assignee_id 为 null 的未分配任务
-    会在渲染时抛 TypeError 导致详情页白屏。
-  diff_patch: |
-    --- a/demo-app/frontend/src/pages/TaskDetailPage.tsx
-    +++ b/demo-app/frontend/src/pages/TaskDetailPage.tsx
-    @@ -134,3 +134,7 @@
-                   <span className="text-muted-foreground">优先级：</span>
-                   <span>{task.priority}</span>
-                 </div>
-    +            <div>
-    +              <span className="text-muted-foreground">负责人：</span>
-    +              <span>{task.assignee_id.slice(0, 8)}</span>
-    +            </div>
+  target_file: demo-app/frontend/src/pages/TaskDetailPage.tsx
+  ai_instruction: '在任务详情信息网格里、优先级一项之后，插入一个“负责人”项，渲染
 
+    task.assignee_id.slice(0, 8)（不加判空）。assignee_id 为 null 的未分配任务
+
+    会在渲染时抛 TypeError 导致详情页白屏。
+
+    '
+  diff_patch: "--- a/demo-app/frontend/src/pages/TaskDetailPage.tsx\n+++ b/demo-app/frontend/src/pages/TaskDetailPage.tsx\n\
+    @@ -134,3 +134,7 @@\n               <span className=\"text-muted-foreground\"\
+    >优先级：</span>\n               <span>{task.priority}</span>\n             </div>\n\
+    +            <div>\n+              <span className=\"text-muted-foreground\">负责人：</span>\n\
+    +              <span>{task.assignee_id.slice(0, 8)}</span>\n+            </div>\n"
 trigger:
   type: e2e_action
   steps:
-    - action: login
-      params: { email: "admin@example.com", password: "Admin123!" }
-    - action: create_data
-      params:
-        entity: "project"
-        data: { name: "白屏详情", description: "fe crash null" }
-    - action: create_data
-      params:
-        entity: "task"
-        data: { title: "无负责人任务", project_index: 0 }
-    - action: ui_click
-      params:
-        frontend_url: "http://localhost:3000/projects/{project_id}"
-        selector: "[data-testid^='task-link-']"
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: create_data
+    params:
+      entity: project
+      data:
+        name: 白屏详情
+        description: fe crash null
+  - action: create_data
+    params:
+      entity: task
+      data:
+        title: 无负责人任务
+        project_index: 0
+  - action: ui_click
+    params:
+      frontend_url: http://localhost:3000/projects/{project_id}
+      selector: '[data-testid^=''task-link-'']'
   expected_observation:
-    # Browser-side only — no server log signal. Only unassigned tasks crash.
     log_patterns: []
     trace_attributes: {}
     api_response: null
-
+  ui_reachable: true
+  expected_evidence:
+    browser_errors: expected
+    frontend_spans: expected
+    backend_signal: ''
+    symptom_tier: frontend
+    root_cause_tier: frontend
 evaluation:
-  must_mention_keywords: ["assignee_id", "null"]
-  should_mention_keywords: ["slice", "可选链", "判空", "未分配"]
-  llm_judge_criteria: |
-    诊断必须指出详情页对 task.assignee_id.slice 的无判空调用，在 assignee_id 为 null
+  must_mention_keywords:
+  - assignee_id
+  - 'null'
+  should_mention_keywords:
+  - slice
+  - 可选链
+  - 判空
+  - 未分配
+  llm_judge_criteria: '诊断必须指出详情页对 task.assignee_id.slice 的无判空调用，在 assignee_id 为 null
+
     的未分配任务上崩溃白屏，并建议判空/可选链。需体现“只有未分配负责人的任务才白屏”的因果，
+
     而非把它当作随机或后端问题。
+
+    '
   min_confidence: 0.6
+categories:
+- frontend_crash

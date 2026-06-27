@@ -1,84 +1,88 @@
-# FE-001: Null pointer crash when accessing null assignee properties
-# Reference: docs/diagdoctor-execution-handbook.md D11 Task 11.2
-
 id: FE-001
-title: "任务详情页访问 null assignee 导致崩溃"
+title: 任务详情页访问 null assignee 导致崩溃
 category: frontend_crash
 severity: high
-tags: ["null-pointer", "optional-chaining", "typescript", "react"]
-
+tags:
+- null-pointer
+- optional-chaining
+- typescript
+- react
 expected_diagnosis:
-  root_cause: "TaskDetailPage 渲染 assignee.displayName 时未做 null 检查，当 assignee 为 null 时触发 TypeError"
-  affected_file: "demo-app/frontend/src/pages/TaskDetailPage.tsx"
+  root_cause: TaskDetailPage 渲染 assignee.displayName 时未做 null 检查，当 assignee 为 null
+    时触发 TypeError
+  affected_file: demo-app/frontend/src/pages/TaskDetailPage.tsx
   affected_line: null
-  fix_suggestion: "使用可选链 assignee?.displayName 或在渲染前进行显式 null 判断"
+  fix_suggestion: 使用可选链 assignee?.displayName 或在渲染前进行显式 null 判断
   fix_keywords:
-    - "?."
-    - "null check"
-    - "optional chaining"
-
+  - ?.
+  - null check
+  - optional chaining
+  retrieval_gold:
+    code_chunks:
+    - demo-app/frontend/src/pages/TaskDetailPage.tsx::root_cause
+    evidence_ids: []
+    similar_cases: []
 injection:
   strategy: code_insert
-  target_file: "demo-app/frontend/src/pages/TaskDetailPage.tsx"
-  ai_instruction: |
-    在 TaskDetailPage 组件的 task info card 区域，添加一段显示负责人信息的 JSX 代码（注意：不要加 null 检查）。
-    
-    在 return 语句中的 Card 内，紧接在"状态" Badge 的 </div> 之后、"截止日期"之前，添加如下代码：
-    
-    ```tsx
-            <div>
-              <span className="text-muted-foreground">负责人：</span>
-              <span>{task.assignee.displayName} ({task.assignee.email})</span>
-            </div>
-    ```
-    
-    关键要求：
-    - 不要添加任何 `task.assignee &&` 或 `task.assignee?.` 等 null 检查
-    - 直接访问 task.assignee.displayName 和 task.assignee.email
-    - 确保 import 语句不被修改
-    - 不要修改代码的其他部分
+  target_file: demo-app/frontend/src/pages/TaskDetailPage.tsx
+  ai_instruction: "在 TaskDetailPage 组件的 task info card 区域，添加一段显示负责人信息的 JSX 代码（注意：不要加\
+    \ null 检查）。\n\n在 return 语句中的 Card 内，紧接在\"状态\" Badge 的 </div> 之后、\"截止日期\"之前，添加如下代码：\n\
+    \n```tsx\n        <div>\n          <span className=\"text-muted-foreground\">负责人：</span>\n\
+    \          <span>{task.assignee.displayName} ({task.assignee.email})</span>\n\
+    \        </div>\n```\n\n关键要求：\n- 不要添加任何 `task.assignee &&` 或 `task.assignee?.`\
+    \ 等 null 检查\n- 直接访问 task.assignee.displayName 和 task.assignee.email\n- 确保 import\
+    \ 语句不被修改\n- 不要修改代码的其他部分\n"
   diff_patch: null
-
 trigger:
   type: e2e_action
   steps:
-    - action: login
-      params:
-        email: "admin@example.com"
-        password: "Admin123!"
-    - action: create_data
-      params:
-        entity: "project"
-        data:
-          name: "FE-001 Test Project"
-    - action: create_data
-      params:
-        entity: "task"
-        data:
-          title: "Unassigned Task"
-          description: "This task has no assignee"
-          project_index: 0
-          assignee_id: null
-    - action: ui_click
-      params:
-        frontend_url: "http://localhost:5173/tasks/{task_id}"
-        selector: "body"
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: create_data
+    params:
+      entity: project
+      data:
+        name: FE-001 Test Project
+  - action: create_data
+    params:
+      entity: task
+      data:
+        title: Unassigned Task
+        description: This task has no assignee
+        project_index: 0
+        assignee_id: null
+  - action: ui_click
+    params:
+      frontend_url: http://localhost:5173/tasks/{task_id}
+      selector: body
   expected_observation:
     log_patterns:
-      - pattern: "client_error.*TypeError|Cannot read"
-        min_occurrences: 1
+    - pattern: client_error.*TypeError|Cannot read
+      min_occurrences: 1
     trace_attributes: {}
     api_response: null
-
+  ui_reachable: true
+  expected_evidence:
+    browser_errors: expected
+    frontend_spans: expected
+    backend_signal: ''
+    symptom_tier: frontend
+    root_cause_tier: frontend
 evaluation:
   must_mention_keywords:
-    - "null"
-    - "assignee"
+  - 'null'
+  - assignee
   should_mention_keywords:
-    - "可选链"
-    - "?."
-    - "TypeScript"
-  llm_judge_criteria: |
-    诊断必须明确指出 assignee 为 null 时访问其属性导致 TypeError，
+  - 可选链
+  - ?.
+  - TypeScript
+  llm_judge_criteria: '诊断必须明确指出 assignee 为 null 时访问其属性导致 TypeError，
+
     并建议使用可选链（?.）或显式 null 检查来修复。
+
+    '
   min_confidence: 0.7
+categories:
+- frontend_crash

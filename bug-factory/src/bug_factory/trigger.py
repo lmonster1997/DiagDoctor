@@ -31,7 +31,7 @@ import asyncio
 import os
 import re
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
@@ -131,6 +131,40 @@ class TriggerRunner:
 
         try:
             for i, step in enumerate(trigger.steps):
+                # ── ui_reachable 门控 ──────────────────────────────────
+                # When ui_reachable=True (the default), api_call steps are
+                # rejected: triggering must happen through real browser UI so
+                # the frontend OTel-JS channel produces demo-frontend spans
+                # that share a trace_id with the backend (cross-tier trace).
+                # login / create_data / wait are exempt — they are data-setup
+                # steps, not the fault-triggering step.
+                if (
+                    trigger.ui_reachable
+                    and step.action == "api_call"
+                    and step.action not in self._UI_REACHABLE_SAFE_ACTIONS
+                ):
+                    step_result = StepResult(
+                        action=step.action,
+                        params=step.params,
+                        success=False,
+                        elapsed_ms=0,
+                        error=(
+                            "api_call is forbidden when ui_reachable=True. "
+                            "Use ui_click or ui_navigate to trigger through "
+                            "the real browser, or set ui_reachable=False on "
+                            "the trigger for backend-only / unreachable scenarios."
+                        ),
+                    )
+                    steps.append(step_result)
+                    overall_success = False
+                    error_msg = f"Step {i} ({step.action}) rejected by ui_reachable gate"
+                    logger.error(
+                        "Step rejected by ui_reachable gate",
+                        step_index=i,
+                        action=step.action,
+                    )
+                    break
+
                 step_result = await self._execute_step(i, step)
                 steps.append(step_result)
 
@@ -180,9 +214,13 @@ class TriggerRunner:
         "login": "_action_login",
         "api_call": "_action_api_call",
         "ui_click": "_action_ui_click",
+        "ui_navigate": "_action_ui_navigate",
         "create_data": "_action_create_data",
         "wait": "_action_wait",
     }
+
+    # Actions that are always allowed even when ui_reachable=True (data setup, not triggering).
+    _UI_REACHABLE_SAFE_ACTIONS: frozenset[str] = frozenset({"login", "create_data", "wait"})
 
     async def _execute_step(self, index: int, step: object) -> StepResult:
         """Dispatch a single trigger step to its action handler.
@@ -578,6 +616,156 @@ class TriggerRunner:
                 self.session.setdefault("created_tasks", []).append(result)
 
         return result or {}
+
+    async def _action_ui_navigate(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Navigate the browser to a frontend URL via Playwright.
+
+        Unlike ``_action_ui_click``, this only navigates (``page.goto``) —
+        no element click is performed.  The frontend naturally initiates
+        fetch requests with ``traceparent`` headers, linking the browser
+        span to the backend span in the same distributed trace.
+
+        Required *params*:
+            url (str): The frontend URL path or full URL to navigate to
+                (e.g. ``/projects/{project_id}`` or
+                ``http://localhost:5173/projects``).
+
+        Optional *params*:
+            wait_until (str): Playwright wait_until strategy.
+                Default ``"networkidle"``.
+            timeout (int): Navigation timeout in ms. Default 15000.
+        """
+        target = params.get("url", "")
+        if not target:
+            raise TriggerError(
+                recipe_id="<unknown>",
+                step_index=-1,
+                detail="ui_navigate action requires 'url' param",
+            )
+
+        # Resolve template variables and apply frontend_url override.
+        target = self._resolve_template(target)
+        if self.frontend_url:
+            parsed_target = urlparse(target)
+            # If target is a relative path, prepend frontend_url origin.
+            if not parsed_target.netloc:
+                target = self.frontend_url.rstrip("/") + (
+                    "/" + target.lstrip("/") if target else ""
+                )
+            else:
+                override_parsed = urlparse(self.frontend_url)
+                target = urlunparse(
+                    (
+                        override_parsed.scheme or parsed_target.scheme or "http",
+                        override_parsed.netloc or parsed_target.netloc or "localhost:5173",
+                        parsed_target.path,
+                        parsed_target.params,
+                        parsed_target.query,
+                        parsed_target.fragment,
+                    )
+                )
+
+        wait_until = params.get("wait_until", "networkidle")
+        timeout_ms = int(params.get("timeout", 15000))
+
+        try:
+            from playwright.async_api import async_playwright
+        except ImportError as exc:
+            raise TriggerError(
+                recipe_id="<unknown>",
+                step_index=-1,
+                detail=(
+                    "playwright is not installed. "
+                    "Run: pip install playwright && playwright install chromium"
+                ),
+            ) from exc
+
+        async with async_playwright() as pw:
+            launch_kwargs: dict[str, Any] = {"headless": True}
+            if os.name == "nt":
+                launch_kwargs["channel"] = "msedge"
+            browser = await pw.chromium.launch(**launch_kwargs)
+            page = await browser.new_page()
+
+            # ── Capture browser-side errors for FE evidence ─────────
+            def _capture_console(msg: Any) -> None:
+                logger.debug(
+                    "Browser console message",
+                    type=msg.type,
+                    text=msg.text[:500] if msg.text else "",
+                )
+                if msg.type in ("error", "warning"):
+                    now = datetime.now(UTC).isoformat()
+                    loc = msg.location
+                    self.browser_errors.append(
+                        BrowserError(
+                            timestamp=now,
+                            type=f"console_{msg.type}",
+                            message=msg.text[:2000] if msg.text else "",
+                            url=loc.get("url") if loc else None,
+                            line_number=loc.get("lineNumber") if loc else None,
+                        )
+                    )
+                    logger.info(
+                        "Captured browser console error",
+                        type=msg.type,
+                        message=msg.text[:200] if msg.text else "",
+                    )
+
+            def _capture_pageerror(err: Exception) -> None:
+                now = datetime.now(UTC).isoformat()
+                self.browser_errors.append(
+                    BrowserError(
+                        timestamp=now,
+                        type="pageerror",
+                        message=str(err)[:2000],
+                        stack=getattr(err, "stack", None),
+                    )
+                )
+                logger.info(
+                    "Captured browser page error",
+                    message=str(err)[:200],
+                )
+
+            page.on("console", _capture_console)
+            page.on("pageerror", _capture_pageerror)
+            # ── End browser error capture ────────────────────────────
+
+            try:
+                # Set auth token in localStorage before navigating to
+                # protected pages so the frontend Zustand store can
+                # rehydrate and ProtectedRoute won't redirect to /login.
+                parsed_target = urlparse(target)
+                base_origin = f"{parsed_target.scheme}://{parsed_target.netloc}"
+                login_url = f"{base_origin}/login"
+                await page.goto(login_url, wait_until="domcontentloaded", timeout=timeout_ms)
+
+                token = self.session.get("token")
+                if token:
+                    await page.evaluate(
+                        """(t) => {
+                            localStorage.setItem('taskflow-auth', JSON.stringify({
+                                state: { token: t, currentUser: null },
+                                version: 0
+                            }));
+                        }""",
+                        token,
+                    )
+                    await page.reload(wait_until="networkidle", timeout=timeout_ms)
+                    await asyncio.sleep(2)
+
+                # Navigate to the actual target URL.
+                await page.goto(target, wait_until=wait_until, timeout=timeout_ms)
+                logger.info("UI navigate completed", url=page.url, target=target)
+
+                # Let React hydrate and fetch data (with traceparent).
+                await asyncio.sleep(2)
+
+            finally:
+                await browser.close()
+
+        logger.info("UI navigate executed", target=target)
+        return {"navigated_to": target}
 
     async def _action_wait(self, params: dict[str, Any]) -> dict[str, Any]:
         """Pause execution for a specified duration.

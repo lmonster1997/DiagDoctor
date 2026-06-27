@@ -59,13 +59,13 @@ flowchart TB
         StateStore[("Checkpointer<br/>SQLite")]
     end
 
-    subgraph Agents["Agent 层"]
-        Triage["TriageAgent<br/>Bug 分类"]
-        BELog["BackendLogAgent"]
-        FELog["FrontendLogAgent"]
-        Trace["TraceAgent<br/>调用链分析"]
-        Perf["PerfAgent<br/>性能分析"]
-        CodeFix["CodeFixAgent<br/>代码定位+修复"]
+    subgraph Agents["Agent 层 (v2)"]
+        Triage["TriageAgent<br/>多标签 Bug 分类"]
+        Ingest["Ingest 证据归一化层"]
+        Specialist["Specialist Agents<br/>(backend/frontend/perf/logic)"]
+        Critic["Critic 验证回路"]
+        Synthesis["Synthesis 汇聚"]
+        Reporter["Reporter 报告生成"]
     end
 
     subgraph Knowledge["知识层"]
@@ -161,9 +161,10 @@ make setup          # 首次初始化（启动 + 迁移 + 种子数据）
 
 ---
 
-## ✅ Sprint 1 已实现功能
+## ✅ 当前开发阶段：Sprint 1-2 完成，Sprint 3 待实现
 
-> **当前阶段：Sprint 1 完成**（D1-D10，基础设施搭建）
+> **Sprint 1-2（W1-W4）已基本完成**：基础设施 + Bug Factory + 评测雏形。
+> 详细开发状态见 `docs/architecture-diff-and-changes.md`。
 
 ### Demo App（TaskFlow 任务管理）
 

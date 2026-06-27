@@ -22,6 +22,8 @@ class RunMetadata(BaseModel):
     findings_count: int = 0
     token_usage: dict[str, int] = Field(default_factory=dict)
     tool_calls: int = 0
+    total_cost_usd: float = 0.0
+    budget_violated: bool = False
     extra: dict[str, Any] = Field(default_factory=dict)
 
 

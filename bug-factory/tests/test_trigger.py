@@ -40,6 +40,7 @@ def basic_trigger() -> Trigger:
 
     return Trigger(
         type="api_call",
+        ui_reachable=False,
         steps=[
             TriggerStep(action="wait", params={"seconds": 0.01}),
         ],
@@ -57,7 +58,12 @@ def _make_step(action: str, params: dict[str, Any] | None = None) -> TriggerStep
 def _make_trigger(*steps: TriggerStep) -> Trigger:
     from bug_factory.schema import ExpectedObservation
 
-    return Trigger(type="api_call", steps=list(steps), expected_observation=ExpectedObservation())
+    return Trigger(
+        type="api_call",
+        ui_reachable=False,
+        steps=list(steps),
+        expected_observation=ExpectedObservation(),
+    )
 
 
 # ── Action: wait ───────────────────────────────────────────────────────

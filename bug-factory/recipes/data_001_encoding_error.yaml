@@ -1,127 +1,118 @@
-# DATA-001: Encoding error — a "sanitization" middleware incorrectly re-encodes
-# request body content from UTF-8 to Latin-1 and back, corrupting multi-byte
-# Unicode characters (Chinese, emoji, etc.) in comments and task titles.
-
 id: DATA-001
-title: "评论内容编码处理错误导致中文和 Emoji 字符被损坏（双重编码问题）"
+title: 评论内容编码处理错误导致中文和 Emoji 字符被损坏（双重编码问题）
 category: data
 severity: medium
 tags:
-  - "encoding"
-  - "utf-8"
-  - "latin-1"
-  - "unicode"
-  - "mojibake"
-
+- encoding
+- utf-8
+- latin-1
+- unicode
+- mojibake
 expected_diagnosis:
-  root_cause: "在 create_comment 端点中添加了'内容清洗'逻辑，但错误地使用了 .encode('latin-1').decode('utf-8') 对内容进行重新编码。多字节 Unicode 字符（如中文、emoji）在 Latin-1 编码中无法表示，导致字符被替换为 �（U+FFFD）或引发 UnicodeEncodeError，造成数据永久损坏"
-  affected_file: "demo-app/backend/app/api/comments.py"
+  root_cause: 在 create_comment 端点中添加了'内容清洗'逻辑，但错误地使用了 .encode('latin-1').decode('utf-8')
+    对内容进行重新编码。多字节 Unicode 字符（如中文、emoji）在 Latin-1 编码中无法表示，导致字符被替换为 �（U+FFFD）或引发 UnicodeEncodeError，造成数据永久损坏
+  affected_file: demo-app/backend/app/api/comments.py
   affected_line: null
-  fix_suggestion: "删除错误的编码转换逻辑。如果需要清洗内容，应该使用专门的文本清洗库（如 bleach 用于 HTML 标签过滤），或者保持 UTF-8 编码不变只做字符串级别的过滤。绝不要在不知道原始编码的情况下做 encode/decode 转换"
+  fix_suggestion: 删除错误的编码转换逻辑。如果需要清洗内容，应该使用专门的文本清洗库（如 bleach 用于 HTML 标签过滤），或者保持 UTF-8
+    编码不变只做字符串级别的过滤。绝不要在不知道原始编码的情况下做 encode/decode 转换
   fix_keywords:
-    - "encode"
-    - "decode"
-    - "latin-1"
-    - "utf-8"
-    - "Unicode"
-
+  - encode
+  - decode
+  - latin-1
+  - utf-8
+  - Unicode
+  retrieval_gold:
+    code_chunks:
+    - demo-app/backend/app/api/comments.py::root_cause
+    evidence_ids: []
+    similar_cases: []
 injection:
   strategy: code_insert
-  target_file: "demo-app/backend/app/api/comments.py"
-  ai_instruction: |
-    在 create_comment 函数中，在创建 Comment 对象之前，添加一个"内容清洗"步骤，但使用错误的编码转换。
-
-    修改 create_comment 函数的中间部分。找到 `comment = Comment(...)` 这一行，在其之前插入内容清洗代码：
-
-    修改后（只展示变更部分）：
-    ```python
-        # Verify the task exists
-        task_result = await db.execute(select(Task).where(Task.id == task_id))
-        if task_result.scalar_one_or_none() is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
-
-        # Sanitize comment content
-        # BUG: Double-encoding via Latin-1 corrupts multi-byte Unicode characters
-        content = payload.content
-        try:
-            content = content.encode("latin-1").decode("utf-8")
-        except (UnicodeEncodeError, UnicodeDecodeError):
-            content = content.encode("utf-8").decode("latin-1")
-        
-        comment = Comment(
-            id=uuid.uuid4(),
-            task_id=task_id,
-            author_id=current_user.id,
-            content=content,  # BUG: corrupted content
-        )
-    ```
-
-    关键要求：
-    - 插入位置在 task 存在性检查之后、comment 对象创建之前
-    - 使用 .encode('latin-1').decode('utf-8') 进行"清洗"——这是错误的做法
-    - 异常处理（fallback）也是错误的：再次用相反方向转换，同样会损坏数据
-    - 不要修改 import 语句
-    - 不要修改其他函数
-    - 保留原有 docstring
+  target_file: demo-app/backend/app/api/comments.py
+  ai_instruction: "在 create_comment 函数中，在创建 Comment 对象之前，添加一个\"内容清洗\"步骤，但使用错误的编码转换。\n\
+    \n修改 create_comment 函数的中间部分。找到 `comment = Comment(...)` 这一行，在其之前插入内容清洗代码：\n\n\
+    修改后（只展示变更部分）：\n```python\n    # Verify the task exists\n    task_result = await\
+    \ db.execute(select(Task).where(Task.id == task_id))\n    if task_result.scalar_one_or_none()\
+    \ is None:\n        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,\
+    \ detail=\"任务不存在\")\n\n    # Sanitize comment content\n    # BUG: Double-encoding\
+    \ via Latin-1 corrupts multi-byte Unicode characters\n    content = payload.content\n\
+    \    try:\n        content = content.encode(\"latin-1\").decode(\"utf-8\")\n \
+    \   except (UnicodeEncodeError, UnicodeDecodeError):\n        content = content.encode(\"\
+    utf-8\").decode(\"latin-1\")\n    \n    comment = Comment(\n        id=uuid.uuid4(),\n\
+    \        task_id=task_id,\n        author_id=current_user.id,\n        content=content,\
+    \  # BUG: corrupted content\n    )\n```\n\n关键要求：\n- 插入位置在 task 存在性检查之后、comment\
+    \ 对象创建之前\n- 使用 .encode('latin-1').decode('utf-8') 进行\"清洗\"——这是错误的做法\n- 异常处理（fallback）也是错误的：再次用相反方向转换，同样会损坏数据\n\
+    - 不要修改 import 语句\n- 不要修改其他函数\n- 保留原有 docstring\n"
   diff_patch: null
-
 trigger:
   type: api_call
   steps:
-    - action: login
-      params:
-        email: "admin@example.com"
-        password: "Admin123!"
-    - action: create_data
-      params:
-        entity: "project"
-        data:
-          name: "DATA-001 Encoding Test"
-    - action: create_data
-      params:
-        entity: "task"
-        data:
-          title: "Encoding Bug Test Task"
-          project_index: 0
-    - action: api_call
-      params:
-        method: "POST"
-        path: "/api/tasks/{task_id}/comments"
-        body:
-          content: "你好世界 🌍 — 这是一条中文评论 with emoji 🎉"
-    - action: api_call
-      params:
-        method: "POST"
-        path: "/api/tasks/{task_id}/comments"
-        body:
-          content: "Plain ASCII text should survive"
-    - action: api_call
-      params:
-        method: "GET"
-        path: "/api/tasks/{task_id}"
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: create_data
+    params:
+      entity: project
+      data:
+        name: DATA-001 Encoding Test
+  - action: create_data
+    params:
+      entity: task
+      data:
+        title: Encoding Bug Test Task
+        project_index: 0
+  - action: api_call
+    params:
+      method: POST
+      path: /api/tasks/{task_id}/comments
+      body:
+        content: 你好世界 🌍 — 这是一条中文评论 with emoji 🎉
+  - action: api_call
+    params:
+      method: POST
+      path: /api/tasks/{task_id}/comments
+      body:
+        content: Plain ASCII text should survive
+  - action: api_call
+    params:
+      method: GET
+      path: /api/tasks/{task_id}
   expected_observation:
     log_patterns:
-      - pattern: "UnicodeEncodeError|UnicodeDecodeError|latin-1"
-        min_occurrences: 0
+    - pattern: UnicodeEncodeError|UnicodeDecodeError|latin-1
+      min_occurrences: 0
     trace_attributes: {}
     api_response: null
-
+  ui_reachable: false
+  expected_evidence:
+    browser_errors: none
+    frontend_spans: expected
+    backend_signal: data corruption or wrong values
+    symptom_tier: backend
+    root_cause_tier: data
 evaluation:
   must_mention_keywords:
-    - "encode"
-    - "decode"
-    - "latin-1"
-    - "utf-8"
-    - "Unicode"
+  - encode
+  - decode
+  - latin-1
+  - utf-8
+  - Unicode
   should_mention_keywords:
-    - "乱码"
-    - "mojibake"
-    - "编码"
-    - "emoji"
-    - "字符损坏"
-  llm_judge_criteria: |
-    诊断必须识别出对评论内容进行了错误的编码转换（Latin-1 ↔ UTF-8），
+  - 乱码
+  - mojibake
+  - 编码
+  - emoji
+  - 字符损坏
+  llm_judge_criteria: '诊断必须识别出对评论内容进行了错误的编码转换（Latin-1 ↔ UTF-8），
+
     导致多字节 Unicode 字符（中文、emoji）被损坏。
+
     修复必须是移除该编码转换逻辑，保持原始 UTF-8 编码不变。
+
     关键词 encode、decode、latin-1、Unicode 必须出现。
+
+    '
   min_confidence: 0.6
+categories:
+- data

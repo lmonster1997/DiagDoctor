@@ -12,6 +12,10 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "http://localhost:5173"
+            - "http://localhost:3000"
 
 processors:
   memory_limiter:
@@ -27,8 +31,11 @@ exporters:
   debug:
     verbosity: basic
 
-  loki:
-    endpoint: "http://loki:3100/loki/api/v1/push"
+  # otlphttp → Loki 3.x native OTLP endpoint (replaces deprecated 'loki' exporter)
+  otlphttp/loki:
+    endpoint: "http://loki:3100/otlp"
+    tls:
+      insecure: true
 
   otlp/tempo:
     endpoint: "http://tempo:4317"
@@ -50,4 +57,4 @@ service:
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [loki, debug]
+      exporters: [otlphttp/loki, debug]

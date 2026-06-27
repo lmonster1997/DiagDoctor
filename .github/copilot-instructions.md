@@ -27,7 +27,11 @@ version: "3.11+"
 package_manager: uv
 formatter: ruff format
 linter: ruff check
-type_checker: mypy --strict
+# mypy strict on core logic modules (ingest, tools/, evaluators/, security/, schema).
+# Graph orchestration layer (graph/nodes, subgraphs) relaxed to non-strict.
+# Third-party libs (LangGraph/LangChain) use ignore_missing_imports=true.
+# Coverage ≥80% only for core logic; overall repo ≥60% suffices.
+type_checker: mypy --strict  # core modules only; graph layer relaxed (B2 policy)
 test: pytest + pytest-asyncio
 framework: FastAPI + Pydantic v2 + SQLAlchemy 2.x + Alembic
 observability: OpenTelemetry + structlog
@@ -107,13 +111,14 @@ DiagDoctor/
 │           ├── pages/         # 页面
 │           ├── stores/        # Zustand stores
 │           ├── services/      # API 调用层
+│           ├── observability/ # OTel-JS 遥测通道
 │           └── types/         # TypeScript 类型
-├── bug-factory/               # Bug 生成系统（尚未实现）
-│   ├── recipes/               # Bug 配方 YAML
-│   └── src/                   # injector, trigger, evidence collector
-├── doctor/                    # 诊断 Agent（尚未实现）
-│   └── src/                   # LangGraph + RAG + FastAPI
-├── benchmark/                 # 评测系统（尚未实现）
+├── bug-factory/               # Bug 生成系统 ✅ 已实现
+│   ├── recipes/               # Bug 配方 YAML（28 个）
+│   └── src/                   # injector, trigger, evidence collector, case generator
+├── doctor/                    # 诊断 Agent ✅ Phase 1 完成
+│   └── src/                   # LangGraph + RAG + FastAPI（ingest→triage→reporter）
+├── benchmark/                 # 评测系统 ✅ 已实现
 ├── infra/                     # 部署配置
 │   ├── docker-compose.yml
 │   ├── otel/collector.yaml
@@ -121,6 +126,26 @@ DiagDoctor/
 ├── docs/                      # 设计文档
 └── scripts/                   # 辅助脚本
 ```
+
+---
+
+## 权威端口表 & dev origin
+
+> 全文凡涉及端口/CORS/服务地址，**一律以本表为准**。
+
+| 服务 | 容器内端口 | 宿主映射 | 备注 |
+|------|-----------|---------|------|
+| demo-frontend（nginx） | 80 | 3000 | 生产形态；反代 `/v1/traces`、`/v1/logs` 到 collector |
+| demo-frontend（Vite dev） | 5173 | 5173 | 本地开发；直连 collector(4318) |
+| demo-backend | 8000 | 8000 | FastAPI |
+| doctor-api | 8000 | **8001** | 避免与 demo-backend 宿主 8000 冲突 |
+| postgres | 5432 | 5432 | — |
+| redis | 6379 | 6379 | — |
+| otel-collector | 4317(gRPC) / 4318(HTTP) | 4317/4318 | HTTP 收浏览器上报，CORS 配 `localhost:5173,localhost:3000` |
+| loki | 3100 | 3100 | 3.x，OTLP 入口 `/otlp` |
+| tempo | 3200 / 4319(OTLP) | 3200 / 4319 | 2.6 |
+| grafana | 3000 | 3001 | admin/admin |
+| qdrant | 6333/6334 | 6333/6334 | — |
 
 ---
 
@@ -134,22 +159,30 @@ DiagDoctor/
 6. **测试** 后端 pytest + pytest-asyncio，前端 Vitest，E2E Playwright
 7. **不要修改已有数据库迁移文件**，新增迁移用 `alembic revision -m "description"`
 8. **Docker Compose** 是唯一的一键启动方式，新服务必须加入编排
+9. **评测门禁** 以 `overall` 指标为准（见 from-scratch_V2 §6.5），不做单维度卡口
 
 ---
 
 ## 当前开发阶段
 
-**Sprint 1（W1-W2）：基础设施**
+**Sprint 1-2（W1-W4）：基础设施 + Bug Factory + 评测雏形 ✅ 已基本完成**
 - [x] Demo App 前后端骨架（TaskFlow）
 - [x] 数据库模型 + 迁移
 - [x] JWT 认证
-- [x] OpenTelemetry 集成
-- [x] Docker Compose 编排
-- [ ] 可观测性栈（Loki/Tempo/Grafana）
-- [ ] Doctor 项目骨架
-- [ ] LangGraph 基础设施
+- [x] OpenTelemetry 集成（后端 + 前端 OTel-JS）
+- [x] 可观测性栈（Loki/Tempo/Grafana/Collector）
+- [x] Doctor 项目骨架 + LangGraph Phase 1（ingest→triage→reporter）
+- [x] Bug Factory（schema + injector + trigger + evidence collector + case generator）
+- [x] Benchmark Harness（runner + evaluators + reporters）
+- [x] SQL 只读守卫（sql_guard）
 
-> 详细逐日任务见 `docs/diagdoctor-execution-handbook.md`
+**Sprint 3（W5-W6）：多 Agent 系统（待实现）**
+- [ ] Specialist Agents（backend/frontend/perf/logic）
+- [ ] Critic 验证回路
+- [ ] Synthesis + Reporter 节点
+
+> 详细逐日任务见 `docs/diagdoctor-execution-handbook_V2.md`
+> 架构文档见 `docs/diagdoctor-from-scratch_V2.md`（v1 文档已废弃）
 
 ---
 
@@ -157,7 +190,10 @@ DiagDoctor/
 
 | 文档 | 路径 | 何时使用 |
 |------|------|---------|
-| 架构总览 | `docs/diagdoctor-from-scratch.md` | 架构讨论、重大决策 |
-| 执行手册 | `docs/diagdoctor-execution-handbook.md` | 逐日开发任务 |
+| 架构总览（v2） | `docs/diagdoctor-from-scratch_V2.md` | 架构讨论、重大决策 |
+| 执行手册（v2） | `docs/diagdoctor-execution-handbook_V2.md` | 逐日开发任务 |
+| 架构差异分析 | `docs/architecture-diff-and-changes.md` | v1→v2 升级清单 |
 | Docker 排错 | `docs/docker-network-fixes.md` | Docker 网络问题 |
 | AI 编程技巧 | `docs/ai-assisted-dev-tips.md` | AI 辅助编程最佳实践 |
+
+> ⚠️ `diagdoctor-from-scratch.md` 和 `diagdoctor-execution-handbook.md` 已废弃，请使用 `_V2` 版本。

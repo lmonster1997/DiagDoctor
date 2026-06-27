@@ -1,117 +1,105 @@
-# BE-022 (L3) — AttributeError on None: assumes every task has an assignee
-# REQUIRES: P0 global exception handler — done.
-# Signal: {"exc_type":"AttributeError","exc_msg":"'NoneType' object has no attribute 'hex'"...}
-# Difficulty L3 (misleading): only tasks WITHOUT an assignee crash, so it looks
-# intermittent/random; the error surface (task detail) is far from the real cause
-# (an unguarded assignee_id dereference added for an "audit label").
-
 id: BE-022
-title: "部分任务详情随机 500，另一些任务却正常"
+title: 部分任务详情随机 500，另一些任务却正常
 category: backend_error
 severity: high
-tags: ["attribute-error", "null-deref", "get_task", "difficulty:L3", "red-herring"]
-
+tags:
+- attribute-error
+- null-deref
+- get_task
+- difficulty:L3
+- red-herring
 expected_diagnosis:
-  root_cause: "get_task 新增了 task.assignee_id.hex，但 assignee_id 可为 None；未分配负责人的任务访问 .hex 抛 AttributeError 导致 500"
-  affected_file: "demo-app/backend/app/api/tasks.py"
+  root_cause: get_task 新增了 task.assignee_id.hex，但 assignee_id 可为 None；未分配负责人的任务访问
+    .hex 抛 AttributeError 导致 500
+  affected_file: demo-app/backend/app/api/tasks.py
   affected_line: null
-  fix_suggestion: "删除该 assignee_id.hex 解引用，或先判空 (if task.assignee_id is not None)，未分配时跳过"
-  fix_keywords: ["AttributeError", "NoneType", "assignee_id", "判空", "get_task"]
-
+  fix_suggestion: 删除该 assignee_id.hex 解引用，或先判空 (if task.assignee_id is not None)，未分配时跳过
+  fix_keywords:
+  - AttributeError
+  - NoneType
+  - assignee_id
+  - 判空
+  - get_task
+  retrieval_gold:
+    code_chunks:
+    - demo-app/backend/app/api/tasks.py::root_cause
+    evidence_ids: []
+    similar_cases: []
 injection:
   strategy: code_insert
-  target_file: "demo-app/backend/app/api/tasks.py"
-  ai_instruction: |
-    在 get_task 的 404 检查之后、return task 之前，插入对 task.assignee_id.hex 的解引用
+  target_file: demo-app/backend/app/api/tasks.py
+  ai_instruction: '在 get_task 的 404 检查之后、return task 之前，插入对 task.assignee_id.hex 的解引用
+
     （用于所谓“审计标签”），未分配负责人的任务 assignee_id 为 None 时会抛 AttributeError。
 
-  diff_patch: |
-
-    --- a/demo-app/backend/app/api/tasks.py
-
-    +++ b/demo-app/backend/app/api/tasks.py
-
-    @@ -89,2 +89,4 @@
-
-             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
-
-    +    # BUG(BE-022): assumes every task has an assignee; crashes for unassigned tasks
-
-    +    _audit_label = task.assignee_id.hex
-
-         return task
-
-
-
+    '
+  diff_patch: "\n--- a/demo-app/backend/app/api/tasks.py\n\n+++ b/demo-app/backend/app/api/tasks.py\n\
+    \n@@ -89,2 +89,4 @@\n\n         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,\
+    \ detail=\"任务不存在\")\n\n+    # BUG(BE-022): assumes every task has an assignee;\
+    \ crashes for unassigned tasks\n\n+    _audit_label = task.assignee_id.hex\n\n\
+    \     return task\n"
 trigger:
-
   type: api_call
-
   steps:
-
-    - action: login
-
-      params: { email: "admin@example.com", password: "Admin123!" }
-
-    - action: create_data
-
-      params:
-
-        entity: "project"
-
-        data: { name: "未分配负责人", description: "null assignee" }
-
-    - action: create_data
-
-      params:
-
-        entity: "task"
-
-        data: { title: "无负责人任务", project_index: 0 }
-    - action: api_call
-
-      params:
-
-        method: "GET"
-
-        path: "/api/tasks/{task_id}"
-
-        expected_status: [500]
-
+  - action: login
+    params:
+      email: admin@example.com
+      password: Admin123!
+  - action: create_data
+    params:
+      entity: project
+      data:
+        name: 未分配负责人
+        description: null assignee
+  - action: create_data
+    params:
+      entity: task
+      data:
+        title: 无负责人任务
+        project_index: 0
+  - action: api_call
+    params:
+      method: GET
+      path: /api/tasks/{task_id}
+      expected_status:
+      - 500
   expected_observation:
-
     log_patterns:
-
-      - pattern: "unhandled_exception.*AttributeError"
-
-        min_occurrences: 1
-
-      - pattern: "NoneType.*has no attribute 'hex'"
-
-        min_occurrences: 1
-
+    - pattern: unhandled_exception.*AttributeError
+      min_occurrences: 1
+    - pattern: NoneType.*has no attribute 'hex'
+      min_occurrences: 1
     trace_attributes:
-
-      "GET /api/tasks/{id}":
-
-        status: "ERROR"
-
+      GET /api/tasks/{id}:
+        status: ERROR
     api_response: null
-
-
-
+  ui_reachable: false
+  expected_evidence:
+    browser_errors: optional
+    frontend_spans: expected
+    backend_signal: 500 error in logs
+    symptom_tier: backend
+    root_cause_tier: backend
 evaluation:
-
-  must_mention_keywords: ["AttributeError", "assignee_id"]
-
-  should_mention_keywords: ["NoneType", "判空", "未分配", "get_task"]
-
-  llm_judge_criteria: |
+  must_mention_keywords:
+  - AttributeError
+  - assignee_id
+  should_mention_keywords:
+  - NoneType
+  - 判空
+  - 未分配
+  - get_task
+  llm_judge_criteria: '
 
     诊断必须指出崩溃只发生在 assignee_id 为 None 的任务，根因是 get_task 中对
 
+
     task.assignee_id.hex 的无判空解引用，并建议判空或删除该行。
+
 
     需体现“只有未分配负责人的任务才崩溃”的因果，而非泛泛归因于数据库或网络。
 
+    '
   min_confidence: 0.6
+categories:
+- backend_error

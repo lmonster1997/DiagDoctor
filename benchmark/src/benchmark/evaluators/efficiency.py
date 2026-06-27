@@ -66,6 +66,8 @@ class EfficiencyEvaluator(BaseEvaluator):
         tool_calls = meta.tool_calls
         total_tokens = sum(meta.token_usage.values()) if meta.token_usage else 0
         latency_ms = meta.latency_ms
+        total_cost_usd = meta.total_cost_usd
+        budget_violated = meta.budget_violated
 
         # ── Sub-scores (exponential decay) ─────────────────────────
         tool_score = self._decay(tool_calls, self.max_tool_calls)
@@ -74,12 +76,16 @@ class EfficiencyEvaluator(BaseEvaluator):
 
         # Weighted average
         score = 0.3 * tool_score + 0.3 * token_score + 0.4 * latency_score
+        # Budget violation penalty: halve the score if budget was exceeded
+        if budget_violated:
+            score *= 0.5
         score = round(score, 4)
 
         reasoning = (
             f"tool_calls={tool_calls} (score={tool_score:.2f}), "
             f"tokens={total_tokens} (score={token_score:.2f}), "
-            f"latency={latency_ms:.0f}ms (score={latency_score:.2f})"
+            f"latency={latency_ms:.0f}ms (score={latency_score:.2f}), "
+            f"cost=${total_cost_usd:.4f}, budget_violated={budget_violated}"
         )
 
         logger.debug(
@@ -89,6 +95,8 @@ class EfficiencyEvaluator(BaseEvaluator):
             tool_calls=tool_calls,
             tokens=total_tokens,
             latency_ms=latency_ms,
+            cost_usd=total_cost_usd,
+            budget_violated=budget_violated,
         )
 
         return EvaluationScore(
