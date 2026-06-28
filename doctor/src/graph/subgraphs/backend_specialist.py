@@ -68,7 +68,7 @@ def _build_system_prompt() -> str:
     return render_prompt("backend_specialist.j2")
 
 
-def build_backend_specialist() -> CompiledStateGraph:  # type: ignore[type-arg]
+def build_backend_specialist() -> Any:  # CompiledStateGraph (relaxed per B2 policy)
     """
     Build the Backend Specialist ReAct agent.
 
