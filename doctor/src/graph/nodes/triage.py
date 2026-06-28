@@ -1,11 +1,25 @@
 """
+TriageAgent node — ⚠️ FULLY DEPRECATED in V3 ⚠️
+
+This module is NO LONGER USED in the DiagDoctor graph. In V3, triage
+classification is embedded directly in the ``unified_agent`` System Prompt
+(step 1: "理解证据"). Evaluation metrics read ``primary_category`` and
+``categories`` from the Agent's JSON output, not from this module.
+
+The file is retained for reference only.  Do NOT import ``triage_node``
+or ``route_after_triage`` in new code.
+
+─── V2 legacy documentation ───
+
 TriageAgent node (v2) — multi-label classification + confidence gating.
+
+V2 role: classification + routing (route_after_triage → specialist fan-out).
 
 Key changes from v1:
 - Input: NormalizedEvidence (golden_signals + correlations) instead of raw logs/traces
 - Output: TriageOutput(scores=list[CategoryScore], primary, cross_layer_suspected)
-- Added: confidence gating logic (route_after_triage) for dynamic fan-out
-- Added: three-tier fallback (gate→retry→general_agent)
+- Added: confidence gating logic (route_after_triage) — DEPRECATED in V3
+- Added: three-tier fallback (gate→retry→general_agent) — removed in V3
 """
 
 from __future__ import annotations
@@ -96,9 +110,15 @@ def _format_similar_cases(cases: list[dict[str, Any]]) -> str:
 
 def route_after_triage(state: DoctorState) -> list[str]:
     """
+    ⚠️ FULLY DEPRECATED in V3 — DO NOT USE in new graph topologies.
+
     Determine which specialist agents to activate based on triage confidence.
 
-    Gate strategy (from-scratch §5.5):
+    V3 uses a linear topology (ingest → unified_agent → reporter) without
+    specialist fan-out. This function is retained for backward compatibility
+    and reference only.
+
+    V2 Gate strategy (from-scratch §5.5):
     1. primary confidence < 0.5 → only general_agent (full-toolset fallback)
     2. cross_layer_suspected or 2nd category > 0.4 → fan-out two specialists
     3. Otherwise → single specialist
@@ -159,7 +179,13 @@ def route_after_triage(state: DoctorState) -> list[str]:
 
 async def triage_node(state: DoctorState) -> dict[str, Any]:
     """
+    ⚠️ FULLY DEPRECATED in V3 — NOT registered in the V3 graph.
+
     Multi-label triage node: analyze normalized evidence → TriageOutput.
+
+    In V3, this node is replaced by the unified_agent's System Prompt
+    (step 1: classification analysis). Evaluation reads ``primary_category``
+    and ``categories`` from the Agent's JSON output directly.
 
     Uses the NormalizedEvidence produced by the Ingest layer (golden_signals,
     correlations, timeline) — NOT raw logs/traces directly.
@@ -175,7 +201,8 @@ async def triage_node(state: DoctorState) -> dict[str, Any]:
         state: Current DoctorState with evidence (NormalizedEvidence).
 
     Returns:
-        Dict with 'triage' and 'findings' to merge into state.
+        Dict with 'triage' (TriageOutput with primary + scores=categories)
+        and 'findings' to merge into state.
     """
     evidence: NormalizedEvidence = state.evidence
 

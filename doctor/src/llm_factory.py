@@ -27,7 +27,7 @@ from langchain_openai import ChatOpenAI
 
 from src.config import settings
 
-NodeRole = Literal["triage", "specialist", "default"]
+NodeRole = Literal["triage", "specialist", "diagnosis", "default"]
 
 
 @lru_cache(maxsize=3)
@@ -50,7 +50,7 @@ def get_llm_for_role(role: NodeRole) -> ChatOpenAI:
         model = settings.llm_triage_model or settings.llm_model
         temperature = settings.llm_triage_temperature
         max_tokens = settings.llm_triage_max_tokens
-    elif role == "specialist":
+    elif role in ("specialist", "diagnosis"):
         model = settings.llm_specialist_model or settings.llm_model
         temperature = settings.llm_specialist_temperature
         max_tokens = settings.llm_specialist_max_tokens
@@ -72,7 +72,7 @@ def get_model_name_for_role(role: NodeRole) -> str:
     """Get the model name that *would* be used for a role (without creating LLM)."""
     if role == "triage":
         return settings.llm_triage_model or settings.llm_model
-    elif role == "specialist":
+    elif role in ("specialist", "diagnosis"):
         return settings.llm_specialist_model or settings.llm_model
     return settings.llm_model
 

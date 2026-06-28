@@ -21,10 +21,29 @@ from langchain_core.tools import StructuredTool
 
 from src.tools.code_search import CODE_SEARCH_TOOL
 from src.tools.db_query import DB_QUERY_TOOL
+from src.tools.file_reader import (
+    get_file_content,
+    get_get_file_content_tool,
+)
+from src.tools.frontend_inspect import (
+    get_inspect_frontend_error_tool,
+    inspect_frontend_error,
+)
+from src.tools.frontend_tools import (
+    EXTRACT_STACK_TRACE_TOOL,
+    FRONTEND_SPECIALIST_TOOLS,
+    PARSE_BROWSER_ERRORS_TOOL,
+    extract_stack_trace,
+    parse_browser_errors,
+)
 from src.tools.observability_tools import (
     query_loki_logs,
     query_tempo_trace,
     search_tempo_traces,
+)
+from src.tools.observability_unified import (
+    get_search_observability_tool,
+    search_observability,
 )
 from src.tools.source_map_resolve import SOURCE_MAP_RESOLVE_TOOL
 from src.tools.trace_query import (
@@ -36,7 +55,20 @@ from src.tools.trace_query import (
     get_tree_summary,
 )
 
-# ── Loki log query tool ─────────────────────────────────────────────
+# ── Lazy init for SEARCH_OBSERVABILITY_TOOL ─────────────────────────
+# Deferred to first access to avoid import-time side effects.
+
+SEARCH_OBSERVABILITY_TOOL = get_search_observability_tool()
+
+# ── Lazy init for INSPECT_FRONTEND_ERROR_TOOL ───────────────────────
+
+INSPECT_FRONTEND_ERROR_TOOL = get_inspect_frontend_error_tool()
+
+# ── Lazy init for GET_FILE_CONTENT_TOOL ─────────────────────────────
+
+GET_FILE_CONTENT_TOOL = get_get_file_content_tool()
+
+# ── Loki log query tool (DEPRECATED: 使用 SEARCH_OBSERVABILITY_TOOL 替代) ──
 
 LOKI_QUERY_TOOL = StructuredTool.from_function(
     coroutine=query_loki_logs,
@@ -55,7 +87,7 @@ LOKI_QUERY_TOOL = StructuredTool.from_function(
     ),
 )
 
-# ── Tempo trace query tool ──────────────────────────────────────────
+# ── Tempo trace query tool (DEPRECATED: 使用 SEARCH_OBSERVABILITY_TOOL 替代) ──
 
 TEMPO_TRACE_TOOL = StructuredTool.from_function(
     coroutine=query_tempo_trace,
@@ -68,7 +100,7 @@ TEMPO_TRACE_TOOL = StructuredTool.from_function(
     ),
 )
 
-# ── Tempo trace search tool ─────────────────────────────────────────
+# ── Tempo trace search tool (DEPRECATED: 使用 SEARCH_OBSERVABILITY_TOOL 替代) ──
 
 TEMPO_SEARCH_TOOL = StructuredTool.from_function(
     coroutine=search_tempo_traces,
@@ -82,7 +114,7 @@ TEMPO_SEARCH_TOOL = StructuredTool.from_function(
     ),
 )
 
-# ── Trace analysis tool (one-stop: fetch + tree + N+1/bottleneck/error) ──
+# ── Trace analysis tool (DEPRECATED: 使用 SEARCH_OBSERVABILITY_TOOL(analysis="full") 替代) ──
 
 
 async def analyze_trace_tree(trace_id: str) -> str:
@@ -140,15 +172,45 @@ TRACE_ANALYSIS_TOOL = StructuredTool.from_function(
     ),
 )
 
-# ── Shared tools pool (for all specialist agents) ───────────────────
+# ── V3 统一工具集 (5 tools for UnifiedAgent) ────────────────────────
 
+_ALL_TOOLS_CACHE: list[StructuredTool] | None = None
+
+
+def _build_all_tools() -> list[StructuredTool]:
+    """Build the V3 ALL_TOOLS list."""
+    return [
+        SEARCH_OBSERVABILITY_TOOL,  # 新：统一可观测性查询
+        CODE_SEARCH_TOOL,  # 保留：语义代码搜索
+        DB_QUERY_TOOL,  # 保留：只读数据库查询
+        INSPECT_FRONTEND_ERROR_TOOL,  # 新：一站式前端分析
+        GET_FILE_CONTENT_TOOL,  # 新：文件读取
+    ]
+
+
+def get_all_tools() -> list[StructuredTool]:
+    """Get the V3 unified tool set (5 tools). Cached after first call."""
+    global _ALL_TOOLS_CACHE
+    if _ALL_TOOLS_CACHE is None:
+        _ALL_TOOLS_CACHE = _build_all_tools()
+    return _ALL_TOOLS_CACHE
+
+
+# Module-level alias for convenience
+ALL_TOOLS = get_all_tools()
+
+
+# ── V2 兼容别名 (过渡期保留) ─────────────────────────────────────────
+
+# SHARED_TOOLS 保留旧 7 工具集，确保现有 specialist agent 不中断。
+# V3 新代码应使用 ALL_TOOLS / get_all_tools()。
 SHARED_TOOLS: list[StructuredTool] = [
     CODE_SEARCH_TOOL,
     DB_QUERY_TOOL,
-    LOKI_QUERY_TOOL,
-    TEMPO_TRACE_TOOL,
-    TEMPO_SEARCH_TOOL,
-    TRACE_ANALYSIS_TOOL,
+    LOKI_QUERY_TOOL,  # DEPRECATED
+    TEMPO_TRACE_TOOL,  # DEPRECATED
+    TEMPO_SEARCH_TOOL,  # DEPRECATED
+    TRACE_ANALYSIS_TOOL,  # DEPRECATED
     SOURCE_MAP_RESOLVE_TOOL,
 ]
 
@@ -160,6 +222,11 @@ __all__ = [
     "query_tempo_trace",
     "search_tempo_traces",
     "analyze_trace_tree",
+    "search_observability",
+    "inspect_frontend_error",
+    "get_file_content",
+    "parse_browser_errors",
+    "extract_stack_trace",
     # Trace query / tree analysis (shared tools)
     "build_cross_tier_tree",
     "detect_n_plus_one",
@@ -170,10 +237,22 @@ __all__ = [
     # LangChain StructuredTool wrappers (for ReAct agents)
     "CODE_SEARCH_TOOL",
     "DB_QUERY_TOOL",
-    "LOKI_QUERY_TOOL",
-    "SHARED_TOOLS",
+    "EXTRACT_STACK_TRACE_TOOL",
+    "ALL_TOOLS",  # V3 统一工具集 (5 tools)
+    "FRONTEND_SPECIALIST_TOOLS",  # DEPRECATED: 使用 INSPECT_FRONTEND_ERROR_TOOL 替代
+    "GET_FILE_CONTENT_TOOL",  # V3 文件读取
+    "INSPECT_FRONTEND_ERROR_TOOL",  # V3 一站式前端分析
+    "LOKI_QUERY_TOOL",  # DEPRECATED: 使用 SEARCH_OBSERVABILITY_TOOL 替代
+    "PARSE_BROWSER_ERRORS_TOOL",
+    "SEARCH_OBSERVABILITY_TOOL",  # V3 统一可观测性入口
+    "SHARED_TOOLS",  # V2 兼容 (7 tools)
     "SOURCE_MAP_RESOLVE_TOOL",
-    "TEMPO_SEARCH_TOOL",
-    "TEMPO_TRACE_TOOL",
-    "TRACE_ANALYSIS_TOOL",
+    "TEMPO_SEARCH_TOOL",  # DEPRECATED: 使用 SEARCH_OBSERVABILITY_TOOL 替代
+    "TEMPO_TRACE_TOOL",  # DEPRECATED: 使用 SEARCH_OBSERVABILITY_TOOL 替代
+    "TRACE_ANALYSIS_TOOL",  # DEPRECATED: 使用 SEARCH_OBSERVABILITY_TOOL 替代
+    # V3 工具集构建函数
+    "get_all_tools",
+    "get_search_observability_tool",
+    "get_inspect_frontend_error_tool",
+    "get_get_file_content_tool",
 ]

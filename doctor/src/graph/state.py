@@ -3,10 +3,10 @@ LangGraph State definitions for DiagDoctor (v2 — multi-label + Ingest + Critic
 
 Defines the shared state schema used across all Agent nodes in the diagnosis pipeline.
 
-Key changes from v1:
+Key changes from v2:
 - DiagnosisReport: single bug_category → primary_category + categories(list)
-- DoctorState: added raw_evidence, triage (multi-label), iterations, critic_feedback,
-  verdict, draft_report, total_cost, retrieval_trace
+- DoctorState: added raw_evidence, triage (multi-label), total_cost, retrieval_trace
+- DoctorState (v3): removed iterations, critic_feedback, verdict, draft_report
 - New sub-models: NormalizedEvidence, Signal, TimelineEvent, Correlation, TriageOutput,
   CategoryScore, RetrievalRecord, BrowserError
 """
@@ -287,14 +287,15 @@ class BudgetState(BaseModel):
 
 class DoctorState(BaseModel):
     """
-    Shared state for the DiagDoctor LangGraph (v2).
+    Shared state for the DiagDoctor LangGraph (v3).
 
-    Key changes from v1:
-    - evidence is now raw_evidence (original input)
-    - normalized evidence is stored in evidence (NormalizedEvidence)
-    - triage is multi-label TriageOutput (not single Literal)
-    - Added: iterations, critic_feedback, verdict, draft_report, total_cost, retrieval_trace
-    - Removed: bug_category (migrated to triage.primary)
+    V3 key changes from v2:
+    - Removed: iterations, critic_feedback, verdict (no Critic loop in V3)
+    - Removed: draft_report (no synthesis node in V3)
+    - Kept: triage field (default-empty, for backward compat; classification
+      now embedded in unified_agent System Prompt)
+    - Kept: raw_evidence, evidence, findings, hypotheses, report, budget,
+      retrieval_trace, total_cost, messages
     """
 
     # ── Input ──
@@ -304,20 +305,14 @@ class DoctorState(BaseModel):
     # ── Ingest layer output ──
     evidence: NormalizedEvidence = Field(default_factory=NormalizedEvidence)
 
-    # ── Triage (multi-label) ──
+    # ── Triage (multi-label) — default-empty in V3; classification from Agent output ──
     triage: TriageOutput = Field(default_factory=TriageOutput)
 
     # ── Accumulated findings & hypotheses ──
     findings: Annotated[list[Finding], add] = Field(default_factory=list)
     hypotheses: Annotated[list[DiagnosisHypothesis], add] = Field(default_factory=list)
 
-    # ── Critic loop control ──
-    iterations: int = 0
-    critic_feedback: str | None = None
-    verdict: Literal["accept", "retry"] | None = None
-
-    # ── Reports ──
-    draft_report: DiagnosisReport | None = None
+    # ── Reports (V3: unified_agent produces report directly; no draft_report) ──
     report: DiagnosisReport | None = None
 
     # ── Message history (for ReAct agents) ──
