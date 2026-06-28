@@ -14,7 +14,7 @@ import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
 
 // ── Constants ──────────────────────────────────────────────────────
 
-const LOG_EXPORTER_URL = "http://localhost:4318/v1/logs";
+const LOG_EXPORTER_URL = "http://127.0.0.1:4318/v1/logs";
 const SERVICE_NAME = "demo-frontend";
 
 // ── Batching ───────────────────────────────────────────────────────

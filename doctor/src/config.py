@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.1
     llm_max_tokens: int = 4096
 
+    # Role-specific LLM overrides (fall back to llm_model if empty)
+    llm_triage_model: str = ""
+    llm_triage_temperature: float = 0.1
+    llm_triage_max_tokens: int = 2048
+    llm_specialist_model: str = ""
+    llm_specialist_temperature: float = 0.1
+    llm_specialist_max_tokens: int = 4096
+
     # --- Embedding ---
     embedding_base_url: str = ""
     embedding_model: str = "text-embedding-3-small"
