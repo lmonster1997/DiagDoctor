@@ -717,3 +717,94 @@ class TestStructuredToolWrappers:
         assert "query_loki_logs" in tools_all
         assert "query_tempo_trace" in tools_all
         assert "search_tempo_traces" in tools_all
+
+
+# ── V3 统一工具集测试 ──────────────────────────────────────────────
+
+
+class TestV3UnifiedTools:
+    """Verify that the V3 unified tool set (5 tools) is correctly configured."""
+
+    def test_search_observability_tool_exists(self) -> None:
+        """SEARCH_OBSERVABILITY_TOOL is importable and has correct metadata."""
+        from src.tools import SEARCH_OBSERVABILITY_TOOL
+
+        assert SEARCH_OBSERVABILITY_TOOL.name == "search_observability"
+        assert "统一可观测性查询入口" in SEARCH_OBSERVABILITY_TOOL.description
+        assert SEARCH_OBSERVABILITY_TOOL.coroutine is not None
+
+    def test_inspect_frontend_error_tool_exists(self) -> None:
+        """INSPECT_FRONTEND_ERROR_TOOL is importable and has correct metadata."""
+        from src.tools import INSPECT_FRONTEND_ERROR_TOOL
+
+        assert INSPECT_FRONTEND_ERROR_TOOL.name == "inspect_frontend_error"
+        assert "一站式前端错误分析" in INSPECT_FRONTEND_ERROR_TOOL.description
+        assert INSPECT_FRONTEND_ERROR_TOOL.coroutine is not None
+
+    def test_get_file_content_tool_exists(self) -> None:
+        """GET_FILE_CONTENT_TOOL is importable and has correct metadata."""
+        from src.tools import GET_FILE_CONTENT_TOOL
+
+        assert GET_FILE_CONTENT_TOOL.name == "get_file_content"
+        assert "读取 demo-app 代码库" in GET_FILE_CONTENT_TOOL.description
+        assert GET_FILE_CONTENT_TOOL.coroutine is not None
+
+    def test_all_tools_has_exactly_five(self) -> None:
+        """ALL_TOOLS must contain exactly 5 tools."""
+        from src.tools import ALL_TOOLS
+
+        assert len(ALL_TOOLS) == 5
+        tool_names = {t.name for t in ALL_TOOLS}
+        assert tool_names == {
+            "search_observability",
+            "code_search",
+            "db_query",
+            "inspect_frontend_error",
+            "get_file_content",
+        }
+
+    def test_all_tools_are_structured_tools(self) -> None:
+        """Each tool in ALL_TOOLS must be a LangChain StructuredTool."""
+        from langchain_core.tools import StructuredTool
+
+        from src.tools import ALL_TOOLS
+
+        for tool in ALL_TOOLS:
+            assert isinstance(tool, StructuredTool), f"{tool.name} is not a StructuredTool"
+
+    def test_all_tools_have_coroutine(self) -> None:
+        """Each tool must have an async coroutine."""
+        from src.tools import ALL_TOOLS
+
+        for tool in ALL_TOOLS:
+            assert tool.coroutine is not None, f"{tool.name} missing coroutine"
+            assert callable(tool.coroutine), f"{tool.name} coroutine not callable"
+
+    def test_v3_tools_exposed_in_all(self) -> None:
+        """V3 tools are exposed in __all__."""
+        from src.tools import __all__ as tools_all
+
+        assert "SEARCH_OBSERVABILITY_TOOL" in tools_all
+        assert "INSPECT_FRONTEND_ERROR_TOOL" in tools_all
+        assert "GET_FILE_CONTENT_TOOL" in tools_all
+        assert "ALL_TOOLS" in tools_all
+        assert "search_observability" in tools_all
+        assert "inspect_frontend_error" in tools_all
+        assert "get_file_content" in tools_all
+
+    def test_deprecated_tools_still_importable(self) -> None:
+        """Old tools should still be importable (deprecated, not removed)."""
+        from src.tools import (
+            FRONTEND_SPECIALIST_TOOLS,
+            LOKI_QUERY_TOOL,
+            TEMPO_SEARCH_TOOL,
+            TEMPO_TRACE_TOOL,
+            TRACE_ANALYSIS_TOOL,
+        )
+
+        # All deprecated tools exist
+        assert LOKI_QUERY_TOOL.name == "query_loki_logs"
+        assert TEMPO_TRACE_TOOL.name == "query_tempo_trace"
+        assert TEMPO_SEARCH_TOOL.name == "search_tempo_traces"
+        assert TRACE_ANALYSIS_TOOL.name == "analyze_trace"
+        assert len(FRONTEND_SPECIALIST_TOOLS) > 0

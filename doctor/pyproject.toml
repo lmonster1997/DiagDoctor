@@ -46,6 +46,9 @@ select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
 # B008: FastAPI Depends in function argument defaults is the idiomatic pattern.
 ignore = ["B008"]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["E501"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
