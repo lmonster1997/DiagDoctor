@@ -28,7 +28,7 @@ import json
 import re
 from typing import Any
 
-from langchain.agents import create_agent
+from langgraph.prebuilt import create_react_agent
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage
 from langchain_core.tools import BaseTool
@@ -90,10 +90,10 @@ def build_backend_specialist() -> Any:  # CompiledStateGraph (relaxed per B2 pol
         tool_count=len(tools),
     )
 
-    agent = create_agent(
+    agent = create_react_agent(
         model=llm,
         tools=tools,
-        system_prompt=system_prompt,
+        prompt=system_prompt,
     )
 
     return agent
