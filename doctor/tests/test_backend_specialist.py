@@ -126,8 +126,7 @@ def cross_layer_state() -> DoctorState:
                 correlation_id="corr-cross-001",
                 trace_id="xyz789",
                 description=(
-                    "Frontend TypeError reading task.tags "
-                    "→ backend TaskResponse lacks tags field"
+                    "Frontend TypeError reading task.tags → backend TaskResponse lacks tags field"
                 ),
                 frontend_signals=["sig-fe-001"],
                 backend_signals=["sig-be-001"],
@@ -265,11 +264,7 @@ class TestFormatSignals:
         ]
         result = _format_signals(signals)
         # Should have 30 lines of signals, not 50
-        lines = [
-            line
-            for line in result.split("\n")
-            if line.strip().startswith(("❌", "⚠️", "ℹ️"))
-        ]
+        lines = [line for line in result.split("\n") if line.strip().startswith(("❌", "⚠️", "ℹ️"))]
         assert len(lines) <= 30
 
 
@@ -307,9 +302,7 @@ class TestFormatCorrelations:
         ]
         result = _format_correlations(correlations)
         # Should have at most 10 lines, not 20
-        lines = [
-            line for line in result.split("\n") if line.strip().startswith("  -")
-        ]
+        lines = [line for line in result.split("\n") if line.strip().startswith("  -")]
         assert len(lines) <= 10
 
 
