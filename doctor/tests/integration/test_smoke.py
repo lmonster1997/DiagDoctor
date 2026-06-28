@@ -191,10 +191,10 @@ async def test_end_to_end_smoke() -> None:
         # 8a. A thread_id must be assigned
         assert "thread_id" in result, f"Response missing thread_id: {result}"
 
-        # 8b. bug_category must be present and non-empty
-        bug_category: str = result.get("bug_category", "")
-        assert bug_category, (
-            f"bug_category is empty — Doctor did not classify the bug.\nFull response: {result}"
+        # 8b. primary_category must be present and non-empty
+        primary_category: str = result.get("primary_category", "")
+        assert primary_category, (
+            f"primary_category is empty — Doctor did not classify the bug.\nFull response: {result}"
         )
 
         # 8c. A DiagnosisReport must be present
@@ -204,7 +204,7 @@ async def test_end_to_end_smoke() -> None:
 
         # 8d. Report must contain the required DiagnosisReport fields
         required_report_fields = [
-            "bug_category",
+            "primary_category",
             "root_cause",
             "fix_suggestion",
             "confidence",
@@ -222,7 +222,7 @@ async def test_end_to_end_smoke() -> None:
         print(f"   Project ID:     {project_id}")
         print(f"   Task IDs:       {task_ids}")
         print(f"   Doctor thread:  {result['thread_id']}")
-        print(f"   Bug category:   {bug_category}")
+        print(f"   Primary category: {primary_category}")
         print(f"   Confidence:     {report.get('confidence', 'N/A')}")
         print(f"   Root cause:     {report.get('root_cause', 'N/A')[:100]}")
         print(f"{'=' * 60}\n")

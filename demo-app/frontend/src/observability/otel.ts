@@ -21,7 +21,7 @@ import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
 
 // ── Trace exporter ──────────────────────────────────────────────────
 
-const TRACE_EXPORTER_URL = "http://localhost:4318/v1/traces";
+const TRACE_EXPORTER_URL = "http://127.0.0.1:4318/v1/traces";
 
 /** Global reference to the BatchSpanProcessor so error handlers can force-flush. */
 let _batchProcessor: BatchSpanProcessor | null = null;

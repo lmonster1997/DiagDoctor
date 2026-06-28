@@ -488,12 +488,13 @@ class TestQueryLokiLogsIntegration:
             start = datetime(2026, 6, 20, 11, 0, tzinfo=UTC)
             end = datetime(2026, 6, 20, 12, 0, tzinfo=UTC)
 
-            with pytest.raises(aiohttp.ClientError):
-                await query_loki_logs(
-                    logql='{service_name="demo-backend"}',
-                    start=start,
-                    end=end,
-                )
+            # query_loki_logs now catches errors gracefully and returns []
+            entries = await query_loki_logs(
+                logql='{service_name="demo-backend"}',
+                start=start,
+                end=end,
+            )
+            assert entries == []
 
 
 class TestQueryTempoTraceIntegration:
@@ -671,8 +672,9 @@ class TestSearchTempoTracesIntegration:
             start = datetime(2026, 6, 20, 11, 0, tzinfo=UTC)
             end = datetime(2026, 6, 20, 12, 0, tzinfo=UTC)
 
-            with pytest.raises(aiohttp.ClientError):
-                await search_tempo_traces(service="demo-backend", start=start, end=end)
+            # search_tempo_traces now catches errors gracefully and returns []
+            traces = await search_tempo_traces(service="demo-backend", start=start, end=end)
+            assert traces == []
 
 
 # ── StructuredTool wrapper tests ────────────────────────────────────

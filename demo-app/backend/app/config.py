@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # --- Database ---
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/taskflow"
+    database_url: str = "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/taskflow"
 
     # --- JWT / Auth ---
     jwt_secret: str = "change-me-in-production-use-a-strong-random-secret"
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60
 
     # --- OpenTelemetry ---
-    otel_exporter_otlp_endpoint: str = "http://localhost:4317"
+    otel_exporter_otlp_endpoint: str = "http://127.0.0.1:4317"
     otel_service_name: str = "demo-backend"
 
     # --- CORS ---

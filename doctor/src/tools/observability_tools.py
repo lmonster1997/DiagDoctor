@@ -25,7 +25,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 import aiohttp
@@ -51,6 +51,12 @@ DEFAULT_LOG_LIMIT: int = 1000
 
 # Loki API endpoint
 LOKI_QUERY_RANGE_PATH: str = "/loki/api/v1/query_range"
+
+# Maximum query time range (Loki enforces ~30d; we clamp to 24h for safety)
+MAX_QUERY_RANGE_HOURS: float = 24.0
+# Loki's own max query length in hours (as reported in error messages: ~30d)
+# We use a slightly tighter clamp to avoid edge cases.
+LOKI_MAX_QUERY_LENGTH_HOURS: float = 720.0  # 30 days
 
 # Tempo API endpoints
 TEMPO_TRACE_PATH: str = "/api/traces"
@@ -396,6 +402,11 @@ async def query_loki_logs(
     Calls the Loki HTTP API `/loki/api/v1/query_range` and converts
     the response into a list of LogEntry domain models.
 
+    The time range is automatically clamped to ``MAX_QUERY_RANGE_HOURS``
+    (centered on the midpoint) if the requested span exceeds this limit.
+    This prevents Loki 400 errors caused by exceeding its ~30d max query
+    length.
+
     Args:
         logql: The LogQL query string (e.g. '{service_name="demo-backend"}').
         start: Start of the time range.
@@ -404,9 +415,11 @@ async def query_loki_logs(
 
     Returns:
         A list of LogEntry objects parsed from the Loki response.
+        Returns an empty list (instead of raising) when Loki rejects
+        the query (e.g. time range too wide, no data in range).
 
     Example:
-        >>> from datetime import datetime, timedelta
+        >>> from datetime import datetime, timedelta, timezone
         >>> end = datetime.now(timezone.utc)
         >>> start = end - timedelta(hours=1)
         >>> logs = await query_loki_logs(
@@ -415,6 +428,24 @@ async def query_loki_logs(
         ...     end=end,
         ... )
     """
+    # ── Clamp time range to avoid Loki "time range exceeds limit" (400) ──
+    requested_range_hours = (end - start).total_seconds() / 3600.0
+    if requested_range_hours > MAX_QUERY_RANGE_HOURS:
+        midpoint = start + (end - start) / 2
+        half_window = timedelta(hours=MAX_QUERY_RANGE_HOURS / 2)
+        original_start, original_end = start, end
+        start = midpoint - half_window
+        end = midpoint + half_window
+        logger.warning(
+            "loki_query_time_range_clamped",
+            original_start=original_start.isoformat(),
+            original_end=original_end.isoformat(),
+            original_hours=round(requested_range_hours, 1),
+            clamped_start=start.isoformat(),
+            clamped_end=end.isoformat(),
+            max_hours=MAX_QUERY_RANGE_HOURS,
+        )
+
     base_url = settings.loki_url.rstrip("/")
     url = f"{base_url}{LOKI_QUERY_RANGE_PATH}"
 
@@ -443,9 +474,24 @@ async def query_loki_logs(
         entries = _handle_loki_response(data)
         logger.info("loki_query_complete", entry_count=len(entries))
         return entries
+    except aiohttp.ClientResponseError as exc:
+        # Handle Loki-specific 400 errors gracefully (e.g. time range exceeds limit)
+        error_text = str(exc)
+        if exc.status == 400 and "time range exceeds" in error_text:
+            logger.warning(
+                "loki_query_time_range_rejected",
+                error=error_text,
+                logql=logql,
+                hint="Loki rejected the query because the time range exceeds its configured limit. "
+                "Try a narrower time window (≤24h recommended).",
+            )
+            return []
+        logger.error("loki_query_failed", error=error_text, logql=logql)
+        return []
     except Exception as exc:
         logger.error("loki_query_failed", error=str(exc), logql=logql)
-        raise
+        # Return empty list instead of raising to avoid crashing the agent
+        return []
 
 
 @traced("observability.query_tempo_trace")
@@ -493,6 +539,9 @@ async def search_tempo_traces(
     Calls the Tempo HTTP API `/api/search` with service name, time range,
     and optional minimum duration filter.
 
+    The time range is automatically clamped to ``MAX_QUERY_RANGE_HOURS``
+    if the requested span exceeds this limit.
+
     Args:
         service: The service name to search for (e.g. "demo-backend").
         start: Start of the time range.
@@ -518,6 +567,21 @@ async def search_tempo_traces(
         ...     min_duration_ms=500,
         ... )
     """
+    # ── Clamp time range ──
+    requested_range_hours = (end - start).total_seconds() / 3600.0
+    if requested_range_hours > MAX_QUERY_RANGE_HOURS:
+        midpoint = start + (end - start) / 2
+        half_window = timedelta(hours=MAX_QUERY_RANGE_HOURS / 2)
+        start = midpoint - half_window
+        end = midpoint + half_window
+        logger.warning(
+            "tempo_search_time_range_clamped",
+            original_hours=round(requested_range_hours, 1),
+            clamped_start=start.isoformat(),
+            clamped_end=end.isoformat(),
+            max_hours=MAX_QUERY_RANGE_HOURS,
+        )
+
     base_url = settings.tempo_url.rstrip("/")
     url = f"{base_url}{TEMPO_SEARCH_PATH}"
 
@@ -550,6 +614,19 @@ async def search_tempo_traces(
         traces = _handle_tempo_search_response(data)
         logger.info("tempo_search_complete", service=service, trace_count=len(traces))
         return traces
+    except aiohttp.ClientResponseError as exc:
+        logger.warning(
+            "tempo_search_http_error",
+            error=str(exc),
+            status=exc.status,
+            service=service,
+        )
+        return []
     except Exception as exc:
-        logger.error("tempo_search_failed", error=str(exc), service=service)
-        raise
+        logger.warning(
+            "tempo_search_failed_graceful",
+            error=str(exc),
+            service=service,
+            hint="Returning empty result — the agent will continue without Tempo data.",
+        )
+        return []

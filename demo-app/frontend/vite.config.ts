@@ -26,7 +26,7 @@ export default defineConfig({
       // Forward ALL /api/* requests to the backend in dev mode.
       // (In Docker, nginx handles this; in dev, Vite must proxy.)
       "/api": {
-        target: "http://localhost:8000",
+        target: "http://127.0.0.1:8000",
         changeOrigin: true,
       },
     },
