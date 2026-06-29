@@ -155,14 +155,22 @@ class BugInjector:
                 )
                 continue
             extra_original = extra_path.read_text(encoding="utf-8")
-            extra_instruction = extra.get("instruction", recipe.injection.ai_instruction)
-            extra_lang = detect_language(extra_path)
-            extra_modified = await self._apply_ai_rewrite(
-                recipe.id,
-                extra_original,
-                extra_instruction,
-                extra_lang,
-            )
+
+            # Support both diff_patch (exact) and instruction (AI rewrite).
+            extra_diff_patch = extra.get("diff_patch")
+            if extra_diff_patch:
+                extra_modified = self._apply_diff_patch(recipe.id, extra_original, extra_diff_patch)
+                logger.info("Extra file: diff patch applied", file=extra["file"])
+            else:
+                extra_instruction = extra.get("instruction", recipe.injection.ai_instruction)
+                extra_lang = detect_language(extra_path)
+                extra_modified = await self._apply_ai_rewrite(
+                    recipe.id,
+                    extra_original,
+                    extra_instruction,
+                    extra_lang,
+                )
+
             if extra_modified == extra_original:
                 logger.warning(
                     "Extra file produced no changes — skipping",

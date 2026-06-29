@@ -67,11 +67,10 @@ trigger:
   - action: wait
     params:
       seconds: 2
-  - action: api_call
+  - action: create_data
     params:
-      method: POST
-      path: /api/projects/{project_id}/tasks
-      body:
+      entity: task
+      data:
         title: 有截止日期的任务
         due_date: '2030-01-01T00:00:00Z'
   - action: collect_diff

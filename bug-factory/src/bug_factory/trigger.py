@@ -626,6 +626,13 @@ class TriggerRunner:
                     await page.click(selector, force=True)
                     await asyncio.sleep(1)  # Let any navigation / animation settle.
 
+                # Additional wait to capture async console errors
+                # (e.g. frontend timeout→retry cycles, cascade failures).
+                post_wait_click = float(params.get("post_wait", 0))
+                if post_wait_click > 0:
+                    logger.info("Post-click wait for async errors", seconds=post_wait_click)
+                    await asyncio.sleep(post_wait_click)
+
             finally:
                 await self._enrich_browser_errors_from_page(page)
                 await browser.close()
@@ -763,6 +770,9 @@ class TriggerRunner:
 
         wait_until = params.get("wait_until", "networkidle")
         timeout_ms = int(params.get("timeout", 15000))
+        # post_wait: extra seconds to keep the browser open after navigation
+        # so async console errors (retries, timeouts) can be captured.
+        post_wait = float(params.get("post_wait", 0))
 
         try:
             from playwright.async_api import async_playwright
@@ -882,6 +892,12 @@ class TriggerRunner:
 
                 # Let React hydrate and fetch data (with traceparent).
                 await asyncio.sleep(2)
+
+                # Additional wait to capture async console errors
+                # (e.g. frontend timeout→retry cycles, cascade failures).
+                if post_wait > 0:
+                    logger.info("Post-navigate wait for async errors", seconds=post_wait)
+                    await asyncio.sleep(post_wait)
 
             finally:
                 await self._enrich_browser_errors_from_page(page)

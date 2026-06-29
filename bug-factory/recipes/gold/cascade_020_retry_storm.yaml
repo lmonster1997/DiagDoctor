@@ -46,12 +46,18 @@ injection:
   diff_patch: |
     --- a/demo-app/backend/app/api/projects.py
     +++ b/demo-app/backend/app/api/projects.py
-    @@ -11,2 +11,4 @@
+    @@ -10,6 +10,8 @@
+     from app.database import get_db
      from app.models.project import Project
+     from app.models.user import User
     +from app.models.task import Task
     +import asyncio
-     from app.models.user import User
-    @@ -24,2 +26,7 @@
+     from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
+     
+     router = APIRouter(prefix="/api/projects", tags=["projects"])
+    @@ -22,7 +24,13 @@
+     ) -> list[Project]:
+         """List all projects owned by the current user."""
          result = await db.execute(select(Project).where(Project.owner_id == current_user.id))
     -    return list(result.scalars().all())
     +    projects = list(result.scalars().all())
@@ -63,12 +69,47 @@ injection:
     +    return projects
   extra_files:
     - file: demo-app/frontend/src/services/api.ts
-      instruction: |
-        把 axios.create 中的 timeout 从 15000 改成 5000（5 秒超时）。
-        在响应拦截器的 error 处理中，对超时错误（error.code === 'ECONNABORTED'
-        或 axios.isCancel(error)）自动重试最多 3 次，每次重试前用指数退避等待
-        （第 1 次等 1s，第 2 次等 2s，第 3 次等 4s）。重试耗尽后仍然失败时，
-        用 console.error 输出 '[CASCADE] Retry exhausted' 以便 Playwright 采集。
+      diff_patch: |
+        --- a/demo-app/frontend/src/services/api.ts
+        +++ b/demo-app/frontend/src/services/api.ts
+        @@ -8,7 +8,7 @@
+           headers: {
+             "Content-Type": "application/json",
+           },
+        -  timeout: 15000,
+        +  timeout: 5000,  // BUG(CASCADE-020): 5s timeout → retry storm
+         });
+        @@ -29,15 +29,29 @@
+         api.interceptors.response.use(
+           (response) => response,
+        -  (error) => {
+        +  async (error) => {
+             if (error.response?.status === 401) {
+               console.warn("[API_UNAUTHORIZED]", { url: error.config?.url });
+               useAuthStore.getState().logout();
+        -      // Redirect to login if not already there
+               if (window.location.pathname !== "/login") {
+                 window.location.href = "/login";
+               }
+             }
+        +    // BUG(CASCADE-020): Auto-retry on timeout → cascade failure
+        +    const config = error.config;
+        +    if (config && (error.code === 'ECONNABORTED' || axios.isCancel(error))) {
+        +      config._retryCount = config._retryCount || 0;
+        +      const maxRetries = 3;
+        +      if (config._retryCount >= maxRetries) {
+        +        console.error('[CASCADE] Retry exhausted', { url: config.url, retries: config._retryCount });
+        +        return Promise.reject(error);
+        +      }
+        +      config._retryCount += 1;
+        +      const backoff = Math.pow(2, config._retryCount - 1) * 1000;  // 1s, 2s, 4s
+        +      console.warn(`[CASCADE] Retry ${config._retryCount}/${maxRetries} after ${backoff}ms`, { url: config.url });
+        +      await new Promise(resolve => setTimeout(resolve, backoff));
+        +      return api(config);
+        +    }
+             console.error("[API_RESPONSE_ERROR]", {
+               status: error.response?.status,
+               url: error.config?.url,
 trigger:
   type: e2e_action
   steps:
@@ -86,9 +127,11 @@ trigger:
   - action: ui_navigate
     params:
       url: /projects
+      wait_until: load
+      post_wait: 25
   - action: wait
     params:
-      seconds: 20
+      seconds: 5
   - action: collect_diff
     params:
       diff_type: behavior_mismatch

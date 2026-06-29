@@ -1,11 +1,11 @@
 [
   {
-    "trace_id": "8ef9a466fad7875c694ae2b07e31499c",
-    "span_id": "a663644cbbfabca5",
-    "parent_span_id": "6fb898d2f73ffd4e",
+    "trace_id": "78259b00645f34786ea66091386944fa",
+    "span_id": "3b1634ac4e71f35f",
+    "parent_span_id": "9d9a0075e89d41ad",
     "operation_name": "POST /api/tasks/00000000-0000-0000-0000-000000000000/comments http receive",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:52.745012+00:00",
+    "start_time": "2026-06-29T13:00:13.760072+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -13,12 +13,12 @@
     }
   },
   {
-    "trace_id": "8ef9a466fad7875c694ae2b07e31499c",
-    "span_id": "e7ecd399c593ea73",
-    "parent_span_id": "6fb898d2f73ffd4e",
+    "trace_id": "78259b00645f34786ea66091386944fa",
+    "span_id": "749d7fe4a496330f",
+    "parent_span_id": "9d9a0075e89d41ad",
     "operation_name": "POST /api/tasks/00000000-0000-0000-0000-000000000000/comments http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:52.759402+00:00",
+    "start_time": "2026-06-29T13:00:13.937876+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -27,12 +27,12 @@
     }
   },
   {
-    "trace_id": "8ef9a466fad7875c694ae2b07e31499c",
-    "span_id": "f40c396a138e4f88",
-    "parent_span_id": "6fb898d2f73ffd4e",
+    "trace_id": "78259b00645f34786ea66091386944fa",
+    "span_id": "f9088fa121655d18",
+    "parent_span_id": "9d9a0075e89d41ad",
     "operation_name": "POST /api/tasks/00000000-0000-0000-0000-000000000000/comments http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:52.760404+00:00",
+    "start_time": "2026-06-29T13:00:13.937876+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -40,13 +40,13 @@
     }
   },
   {
-    "trace_id": "8ef9a466fad7875c694ae2b07e31499c",
-    "span_id": "6fb898d2f73ffd4e",
+    "trace_id": "78259b00645f34786ea66091386944fa",
+    "span_id": "9d9a0075e89d41ad",
     "parent_span_id": "",
     "operation_name": "POST /api/tasks/00000000-0000-0000-0000-000000000000/comments",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:52.744359+00:00",
-    "duration_ms": 16.0454,
+    "start_time": "2026-06-29T13:00:13.753618+00:00",
+    "duration_ms": 184.2586,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
@@ -57,7 +57,7 @@
       "http.server_name": "localhost:8000",
       "http.user_agent": "Python/3.11 aiohttp/3.14.1",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "52059",
+      "net.peer.port": "61915",
       "http.route": "/api/tasks/00000000-0000-0000-0000-000000000000/comments",
       "http.method": "POST",
       "http.url": "http://localhost:8000/api/tasks/00000000-0000-0000-0000-000000000000/comments",
@@ -65,16 +65,16 @@
     }
   },
   {
-    "trace_id": "8ef9a466fad7875c694ae2b07e31499c",
-    "span_id": "2595c73965b38881",
-    "parent_span_id": "6fb898d2f73ffd4e",
+    "trace_id": "78259b00645f34786ea66091386944fa",
+    "span_id": "63ccd240805f384f",
+    "parent_span_id": "9d9a0075e89d41ad",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:52.745935+00:00",
+    "start_time": "2026-06-29T13:00:13.760072+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
-      "net.peer.name": "localhost",
+      "net.peer.name": "127.0.0.1",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
@@ -82,50 +82,50 @@
     }
   },
   {
-    "trace_id": "8ef9a466fad7875c694ae2b07e31499c",
-    "span_id": "053898847d7a8191",
-    "parent_span_id": "6fb898d2f73ffd4e",
+    "trace_id": "78259b00645f34786ea66091386944fa",
+    "span_id": "8639146f1268b585",
+    "parent_span_id": "9d9a0075e89d41ad",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:52.745935+00:00",
-    "duration_ms": 0.5028,
+    "start_time": "2026-06-29T13:00:13.761071+00:00",
+    "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
-      "net.peer.name": "localhost",
+      "net.peer.name": "127.0.0.1",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-8ef9a466fad7875c694ae2b07e31499c-f19ea5c7a684477e-03'*/",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-78259b00645f34786ea66091386944fa-bcd17732937691e6-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "8ef9a466fad7875c694ae2b07e31499c",
-    "span_id": "6b90d410c46bc74f",
-    "parent_span_id": "6fb898d2f73ffd4e",
+    "trace_id": "78259b00645f34786ea66091386944fa",
+    "span_id": "664b4bee1e8ef3d4",
+    "parent_span_id": "9d9a0075e89d41ad",
     "operation_name": "INSERT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:52.747991+00:00",
-    "duration_ms": 2.5736,
+    "start_time": "2026-06-29T13:00:13.762071+00:00",
+    "duration_ms": 16.4518,
     "status": "ok",
     "attributes": {
-      "net.peer.name": "localhost",
+      "net.peer.name": "127.0.0.1",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "INSERT INTO comments (id, task_id, author_id, content) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR) RETURNING comments.created_at /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-8ef9a466fad7875c694ae2b07e31499c-67aaa6db37476541-03'*/",
+      "db.statement": "INSERT INTO comments (id, task_id, author_id, content) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR) RETURNING comments.created_at /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-78259b00645f34786ea66091386944fa-e715e9f92f41fc1f-03'*/",
       "db.system": "postgresql",
       "db.operation": "INSERT"
     }
   },
   {
-    "trace_id": "6eb1572e19103b8f86406360952701c0",
-    "span_id": "1cddf5e15bf73e8a",
-    "parent_span_id": "56568ab55c173079",
+    "trace_id": "bf21dcf940e6ac26b8d7a62689652a8",
+    "span_id": "315a7157b8961352",
+    "parent_span_id": "c2e18c9b0eb72558",
     "operation_name": "OPTIONS /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.690034+00:00",
+    "start_time": "2026-06-29T13:00:08.666970+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -134,12 +134,12 @@
     }
   },
   {
-    "trace_id": "6eb1572e19103b8f86406360952701c0",
-    "span_id": "4f28286db93e878c",
-    "parent_span_id": "56568ab55c173079",
+    "trace_id": "bf21dcf940e6ac26b8d7a62689652a8",
+    "span_id": "1cde579c7b88a28a",
+    "parent_span_id": "c2e18c9b0eb72558",
     "operation_name": "OPTIONS /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.691065+00:00",
+    "start_time": "2026-06-29T13:00:08.666970+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -147,12 +147,12 @@
     }
   },
   {
-    "trace_id": "6eb1572e19103b8f86406360952701c0",
-    "span_id": "aba1e7dd786b5cb5",
-    "parent_span_id": "56568ab55c173079",
+    "trace_id": "bf21dcf940e6ac26b8d7a62689652a8",
+    "span_id": "f246d8eacceb524b",
+    "parent_span_id": "c2e18c9b0eb72558",
     "operation_name": "OPTIONS /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.691065+00:00",
+    "start_time": "2026-06-29T13:00:08.666970+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -160,13 +160,13 @@
     }
   },
   {
-    "trace_id": "6eb1572e19103b8f86406360952701c0",
-    "span_id": "56568ab55c173079",
+    "trace_id": "bf21dcf940e6ac26b8d7a62689652a8",
+    "span_id": "c2e18c9b0eb72558",
     "parent_span_id": "",
     "operation_name": "OPTIONS /api/projects/",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.689034+00:00",
-    "duration_ms": 2.0312,
+    "start_time": "2026-06-29T13:00:08.665971+00:00",
+    "duration_ms": 0.9994,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
@@ -177,7 +177,7 @@
       "http.server_name": "localhost:8000",
       "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "54758",
+      "net.peer.port": "49941",
       "http.route": "/api/projects/",
       "http.method": "OPTIONS",
       "http.url": "http://localhost:8000/api/projects/",
@@ -185,12 +185,12 @@
     }
   },
   {
-    "trace_id": "7f78c6d17bb7173588c0de4603055b0a",
-    "span_id": "911b84f91b9a2aa1",
-    "parent_span_id": "0499b0125dce41d2",
+    "trace_id": "2cc3ec23e2ef0749eacebbc725c242e0",
+    "span_id": "43927728c76b17c3",
+    "parent_span_id": "bb573bdd0b0dc38a",
     "operation_name": "OPTIONS /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.689034+00:00",
+    "start_time": "2026-06-29T13:00:08.666970+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -199,12 +199,12 @@
     }
   },
   {
-    "trace_id": "7f78c6d17bb7173588c0de4603055b0a",
-    "span_id": "57ed404ceeb19b85",
-    "parent_span_id": "0499b0125dce41d2",
+    "trace_id": "2cc3ec23e2ef0749eacebbc725c242e0",
+    "span_id": "5c5274d8cfac43cb",
+    "parent_span_id": "bb573bdd0b0dc38a",
     "operation_name": "OPTIONS /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.690034+00:00",
+    "start_time": "2026-06-29T13:00:08.666970+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -212,12 +212,12 @@
     }
   },
   {
-    "trace_id": "7f78c6d17bb7173588c0de4603055b0a",
-    "span_id": "f6df828a6b80ada5",
-    "parent_span_id": "0499b0125dce41d2",
+    "trace_id": "2cc3ec23e2ef0749eacebbc725c242e0",
+    "span_id": "902261d6e244dc3d",
+    "parent_span_id": "bb573bdd0b0dc38a",
     "operation_name": "OPTIONS /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.690034+00:00",
+    "start_time": "2026-06-29T13:00:08.666970+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -225,13 +225,13 @@
     }
   },
   {
-    "trace_id": "7f78c6d17bb7173588c0de4603055b0a",
-    "span_id": "0499b0125dce41d2",
+    "trace_id": "2cc3ec23e2ef0749eacebbc725c242e0",
+    "span_id": "bb573bdd0b0dc38a",
     "parent_span_id": "",
     "operation_name": "OPTIONS /api/projects/",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.689034+00:00",
-    "duration_ms": 1.0,
+    "start_time": "2026-06-29T13:00:08.665971+00:00",
+    "duration_ms": 0.9994,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
@@ -242,7 +242,7 @@
       "http.server_name": "localhost:8000",
       "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "52977",
+      "net.peer.port": "55190",
       "http.route": "/api/projects/",
       "http.method": "OPTIONS",
       "http.url": "http://localhost:8000/api/projects/",
@@ -250,12 +250,12 @@
     }
   },
   {
-    "trace_id": "aa3b47acb1d85ae99a17c7da44e1ef7d",
-    "span_id": "2ffb8de73fba3cc5",
-    "parent_span_id": "2ee0261580bf5323",
+    "trace_id": "5130acb67e4e7c972623ee5c3ce74170",
+    "span_id": "e1e484f51a3cd3bc",
+    "parent_span_id": "8d892e84bd79c5d6",
     "operation_name": "GET /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.706843+00:00",
+    "start_time": "2026-06-29T13:00:08.687047+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -264,12 +264,12 @@
     }
   },
   {
-    "trace_id": "aa3b47acb1d85ae99a17c7da44e1ef7d",
-    "span_id": "14d8dd5e7796b901",
-    "parent_span_id": "2ee0261580bf5323",
+    "trace_id": "5130acb67e4e7c972623ee5c3ce74170",
+    "span_id": "b277c72b71baf870",
+    "parent_span_id": "8d892e84bd79c5d6",
     "operation_name": "GET /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.706843+00:00",
+    "start_time": "2026-06-29T13:00:08.688047+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -277,12 +277,12 @@
     }
   },
   {
-    "trace_id": "aa3b47acb1d85ae99a17c7da44e1ef7d",
-    "span_id": "83fbc489005c3841",
-    "parent_span_id": "2ee0261580bf5323",
+    "trace_id": "5130acb67e4e7c972623ee5c3ce74170",
+    "span_id": "c4ba731ead1efe79",
+    "parent_span_id": "8d892e84bd79c5d6",
     "operation_name": "GET /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.706843+00:00",
+    "start_time": "2026-06-29T13:00:08.688047+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -290,13 +290,13 @@
     }
   },
   {
-    "trace_id": "aa3b47acb1d85ae99a17c7da44e1ef7d",
-    "span_id": "2ee0261580bf5323",
-    "parent_span_id": "4a56fac71df03b83",
+    "trace_id": "5130acb67e4e7c972623ee5c3ce74170",
+    "span_id": "8d892e84bd79c5d6",
+    "parent_span_id": "5c5269fc07bb03cb",
     "operation_name": "GET /api/projects/",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.701073+00:00",
-    "duration_ms": 5.7695,
+    "start_time": "2026-06-29T13:00:08.682041+00:00",
+    "duration_ms": 6.0055,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
@@ -307,7 +307,7 @@
       "http.server_name": "localhost:8000",
       "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "54758",
+      "net.peer.port": "55190",
       "http.route": "/api/projects/",
       "http.method": "GET",
       "http.url": "http://localhost:8000/api/projects/",
@@ -315,16 +315,16 @@
     }
   },
   {
-    "trace_id": "aa3b47acb1d85ae99a17c7da44e1ef7d",
-    "span_id": "3f21a60da071314c",
-    "parent_span_id": "2ee0261580bf5323",
+    "trace_id": "5130acb67e4e7c972623ee5c3ce74170",
+    "span_id": "3ca1207552976f6c",
+    "parent_span_id": "8d892e84bd79c5d6",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.701073+00:00",
+    "start_time": "2026-06-29T13:00:08.682041+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
-      "net.peer.name": "localhost",
+      "net.peer.name": "127.0.0.1",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
@@ -332,51 +332,51 @@
     }
   },
   {
-    "trace_id": "aa3b47acb1d85ae99a17c7da44e1ef7d",
-    "span_id": "f823fa7843d4620c",
-    "parent_span_id": "2ee0261580bf5323",
+    "trace_id": "5130acb67e4e7c972623ee5c3ce74170",
+    "span_id": "c463f1df71e4c8ce",
+    "parent_span_id": "8d892e84bd79c5d6",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.702075+00:00",
-    "duration_ms": 0.5056,
-    "status": "ok",
-    "attributes": {
-      "net.peer.name": "localhost",
-      "net.peer.port": "5432",
-      "db.name": "taskflow",
-      "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-aa3b47acb1d85ae99a17c7da44e1ef7d-434253103efb07c8-01'*/",
-      "db.system": "postgresql",
-      "db.operation": "SELECT"
-    }
-  },
-  {
-    "trace_id": "aa3b47acb1d85ae99a17c7da44e1ef7d",
-    "span_id": "54fa5f24ccc364b9",
-    "parent_span_id": "2ee0261580bf5323",
-    "operation_name": "SELECT",
-    "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.702948+00:00",
+    "start_time": "2026-06-29T13:00:08.683042+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
-      "net.peer.name": "localhost",
+      "net.peer.name": "127.0.0.1",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT projects.id, projects.name, projects.description, projects.owner_id, projects.created_at \nFROM projects \nWHERE projects.owner_id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-aa3b47acb1d85ae99a17c7da44e1ef7d-0703d92989bb4215-01'*/",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-5130acb67e4e7c972623ee5c3ce74170-9b2340d16b769ae4-01'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "aa3b47acb1d85ae99a17c7da44e1ef7d",
-    "span_id": "4a56fac71df03b83",
+    "trace_id": "5130acb67e4e7c972623ee5c3ce74170",
+    "span_id": "6ae98a9bb523ec37",
+    "parent_span_id": "8d892e84bd79c5d6",
+    "operation_name": "SELECT",
+    "service_name": "demo-backend",
+    "start_time": "2026-06-29T13:00:08.684043+00:00",
+    "duration_ms": 0.9999,
+    "status": "ok",
+    "attributes": {
+      "net.peer.name": "127.0.0.1",
+      "net.peer.port": "5432",
+      "db.name": "taskflow",
+      "db.user": "postgres",
+      "db.statement": "SELECT projects.id, projects.name, projects.description, projects.owner_id, projects.created_at \nFROM projects \nWHERE projects.owner_id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-5130acb67e4e7c972623ee5c3ce74170-489017c44aded23f-01'*/",
+      "db.system": "postgresql",
+      "db.operation": "SELECT"
+    }
+  },
+  {
+    "trace_id": "5130acb67e4e7c972623ee5c3ce74170",
+    "span_id": "5c5269fc07bb03cb",
     "parent_span_id": "",
     "operation_name": "GET",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.377000+00:00",
-    "duration_ms": 442.0,
+    "start_time": "2026-06-29T13:00:08.358000+00:00",
+    "duration_ms": 448.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -390,12 +390,12 @@
     }
   },
   {
-    "trace_id": "6c45c8f68ccbcfc45261a6bb79199099",
-    "span_id": "ecfc640675b89f4c",
-    "parent_span_id": "5cda0d275b7e460f",
+    "trace_id": "2b1a33e7f39fc583d557d6b0a488cd9a",
+    "span_id": "5c64fb87f2f0acd8",
+    "parent_span_id": "4c67a4c1c83c7bee",
     "operation_name": "GET /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.700072+00:00",
+    "start_time": "2026-06-29T13:00:08.681042+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -404,12 +404,12 @@
     }
   },
   {
-    "trace_id": "6c45c8f68ccbcfc45261a6bb79199099",
-    "span_id": "1037513752c904f5",
-    "parent_span_id": "5cda0d275b7e460f",
+    "trace_id": "2b1a33e7f39fc583d557d6b0a488cd9a",
+    "span_id": "9975d9253ce4b389",
+    "parent_span_id": "4c67a4c1c83c7bee",
     "operation_name": "GET /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.700072+00:00",
+    "start_time": "2026-06-29T13:00:08.681042+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -417,12 +417,12 @@
     }
   },
   {
-    "trace_id": "6c45c8f68ccbcfc45261a6bb79199099",
-    "span_id": "f8f6d293c22e6f7b",
-    "parent_span_id": "5cda0d275b7e460f",
+    "trace_id": "2b1a33e7f39fc583d557d6b0a488cd9a",
+    "span_id": "28465c3c5969b353",
+    "parent_span_id": "4c67a4c1c83c7bee",
     "operation_name": "GET /api/projects/ http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.700072+00:00",
+    "start_time": "2026-06-29T13:00:08.681042+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -430,13 +430,13 @@
     }
   },
   {
-    "trace_id": "6c45c8f68ccbcfc45261a6bb79199099",
-    "span_id": "5cda0d275b7e460f",
-    "parent_span_id": "9f5669c7f9cfa39e",
+    "trace_id": "2b1a33e7f39fc583d557d6b0a488cd9a",
+    "span_id": "4c67a4c1c83c7bee",
+    "parent_span_id": "40e64ee5c9d864be",
     "operation_name": "GET /api/projects/",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.691065+00:00",
-    "duration_ms": 9.0071,
+    "start_time": "2026-06-29T13:00:08.668099+00:00",
+    "duration_ms": 12.9426,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
@@ -447,7 +447,7 @@
       "http.server_name": "localhost:8000",
       "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "52977",
+      "net.peer.port": "49941",
       "http.route": "/api/projects/",
       "http.method": "GET",
       "http.url": "http://localhost:8000/api/projects/",
@@ -455,16 +455,16 @@
     }
   },
   {
-    "trace_id": "6c45c8f68ccbcfc45261a6bb79199099",
-    "span_id": "a10915db20ccf122",
-    "parent_span_id": "5cda0d275b7e460f",
+    "trace_id": "2b1a33e7f39fc583d557d6b0a488cd9a",
+    "span_id": "76253d096526774a",
+    "parent_span_id": "4c67a4c1c83c7bee",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.692567+00:00",
+    "start_time": "2026-06-29T13:00:08.669099+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
-      "net.peer.name": "localhost",
+      "net.peer.name": "127.0.0.1",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
@@ -472,50 +472,50 @@
     }
   },
   {
-    "trace_id": "6c45c8f68ccbcfc45261a6bb79199099",
-    "span_id": "6268061af0888025",
-    "parent_span_id": "5cda0d275b7e460f",
+    "trace_id": "2b1a33e7f39fc583d557d6b0a488cd9a",
+    "span_id": "7ebbac3ae3beecd7",
+    "parent_span_id": "4c67a4c1c83c7bee",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.693070+00:00",
-    "duration_ms": 1.0035,
+    "start_time": "2026-06-29T13:00:08.669099+00:00",
+    "duration_ms": 3.2357,
     "status": "ok",
     "attributes": {
-      "net.peer.name": "localhost",
+      "net.peer.name": "127.0.0.1",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-6c45c8f68ccbcfc45261a6bb79199099-f9e640bb79f97c69-01'*/",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-2b1a33e7f39fc583d557d6b0a488cd9a-b2060747f2d44e6a-01'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "6c45c8f68ccbcfc45261a6bb79199099",
-    "span_id": "4f7a9a268335a4d6",
-    "parent_span_id": "5cda0d275b7e460f",
+    "trace_id": "2b1a33e7f39fc583d557d6b0a488cd9a",
+    "span_id": "a07ae664f58fa7b3",
+    "parent_span_id": "4c67a4c1c83c7bee",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:47.694073+00:00",
-    "duration_ms": 2.9987,
+    "start_time": "2026-06-29T13:00:08.673335+00:00",
+    "duration_ms": 4.0001,
     "status": "ok",
     "attributes": {
-      "net.peer.name": "localhost",
+      "net.peer.name": "127.0.0.1",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT projects.id, projects.name, projects.description, projects.owner_id, projects.created_at \nFROM projects \nWHERE projects.owner_id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-6c45c8f68ccbcfc45261a6bb79199099-a8691e2ac16dd59d-01'*/",
+      "db.statement": "SELECT projects.id, projects.name, projects.description, projects.owner_id, projects.created_at \nFROM projects \nWHERE projects.owner_id = $1::UUID /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-2b1a33e7f39fc583d557d6b0a488cd9a-994a44b58e8d42a5-01'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }
   },
   {
-    "trace_id": "6c45c8f68ccbcfc45261a6bb79199099",
-    "span_id": "9f5669c7f9cfa39e",
+    "trace_id": "2b1a33e7f39fc583d557d6b0a488cd9a",
+    "span_id": "40e64ee5c9d864be",
     "parent_span_id": "",
     "operation_name": "GET",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.376000+00:00",
+    "start_time": "2026-06-29T13:00:08.357000+00:00",
     "duration_ms": 325.0,
     "status": "ok",
     "attributes": {
@@ -530,13 +530,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "e703219c43a35abc",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "64e0d0e1b47275aa",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "documentFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.307800+00:00",
-    "duration_ms": 1.6,
+    "start_time": "2026-06-29T13:00:08.286500+00:00",
+    "duration_ms": 3.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "615",
@@ -544,13 +544,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "f97c2fb34c2d5a0d",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "94ede0c4fc466a2b",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.312300+00:00",
-    "duration_ms": 0.9,
+    "start_time": "2026-06-29T13:00:08.291700+00:00",
+    "duration_ms": 1.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -558,13 +558,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "11a05443fd942ae8",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "a1172f27c8f1cbdc",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.312400+00:00",
-    "duration_ms": 1.2,
+    "start_time": "2026-06-29T13:00:08.291700+00:00",
+    "duration_ms": 1.7,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -572,13 +572,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "44f1bd9f8542e09d",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "713278aff038706a",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.313900+00:00",
-    "duration_ms": 0.5,
+    "start_time": "2026-06-29T13:00:08.293000+00:00",
+    "duration_ms": 0.8,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -586,12 +586,12 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "6d73bea658f2e146",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "ec112647884c49e9",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.316200+00:00",
+    "start_time": "2026-06-29T13:00:08.294700+00:00",
     "duration_ms": 0.8,
     "status": "ok",
     "attributes": {
@@ -600,69 +600,69 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "8de9bafb555045cd",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "f840b0059d7ede7c",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.316600+00:00",
+    "start_time": "2026-06-29T13:00:08.295300+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "38367",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/react.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react.js?v=2c81cad8"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "7989c269d9531b38",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "9ba93396cd65dee7",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.316700+00:00",
+    "start_time": "2026-06-29T13:00:08.295300+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "821152",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=93edaf69"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "9b192ef68a2601a4",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "7e27f60179e0267f",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.316800+00:00",
+    "start_time": "2026-06-29T13:00:08.295500+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "399565",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=6ac64fc5"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "35a7838a96a78f5c",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "80fa5bfb48ef71b6",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.316800+00:00",
+    "start_time": "2026-06-29T13:00:08.295500+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "981132",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@sentry_react.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@sentry_react.js?v=60df32df"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "9383f1c7b5c26368",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "34797e598155f66a",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.316800+00:00",
-    "duration_ms": 1.1,
+    "start_time": "2026-06-29T13:00:08.295400+00:00",
+    "duration_ms": 1.4,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -670,13 +670,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "ffcefa38c6a964d2",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "c696f35c8391e31a",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.316900+00:00",
-    "duration_ms": 1.5,
+    "start_time": "2026-06-29T13:00:08.295500+00:00",
+    "duration_ms": 1.8,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -684,13 +684,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "59f2334607f9d157",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "09c9ec9e2670d032",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.316800+00:00",
-    "duration_ms": 1.6,
+    "start_time": "2026-06-29T13:00:08.295500+00:00",
+    "duration_ms": 1.9,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -698,12 +698,26 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "30d1b432484a381c",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "6ba275735e27e2c8",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.316800+00:00",
+    "start_time": "2026-06-29T13:00:08.295600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10637",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=2c81cad8"
+    }
+  },
+  {
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "a70ef7de70ea7ec6",
+    "parent_span_id": "6dbb348c9ff30b87",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:08.295500+00:00",
     "duration_ms": 1.9,
     "status": "ok",
     "attributes": {
@@ -712,13 +726,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "d17aaf1e11a3f3d8",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "bbcf37e7a1b03880",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.316800+00:00",
-    "duration_ms": 2.9,
+    "start_time": "2026-06-29T13:00:08.295500+00:00",
+    "duration_ms": 2.2,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -726,27 +740,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "5539b9d9ae974ab0",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "cb4ab5de874c6566",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.316900+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "10637",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=c01edd95"
-    }
-  },
-  {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "6636a27b74d0c1c5",
-    "parent_span_id": "95643d332cbef0e3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.316900+00:00",
-    "duration_ms": 3.0,
+    "start_time": "2026-06-29T13:00:08.295500+00:00",
+    "duration_ms": 2.4,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -754,13 +754,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "00174d971f834f33",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "f6446b4876976ff2",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.316900+00:00",
-    "duration_ms": 3.1,
+    "start_time": "2026-06-29T13:00:08.295400+00:00",
+    "duration_ms": 2.9,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -768,265 +768,279 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "4c67c36e396de83a",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "9bd7b600710fe70e",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.317100+00:00",
+    "start_time": "2026-06-29T13:00:08.296200+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "7614",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/chunk-B-1-B7_t.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/chunk-B-1-B7_t.js?v=b4677ad1"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "4af5cffc1ef7f36b",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "9809b19c041f8895",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.317100+00:00",
+    "start_time": "2026-06-29T13:00:08.296300+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "14728",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-dom.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-dom.js?v=2c81cad8"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "32b9653fb059d9a7",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "23fbd19c2cebefcf",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.320600+00:00",
+    "start_time": "2026-06-29T13:00:08.298400+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "4959",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_api.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_api.js?v=0b32fa64"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "b18ec6ab254fc7ec",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "0d5e23d7a6cc53b6",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.320500+00:00",
+    "start_time": "2026-06-29T13:00:08.299500+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "4714",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_sdk-trace-web.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_sdk-trace-web.js?v=430fa3bb"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "13db45ee4be4da35",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "be021027d116ec93",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.320700+00:00",
+    "start_time": "2026-06-29T13:00:08.299600+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "27814",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_exporter-trace-otlp-http.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_exporter-trace-otlp-http.js?v=e42113be"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "25376a532b2d75c5",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "19af6843121abc27",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.320700+00:00",
+    "start_time": "2026-06-29T13:00:08.299600+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "87502",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_context-zone.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_context-zone.js?v=da5c366a"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "14d4c83f83cb3972",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "63d5586ed76b58a1",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.320700+00:00",
+    "start_time": "2026-06-29T13:00:08.299600+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "2234",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_resources.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_resources.js?v=abd9ff6f"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "072dff07c104abb8",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "56fdf2344f6e89d9",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.320700+00:00",
+    "start_time": "2026-06-29T13:00:08.299700+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "141511",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_semantic-conventions.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_semantic-conventions.js?v=9f6b6472"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "02a73a8e82cb7d28",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "dae42987313e131c",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321100+00:00",
+    "start_time": "2026-06-29T13:00:08.299800+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "45895",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-CHaCIvwP.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-CHaCIvwP.js?v=b4677ad1"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "e38e1857c8f9dd0e",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "c94877bea676723f",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321100+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "66078",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-JMly3OMv.js?v=c01edd95"
-    }
-  },
-  {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "85e448d8d8485035",
-    "parent_span_id": "95643d332cbef0e3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321100+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "31962",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-Dc1YRGo3.js?v=c01edd95"
-    }
-  },
-  {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "da921861fd39735d",
-    "parent_span_id": "95643d332cbef0e3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321300+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "10856",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-Bf4t3hhR.js?v=c01edd95"
-    }
-  },
-  {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "4a31a14375946499",
-    "parent_span_id": "95643d332cbef0e3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321300+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "275815",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-BzIo-9AA.js?v=c01edd95"
-    }
-  },
-  {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "292c0fe3b5a59225",
-    "parent_span_id": "95643d332cbef0e3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321400+00:00",
+    "start_time": "2026-06-29T13:00:08.299900+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "2405",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation.js?v=fe67f5c8"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "fe0990d23c040114",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "44a011f7e03a6daa",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321400+00:00",
+    "start_time": "2026-06-29T13:00:08.300000+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "22014",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-fetch.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-fetch.js?v=37cd8e6b"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "9d5b8ee55d6c6c9d",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "fe16efa84eae20fe",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321500+00:00",
+    "start_time": "2026-06-29T13:00:08.299900+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "21187",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-xml-http-request.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-xml-http-request.js?v=5cc427d3"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "906f9b83e6ed50d0",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "216314e400c6bec0",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321600+00:00",
+    "start_time": "2026-06-29T13:00:08.299900+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "11360",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-document-load.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-document-load.js?v=c777734c"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "7ab8ef31e2586f44",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "7f8cf4eb5117af2e",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321500+00:00",
+    "start_time": "2026-06-29T13:00:08.299900+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "14206",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-user-interaction.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-user-interaction.js?v=8f3efb8f"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "5ac46fdaf2ac955a",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "c2eaa94d9e4348a3",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321600+00:00",
-    "duration_ms": 1.5,
+    "start_time": "2026-06-29T13:00:08.300200+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "66078",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-JMly3OMv.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "a749dc80ee693f84",
+    "parent_span_id": "6dbb348c9ff30b87",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:08.300200+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "31962",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-Dc1YRGo3.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "05cb94d8f1ea38e3",
+    "parent_span_id": "6dbb348c9ff30b87",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:08.300300+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10856",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-Bf4t3hhR.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "ab21a69c22417898",
+    "parent_span_id": "6dbb348c9ff30b87",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:08.300500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "275815",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-BzIo-9AA.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "cbef5970ff821cac",
+    "parent_span_id": "6dbb348c9ff30b87",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:08.300400+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "19627",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-DTjr4DqM.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "a5559d6443a6c0c9",
+    "parent_span_id": "6dbb348c9ff30b87",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:08.300700+00:00",
+    "duration_ms": 0.9,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1034,13 +1048,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "fbb5fb356f6cc9aa",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "25a27db7d01b8767",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321600+00:00",
-    "duration_ms": 1.9,
+    "start_time": "2026-06-29T13:00:08.300700+00:00",
+    "duration_ms": 1.1,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1048,13 +1062,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "5e97690dc749c687",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "a2cf052902f934b8",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321700+00:00",
-    "duration_ms": 2.2,
+    "start_time": "2026-06-29T13:00:08.300700+00:00",
+    "duration_ms": 1.3,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1062,13 +1076,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "c18214d3de10fca5",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "de6ba0695ec1ed85",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321600+00:00",
-    "duration_ms": 2.7,
+    "start_time": "2026-06-29T13:00:08.300700+00:00",
+    "duration_ms": 1.3,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1076,13 +1090,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "32d3ce119141b71d",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "cb81ec72bb6f265e",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321600+00:00",
-    "duration_ms": 2.9,
+    "start_time": "2026-06-29T13:00:08.300800+00:00",
+    "duration_ms": 1.5,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1090,13 +1104,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "674b2bbf9cd085a3",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "ad96ee65de2bc99a",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321600+00:00",
-    "duration_ms": 3.5,
+    "start_time": "2026-06-29T13:00:08.300800+00:00",
+    "duration_ms": 1.8,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1104,13 +1118,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "efa5774f7b07a389",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "864b6dc8ddbf9264",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321600+00:00",
-    "duration_ms": 3.8,
+    "start_time": "2026-06-29T13:00:08.300800+00:00",
+    "duration_ms": 1.9,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1118,27 +1132,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "7347db13d5c5efea",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "0bc797ac7d09bbb5",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.321700+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "19627",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-DTjr4DqM.js?v=c01edd95"
-    }
-  },
-  {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "b1ea3b1540304130",
-    "parent_span_id": "95643d332cbef0e3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.325900+00:00",
-    "duration_ms": 0.5,
+    "start_time": "2026-06-29T13:00:08.302900+00:00",
+    "duration_ms": 0.4,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1146,13 +1146,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "ef034bfadc4f59d3",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "8f128cd9f6b664c9",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.326300+00:00",
-    "duration_ms": 0.5,
+    "start_time": "2026-06-29T13:00:08.303500+00:00",
+    "duration_ms": 0.4,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1160,13 +1160,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "e01a67eb0d0c886a",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "32f0f09f02405024",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.326300+00:00",
-    "duration_ms": 0.7,
+    "start_time": "2026-06-29T13:00:08.303400+00:00",
+    "duration_ms": 1.1,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1174,13 +1174,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "f3e18b4c9ed59d08",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "97f46ca0b29b27ba",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.326300+00:00",
-    "duration_ms": 0.8,
+    "start_time": "2026-06-29T13:00:08.303400+00:00",
+    "duration_ms": 1.2,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1188,13 +1188,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "f6d9935e1aefcabd",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "22f85198e10cb757",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.326300+00:00",
-    "duration_ms": 1.1,
+    "start_time": "2026-06-29T13:00:08.303400+00:00",
+    "duration_ms": 1.3,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1202,12 +1202,12 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "e330576b4db6bb33",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "751dc09ebf12ba7d",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.326300+00:00",
+    "start_time": "2026-06-29T13:00:08.303500+00:00",
     "duration_ms": 1.4,
     "status": "ok",
     "attributes": {
@@ -1216,13 +1216,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "7afc160ebbe56c0e",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "b56976f068a178b0",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.326400+00:00",
-    "duration_ms": 1.4,
+    "start_time": "2026-06-29T13:00:08.303400+00:00",
+    "duration_ms": 1.6,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1230,27 +1230,41 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "0be881dd861bf4ba",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "217c535683b7ecd3",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.326500+00:00",
+    "start_time": "2026-06-29T13:00:08.303500+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "1125418",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/lucide-react.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/lucide-react.js?v=0af17c19"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "8dbf28ea8ac4dffc",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "6924391b6c4a1e6b",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.326500+00:00",
-    "duration_ms": 1.6,
+    "start_time": "2026-06-29T13:00:08.303500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "6166",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_core.js?v=2e788074"
+    }
+  },
+  {
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "05417324a9a3876e",
+    "parent_span_id": "6dbb348c9ff30b87",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:08.303500+00:00",
+    "duration_ms": 1.7,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1258,55 +1272,41 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "ca58b58cb9145093",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "d3038556d7aa8849",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.326600+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "6166",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_core.js?v=c01edd95"
-    }
-  },
-  {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "5c2fd0fc9abb9a41",
-    "parent_span_id": "95643d332cbef0e3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.326600+00:00",
+    "start_time": "2026-06-29T13:00:08.303600+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "18185",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_sortable.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_sortable.js?v=313bb3df"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "e53d501cadfce01f",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "a95d641774e772fa",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.326600+00:00",
+    "start_time": "2026-06-29T13:00:08.303700+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "7337",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_utilities.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_utilities.js?v=0a47415e"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "5996044b517901d9",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "e144cc9228d2071d",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.326700+00:00",
-    "duration_ms": 1.7,
+    "start_time": "2026-06-29T13:00:08.303600+00:00",
+    "duration_ms": 1.6,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1314,13 +1314,13 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "640a42cc5e18b7b2",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "42d92482e5de359e",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.326700+00:00",
-    "duration_ms": 1.7,
+    "start_time": "2026-06-29T13:00:08.303600+00:00",
+    "duration_ms": 1.8,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1328,97 +1328,97 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "c47ab11a3758fba7",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "9bc0e4b99ffb822b",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.326800+00:00",
+    "start_time": "2026-06-29T13:00:08.303900+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "90058",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/core.esm-_5gF4dhK.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/core.esm-_5gF4dhK.js?v=b4677ad1"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "eae94d85ab11ea95",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "71bcc2764ea9f385",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.326900+00:00",
+    "start_time": "2026-06-29T13:00:08.303900+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "2173",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/zustand.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/zustand.js?v=1bb830b6"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "f6cd07468d26f8d7",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "a8de7f9b443d7501",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.327000+00:00",
+    "start_time": "2026-06-29T13:00:08.303900+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "14109",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/zustand_middleware.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/zustand_middleware.js?v=7f9da794"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "bd42ce6ba4ffab8a",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "56cdff84869490eb",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.328600+00:00",
+    "start_time": "2026-06-29T13:00:08.305600+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "118194",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/axios.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/axios.js?v=6b626e56"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "e6c9ffcc191af465",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "533b5df4f5fd7e44",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.328700+00:00",
+    "start_time": "2026-06-29T13:00:08.305900+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "1206",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_button.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_button.js?v=e34d8e37"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "1bc3ba14199786f5",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "4c6d01db671875de",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.328700+00:00",
+    "start_time": "2026-06-29T13:00:08.306000+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "2801",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/class-variance-authority.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/class-variance-authority.js?v=2ddf31b0"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "40ef7ee84db01e60",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "319e1b0a697d3dec",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.328800+00:00",
-    "duration_ms": 0.4,
+    "start_time": "2026-06-29T13:00:08.306000+00:00",
+    "duration_ms": 0.5,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "0",
@@ -1426,195 +1426,195 @@
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "d96e1ec1d2e38268",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "c8e4e78590990c96",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.329300+00:00",
+    "start_time": "2026-06-29T13:00:08.306400+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "13644",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_input.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_input.js?v=668fe09d"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "16e1a80fe27ce438",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "326cfc815fe0da52",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.329700+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "11248",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/useRenderElement-DwlGiZDv.js?v=c01edd95"
-    }
-  },
-  {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "3848eec207f553cb",
-    "parent_span_id": "95643d332cbef0e3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.329800+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "7664",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/useButton-BFYEIg_b.js?v=c01edd95"
-    }
-  },
-  {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "a4bb30e429e07d2f",
-    "parent_span_id": "95643d332cbef0e3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.329900+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "628",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/clsx.js?v=c01edd95"
-    }
-  },
-  {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "60698fc7348ff870",
-    "parent_span_id": "95643d332cbef0e3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.330000+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "10947",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-runtime.js?v=c01edd95"
-    }
-  },
-  {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "01a7b2fbdd7537b1",
-    "parent_span_id": "95643d332cbef0e3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.330000+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "5521",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/useIsoLayoutEffect-75NDodZ2.js?v=c01edd95"
-    }
-  },
-  {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "c46eca4a4dd1b43b",
-    "parent_span_id": "95643d332cbef0e3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.330000+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "4456",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/owner-B9RWFV_H.js?v=c01edd95"
-    }
-  },
-  {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "10e34140aad0b4dd",
-    "parent_span_id": "95643d332cbef0e3",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.330100+00:00",
+    "start_time": "2026-06-29T13:00:08.306500+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "157710",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_dialog.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_dialog.js?v=3ef0de8b"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "5e5ed8f3182167fe",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "b3794a6283d407e3",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.330200+00:00",
+    "start_time": "2026-06-29T13:00:08.306500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "11248",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/useRenderElement-DwlGiZDv.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "905087c9dedd5f8c",
+    "parent_span_id": "6dbb348c9ff30b87",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:08.306400+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "7664",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/useButton-BFYEIg_b.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "ecf150269db9c3a1",
+    "parent_span_id": "6dbb348c9ff30b87",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:08.306400+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "628",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/clsx.js?v=374a9c73"
+    }
+  },
+  {
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "fd001fa9c50288d7",
+    "parent_span_id": "6dbb348c9ff30b87",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:08.306500+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "1264",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_merge-props.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_merge-props.js?v=16b1bc9f"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "b8e5a2dfd5d41c7c",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "d6e875cca6f17a7d",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.330100+00:00",
+    "start_time": "2026-06-29T13:00:08.306500+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "494",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_use-render.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_use-render.js?v=29b43241"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "f72d973e21206e75",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "74c79f253bb66691",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.330200+00:00",
+    "start_time": "2026-06-29T13:00:08.306600+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "1015",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_separator.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_separator.js?v=c5a8433f"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "f2f8349df3279e03",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "0649355271809082",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.330300+00:00",
+    "start_time": "2026-06-29T13:00:08.307500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10947",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-runtime.js?v=2c81cad8"
+    }
+  },
+  {
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "bbc25584869e8d1d",
+    "parent_span_id": "6dbb348c9ff30b87",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:08.307600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "5521",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/useIsoLayoutEffect-75NDodZ2.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "f3db0a73c354ced4",
+    "parent_span_id": "6dbb348c9ff30b87",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:08.307600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4456",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/owner-B9RWFV_H.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "1d43affcfbbe93fb",
+    "parent_span_id": "6dbb348c9ff30b87",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:08.307700+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "6778",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/merge-props-CHESzXJC.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/merge-props-CHESzXJC.js?v=b4677ad1"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "c8f923f7009c3cf2",
-    "parent_span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "190d35f5070a0d94",
+    "parent_span_id": "6dbb348c9ff30b87",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.330400+00:00",
+    "start_time": "2026-06-29T13:00:08.307800+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "91422",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/tailwind-merge.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/tailwind-merge.js?v=e5bd26a1"
     }
   },
   {
-    "trace_id": "6a5e37179379c7d2aa1fa9d440cf83a",
-    "span_id": "95643d332cbef0e3",
+    "trace_id": "b06ca07519ffda2d4efd1bcfc54a3a3f",
+    "span_id": "6dbb348c9ff30b87",
     "parent_span_id": "",
     "operation_name": "documentLoad",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:47.307800+00:00",
-    "duration_ms": 48.0,
+    "start_time": "2026-06-29T13:00:08.286600+00:00",
+    "duration_ms": 41.9,
     "status": "ok",
     "attributes": {
       "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
@@ -1622,216 +1622,1091 @@
     }
   },
   {
-    "trace_id": "9b6a41c2ff4421ed027a9ccc555206ad",
-    "span_id": "83d873955591795b",
-    "parent_span_id": "",
-    "operation_name": "HTTP POST",
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "b43c3ac1cb19a0ad",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "documentFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:37.759000+00:00",
-    "duration_ms": 308.0,
+    "start_time": "2026-06-29T13:00:05.625300+00:00",
+    "duration_ms": 2.5,
     "status": "ok",
     "attributes": {
-      "component": "fetch",
-      "http.status_text": "OK",
-      "http.host": "localhost:4318",
-      "http.scheme": "http",
-      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
-      "http.response_content_length": "0",
-      "http.method": "POST",
-      "http.url": "http://localhost:4318/v1/logs",
-      "http.status_code": "200"
+      "http.response_content_length": "615",
+      "http.url": "http://localhost:5173/login"
     }
   },
   {
-    "trace_id": "d5220d23a346cb351fbebf655b2f272c",
-    "span_id": "60c7aecde516b63c",
-    "parent_span_id": "378fa16f9ce81ea5",
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "e03cb880aa7e72ab",
+    "parent_span_id": "eae754f9cadfd309",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:34.735700+00:00",
+    "start_time": "2026-06-29T13:00:05.630700+00:00",
+    "duration_ms": 1.4,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/@vite/client"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "a6ded37166d7ee97",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.630700+00:00",
+    "duration_ms": 1.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/main.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "1ec7cf67c66c9aad",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.632200+00:00",
+    "duration_ms": 0.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/@react-refresh"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "43c37550652da761",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.634000+00:00",
+    "duration_ms": 0.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/node_modules/.pnpm/vite@8.0.16_@types+node@24.13.2_jiti@2.7.0/node_modules/vite/dist/client/env.mjs"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "280475d0fe3ecd40",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.634700+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
-      "http.response_content_length": "13644",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_input.js?v=c01edd95"
+      "http.response_content_length": "38367",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react.js?v=2c81cad8"
     }
   },
   {
-    "trace_id": "d5220d23a346cb351fbebf655b2f272c",
-    "span_id": "ec3fe0b713379746",
-    "parent_span_id": "378fa16f9ce81ea5",
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "32961916cda29603",
+    "parent_span_id": "eae754f9cadfd309",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:34.736000+00:00",
+    "start_time": "2026-06-29T13:00:05.634800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "821152",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=93edaf69"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "6d90ccc652611f6a",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.634800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "399565",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=6ac64fc5"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "8fe728df247b3324",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.634800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "981132",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@sentry_react.js?v=60df32df"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "c1ed8c5b84f223e5",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.634900+00:00",
+    "duration_ms": 0.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/services/error-reporter.ts"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "9c4942f74208457b",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.634900+00:00",
+    "duration_ms": 1.2,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/observability/otel.ts"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "23569ff3d0b9623c",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.634900+00:00",
+    "duration_ms": 1.4,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/observability/otel-logs.ts"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "3c4d83015960ec4a",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.634900+00:00",
+    "duration_ms": 2.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/observability/error-reporter.ts"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "a81795564a278935",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.634900+00:00",
+    "duration_ms": 2.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/observability/instruments.ts"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "58144a2e4d817012",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.634900+00:00",
+    "duration_ms": 3.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/index.css"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "4b1af355dfb721a2",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.634900+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10637",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=2c81cad8"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "3d471a55d62e573a",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.634900+00:00",
+    "duration_ms": 4.2,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/App.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "25d5c6568eaff8b4",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.635200+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "7614",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/chunk-B-1-B7_t.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "27a86be4dbeab60a",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.635200+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "14728",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-dom.js?v=2c81cad8"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "63c6d5ec5b715871",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.639100+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4959",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_api.js?v=0b32fa64"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "a33ac88d40c94bb8",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.639200+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "45895",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-CHaCIvwP.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "11852eaffc76ccc3",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.639600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4714",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_sdk-trace-web.js?v=430fa3bb"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "172c67a5d6cb01b5",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.639600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "27814",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_exporter-trace-otlp-http.js?v=e42113be"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "ca2cc6a87479a0e9",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.639600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "87502",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_context-zone.js?v=da5c366a"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "210dcfd9d48b9164",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.639700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2234",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_resources.js?v=abd9ff6f"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "a410bd1613649272",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.639800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "141511",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_semantic-conventions.js?v=9f6b6472"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "bcc8e2f2448cfade",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.640200+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2405",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation.js?v=fe67f5c8"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "7c056b07734a2595",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.640200+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "22014",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-fetch.js?v=37cd8e6b"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "fd1f037fa90f63ae",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.640300+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "21187",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-xml-http-request.js?v=5cc427d3"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "cc0f06358b81e0f7",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.640400+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "11360",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-document-load.js?v=c777734c"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "a5ca6e65bafbbe2d",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.640400+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "14206",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-user-interaction.js?v=8f3efb8f"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "40299391e263d095",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.640500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "66078",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-JMly3OMv.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "196e86f985bab24f",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.640600+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "31962",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-Dc1YRGo3.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "6ee1bbce2ce01028",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.640700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10856",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-Bf4t3hhR.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "fb2e7bf8275378df",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.640700+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "275815",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-BzIo-9AA.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "4b6ba53b2f35c054",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.640900+00:00",
+    "duration_ms": 0.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ErrorBoundary.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "b9ce8a9343e64f90",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.640900+00:00",
+    "duration_ms": 1.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ProtectedRoute.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "39257040583e49cb",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.640900+00:00",
+    "duration_ms": 1.1,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/LoginPage.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "93eb654076b5bc39",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.640900+00:00",
+    "duration_ms": 1.3,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/RegisterPage.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "e5e115e59054f7a5",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.640900+00:00",
+    "duration_ms": 1.4,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/ProjectsPage.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "7f0ce948103d32f7",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.641000+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "19627",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-DTjr4DqM.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "837aacd18bc6fec3",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.641000+00:00",
+    "duration_ms": 1.4,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/TaskBoardPage.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "bf3d1ca42fff1561",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.640900+00:00",
+    "duration_ms": 1.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/pages/TaskDetailPage.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "5efe473bab4ce134",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.643000+00:00",
+    "duration_ms": 1.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/stores/authStore.ts"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "8284ad1e3f7fe9a4",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.643200+00:00",
+    "duration_ms": 1.4,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/services/api.ts"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "fa1c51291f1f2cf2",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.643300+00:00",
+    "duration_ms": 1.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/button.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "b6466fd072fdd4c6",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.643300+00:00",
+    "duration_ms": 2.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/input.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "6aea5df3a8ff169f",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.643300+00:00",
+    "duration_ms": 2.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/label.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "283adcf00873eb62",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.643300+00:00",
+    "duration_ms": 3.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/card.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "afabedd5e5ffe994",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.643800+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1125418",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/lucide-react.js?v=0af17c19"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "8b67aa335f647822",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.643800+00:00",
+    "duration_ms": 2.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/dialog.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "a13c1c8e08efa55a",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.643900+00:00",
+    "duration_ms": 2.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/badge.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "2f6365a03abee896",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.644000+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "6166",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_core.js?v=2e788074"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "c40adfb4f9dd9735",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.644000+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "18185",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_sortable.js?v=313bb3df"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "466af85604721d79",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.644200+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "7337",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_utilities.js?v=0a47415e"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "818aed8a9b0d75c6",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.644300+00:00",
+    "duration_ms": 3.1,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/textarea.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "2ff99759ef45acb3",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.644300+00:00",
+    "duration_ms": 3.4,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/components/ui/separator.tsx"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "afc1259aae59ee4b",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.644500+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "90058",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/core.esm-_5gF4dhK.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "5ce97c4f91626095",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.648100+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "118194",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/axios.js?v=6b626e56"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "eeabb90f99972ce4",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.648900+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2173",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/zustand.js?v=1bb830b6"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "127a8ef616e52929",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.648900+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "14109",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/zustand_middleware.js?v=7f9da794"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "edd7f30e3ec81ad0",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.649000+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1206",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_button.js?v=e34d8e37"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "b091aaaa758be5f3",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.649100+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2801",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/class-variance-authority.js?v=2ddf31b0"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "eaee6facf143505a",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.649100+00:00",
+    "duration_ms": 0.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "0",
+      "http.url": "http://localhost:5173/src/lib/utils.ts"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "6b14e360a84a8bcf",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.649200+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "11248",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/useRenderElement-DwlGiZDv.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/useRenderElement-DwlGiZDv.js?v=b4677ad1"
     }
   },
   {
-    "trace_id": "d5220d23a346cb351fbebf655b2f272c",
-    "span_id": "925e670528e7dd63",
-    "parent_span_id": "378fa16f9ce81ea5",
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "20609b54b9f743ff",
+    "parent_span_id": "eae754f9cadfd309",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:34.736000+00:00",
+    "start_time": "2026-06-29T13:00:05.649200+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "7664",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/useButton-BFYEIg_b.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/useButton-BFYEIg_b.js?v=b4677ad1"
     }
   },
   {
-    "trace_id": "d5220d23a346cb351fbebf655b2f272c",
-    "span_id": "a9d32a906d1be803",
-    "parent_span_id": "378fa16f9ce81ea5",
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "c48995eded71b278",
+    "parent_span_id": "eae754f9cadfd309",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:34.736100+00:00",
+    "start_time": "2026-06-29T13:00:05.649400+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "628",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/clsx.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/clsx.js?v=374a9c73"
     }
   },
   {
-    "trace_id": "d5220d23a346cb351fbebf655b2f272c",
-    "span_id": "8c0de4df575aeda5",
-    "parent_span_id": "378fa16f9ce81ea5",
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "ff546321792bfb2b",
+    "parent_span_id": "eae754f9cadfd309",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:34.736200+00:00",
+    "start_time": "2026-06-29T13:00:05.649500+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
-      "http.response_content_length": "10947",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-runtime.js?v=c01edd95"
+      "http.response_content_length": "13644",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_input.js?v=668fe09d"
     }
   },
   {
-    "trace_id": "d5220d23a346cb351fbebf655b2f272c",
-    "span_id": "516e8868eb70f56a",
-    "parent_span_id": "378fa16f9ce81ea5",
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "0789602acc140700",
+    "parent_span_id": "eae754f9cadfd309",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:34.736200+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "5521",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/useIsoLayoutEffect-75NDodZ2.js?v=c01edd95"
-    }
-  },
-  {
-    "trace_id": "d5220d23a346cb351fbebf655b2f272c",
-    "span_id": "0551af9d2e3d1596",
-    "parent_span_id": "378fa16f9ce81ea5",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:34.736200+00:00",
-    "duration_ms": 0.0,
-    "status": "ok",
-    "attributes": {
-      "http.response_content_length": "4456",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/owner-B9RWFV_H.js?v=c01edd95"
-    }
-  },
-  {
-    "trace_id": "d5220d23a346cb351fbebf655b2f272c",
-    "span_id": "6608d8880d9943cd",
-    "parent_span_id": "378fa16f9ce81ea5",
-    "operation_name": "resourceFetch",
-    "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:34.736400+00:00",
+    "start_time": "2026-06-29T13:00:05.649600+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "157710",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_dialog.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_dialog.js?v=3ef0de8b"
     }
   },
   {
-    "trace_id": "d5220d23a346cb351fbebf655b2f272c",
-    "span_id": "b529a3ce390253c5",
-    "parent_span_id": "378fa16f9ce81ea5",
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "f8b39255a0de8f08",
+    "parent_span_id": "eae754f9cadfd309",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:34.736400+00:00",
+    "start_time": "2026-06-29T13:00:05.649700+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "1264",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_merge-props.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_merge-props.js?v=16b1bc9f"
     }
   },
   {
-    "trace_id": "d5220d23a346cb351fbebf655b2f272c",
-    "span_id": "c606cdc932ad543b",
-    "parent_span_id": "378fa16f9ce81ea5",
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "d2417b956ad2cc40",
+    "parent_span_id": "eae754f9cadfd309",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:34.736500+00:00",
+    "start_time": "2026-06-29T13:00:05.649700+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "494",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_use-render.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_use-render.js?v=29b43241"
     }
   },
   {
-    "trace_id": "d5220d23a346cb351fbebf655b2f272c",
-    "span_id": "97990ba1302d6612",
-    "parent_span_id": "378fa16f9ce81ea5",
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "759afaf1cdf115c6",
+    "parent_span_id": "eae754f9cadfd309",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:34.736500+00:00",
+    "start_time": "2026-06-29T13:00:05.649800+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "6778",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/merge-props-CHESzXJC.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/merge-props-CHESzXJC.js?v=b4677ad1"
     }
   },
   {
-    "trace_id": "d5220d23a346cb351fbebf655b2f272c",
-    "span_id": "538c44ea9da0507c",
-    "parent_span_id": "378fa16f9ce81ea5",
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "e0076d8ab60f7d2e",
+    "parent_span_id": "eae754f9cadfd309",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:34.736600+00:00",
+    "start_time": "2026-06-29T13:00:05.649900+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "5521",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/useIsoLayoutEffect-75NDodZ2.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "106ce6e826ab0b73",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.650000+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "1015",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_separator.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_separator.js?v=c5a8433f"
     }
   },
   {
-    "trace_id": "d5220d23a346cb351fbebf655b2f272c",
-    "span_id": "857c6e27b5cf485f",
-    "parent_span_id": "378fa16f9ce81ea5",
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "93334350d28e72e1",
+    "parent_span_id": "eae754f9cadfd309",
     "operation_name": "resourceFetch",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:34.736700+00:00",
+    "start_time": "2026-06-29T13:00:05.650000+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10947",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-runtime.js?v=2c81cad8"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "12d42ce858157878",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.650100+00:00",
+    "duration_ms": 0.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4456",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/owner-B9RWFV_H.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "a9f0b8843b5c2097",
+    "parent_span_id": "eae754f9cadfd309",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.650100+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
       "http.response_content_length": "91422",
-      "http.url": "http://localhost:5173/node_modules/.vite/deps/tailwind-merge.js?v=c01edd95"
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/tailwind-merge.js?v=e5bd26a1"
     }
   },
   {
-    "trace_id": "d5220d23a346cb351fbebf655b2f272c",
-    "span_id": "378fa16f9ce81ea5",
+    "trace_id": "e2ea25ef97384962e7d1399d2afe87a9",
+    "span_id": "eae754f9cadfd309",
     "parent_span_id": "",
     "operation_name": "documentLoad",
     "service_name": "demo-frontend",
-    "start_time": "2026-06-28T03:45:34.713400+00:00",
-    "duration_ms": 44.1,
+    "start_time": "2026-06-29T13:00:05.625300+00:00",
+    "duration_ms": 46.2,
     "status": "ok",
     "attributes": {
       "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
@@ -1839,12 +2714,1104 @@
     }
   },
   {
-    "trace_id": "57d39e623a0bd540d06d56ca2938ba11",
-    "span_id": "8fde9a502291d00f",
-    "parent_span_id": "e6a7c3990d6dbd33",
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "30ed4e6996c2c64a",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "documentFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.425700+00:00",
+    "duration_ms": 4.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "615",
+      "http.url": "http://localhost:5173/login"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "443ba77f44fe6197",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.432900+00:00",
+    "duration_ms": 38.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "210183",
+      "http.url": "http://localhost:5173/@vite/client"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "a883b5706a7e99d3",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.433000+00:00",
+    "duration_ms": 1.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "7467",
+      "http.url": "http://localhost:5173/src/main.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "07741ec1b6abe49e",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.435600+00:00",
+    "duration_ms": 5.2,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "111894",
+      "http.url": "http://localhost:5173/@react-refresh"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "250cc88aa2bc226a",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.436600+00:00",
+    "duration_ms": 5.1,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "38367",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react.js?v=2c81cad8"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "bb0894ea6465ed28",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.436600+00:00",
+    "duration_ms": 9.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "399565",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=6ac64fc5"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "5c9b275102dd9a63",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.436600+00:00",
+    "duration_ms": 8.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "821152",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=93edaf69"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "17d5effed5a5ac75",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.436600+00:00",
+    "duration_ms": 13.4,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "18760",
+      "http.url": "http://localhost:5173/src/services/error-reporter.ts"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "325623df9992a141",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.436600+00:00",
+    "duration_ms": 16.1,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "981132",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@sentry_react.js?v=60df32df"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "5eefac1334bb4769",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.436700+00:00",
+    "duration_ms": 13.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "11395",
+      "http.url": "http://localhost:5173/src/observability/otel.ts"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "4324e9d9a58836f6",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.436700+00:00",
+    "duration_ms": 13.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "9433",
+      "http.url": "http://localhost:5173/src/observability/otel-logs.ts"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "149abcaa038ac8b5",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.436700+00:00",
+    "duration_ms": 14.1,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "17524",
+      "http.url": "http://localhost:5173/src/observability/error-reporter.ts"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "48a2934b7fd8189a",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.436800+00:00",
+    "duration_ms": 20.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "7295",
+      "http.url": "http://localhost:5173/src/observability/instruments.ts"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "c6107683ee9e77d9",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.436900+00:00",
+    "duration_ms": 20.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "68605",
+      "http.url": "http://localhost:5173/src/index.css"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "8ecd376fc4a22435",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.436900+00:00",
+    "duration_ms": 21.1,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10423",
+      "http.url": "http://localhost:5173/src/App.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "b51c0a57e96787c5",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.437000+00:00",
+    "duration_ms": 21.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10637",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=2c81cad8"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "84bc0e81f023d484",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.442400+00:00",
+    "duration_ms": 15.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "7614",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/chunk-B-1-B7_t.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "e2f398ceac4c9ebf",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.451900+00:00",
+    "duration_ms": 6.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "14728",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react-dom.js?v=2c81cad8"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "552211ba0359bdfd",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.455500+00:00",
+    "duration_ms": 4.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4714",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_sdk-trace-web.js?v=430fa3bb"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "8d6024d404ab7040",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.455600+00:00",
+    "duration_ms": 4.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "27814",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_exporter-trace-otlp-http.js?v=e42113be"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "d5278e47aa2d3236",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.455600+00:00",
+    "duration_ms": 4.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "87502",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_context-zone.js?v=da5c366a"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "c43c957755074f2c",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.455700+00:00",
+    "duration_ms": 4.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2234",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_resources.js?v=abd9ff6f"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "718fea1ed15597b9",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.455700+00:00",
+    "duration_ms": 7.2,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "141511",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_semantic-conventions.js?v=9f6b6472"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "1dbb71f758e6f658",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.455900+00:00",
+    "duration_ms": 7.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4959",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_api.js?v=0b32fa64"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "1496b95dc87026d7",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.459200+00:00",
+    "duration_ms": 4.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2405",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation.js?v=fe67f5c8"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "e4e583a9fb97043e",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.459200+00:00",
+    "duration_ms": 5.4,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "22014",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-fetch.js?v=37cd8e6b"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "1bc1b94ec8e0fe3f",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.459300+00:00",
+    "duration_ms": 6.3,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "11360",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-document-load.js?v=c777734c"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "806deaa6bb38ee45",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.459300+00:00",
+    "duration_ms": 6.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "14206",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-user-interaction.js?v=8f3efb8f"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "9463b8ecf308e6a7",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.459300+00:00",
+    "duration_ms": 5.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "21187",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@opentelemetry_instrumentation-xml-http-request.js?v=5cc427d3"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "3e0a88f7a35b45e2",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.459400+00:00",
+    "duration_ms": 6.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "17025",
+      "http.url": "http://localhost:5173/src/components/ErrorBoundary.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "068f151099bb5228",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.459400+00:00",
+    "duration_ms": 7.1,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4002",
+      "http.url": "http://localhost:5173/src/components/ProtectedRoute.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "d8e41f33464000bc",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.459400+00:00",
+    "duration_ms": 7.2,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "15581",
+      "http.url": "http://localhost:5173/src/pages/LoginPage.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "b34cc3bc09b42735",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.459400+00:00",
+    "duration_ms": 11.3,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "18912",
+      "http.url": "http://localhost:5173/src/pages/RegisterPage.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "8a76b4fe91d787aa",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.459400+00:00",
+    "duration_ms": 12.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "46701",
+      "http.url": "http://localhost:5173/src/pages/TaskBoardPage.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "ccfcc292b38d149e",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.459400+00:00",
+    "duration_ms": 13.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "32780",
+      "http.url": "http://localhost:5173/src/pages/TaskDetailPage.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "17b9a2b228721e2c",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.459400+00:00",
+    "duration_ms": 11.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "30314",
+      "http.url": "http://localhost:5173/src/pages/ProjectsPage.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "1a11457a010e107e",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.470800+00:00",
+    "duration_ms": 1.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "66078",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-JMly3OMv.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "e2d06c6d2bb1bcc1",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.470800+00:00",
+    "duration_ms": 3.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10856",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-Bf4t3hhR.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "0ada3b770067781c",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.470800+00:00",
+    "duration_ms": 3.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "45895",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-CHaCIvwP.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "2dc0347ad9113c9a",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.470900+00:00",
+    "duration_ms": 6.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2619",
+      "http.url": "http://localhost:5173/src/stores/authStore.ts"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "05cdc0c0ebf4d56f",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.470900+00:00",
+    "duration_ms": 3.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "19627",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-DTjr4DqM.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "1b190094a05772af",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.470900+00:00",
+    "duration_ms": 3.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "31962",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-Dc1YRGo3.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "dbc93303e3cbdeee",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.470900+00:00",
+    "duration_ms": 6.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "275815",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/esm-BzIo-9AA.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "163dba998f28283d",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.471000+00:00",
+    "duration_ms": 6.4,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10168",
+      "http.url": "http://localhost:5173/src/components/ui/button.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "734fa98f848f2736",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.471000+00:00",
+    "duration_ms": 6.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4731",
+      "http.url": "http://localhost:5173/src/services/api.ts"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "cac05748b55c0877",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.471000+00:00",
+    "duration_ms": 6.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4908",
+      "http.url": "http://localhost:5173/src/components/ui/input.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "652edf3a53761780",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.471000+00:00",
+    "duration_ms": 7.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "3580",
+      "http.url": "http://localhost:5173/src/components/ui/label.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "6cac19215969ab26",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.470900+00:00",
+    "duration_ms": 8.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10310",
+      "http.url": "http://localhost:5173/src/components/ui/card.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "c26d4946ff97660b",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482100+00:00",
+    "duration_ms": 0.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "3478",
+      "http.url": "http://localhost:5173/node_modules/.pnpm/vite@8.0.16_@types+node@24.13.2_jiti@2.7.0/node_modules/vite/dist/client/env.mjs"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "cd84ba432f993568",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482200+00:00",
+    "duration_ms": 0.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2173",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/zustand.js?v=1bb830b6"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "7c01e8ec6583e3e6",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482300+00:00",
+    "duration_ms": 1.2,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "6774",
+      "http.url": "http://localhost:5173/src/components/ui/badge.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "2e34bc3876a07fa4",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482200+00:00",
+    "duration_ms": 1.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "6166",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_core.js?v=2e788074"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "c165d9c00ff94f21",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482200+00:00",
+    "duration_ms": 1.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "15999",
+      "http.url": "http://localhost:5173/src/components/ui/dialog.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "85f0a4f562050568",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482200+00:00",
+    "duration_ms": 1.1,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "14109",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/zustand_middleware.js?v=7f9da794"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "621ec17ff1dd2e9b",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482200+00:00",
+    "duration_ms": 1.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "7337",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_utilities.js?v=0a47415e"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "8fb40fdba7249ea6",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482200+00:00",
+    "duration_ms": 1.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "18185",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@dnd-kit_sortable.js?v=313bb3df"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "7ca60768eb6b44e4",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482300+00:00",
+    "duration_ms": 6.5,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1125418",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/lucide-react.js?v=0af17c19"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "8cbfab5028bf3d74",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482400+00:00",
+    "duration_ms": 4.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1206",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_button.js?v=e34d8e37"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "cf8e5f8fb8aa193e",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482400+00:00",
+    "duration_ms": 4.4,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4395",
+      "http.url": "http://localhost:5173/src/components/ui/textarea.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "2e2878958136bfec",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482400+00:00",
+    "duration_ms": 4.4,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "3508",
+      "http.url": "http://localhost:5173/src/components/ui/separator.tsx"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "b820e7b79b69ffa0",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482500+00:00",
+    "duration_ms": 4.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "2801",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/class-variance-authority.js?v=2ddf31b0"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "e6ec3346686195d6",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482500+00:00",
+    "duration_ms": 4.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "745",
+      "http.url": "http://localhost:5173/src/lib/utils.ts"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "7f6b6c880a5f8986",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482600+00:00",
+    "duration_ms": 5.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "118194",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/axios.js?v=6b626e56"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "f701d28e3d457258",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.482700+00:00",
+    "duration_ms": 5.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "13644",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_input.js?v=668fe09d"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "f5fe1adbd4656f8a",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.490900+00:00",
+    "duration_ms": 1.7,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1264",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_merge-props.js?v=16b1bc9f"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "8c69df338c997ed7",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.491000+00:00",
+    "duration_ms": 1.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "494",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_use-render.js?v=29b43241"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "d0b1a349c5ee9f6e",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.491100+00:00",
+    "duration_ms": 2.3,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "90058",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/core.esm-_5gF4dhK.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "fe94d349f2831802",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.491300+00:00",
+    "duration_ms": 2.6,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "157710",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_dialog.js?v=3ef0de8b"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "929b8b2be4b67f9b",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.493000+00:00",
+    "duration_ms": 3.2,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "7664",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/useButton-BFYEIg_b.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "9c0186f8495ae453",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.493000+00:00",
+    "duration_ms": 3.0,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "11248",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/useRenderElement-DwlGiZDv.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "863aa4c0598ebea7",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.493200+00:00",
+    "duration_ms": 2.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "1015",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/@base-ui_react_separator.js?v=c5a8433f"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "a9ce2349103e2610",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.493300+00:00",
+    "duration_ms": 2.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "628",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/clsx.js?v=374a9c73"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "59822c5fa70317b9",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.493300+00:00",
+    "duration_ms": 4.2,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "10947",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-runtime.js?v=2c81cad8"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "7c05243ee28c0828",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.493300+00:00",
+    "duration_ms": 4.3,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "91422",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/tailwind-merge.js?v=e5bd26a1"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "a39ebaaaedc96c95",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.493400+00:00",
+    "duration_ms": 4.2,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "5521",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/useIsoLayoutEffect-75NDodZ2.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "df018247b191417a",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.493500+00:00",
+    "duration_ms": 4.9,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "4456",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/owner-B9RWFV_H.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "db272f133cca94f2",
+    "parent_span_id": "797d9c99d58041bd",
+    "operation_name": "resourceFetch",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.498600+00:00",
+    "duration_ms": 0.8,
+    "status": "ok",
+    "attributes": {
+      "http.response_content_length": "6778",
+      "http.url": "http://localhost:5173/node_modules/.vite/deps/merge-props-CHESzXJC.js?v=b4677ad1"
+    }
+  },
+  {
+    "trace_id": "2e3147e4bf36de782b444bd35b4aea0a",
+    "span_id": "797d9c99d58041bd",
+    "parent_span_id": "",
+    "operation_name": "documentLoad",
+    "service_name": "demo-frontend",
+    "start_time": "2026-06-29T13:00:05.425800+00:00",
+    "duration_ms": 148.9,
+    "status": "ok",
+    "attributes": {
+      "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+      "http.url": "http://localhost:5173/login"
+    }
+  },
+  {
+    "trace_id": "8860b448801aea84aeaac2fe00ed3d49",
+    "span_id": "f79c225368fa768a",
+    "parent_span_id": "e6875d808125a111",
     "operation_name": "POST /api/auth/login http receive",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:33.783311+00:00",
+    "start_time": "2026-06-29T13:00:04.644920+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -1852,12 +3819,12 @@
     }
   },
   {
-    "trace_id": "57d39e623a0bd540d06d56ca2938ba11",
-    "span_id": "c56be5e950809571",
-    "parent_span_id": "e6a7c3990d6dbd33",
+    "trace_id": "8860b448801aea84aeaac2fe00ed3d49",
+    "span_id": "8eaed8562bc8d9c7",
+    "parent_span_id": "e6875d808125a111",
     "operation_name": "POST /api/auth/login http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:34.025612+00:00",
+    "start_time": "2026-06-29T13:00:04.901822+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -1866,12 +3833,12 @@
     }
   },
   {
-    "trace_id": "57d39e623a0bd540d06d56ca2938ba11",
-    "span_id": "2682775577af1946",
-    "parent_span_id": "e6a7c3990d6dbd33",
+    "trace_id": "8860b448801aea84aeaac2fe00ed3d49",
+    "span_id": "d9b06f781f12039d",
+    "parent_span_id": "e6875d808125a111",
     "operation_name": "POST /api/auth/login http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:34.025612+00:00",
+    "start_time": "2026-06-29T13:00:04.902820+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -1879,12 +3846,12 @@
     }
   },
   {
-    "trace_id": "57d39e623a0bd540d06d56ca2938ba11",
-    "span_id": "b8ac4dc0f5627400",
-    "parent_span_id": "e6a7c3990d6dbd33",
+    "trace_id": "8860b448801aea84aeaac2fe00ed3d49",
+    "span_id": "9148fbf9d06f444e",
+    "parent_span_id": "e6875d808125a111",
     "operation_name": "POST /api/auth/login http send",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:34.025612+00:00",
+    "start_time": "2026-06-29T13:00:04.902820+00:00",
     "duration_ms": 0.0,
     "status": "ok",
     "attributes": {
@@ -1892,13 +3859,13 @@
     }
   },
   {
-    "trace_id": "57d39e623a0bd540d06d56ca2938ba11",
-    "span_id": "e6a7c3990d6dbd33",
+    "trace_id": "8860b448801aea84aeaac2fe00ed3d49",
+    "span_id": "e6875d808125a111",
     "parent_span_id": "",
     "operation_name": "POST /api/auth/login",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:33.780312+00:00",
-    "duration_ms": 245.3007,
+    "start_time": "2026-06-29T13:00:04.644920+00:00",
+    "duration_ms": 257.8994,
     "status": "ok",
     "attributes": {
       "http.scheme": "http",
@@ -1909,7 +3876,7 @@
       "http.server_name": "localhost:8000",
       "http.user_agent": "Python/3.11 aiohttp/3.14.1",
       "net.peer.ip": "127.0.0.1",
-      "net.peer.port": "54995",
+      "net.peer.port": "54239",
       "http.route": "/api/auth/login",
       "http.method": "POST",
       "http.url": "http://localhost:8000/api/auth/login",
@@ -1917,16 +3884,16 @@
     }
   },
   {
-    "trace_id": "57d39e623a0bd540d06d56ca2938ba11",
-    "span_id": "d6b45446d6378237",
-    "parent_span_id": "e6a7c3990d6dbd33",
+    "trace_id": "8860b448801aea84aeaac2fe00ed3d49",
+    "span_id": "03344f3b4c0461e0",
+    "parent_span_id": "e6875d808125a111",
     "operation_name": "connect",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:33.785319+00:00",
-    "duration_ms": 60.2451,
+    "start_time": "2026-06-29T13:00:04.644920+00:00",
+    "duration_ms": 68.8679,
     "status": "ok",
     "attributes": {
-      "net.peer.name": "localhost",
+      "net.peer.name": "127.0.0.1",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
@@ -1934,20 +3901,20 @@
     }
   },
   {
-    "trace_id": "57d39e623a0bd540d06d56ca2938ba11",
-    "span_id": "5dc8dbfcf524cc57",
-    "parent_span_id": "e6a7c3990d6dbd33",
+    "trace_id": "8860b448801aea84aeaac2fe00ed3d49",
+    "span_id": "2abb2f3045063ac9",
+    "parent_span_id": "e6875d808125a111",
     "operation_name": "SELECT",
     "service_name": "demo-backend",
-    "start_time": "2026-06-28T03:45:33.852562+00:00",
-    "duration_ms": 2.4182,
+    "start_time": "2026-06-29T13:00:04.729938+00:00",
+    "duration_ms": 2.0077,
     "status": "ok",
     "attributes": {
-      "net.peer.name": "localhost",
+      "net.peer.name": "127.0.0.1",
       "net.peer.port": "5432",
       "db.name": "taskflow",
       "db.user": "postgres",
-      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.email = $1::VARCHAR /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-57d39e623a0bd540d06d56ca2938ba11-5e3778b6b3eb5af2-03'*/",
+      "db.statement": "SELECT users.id, users.email, users.hashed_password, users.display_name, users.created_at, users.is_active \nFROM users \nWHERE users.email = $1::VARCHAR /*db_driver='asyncpg',db_framework='sqlalchemy%%3A2.0.51',traceparent='00-8860b448801aea84aeaac2fe00ed3d49-2507b9b9eb66b5b2-03'*/",
       "db.system": "postgresql",
       "db.operation": "SELECT"
     }

@@ -1,331 +1,331 @@
 [
   {
-    "timestamp": "2026-06-27T15:35:32.483388+00:00",
+    "timestamp": "2026-06-29T13:10:24.522707+00:00",
     "labels": {
       "detected_level": "error",
       "level": "error",
       "service_name": "demo-backend",
-      "span_id": "01378e5da1d6bff6",
-      "trace_id": "bbedbd5ca13e67b6a328acea71f5ae69"
+      "span_id": "7b987c1f090322c6",
+      "trace_id": "d69c0595cd6ce6d38390bbcc26018400"
     },
-    "line": "{\"event\": \"client_error\", \"error\": \"[react_render] Cannot read properties of undefined (reading 'length')\", \"stack\": \"TypeError: Cannot read properties of undefined (reading 'length')\\n    at SortableTaskCard (http://localhost:5173/src/pages/TaskBoardPage.tsx?t=1782574526487:148:17)\\n    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=2ef14f43:12868:12)\\n    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=2ef14f43:4213:19)\\n    at updateFunctionComponent (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=2ef14f43:5569:16)\\n    at beginWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=2ef14f43:6140:20)\\n    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=2ef14f43:851:66)\\n    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=2ef14f43:8429:92)\\n    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=2ef14f43:8325:37)\\n    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=2ef14f43:8309:6)\\n    at performWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=2ef14f43:7994:27)\", \"component_stack\": \"\\n    at SortableTaskCard (http://localhost:5173/src/pages/TaskBoardPage.tsx?t=1782574526487:91:29)\\n    at SortableContext (http://localhost:5173/node_modules/.vite/deps/@dnd-kit_sortable.js?v=c32d1b68:182:8)\\n    at div (<anonymous>)\\n    at div (<anonymous>)\\n    at DroppableColumn (http://localhost:5173/src/pages/TaskBoardPage.tsx?t=1782574526487:35:28)\\n    at div (<anonymous>)\\n    at DndContext (http://localhost:5173/node_modules/.vite/deps/core.esm-_5gF4dhK.js?v=efbe82b7:1910:8)\\n    at main (<anonymous>)\\n    at div (<anonymous>)\\n    at TaskBoardPage (http://localhost:5173/src/pages/TaskBoardPage.tsx?t=1782574526487:189:28)\\n    at ProtectedRoute (http://localhost:5173/src/components/ProtectedRoute.tsx:6:34)\\n    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=03a693f1:4137:26)\\n    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=03a693f1:4817:19)\\n    at ErrorBoundaryClass (http://localhost:5173/src/components/ErrorBoundary.tsx?t=1782574526379:9:3)\\n    at ErrorBoundary (http://localhost:5173/src/components/ErrorBoundary.tsx?t=1782574526379:108:33)\\n    at App (<anonymous>)\\n    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=03a693f1:4769:29)\\n    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=03a693f1:7209:26)\", \"url\": \"http://localhost:5173/projects/a17b7960-525a-4ab0-909a-017d063868f0\", \"browser_ts\": \"2026-06-27T15:35:32.478Z\", \"trace_id\": \"45fe31b37f95265a768f1c30b78e4b91\", \"span_id\": \"0e3e83870b6cf077\", \"client_ip\": \"127.0.0.1\"}",
-    "trace_id": "45fe31b37f95265a768f1c30b78e4b91",
-    "span_id": "0e3e83870b6cf077"
+    "line": "{\"event\": \"client_error\", \"error\": \"[react_render] Cannot read properties of undefined (reading 'length')\", \"stack\": \"TypeError: Cannot read properties of undefined (reading 'length')\\n    at SortableTaskCard (http://localhost:5173/src/pages/TaskBoardPage.tsx?t=1782738619371:148:17)\\n    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=93edaf69:12868:12)\\n    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=93edaf69:4213:19)\\n    at updateFunctionComponent (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=93edaf69:5569:16)\\n    at beginWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=93edaf69:6140:20)\\n    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=93edaf69:851:66)\\n    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=93edaf69:8429:92)\\n    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=93edaf69:8325:37)\\n    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=93edaf69:8309:6)\\n    at performWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=93edaf69:7994:27)\", \"component_stack\": \"\\n    at SortableTaskCard (http://localhost:5173/src/pages/TaskBoardPage.tsx?t=1782738619371:91:29)\\n    at SortableContext (http://localhost:5173/node_modules/.vite/deps/@dnd-kit_sortable.js?v=313bb3df:182:8)\\n    at div (<anonymous>)\\n    at div (<anonymous>)\\n    at DroppableColumn (http://localhost:5173/src/pages/TaskBoardPage.tsx?t=1782738619371:35:28)\\n    at div (<anonymous>)\\n    at DndContext (http://localhost:5173/node_modules/.vite/deps/core.esm-_5gF4dhK.js?v=b4677ad1:1910:8)\\n    at main (<anonymous>)\\n    at div (<anonymous>)\\n    at TaskBoardPage (http://localhost:5173/src/pages/TaskBoardPage.tsx?t=1782738619371:189:28)\\n    at ProtectedRoute (http://localhost:5173/src/components/ProtectedRoute.tsx:6:34)\\n    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=6ac64fc5:4137:26)\\n    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=6ac64fc5:4817:19)\\n    at ErrorBoundaryClass (http://localhost:5173/src/components/ErrorBoundary.tsx:9:3)\\n    at ErrorBoundary (http://localhost:5173/src/components/ErrorBoundary.tsx:108:33)\\n    at App (<anonymous>)\\n    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=6ac64fc5:4769:29)\\n    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=6ac64fc5:7209:26)\", \"url\": \"http://localhost:5173/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c\", \"browser_ts\": \"2026-06-29T13:10:24.513Z\", \"trace_id\": \"2a63e7277e25dbe17d0e274296116bfa\", \"span_id\": \"929f8b764a22fd55\", \"client_ip\": \"127.0.0.1\"}",
+    "trace_id": "2a63e7277e25dbe17d0e274296116bfa",
+    "span_id": "929f8b764a22fd55"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.483388+00:00",
+    "timestamp": "2026-06-29T13:10:24.505132+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "01378e5da1d6bff6",
-      "trace_id": "bbedbd5ca13e67b6a328acea71f5ae69"
+      "span_id": "23caaa08a693ef86",
+      "trace_id": "1597454e5325c14bd3f345d376f2171d"
     },
-    "line": "127.0.0.1:50531 - \"POST /api/log/client-error HTTP/1.1\" 202",
-    "trace_id": "bbedbd5ca13e67b6a328acea71f5ae69",
-    "span_id": "01378e5da1d6bff6"
+    "line": "127.0.0.1:58183 - \"GET /api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c/tasks HTTP/1.1\" 200",
+    "trace_id": "1597454e5325c14bd3f345d376f2171d",
+    "span_id": "23caaa08a693ef86"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.483388+00:00",
+    "timestamp": "2026-06-29T13:10:24.505132+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "01378e5da1d6bff6",
-      "trace_id": "bbedbd5ca13e67b6a328acea71f5ae69"
+      "span_id": "23caaa08a693ef86",
+      "trace_id": "1597454e5325c14bd3f345d376f2171d"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/log/client-error\", \"status_code\": 202, \"duration_ms\": 2.2, \"client\": \"127.0.0.1\"}",
-    "trace_id": "bbedbd5ca13e67b6a328acea71f5ae69",
-    "span_id": "01378e5da1d6bff6"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c/tasks\", \"status_code\": 200, \"duration_ms\": 4.4, \"client\": \"127.0.0.1\"}",
+    "trace_id": "1597454e5325c14bd3f345d376f2171d",
+    "span_id": "23caaa08a693ef86"
   },
   {
-    "timestamp": "2026-06-27T15:35:28.647835+00:00",
+    "timestamp": "2026-06-29T13:10:24.556896+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "15eb19f77be95e51",
-      "trace_id": "ad7bfaffd36db37d10ec9d7fc6090085"
+      "span_id": "2e97debeb871509e",
+      "trace_id": "780cc3d6a877ad6ecb2e18486c9bb3c2"
     },
-    "line": "127.0.0.1:55334 - \"POST /api/projects/a17b7960-525a-4ab0-909a-017d063868f0/tasks HTTP/1.1\" 201",
-    "trace_id": "ad7bfaffd36db37d10ec9d7fc6090085",
-    "span_id": "15eb19f77be95e51"
+    "line": "127.0.0.1:58569 - \"GET /api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c HTTP/1.1\" 200",
+    "trace_id": "780cc3d6a877ad6ecb2e18486c9bb3c2",
+    "span_id": "2e97debeb871509e"
   },
   {
-    "timestamp": "2026-06-27T15:35:28.647835+00:00",
+    "timestamp": "2026-06-29T13:10:24.555896+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "15eb19f77be95e51",
-      "trace_id": "ad7bfaffd36db37d10ec9d7fc6090085"
+      "span_id": "2e97debeb871509e",
+      "trace_id": "780cc3d6a877ad6ecb2e18486c9bb3c2"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/a17b7960-525a-4ab0-909a-017d063868f0/tasks\", \"status_code\": 201, \"duration_ms\": 14.7, \"client\": \"127.0.0.1\"}",
-    "trace_id": "ad7bfaffd36db37d10ec9d7fc6090085",
-    "span_id": "15eb19f77be95e51"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c\", \"status_code\": 200, \"duration_ms\": 64.9, \"client\": \"127.0.0.1\"}",
+    "trace_id": "780cc3d6a877ad6ecb2e18486c9bb3c2",
+    "span_id": "2e97debeb871509e"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.466396+00:00",
+    "timestamp": "2026-06-29T13:10:24.488579+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "3e27d03a8b8f9eb9",
-      "trace_id": "a9c70986828bfdc2255ebd70d7a61739"
+      "span_id": "539c3cbcc29c7e33",
+      "trace_id": "2849603212efbb65604faffdb187a87e"
     },
-    "line": "127.0.0.1:51607 - \"GET /api/projects/a17b7960-525a-4ab0-909a-017d063868f0/tasks HTTP/1.1\" 200",
-    "trace_id": "a9c70986828bfdc2255ebd70d7a61739",
-    "span_id": "3e27d03a8b8f9eb9"
+    "line": "127.0.0.1:58569 - \"OPTIONS /api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c HTTP/1.1\" 200",
+    "trace_id": "2849603212efbb65604faffdb187a87e",
+    "span_id": "539c3cbcc29c7e33"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.466396+00:00",
+    "timestamp": "2026-06-29T13:10:24.487575+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "3e27d03a8b8f9eb9",
-      "trace_id": "a9c70986828bfdc2255ebd70d7a61739"
+      "span_id": "539c3cbcc29c7e33",
+      "trace_id": "2849603212efbb65604faffdb187a87e"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/a17b7960-525a-4ab0-909a-017d063868f0/tasks\", \"status_code\": 200, \"duration_ms\": 3.3, \"client\": \"127.0.0.1\"}",
-    "trace_id": "a9c70986828bfdc2255ebd70d7a61739",
-    "span_id": "3e27d03a8b8f9eb9"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c\", \"status_code\": 200, \"duration_ms\": 1.4, \"client\": \"127.0.0.1\"}",
+    "trace_id": "2849603212efbb65604faffdb187a87e",
+    "span_id": "539c3cbcc29c7e33"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.520750+00:00",
+    "timestamp": "2026-06-29T13:10:24.488579+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "5d15f1e64970ff92",
-      "trace_id": "45fe31b37f95265a768f1c30b78e4b91"
+      "span_id": "584a1064979475d3",
+      "trace_id": "e80d6c7da33b8ef1889252f63d317f73"
     },
-    "line": "127.0.0.1:51607 - \"GET /api/projects/a17b7960-525a-4ab0-909a-017d063868f0 HTTP/1.1\" 200",
-    "trace_id": "45fe31b37f95265a768f1c30b78e4b91",
-    "span_id": "5d15f1e64970ff92"
+    "line": "127.0.0.1:58183 - \"OPTIONS /api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c HTTP/1.1\" 200",
+    "trace_id": "e80d6c7da33b8ef1889252f63d317f73",
+    "span_id": "584a1064979475d3"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.520750+00:00",
+    "timestamp": "2026-06-29T13:10:24.488579+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "5d15f1e64970ff92",
-      "trace_id": "45fe31b37f95265a768f1c30b78e4b91"
+      "span_id": "584a1064979475d3",
+      "trace_id": "e80d6c7da33b8ef1889252f63d317f73"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/a17b7960-525a-4ab0-909a-017d063868f0\", \"status_code\": 200, \"duration_ms\": 3.2, \"client\": \"127.0.0.1\"}",
-    "trace_id": "45fe31b37f95265a768f1c30b78e4b91",
-    "span_id": "5d15f1e64970ff92"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c\", \"status_code\": 200, \"duration_ms\": 1.4, \"client\": \"127.0.0.1\"}",
+    "trace_id": "e80d6c7da33b8ef1889252f63d317f73",
+    "span_id": "584a1064979475d3"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.448442+00:00",
+    "timestamp": "2026-06-29T13:10:20.717129+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "6dd228a266122cc4",
-      "trace_id": "b6ac248d15acc751c9b0383be0583c11"
+      "span_id": "61ccde499af3737f",
+      "trace_id": "fd717a76e4d6062597b088f13df615f3"
     },
-    "line": "127.0.0.1:50946 - \"OPTIONS /api/projects/a17b7960-525a-4ab0-909a-017d063868f0/tasks HTTP/1.1\" 200",
-    "trace_id": "b6ac248d15acc751c9b0383be0583c11",
-    "span_id": "6dd228a266122cc4"
+    "line": "127.0.0.1:52113 - \"POST /api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c/tasks HTTP/1.1\" 201",
+    "trace_id": "fd717a76e4d6062597b088f13df615f3",
+    "span_id": "61ccde499af3737f"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.448442+00:00",
+    "timestamp": "2026-06-29T13:10:20.717129+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "6dd228a266122cc4",
-      "trace_id": "b6ac248d15acc751c9b0383be0583c11"
+      "span_id": "61ccde499af3737f",
+      "trace_id": "fd717a76e4d6062597b088f13df615f3"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/a17b7960-525a-4ab0-909a-017d063868f0/tasks\", \"status_code\": 200, \"duration_ms\": 0.5, \"client\": \"127.0.0.1\"}",
-    "trace_id": "b6ac248d15acc751c9b0383be0583c11",
-    "span_id": "6dd228a266122cc4"
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c/tasks\", \"status_code\": 201, \"duration_ms\": 13.7, \"client\": \"127.0.0.1\"}",
+    "trace_id": "fd717a76e4d6062597b088f13df615f3",
+    "span_id": "61ccde499af3737f"
   },
   {
-    "timestamp": "2026-06-27T15:35:28.367080+00:00",
+    "timestamp": "2026-06-29T13:10:24.523214+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "7044674d6489e8b0",
-      "trace_id": "fefdfa547d072116e72c66789b7d07ca"
+      "span_id": "7b987c1f090322c6",
+      "trace_id": "d69c0595cd6ce6d38390bbcc26018400"
     },
-    "line": "127.0.0.1:55332 - \"POST /api/projects/ HTTP/1.1\" 201",
-    "trace_id": "fefdfa547d072116e72c66789b7d07ca",
-    "span_id": "7044674d6489e8b0"
+    "line": "127.0.0.1:54071 - \"POST /api/log/client-error HTTP/1.1\" 202",
+    "trace_id": "d69c0595cd6ce6d38390bbcc26018400",
+    "span_id": "7b987c1f090322c6"
   },
   {
-    "timestamp": "2026-06-27T15:35:28.367080+00:00",
+    "timestamp": "2026-06-29T13:10:24.522707+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "7044674d6489e8b0",
-      "trace_id": "fefdfa547d072116e72c66789b7d07ca"
+      "span_id": "7b987c1f090322c6",
+      "trace_id": "d69c0595cd6ce6d38390bbcc26018400"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/\", \"status_code\": 201, \"duration_ms\": 7.7, \"client\": \"127.0.0.1\"}",
-    "trace_id": "fefdfa547d072116e72c66789b7d07ca",
-    "span_id": "7044674d6489e8b0"
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/log/client-error\", \"status_code\": 202, \"duration_ms\": 2.4, \"client\": \"127.0.0.1\"}",
+    "trace_id": "d69c0595cd6ce6d38390bbcc26018400",
+    "span_id": "7b987c1f090322c6"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.516372+00:00",
+    "timestamp": "2026-06-29T13:10:20.166770+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "7f11652e01179d81",
-      "trace_id": "1a2a8c78fc9fbd332d2ed9be6a701cc4"
+      "span_id": "7e68398cb32a7476",
+      "trace_id": "1d06d81b0d6d5bed4492c7419d5502dd"
     },
-    "line": "127.0.0.1:54882 - \"GET /api/projects/a17b7960-525a-4ab0-909a-017d063868f0 HTTP/1.1\" 200",
-    "trace_id": "1a2a8c78fc9fbd332d2ed9be6a701cc4",
-    "span_id": "7f11652e01179d81"
+    "line": "127.0.0.1:52108 - \"POST /api/auth/login HTTP/1.1\" 200",
+    "trace_id": "1d06d81b0d6d5bed4492c7419d5502dd",
+    "span_id": "7e68398cb32a7476"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.516372+00:00",
+    "timestamp": "2026-06-29T13:10:20.165767+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "7f11652e01179d81",
-      "trace_id": "1a2a8c78fc9fbd332d2ed9be6a701cc4"
+      "span_id": "7e68398cb32a7476",
+      "trace_id": "1d06d81b0d6d5bed4492c7419d5502dd"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/a17b7960-525a-4ab0-909a-017d063868f0\", \"status_code\": 200, \"duration_ms\": 62.3, \"client\": \"127.0.0.1\"}",
-    "trace_id": "1a2a8c78fc9fbd332d2ed9be6a701cc4",
-    "span_id": "7f11652e01179d81"
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/auth/login\", \"status_code\": 200, \"duration_ms\": 244.2, \"client\": \"127.0.0.1\"}",
+    "trace_id": "1d06d81b0d6d5bed4492c7419d5502dd",
+    "span_id": "7e68398cb32a7476"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.451586+00:00",
+    "timestamp": "2026-06-29T13:10:24.559896+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "9f63cecc2801383b",
-      "trace_id": "fc2da970300332424cbbb4f9af849763"
+      "span_id": "8b70abf21a1ed838",
+      "trace_id": "2a63e7277e25dbe17d0e274296116bfa"
     },
-    "line": "127.0.0.1:51607 - \"OPTIONS /api/projects/a17b7960-525a-4ab0-909a-017d063868f0 HTTP/1.1\" 200",
-    "trace_id": "fc2da970300332424cbbb4f9af849763",
-    "span_id": "9f63cecc2801383b"
+    "line": "127.0.0.1:58183 - \"GET /api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c HTTP/1.1\" 200",
+    "trace_id": "2a63e7277e25dbe17d0e274296116bfa",
+    "span_id": "8b70abf21a1ed838"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.451586+00:00",
+    "timestamp": "2026-06-29T13:10:24.558897+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "9f63cecc2801383b",
-      "trace_id": "fc2da970300332424cbbb4f9af849763"
+      "span_id": "8b70abf21a1ed838",
+      "trace_id": "2a63e7277e25dbe17d0e274296116bfa"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/a17b7960-525a-4ab0-909a-017d063868f0\", \"status_code\": 200, \"duration_ms\": 1.0, \"client\": \"127.0.0.1\"}",
-    "trace_id": "fc2da970300332424cbbb4f9af849763",
-    "span_id": "9f63cecc2801383b"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c\", \"status_code\": 200, \"duration_ms\": 2.0, \"client\": \"127.0.0.1\"}",
+    "trace_id": "2a63e7277e25dbe17d0e274296116bfa",
+    "span_id": "8b70abf21a1ed838"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.451586+00:00",
+    "timestamp": "2026-06-29T13:10:24.488579+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "c919932f6da566f1",
-      "trace_id": "9135507d39325ce8b5bf80fcdcb7c893"
+      "span_id": "95d25ad94878c974",
+      "trace_id": "fe15e7875e324c43c861a549b154de1e"
     },
-    "line": "127.0.0.1:53683 - \"OPTIONS /api/projects/a17b7960-525a-4ab0-909a-017d063868f0/tasks HTTP/1.1\" 200",
-    "trace_id": "9135507d39325ce8b5bf80fcdcb7c893",
-    "span_id": "c919932f6da566f1"
+    "line": "127.0.0.1:60501 - \"OPTIONS /api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c/tasks HTTP/1.1\" 200",
+    "trace_id": "fe15e7875e324c43c861a549b154de1e",
+    "span_id": "95d25ad94878c974"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.451586+00:00",
+    "timestamp": "2026-06-29T13:10:24.488579+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "c919932f6da566f1",
-      "trace_id": "9135507d39325ce8b5bf80fcdcb7c893"
+      "span_id": "95d25ad94878c974",
+      "trace_id": "fe15e7875e324c43c861a549b154de1e"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/a17b7960-525a-4ab0-909a-017d063868f0/tasks\", \"status_code\": 200, \"duration_ms\": 1.0, \"client\": \"127.0.0.1\"}",
-    "trace_id": "9135507d39325ce8b5bf80fcdcb7c893",
-    "span_id": "c919932f6da566f1"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c/tasks\", \"status_code\": 200, \"duration_ms\": 1.3, \"client\": \"127.0.0.1\"}",
+    "trace_id": "fe15e7875e324c43c861a549b154de1e",
+    "span_id": "95d25ad94878c974"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.448442+00:00",
+    "timestamp": "2026-06-29T13:10:24.487575+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "c989e0f8acb6c98a",
-      "trace_id": "941c52a0ee969888366f66d334a3dfdf"
+      "span_id": "b3d3152aa8179563",
+      "trace_id": "4337043564e00580d7048b362f90097c"
     },
-    "line": "127.0.0.1:54882 - \"OPTIONS /api/projects/a17b7960-525a-4ab0-909a-017d063868f0 HTTP/1.1\" 200",
-    "trace_id": "941c52a0ee969888366f66d334a3dfdf",
-    "span_id": "c989e0f8acb6c98a"
+    "line": "127.0.0.1:50060 - \"OPTIONS /api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c/tasks HTTP/1.1\" 200",
+    "trace_id": "4337043564e00580d7048b362f90097c",
+    "span_id": "b3d3152aa8179563"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.448442+00:00",
+    "timestamp": "2026-06-29T13:10:24.487575+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "c989e0f8acb6c98a",
-      "trace_id": "941c52a0ee969888366f66d334a3dfdf"
+      "span_id": "b3d3152aa8179563",
+      "trace_id": "4337043564e00580d7048b362f90097c"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/a17b7960-525a-4ab0-909a-017d063868f0\", \"status_code\": 200, \"duration_ms\": 1.2, \"client\": \"127.0.0.1\"}",
-    "trace_id": "941c52a0ee969888366f66d334a3dfdf",
-    "span_id": "c989e0f8acb6c98a"
+    "line": "{\"event\": \"http_request\", \"method\": \"OPTIONS\", \"path\": \"/api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c/tasks\", \"status_code\": 200, \"duration_ms\": 1.0, \"client\": \"127.0.0.1\"}",
+    "trace_id": "4337043564e00580d7048b362f90097c",
+    "span_id": "b3d3152aa8179563"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.461237+00:00",
+    "timestamp": "2026-06-29T13:10:24.499366+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "cb173525bd04663c",
-      "trace_id": "70d684c7979effc90999a2431bb37334"
+      "span_id": "c746dba90fe52f99",
+      "trace_id": "3490efc15d0d8c34fb9c2c45bdfee3f1"
     },
-    "line": "127.0.0.1:50946 - \"GET /api/projects/a17b7960-525a-4ab0-909a-017d063868f0/tasks HTTP/1.1\" 200",
-    "trace_id": "70d684c7979effc90999a2431bb37334",
-    "span_id": "cb173525bd04663c"
+    "line": "127.0.0.1:50060 - \"GET /api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c/tasks HTTP/1.1\" 200",
+    "trace_id": "3490efc15d0d8c34fb9c2c45bdfee3f1",
+    "span_id": "c746dba90fe52f99"
   },
   {
-    "timestamp": "2026-06-27T15:35:32.461237+00:00",
+    "timestamp": "2026-06-29T13:10:24.499366+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "cb173525bd04663c",
-      "trace_id": "70d684c7979effc90999a2431bb37334"
+      "span_id": "c746dba90fe52f99",
+      "trace_id": "3490efc15d0d8c34fb9c2c45bdfee3f1"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/a17b7960-525a-4ab0-909a-017d063868f0/tasks\", \"status_code\": 200, \"duration_ms\": 9.6, \"client\": \"127.0.0.1\"}",
-    "trace_id": "70d684c7979effc90999a2431bb37334",
-    "span_id": "cb173525bd04663c"
+    "line": "{\"event\": \"http_request\", \"method\": \"GET\", \"path\": \"/api/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c/tasks\", \"status_code\": 200, \"duration_ms\": 9.6, \"client\": \"127.0.0.1\"}",
+    "trace_id": "3490efc15d0d8c34fb9c2c45bdfee3f1",
+    "span_id": "c746dba90fe52f99"
   },
   {
-    "timestamp": "2026-06-27T15:35:28.098213+00:00",
+    "timestamp": "2026-06-29T13:10:20.442931+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "da5c284f6b9f6dc2",
-      "trace_id": "cc6f3bea10c2f15e5e1b4b6ea2d87abc"
+      "span_id": "f171e09c7532d903",
+      "trace_id": "3fc18bc6b9b238c6fbb29140f4d0ca4c"
     },
-    "line": "127.0.0.1:55324 - \"POST /api/auth/login HTTP/1.1\" 200",
-    "trace_id": "cc6f3bea10c2f15e5e1b4b6ea2d87abc",
-    "span_id": "da5c284f6b9f6dc2"
+    "line": "127.0.0.1:52111 - \"POST /api/projects/ HTTP/1.1\" 201",
+    "trace_id": "3fc18bc6b9b238c6fbb29140f4d0ca4c",
+    "span_id": "f171e09c7532d903"
   },
   {
-    "timestamp": "2026-06-27T15:35:28.097213+00:00",
+    "timestamp": "2026-06-29T13:10:20.442931+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend",
-      "span_id": "da5c284f6b9f6dc2",
-      "trace_id": "cc6f3bea10c2f15e5e1b4b6ea2d87abc"
+      "span_id": "f171e09c7532d903",
+      "trace_id": "3fc18bc6b9b238c6fbb29140f4d0ca4c"
     },
-    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/auth/login\", \"status_code\": 200, \"duration_ms\": 365.7, \"client\": \"127.0.0.1\"}",
-    "trace_id": "cc6f3bea10c2f15e5e1b4b6ea2d87abc",
-    "span_id": "da5c284f6b9f6dc2"
+    "line": "{\"event\": \"http_request\", \"method\": \"POST\", \"path\": \"/api/projects/\", \"status_code\": 201, \"duration_ms\": 8.5, \"client\": \"127.0.0.1\"}",
+    "trace_id": "3fc18bc6b9b238c6fbb29140f4d0ca4c",
+    "span_id": "f171e09c7532d903"
   },
   {
-    "timestamp": "2026-06-27T15:35:27.727812+00:00",
+    "timestamp": "2026-06-29T13:10:18.465978+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
@@ -336,7 +336,7 @@
     "span_id": null
   },
   {
-    "timestamp": "2026-06-27T15:35:27.727812+00:00",
+    "timestamp": "2026-06-29T13:10:18.465978+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
@@ -347,18 +347,18 @@
     "span_id": null
   },
   {
-    "timestamp": "2026-06-27T15:35:27.727277+00:00",
+    "timestamp": "2026-06-29T13:10:18.465978+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
       "service_name": "demo-backend"
     },
-    "line": "Started server process [16640]",
+    "line": "Started server process [13364]",
     "trace_id": null,
     "span_id": null
   },
   {
-    "timestamp": "2026-06-27T15:35:22.757286+00:00",
+    "timestamp": "2026-06-29T13:10:17.264831+00:00",
     "labels": {
       "detected_level": "info",
       "level": "info",
@@ -369,29 +369,18 @@
     "span_id": null
   },
   {
-    "timestamp": "2026-06-27T15:35:26.442557+00:00",
+    "timestamp": "2026-06-29T13:10:17.247362+00:00",
     "labels": {
       "detected_level": "warning",
       "level": "warning",
       "service_name": "demo-backend"
     },
-    "line": "WatchFiles detected changes in 'app\\observability.py'. Reloading...",
+    "line": "WatchFiles detected changes in 'app\\api\\tasks.py'. Reloading...",
     "trace_id": null,
     "span_id": null
   },
   {
-    "timestamp": "2026-06-27T15:35:22.661949+00:00",
-    "labels": {
-      "detected_level": "warning",
-      "level": "warning",
-      "service_name": "demo-backend"
-    },
-    "line": "WatchFiles detected changes in 'app\\observability.py'. Reloading...",
-    "trace_id": null,
-    "span_id": null
-  },
-  {
-    "timestamp": "2026-06-27T15:35:29.452000+00:00",
+    "timestamp": "2026-06-29T13:10:21.521000+00:00",
     "labels": {
       "route_from": "/login",
       "route_to": "/login",
@@ -404,7 +393,7 @@
     "span_id": null
   },
   {
-    "timestamp": "2026-06-27T15:35:29.351000+00:00",
+    "timestamp": "2026-06-29T13:10:21.421000+00:00",
     "labels": {
       "route_from": "/login",
       "route_to": "/login",
@@ -417,15 +406,15 @@
     "span_id": null
   },
   {
-    "timestamp": "2026-06-27T15:35:32.144000+00:00",
+    "timestamp": "2026-06-29T13:10:24.168000+00:00",
     "labels": {
-      "route_from": "/projects/a17b7960-525a-4ab0-909a-017d063868f0",
-      "route_to": "/projects/a17b7960-525a-4ab0-909a-017d063868f0",
+      "route_from": "/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c",
+      "route_to": "/projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c",
       "scope_name": "demo-frontend",
       "service_name": "demo-frontend",
       "severity_text": "INFO"
     },
-    "line": "[ROUTE] /projects/a17b7960-525a-4ab0-909a-017d063868f0 → /projects/a17b7960-525a-4ab0-909a-017d063868f0",
+    "line": "[ROUTE] /projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c → /projects/956916ab-4d06-4744-a2d1-caf1d2ab3c2c",
     "trace_id": null,
     "span_id": null
   }
