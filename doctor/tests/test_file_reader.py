@@ -60,8 +60,17 @@ class TestResolvePath:
             _resolve_path("../../../etc/passwd")
 
     def test_rejects_absolute_path_outside_demo_app(self):
+        # Use an absolute path that is outside demo-app on all platforms.
+        # On Linux/macOS: /etc/passwd; on Windows: C:\Windows\...
+        # The path must be *absolute* on the current OS, otherwise it's
+        # treated as a relative path under demo-app and won't raise.
+        import os
+        if os.name == "nt":
+            bad_path = "C:\\Windows\\System32\\config\\SAM"
+        else:
+            bad_path = "/etc/passwd"
         with pytest.raises(ValueError, match="路径越界"):
-            _resolve_path("C:\\Windows\\System32\\config\\SAM")
+            _resolve_path(bad_path)
 
     def test_current_dir_is_safe(self):
         """'.' resolves to demo-app root, which is safe."""

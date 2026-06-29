@@ -62,11 +62,25 @@ def _resolve_path(file_path: str) -> Path:
             f"路径越界：'{file_path}' 包含 '..' 目录遍历，不允许访问 demo-app 之外的路径。"
         )
 
-    # Normalise: strip leading ./ prefix, then leading /
+    # Reject OS-level absolute paths (bypass the sandbox)
+    # - Unix: starts with "/"
+    # - Windows: starts with a drive letter pattern like "C:"
+    import os as _os
+    if raw_normalized.startswith("/") or (
+        _os.name == "nt"
+        and len(raw_normalized) >= 2
+        and raw_normalized[0].isalpha()
+        and raw_normalized[1] == ":"
+    ):
+        raise ValueError(
+            f"路径越界：'{file_path}' 是绝对路径，只允许 demo-app 内的相对路径。 "
+            f"demo-app 根目录为 {demo_root}"
+        )
+
+    # Normalise: strip leading ./ prefix
     clean = raw_normalized
     while clean.startswith("./"):
         clean = clean[2:]
-    clean = clean.lstrip("/")
 
     # Resolve relative to demo-app root
     resolved = (demo_root / clean).resolve()
