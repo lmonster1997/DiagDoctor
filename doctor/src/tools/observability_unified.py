@@ -437,7 +437,7 @@ def _build_search_observability_tool() -> Any:
             "统一可观测性查询入口 ⭐ 优先使用。\n"
             "支持三种模式：\n"
             "1. 查日志: search_observability(source='loki', "
-            "query='{service_name=\"demo-backend\"} |= \"error\"', "
+            'query=\'{service_name="demo-backend"} |= "error"\', '
             "start='...', end='...')\n"
             "2. 查Trace: search_observability(source='tempo', "
             "query='<trace_id>')\n"
