@@ -297,4 +297,5 @@ def ingest(raw_evidence: dict[str, Any]) -> NormalizedEvidence:
         noise_ratio=noise_ratio,
         frontend_span_count=frontend_spans,
         backend_span_count=backend_spans,
+        trigger_time=raw_evidence.get("trigger_time"),
     )

@@ -1,7 +1,7 @@
 # DiagDoctor — AI 辅助编程全局约定
 
 > 此文件会在每次对话中自动注入上下文。保持精简（< 200 行），只放全局适用信息。
-> 详细架构见 `docs/diagdoctor-from-scratch.md`，逐日任务见 `docs/diagdoctor-execution-handbook.md`。
+> 详细任务见 `docs/diagdoctor-depth-handbook-v2.md`，深度方向见 `docs/diagdoctor-depth-directions-v2.md`。
 
 ---
 
@@ -35,6 +35,7 @@ type_checker: mypy --strict  # core modules only; graph layer relaxed (B2 policy
 test: pytest + pytest-asyncio
 framework: FastAPI + Pydantic v2 + SQLAlchemy 2.x + Alembic
 observability: OpenTelemetry + structlog
+# Doctor LLM 可观测 + 评测：Langfuse（自托管）
 agent_framework: LangGraph
 vector_db: Qdrant
 ```
@@ -55,6 +56,7 @@ e2e: Playwright
 database: PostgreSQL 16
 cache: Redis 7
 observability: Loki + Tempo + Grafana + OpenTelemetry Collector
+# Doctor LLM 评测 + 追踪：Langfuse（自托管，langfuse-langchain）
 deploy: Docker Compose（Dev/Demo）→ K8s + Helm（Prod）
 ci: GitHub Actions
 ```
@@ -118,12 +120,12 @@ DiagDoctor/
 │   └── src/                   # injector, trigger, evidence collector, case generator
 ├── doctor/                    # 诊断 Agent ✅ Phase 1 完成
 │   └── src/                   # LangGraph + RAG + FastAPI（ingest→triage→reporter）
-├── benchmark/                 # 评测系统 ✅ 已实现
+├── benchmark/                 # 评测系统（已迁移至 Langfuse，仅保留导入脚本）
 ├── infra/                     # 部署配置
 │   ├── docker-compose.yml
 │   ├── otel/collector.yaml
 │   └── postgres/init-db.sql
-├── docs/                      # 设计文档
+├── docs/                      # 设计文档（权威：depth-handbook-v2 + depth-directions-v2）
 └── scripts/                   # 辅助脚本
 ```
 
@@ -146,6 +148,8 @@ DiagDoctor/
 | tempo | 3200 / 4319(OTLP) | 3200 / 4319 | 2.6 |
 | grafana | 3000 | 3001 | admin/admin |
 | qdrant | 6333/6334 | 6333/6334 | — |
+| langfuse-server | 3000 | **3002** (IPv4 only) | 自托管，LLM 可观测 & 评测。⚠ 用 `http://127.0.0.1:3002` 不要用 `localhost` |
+| langfuse-postgres | 5432 | 5433 | Langfuse 专用 DB |
 
 ---
 
@@ -159,30 +163,28 @@ DiagDoctor/
 6. **测试** 后端 pytest + pytest-asyncio，前端 Vitest，E2E Playwright
 7. **不要修改已有数据库迁移文件**，新增迁移用 `alembic revision -m "description"`
 8. **Docker Compose** 是唯一的一键启动方式，新服务必须加入编排
-9. **评测门禁** 以 `overall` 指标为准（见 from-scratch_V2 §6.5），不做单维度卡口
+9. **评测门禁** 以 `overall` 指标为准，通过 Langfuse Experiment + CI 门禁执行
 
 ---
 
 ## 当前开发阶段
 
-**Sprint 1-2（W1-W4）：基础设施 + Bug Factory + 评测雏形 ✅ 已基本完成**
+**V3 基线 ✅ 已实现**（3 节点：ingest → unified_agent → reporter）
 - [x] Demo App 前后端骨架（TaskFlow）
-- [x] 数据库模型 + 迁移
-- [x] JWT 认证
 - [x] OpenTelemetry 集成（后端 + 前端 OTel-JS）
 - [x] 可观测性栈（Loki/Tempo/Grafana/Collector）
-- [x] Doctor 项目骨架 + LangGraph Phase 1（ingest→triage→reporter）
-- [x] Bug Factory（schema + injector + trigger + evidence collector + case generator）
-- [x] Benchmark Harness（runner + evaluators + reporters）
-- [x] SQL 只读守卫（sql_guard）
+- [x] Doctor Agent（LangGraph + 5 工具 + RAG + SQL 只读守卫）
+- [x] Bug Factory（28 配方 + injector + trigger + evidence + case generator）
+- [x] 评测体系已迁移至 Langfuse（自托管，替代自研 benchmark）
 
-**Sprint 3（W5-W6）：多 Agent 系统（待实现）**
-- [ ] Specialist Agents（backend/frontend/perf/logic）
-- [ ] Critic 验证回路
-- [ ] Synthesis + Reporter 节点
+**当前 Phase：深度化（见执行手册）**
+- Phase 0（2d）：Langfuse 部署 + 基线验证
+- Phase 1（10d）：手动循环 + 上下文工程 + Ingest/search 深度
+- Phase 2（13d）：Langfuse 评测体系 + Prompt 策略 + TodoWrite + Bug 扩展
+- Phase 3（11d）：安全 + 自省 + Hook + Subagent
 
-> 详细逐日任务见 `docs/diagdoctor-execution-handbook_V2.md`
-> 架构文档见 `docs/diagdoctor-from-scratch_V2.md`（v1 文档已废弃）
+> 详细任务卡片见 `docs/diagdoctor-depth-handbook-v2.md`
+> 14 个深度方向见 `docs/diagdoctor-depth-directions-v2.md`
 
 ---
 
@@ -190,10 +192,13 @@ DiagDoctor/
 
 | 文档 | 路径 | 何时使用 |
 |------|------|---------|
-| 架构总览（v2） | `docs/diagdoctor-from-scratch_V2.md` | 架构讨论、重大决策 |
-| 执行手册（v2） | `docs/diagdoctor-execution-handbook_V2.md` | 逐日开发任务 |
-| 架构差异分析 | `docs/architecture-diff-and-changes.md` | v1→v2 升级清单 |
+| **执行手册（权威）** | `docs/diagdoctor-depth-handbook-v2.md` | 逐日任务卡片、当前状态、Phase 规划 |
+| **深度方向（权威）** | `docs/diagdoctor-depth-directions-v2.md` | 14 个方向的方案细节与代码级改动 |
+| Bug 配方规范 | `docs/bug-authoring-and-observability-guide.md` | 编写新 Bug 配方 |
+| Case 质量审查 | `docs/bug-case-quality-review-and-improvements.md` | Bug case 质量参考 |
 | Docker 排错 | `docs/docker-network-fixes.md` | Docker 网络问题 |
 | AI 编程技巧 | `docs/ai-assisted-dev-tips.md` | AI 辅助编程最佳实践 |
+| mini-swe-agent 分析 | `docs/mini-swe-agent-architecture-analysis.md` | Agent 架构参考 |
 
-> ⚠️ `diagdoctor-from-scratch.md` 和 `diagdoctor-execution-handbook.md` 已废弃，请使用 `_V2` 版本。
+> ⚠️ 以下文档已删除（过时/冲突）：`_V1.md` / `_V3.md` / `execution-handbook_V1,V2,V3.md` / `architecture-diff-and-changes.md`。
+> 唯一权威来源：`depth-handbook-v2.md` + `depth-directions-v2.md`。

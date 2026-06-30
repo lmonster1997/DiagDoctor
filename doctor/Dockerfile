@@ -36,6 +36,12 @@ FROM python:3.11-slim AS runtime
 
 WORKDIR /app
 
+# ── Debian mirror + system deps ──
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    ripgrep \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create a non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 

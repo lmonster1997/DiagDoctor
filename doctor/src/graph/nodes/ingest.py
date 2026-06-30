@@ -45,6 +45,7 @@ async def ingest_node(state: DoctorState) -> dict[str, Any]:
         "logs": [log.model_dump() for log in raw.logs],
         "traces": [span.model_dump() for span in raw.traces],
         "browser_errors": [err.model_dump() for err in (raw.browser_errors or [])],
+        "trigger_time": raw.trigger_time,
     }
 
     normalized = ingest(raw_dict)

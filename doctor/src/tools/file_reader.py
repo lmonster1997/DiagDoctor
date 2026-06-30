@@ -66,6 +66,7 @@ def _resolve_path(file_path: str) -> Path:
     # - Unix: starts with "/"
     # - Windows: starts with a drive letter pattern like "C:"
     import os as _os
+
     if raw_normalized.startswith("/") or (
         _os.name == "nt"
         and len(raw_normalized) >= 2
