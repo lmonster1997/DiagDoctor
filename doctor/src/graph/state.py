@@ -107,6 +107,11 @@ class Evidence(BaseModel):
     error_screenshot_url: str | None = None
     request: dict[str, Any] | None = None
     response: dict[str, Any] | None = None
+    trigger_time: str | None = Field(
+        default=None,
+        description="ISO 8601 UTC timestamp of when the bug was triggered. "
+        "Used to narrow search_observability queries to a focused time window.",
+    )
 
 
 # ── Ingest / Normalized evidence sub-models ─────────────────────────
@@ -178,6 +183,11 @@ class NormalizedEvidence(BaseModel):
     correlations: list[Correlation] = Field(default_factory=list)
     raw_refs: dict[str, Any] = Field(default_factory=dict)  # index to raw evidence
     noise_ratio: float = Field(default=0.0, ge=0.0, le=1.0)
+    trigger_time: str | None = Field(
+        default=None,
+        description="ISO 8601 UTC timestamp of bug trigger, used to narrow "
+        "search_observability time window to trigger_time ± 5min.",
+    )
     frontend_span_count: int = 0
     backend_span_count: int = 0
 

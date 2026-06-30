@@ -30,7 +30,10 @@ def _load_fe020_browser_errors() -> str:
     """Load the FE-020 browser_errors.json as a string."""
     path = FE_020_DIR / "browser_errors.json"
     if path.exists():
-        return path.read_text(encoding="utf-8")
+        raw = path.read_text(encoding="utf-8").strip()
+        # Use file data only if non-empty (avoid stale empty "[]" files)
+        if raw and raw != "[]":
+            return raw
     # Fallback: use inline data matching the real format
     return json.dumps(
         [

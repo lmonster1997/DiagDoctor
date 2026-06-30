@@ -18,8 +18,10 @@ from pydantic import BaseModel, Field
 
 from src.graph.main_graph import generate_thread_id, get_graph
 from src.graph.state import DiagnosisReport, Evidence
+from src.observability.logger import get_logger
 
 router = APIRouter(prefix="/api", tags=["diagnose"])
+logger = get_logger(__name__)
 
 # ── Request / Response models ───────────────────────────────────────
 
@@ -36,6 +38,14 @@ class DiagnoseRequest(BaseModel):
     thread_id: str | None = Field(
         default=None,
         description="Optional thread_id for resuming a previous session.",
+    )
+    trigger_time: str | None = Field(
+        default=None,
+        description=(
+            "ISO 8601 UTC timestamp of when the bug was triggered. "
+            "Doctor uses this to narrow Loki/Tempo queries to trigger_time ± 5min, "
+            "avoiding noisy historical data."
+        ),
     )
 
 
@@ -54,6 +64,10 @@ class DiagnoseResponse(BaseModel):
 
 def _build_initial_state(request: DiagnoseRequest, thread_id: str) -> dict[str, Any]:
     """Build the initial DoctorState dict for the graph invocation (v2)."""
+    # Inject trigger_time into evidence if provided at top level
+    if request.trigger_time and not request.evidence.trigger_time:
+        request.evidence.trigger_time = request.trigger_time
+
     return {
         "raw_evidence": request.evidence,
         "case_id": thread_id,
@@ -134,6 +148,8 @@ async def diagnose(
 
     thread_id = request.thread_id or generate_thread_id()
     initial_state = _build_initial_state(request, thread_id)
+
+    logger.info("diagnose_request_start", thread_id=thread_id, stream=stream)
 
     # Streaming mode
     if stream:

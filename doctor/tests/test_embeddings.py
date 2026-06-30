@@ -7,8 +7,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.knowledge.embeddings import (
-    _create_local_embeddings,
-    _create_openai_embeddings,
     get_embeddings,
     reset_embeddings_cache,
 )

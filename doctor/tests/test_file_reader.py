@@ -65,10 +65,8 @@ class TestResolvePath:
         # The path must be *absolute* on the current OS, otherwise it's
         # treated as a relative path under demo-app and won't raise.
         import os
-        if os.name == "nt":
-            bad_path = "C:\\Windows\\System32\\config\\SAM"
-        else:
-            bad_path = "/etc/passwd"
+
+        bad_path = "C:\\Windows\\System32\\config\\SAM" if os.name == "nt" else "/etc/passwd"
         with pytest.raises(ValueError, match="路径越界"):
             _resolve_path(bad_path)
 

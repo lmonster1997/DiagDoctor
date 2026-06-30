@@ -15,8 +15,10 @@ from src.config import settings
 
 # --- OTel MUST be initialized before FastAPI app instantiation ---
 from src.observability import init_observability, instrument_fastapi
+from src.observability.logger import configure_logging
 
 init_observability()
+configure_logging(json_format=False)  # Human-readable for dev; True for prod
 
 
 @asynccontextmanager

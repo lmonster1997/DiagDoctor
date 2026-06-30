@@ -24,7 +24,7 @@ from bug_factory.schema import EvaluationCase
 logger = structlog.get_logger(__name__)
 
 # ── Constants ────────────────────────────────────────────────────────
-_DEFAULT_TIMEOUT = ClientTimeout(total=120, connect=10)
+_DEFAULT_TIMEOUT = ClientTimeout(total=300, connect=10)  # 5 min, aligned with Doctor's 300s budget
 _DEFAULT_CONCURRENCY = 4
 _BENCHMARK_DIR = Path(__file__).resolve().parent.parent.parent  # benchmark/
 _RUNS_DIR = _BENCHMARK_DIR / "output" / "runs"

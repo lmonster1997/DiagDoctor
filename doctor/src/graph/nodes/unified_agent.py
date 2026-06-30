@@ -57,17 +57,10 @@ MAX_TIME_SECONDS = 300  # 5-minute timeout per diagnosis
 
 def format_evidence_for_agent(evidence: NormalizedEvidence) -> str:
     """
-    Format NormalizedEvidence into a compact HumanMessage for the UnifiedAgent.
+    将 NormalizedEvidence 格式化为 Agent 的 HumanMessage。
 
-    Includes golden_signals, correlations, and evidence context summary.
-    Raw logs/traces are NOT included — the agent retrieves them on demand
-    via ``search_observability``.
-
-    Args:
-        evidence: The NormalizedEvidence from the Ingest layer.
-
-    Returns:
-        Formatted string suitable as HumanMessage content.
+    新架构（实时查询）：不再接收预收集日志/Trace，
+    unified_agent_node 已通过 auto-prefetch 从 Loki/Tempo 实时获取数据并注入为 golden_signals。
     """
     parts: list[str] = []
 
@@ -75,45 +68,58 @@ def format_evidence_for_agent(evidence: NormalizedEvidence) -> str:
     if evidence.user_report:
         parts.append(f"【用户报告】\n{evidence.user_report}\n")
 
-    # ── Golden signals ──
+    # ── Golden signals + auto-prefetch 数据 ──
     if evidence.golden_signals:
-        parts.append("【黄金信号（golden_signals）】")
+        parts.append("【实时查询信号】")
         parts.append(_format_signals(evidence.golden_signals))
-    else:
-        parts.append("【黄金信号】\n（无关键信号，请使用 search_observability 主动探查）")
+
+        # 展示 auto-prefetch 的原始数据
+        for sig in evidence.golden_signals:
+            if sig.signal_id == "sig-auto-prefetch" and sig.metadata.get("prefetch_data"):
+                prefetch = sig.metadata["prefetch_data"]
+                logs = prefetch.get("logs", [])
+                traces = prefetch.get("traces", [])
+                parts.append(f"\n【预查询原始数据】Loki={len(logs)}条, Tempo={len(traces)}条")
+
+                if logs:
+                    parts.append("\n### 最近日志（前3条）")
+                    for log_entry in logs[:3]:
+                        ts = log_entry.get("timestamp", "?")
+                        level = log_entry.get("level", "?")
+                        msg = str(log_entry.get("message", ""))[:120]
+                        trace_id = log_entry.get("trace_id", "")
+                        parts.append(
+                            f"- [{level}] {ts}: {msg}"
+                            + (f" (trace_id={trace_id})" if trace_id else "")
+                        )
+
+                analysis = prefetch.get("analysis", {})
+                error_spans = analysis.get("error_spans", [])
+                if error_spans:
+                    parts.append("\n### 错误 Span")
+                    for span in error_spans[:3]:
+                        name = span.get("operation_name", span.get("name", "?"))
+                        dur = span.get("duration_ms", 0)
+                        parts.append(f"- {name} (duration={dur}ms)")
+
+                parts.append(
+                    "\n（可基于以上数据诊断，也可进一步调 code_search/get_file_content 确认代码）"
+                )
+                break
 
     # ── Correlations ──
     if evidence.correlations:
-        parts.append("\n【跨层关联（correlations）】")
+        parts.append("\n【跨层关联】")
         parts.append(_format_correlations(evidence.correlations))
-    else:
-        parts.append("\n【跨层关联】\n（无跨层关联数据）")
-
-    # ── Context summary ──
-    parts.append("\n【证据上下文】")
-    parts.append(
-        f"- 前端 span 数：{evidence.frontend_span_count}\n"
-        f"- 后端 span 数：{evidence.backend_span_count}\n"
-        f"- 噪声占比：{evidence.noise_ratio:.0%}"
-    )
-
-    # ── Time range hint ──
-    time_range = _extract_evidence_time_range(evidence)
-    if time_range:
-        parts.append(
-            f"\n【证据时间范围】\n"
-            f"- 起始：{time_range[0]}\n"
-            f"- 结束：{time_range[1]}\n"
-            f"（使用 search_observability 时，以此时间 ±2 小时为窗口）"
-        )
 
     # ── Instruction ──
     parts.append(
         "\n---\n"
-        "请按你的 System Prompt 中的三步骤进行诊断：\n"
-        "1. 先分析以上证据，判断症状层和可疑信号（不调工具）\n"
-        "2. 按工具选择表有目的地调工具，第一步必须调 search_observability\n"
-        "3. 输出结构化 JSON 诊断报告（不要用 markdown 代码块包裹）"
+        "⚡ 请基于以上实时查询结果进行诊断：\n"
+        "1. 分析日志和 Trace 中的错误模式\n"
+        "2. 调 code_search 定位相关代码\n"
+        "3. 调 get_file_content 确认根因\n"
+        "4. 输出 JSON 诊断报告（confidence 必须基于工具结果）"
     )
 
     return "\n".join(parts)
@@ -146,32 +152,6 @@ def _format_correlations(correlations: list[Correlation]) -> str:
     if not lines:
         return "  （无关联）"
     return "\n".join(lines)
-
-
-def _extract_evidence_time_range(
-    evidence: NormalizedEvidence,
-) -> tuple[str, str] | None:
-    """Extract the time range covered by the evidence signals."""
-    timestamps: list[datetime] = []
-    for sig in evidence.golden_signals:
-        ts = sig.timestamp
-        if ts:
-            try:
-                if isinstance(ts, datetime):
-                    timestamps.append(ts)
-                elif isinstance(ts, str):
-                    dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-                    timestamps.append(dt)
-            except (ValueError, TypeError):
-                pass
-
-    if not timestamps:
-        return None
-
-    return (
-        min(timestamps).isoformat(),
-        max(timestamps).isoformat(),
-    )
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -449,25 +429,52 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
 
     evidence: NormalizedEvidence = state.evidence
 
-    # Skip if no meaningful evidence
-    if not evidence.golden_signals and not evidence.correlations:
-        logger.warning("unified_agent_skipped_no_evidence", case_id=state.case_id)
-        return {
-            "report": DiagnosisReport(
-                root_cause="证据不足，无法诊断",
-                confidence=0.0,
-                early_stopped=True,
-                notes="无 golden_signals 且无 correlations",
-            ),
-            "findings": [
-                Finding(
-                    agent="unified_agent",
-                    summary="证据不足，跳过诊断",
-                    confidence=0.0,
+    # ── 实时查询：从 Loki/Tempo 自动获取日志和 Trace ──────────────
+    # 新架构不再接收预收集证据，Doctor 始终现场查询可观测性数据。
+    if evidence.trigger_time:
+        logger.info("auto_prefetch_observability", trigger_time=evidence.trigger_time)
+        try:
+            from datetime import datetime, timedelta
+
+            from src.graph.state import Signal
+            from src.tools.observability_unified import search_observability
+
+            tt = datetime.fromisoformat(evidence.trigger_time)
+            start = (tt - timedelta(minutes=5)).isoformat()
+            end = (tt + timedelta(minutes=5)).isoformat()
+
+            prefetch_result = await search_observability(
+                source="auto",
+                query='{service_name=~"demo-backend"}',
+                start=start,
+                end=end,
+                analysis="errors",
+                limit=50,
+            )
+            import json
+
+            prefetch_data = json.loads(prefetch_result)
+            log_count = len(prefetch_data.get("logs", []))
+            trace_count = len(prefetch_data.get("traces", []))
+
+            logger.info("auto_prefetch_done", logs=log_count, traces=trace_count)
+
+            if log_count > 0 or trace_count > 0:
+                prefetch_signal = Signal(
+                    signal_id="sig-auto-prefetch",
+                    source="trace" if trace_count > 0 else "log",
+                    signal_type="error_span" if trace_count > 0 else "error_log",
+                    service_tier="backend",
+                    severity="error",
+                    summary=(
+                        f"实时查询：Loki={log_count}条日志, Tempo={trace_count}条Trace。"
+                        f"详情见下方【预查询原始数据】。"
+                    ),
+                    metadata={"prefetch_data": prefetch_data},
                 )
-            ],
-            "early_stopped": True,
-        }
+                evidence.golden_signals.append(prefetch_signal)
+        except Exception as exc:
+            logger.warning("auto_prefetch_failed", error=str(exc))
 
     # Format evidence for the agent
     evidence_text = format_evidence_for_agent(evidence)
@@ -482,7 +489,45 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
     # Invoke the ReAct agent
     try:
         agent = get_unified_agent()
-        agent_result = await agent.ainvoke({"messages": [HumanMessage(content=evidence_text)]})
+
+        # ── Langfuse LLM tracing (graceful degradation) ──────────────
+        invoke_config: dict[str, Any] = {}
+        langfuse_handler = None
+        try:
+            from src.observability.langfuse_tracing import get_langfuse_handler
+
+            langfuse_handler = get_langfuse_handler()
+            invoke_config["callbacks"] = [langfuse_handler]
+            # Manually start trace — on_chain_start doesn't fire in
+            # LangGraph node context
+            langfuse_handler.start_trace(
+                input_data={"evidence": evidence_text[:500]},
+            )
+            logger.debug("langfuse_tracing_enabled", case_id=state.case_id)
+        except (ValueError, ImportError) as lf_exc:
+            logger.debug(
+                "langfuse_tracing_disabled",
+                case_id=state.case_id,
+                reason=str(lf_exc),
+            )
+
+        agent_result = await agent.ainvoke(
+            {"messages": [HumanMessage(content=evidence_text)]},
+            config=invoke_config if invoke_config else None,  # type: ignore[arg-type]
+        )
+
+        # Finalize Langfuse trace
+        if langfuse_handler is not None:
+            try:
+                langfuse_handler.end_trace(
+                    output_data={"result": str(agent_result)[:500]},
+                )
+            except Exception as lf_exc:
+                logger.debug(
+                    "langfuse_end_trace_error",
+                    case_id=state.case_id,
+                    error=str(lf_exc),
+                )
     except Exception as exc:
         logger.error("unified_agent_exception", error=str(exc), case_id=state.case_id)
         return handle_agent_failure(state, exc)

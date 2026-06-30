@@ -45,8 +45,8 @@ class Settings(BaseSettings):
     qdrant_api_key: SecretStr = SecretStr("")
 
     # --- Loki / Tempo (for evidence collection tools) ---
-    loki_url: str = "http://localhost:3100"
-    tempo_url: str = "http://localhost:3200"
+    loki_url: str = "http://127.0.0.1:3100"
+    tempo_url: str = "http://127.0.0.1:3200"
 
     # --- OpenTelemetry ---
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
@@ -54,6 +54,11 @@ class Settings(BaseSettings):
 
     # --- CORS ---
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+
+    # --- Langfuse (LLM observability & evaluation) ---
+    langfuse_secret_key: str = ""
+    langfuse_public_key: str = ""
+    langfuse_host: str = "http://localhost:3002"
 
     # --- Checkpointer ---
     checkpoint_db_path: str = "data/checkpoints.db"
