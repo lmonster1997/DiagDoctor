@@ -190,6 +190,10 @@ class NormalizedEvidence(BaseModel):
     )
     frontend_span_count: int = 0
     backend_span_count: int = 0
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Extra metadata attached by ingest (e.g. frontend_error_spans).",
+    )
 
 
 # ── Triage sub-models (multi-label) ──────────────────────────────────

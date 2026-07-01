@@ -118,8 +118,8 @@ DiagDoctor/
 ├── bug-factory/               # Bug 生成系统 ✅ 已实现
 │   ├── recipes/               # Bug 配方 YAML（28 个）
 │   └── src/                   # injector, trigger, evidence collector, case generator
-├── doctor/                    # 诊断 Agent ✅ Phase 1 完成
-│   └── src/                   # LangGraph + RAG + FastAPI（ingest→triage→reporter）
+├── doctor/                    # 诊断 Agent ✅ V3 基线已实现
+│   └── src/                   # LangGraph + RAG + FastAPI（ingest→unified_agent→reporter）
 ├── benchmark/                 # 评测系统（已迁移至 Langfuse，仅保留导入脚本）
 ├── infra/                     # 部署配置
 │   ├── docker-compose.yml
@@ -170,12 +170,22 @@ DiagDoctor/
 ## 当前开发阶段
 
 **V3 基线 ✅ 已实现**（3 节点：ingest → unified_agent → reporter）
+
+**架构要点**：
+- **Ingest**：两阶段（① auto-prefetch 并行采集 Loki/Tempo 后端+前端数据 → ② 9 步标准化管线），输出 `NormalizedEvidence`
+- **UnifiedAgent**：手动 ReAct 循环 + 5 工具，纯 LLM 诊断（不负责数据获取）
+- **前端错误双通道**：`console.error` → Loki、`window.onerror` → Tempo（client_error span）
+- **search_observability** 支持 `include_frontend=True` 查询前端 client_error span
+
+**已实现**：
 - [x] Demo App 前后端骨架（TaskFlow）
-- [x] OpenTelemetry 集成（后端 + 前端 OTel-JS）
+- [x] OpenTelemetry 集成（后端 + 前端 OTel-JS + console.error 拦截）
 - [x] 可观测性栈（Loki/Tempo/Grafana/Collector）
-- [x] Doctor Agent（LangGraph + 5 工具 + RAG + SQL 只读守卫）
+- [x] Doctor Agent（LangGraph 手动循环 + 5 工具 + RAG + SQL 只读守卫）
 - [x] Bug Factory（28 配方 + injector + trigger + evidence + case generator）
 - [x] 评测体系已迁移至 Langfuse（自托管，替代自研 benchmark）
+- [x] Ingest auto-prefetch（后端+前端并行查询）
+- [x] 前端错误实时采集（双通道：console.error → Loki / onerror → Tempo）
 
 **当前 Phase：深度化（见执行手册）**
 - Phase 0（2d）：Langfuse 部署 + 基线验证
