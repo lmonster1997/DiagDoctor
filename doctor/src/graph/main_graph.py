@@ -1,18 +1,18 @@
 """
 Main LangGraph definition for DiagDoctor diagnosis pipeline (v3).
 
-V3 simplified topology:
+V3 topology (3 nodes, linear):
     START → ingest → unified_agent → reporter → END
 
-V3 key changes from v2:
-- Removed independent triage node (classification embedded in unified_agent
-  System Prompt step 1; evaluation reads ``primary_category``/``categories``
-  from Agent output)
-- Removed specialist fan-out (backend_specialist, frontend_specialist)
-- Removed conditional routing (route_after_triage is DEPRECATED)
-- UnifiedAgent with full 5-tool set replaces multi-specialist architecture
-- Reporter simplified: directly consumes unified_agent's DiagnosisReport;
-  provides best-effort fallback on agent failure
+    ingest:        Collects logs+traces from Loki/Tempo for backend + frontend
+                   (parallel fetch), then runs deterministic normalization pipeline
+                   (denoise→dedup→tree→signals→correlate→index).
+    unified_agent: Formats normalized evidence → ReAct LLM loop with 5 tools
+                   (search_observability, code_search, db_query,
+                    inspect_frontend_error, get_file_content).
+    reporter:      Best-effort fallback when unified_agent output is invalid.
+
+No conditional routing, no specialist fan-out, no critic loop.
 """
 
 from __future__ import annotations

@@ -226,6 +226,7 @@ async def search_observability(
     end: str | None = None,
     analysis: Literal["raw", "n_plus_one", "bottlenecks", "errors", "full"] = "full",
     limit: int = 20,
+    include_frontend: bool = False,
 ) -> str:
     """统一可观测性查询入口。
 
@@ -251,6 +252,10 @@ async def search_observability(
         end: ISO 格式结束时间（可选，默认为当前时间）
         analysis: 分析深度（仅在使用 trace 数据时生效）
         limit: 最大返回条数
+        include_frontend: 是否同时查询前端服务（demo-frontend）的错误。
+            当设为 True 时，额外查询前端 Loki 日志和 Tempo 中的
+            client_error span，提取到 frontend_errors 字段。
+            适用于前端白屏/崩溃类 Bug 诊断。
 
     Returns:
         JSON 字符串，结构为:
@@ -261,7 +266,8 @@ async def search_observability(
             "logs": [...],
             "traces": [...],
             "analysis": {...},
-            "metadata": {"auto_trace_ids": [...], ...}
+            "metadata": {"auto_trace_ids": [...], ...},
+            "frontend_errors": [{"name": "client_error", "message": "...", ...}, ...]
         }
     """
     # ── Parse and validate time range ──
@@ -386,6 +392,60 @@ async def search_observability(
             logger.error("search_observability_analysis_failed", error=str(exc))
             analysis_result = {"error": str(exc)}
 
+    # ── Include frontend errors (optional) ────────────────────────
+    frontend_errors: list[dict[str, Any]] = []
+    if include_frontend:
+        try:
+            fe_logql = '{service_name=~"demo-frontend"}'
+            fe_logs_raw = await query_loki_logs(
+                logql=fe_logql,
+                start=parsed_start,
+                end=parsed_end,
+                limit=AUTO_MODE_LOG_LIMIT,
+            )
+            fe_logs = [_log_entry_to_dict(e) for e in fe_logs_raw]
+            fe_trace_ids = _extract_trace_ids_from_logs(fe_logs)
+
+            for tid in fe_trace_ids[:AUTO_MODE_MAX_TRACE_IDS]:
+                try:
+                    raw_spans = await query_tempo_trace(tid)
+                    fe_spans = [_span_to_dict(s) for s in raw_spans]
+                    for span in fe_spans:
+                        name = span.get("name", "")
+                        if "client_error" in name or span.get("status") == "error":
+                            attrs = span.get("attributes", {})
+                            frontend_errors.append({
+                                "span_name": name,
+                                "trace_id": tid,
+                                "span_id": span.get("span_id", ""),
+                                "duration_ms": span.get("duration_ms", 0),
+                                "error_message": (
+                                    attrs.get("error.message")
+                                    or attrs.get("error", "")
+                                ),
+                                "error_stack": attrs.get("error.stack", ""),
+                                "component_stack": attrs.get("component_stack", ""),
+                                "timestamp": span.get("start", ""),
+                            })
+                    # Also add all frontend spans to the main traces
+                    traces.extend(fe_spans)
+                except Exception as fe_exc:
+                    logger.debug(
+                        "frontend_error_trace_fetch_failed",
+                        trace_id=tid,
+                        error=str(fe_exc),
+                    )
+
+            # Add frontend logs to main logs
+            logs.extend(fe_logs)
+            logger.info(
+                "search_observability_frontend_errors",
+                count=len(frontend_errors),
+                log_count=len(fe_logs),
+            )
+        except Exception as fe_exc:
+            logger.warning("search_observability_frontend_failed", error=str(fe_exc))
+
     # ── Assemble response ──
     response = {
         "source": source,
@@ -398,6 +458,7 @@ async def search_observability(
         "traces": traces[:limit],
         "analysis": analysis_result,
         "metadata": metadata,
+        "frontend_errors": frontend_errors[:limit],
     }
 
     # Truncate large payloads for LLM context
@@ -446,7 +507,10 @@ def _build_search_observability_tool() -> Any:
             "再自动关联查Tempo，并进行N+1/瓶颈/错误分析\n"
             "analysis 参数: 'raw'(仅原始数据), 'n_plus_one'(N+1检测), "
             "'bottlenecks'(瓶颈分析), 'errors'(错误span), 'full'(全部分析)\n"
-            "时间范围跨度不能超过4小时。返回JSON: {logs:..., traces:..., analysis:...}"
+            "include_frontend=True: 同时查询前端 client_error span 和日志，"
+            "适用于前端白屏/崩溃类 Bug\n"
+            "时间范围跨度不能超过4小时。返回JSON: "
+            "{logs:..., traces:..., analysis:..., frontend_errors:...}"
         ),
     )
 

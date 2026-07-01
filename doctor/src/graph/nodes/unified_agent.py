@@ -69,8 +69,8 @@ def format_evidence_for_agent(evidence: NormalizedEvidence) -> str:
     """
     将 NormalizedEvidence 格式化为 Agent 的 HumanMessage。
 
-    新架构（实时查询）：不再接收预收集日志/Trace，
-    unified_agent_node 已通过 auto-prefetch 从 Loki/Tempo 实时获取数据并注入为 golden_signals。
+    Ingest 节点已完成 Loki/Tempo 实时查询 + 标准化管线处理，
+    此处仅格式化 golden_signals、correlations、frontend_error_spans 供 LLM 消费。
     """
     parts: list[str] = []
 
@@ -78,44 +78,24 @@ def format_evidence_for_agent(evidence: NormalizedEvidence) -> str:
     if evidence.user_report:
         parts.append(f"【用户报告】\n{evidence.user_report}\n")
 
-    # ── Golden signals + auto-prefetch 数据 ──
+    # ── Golden signals ──
     if evidence.golden_signals:
         parts.append("【实时查询信号】")
         parts.append(_format_signals(evidence.golden_signals))
+        parts.append(f"（共 {len(evidence.golden_signals)} 个信号）")
 
-        # 展示 auto-prefetch 的原始数据
-        for sig in evidence.golden_signals:
-            if sig.signal_id == "sig-auto-prefetch" and sig.metadata.get("prefetch_data"):
-                prefetch = sig.metadata["prefetch_data"]
-                logs = prefetch.get("logs", [])
-                traces = prefetch.get("traces", [])
-                parts.append(f"\n【预查询原始数据】Loki={len(logs)}条, Tempo={len(traces)}条")
-
-                if logs:
-                    parts.append("\n### 最近日志（前3条）")
-                    for log_entry in logs[:3]:
-                        ts = log_entry.get("timestamp", "?")
-                        level = log_entry.get("level", "?")
-                        msg = str(log_entry.get("message", ""))[:120]
-                        trace_id = log_entry.get("trace_id", "")
-                        parts.append(
-                            f"- [{level}] {ts}: {msg}"
-                            + (f" (trace_id={trace_id})" if trace_id else "")
-                        )
-
-                analysis = prefetch.get("analysis", {})
-                error_spans = analysis.get("error_spans", [])
-                if error_spans:
-                    parts.append("\n### 错误 Span")
-                    for span in error_spans[:3]:
-                        name = span.get("operation_name", span.get("name", "?"))
-                        dur = span.get("duration_ms", 0)
-                        parts.append(f"- {name} (duration={dur}ms)")
-
-                parts.append(
-                    "\n（可基于以上数据诊断，也可进一步调 code_search/get_file_content 确认代码）"
-                )
-                break
+    # ── Frontend error spans (from ingest metadata) ──
+    frontend_errors = evidence.metadata.get("frontend_error_spans", [])
+    if frontend_errors:
+        parts.append("\n### 🔴 前端崩溃 Span (client_error)")
+        for span in frontend_errors[:5]:
+            name = span.get("operation_name", span.get("name", "?"))
+            attrs = span.get("attributes", {})
+            err_msg = attrs.get("error.message", "") or attrs.get("error", "")
+            dur = span.get("duration_ms", 0)
+            parts.append(f"- {name} (duration={dur}ms): {err_msg[:150]}")
+            if err_msg:
+                parts.append("  ⚠️ 建议调 inspect_frontend_error 分析此错误")
 
     # ── Correlations ──
     if evidence.correlations:
@@ -425,11 +405,11 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
     """
     LangGraph node: unified diagnosis — ingest 后的唯一步骤.
 
-    使用手动驱动的 Agent 循环（替代 LangChain ``create_agent`` 黑盒），
-    以支持上下文工程、Hook、自省等 harness 机制。
+    Ingest 节点已完成 Loki/Tempo 实时查询 + 标准化管线处理，
+    此处仅负责格式化证据 → LLM 诊断，不执行任何数据获取。
 
     核心结构：
-    1. 实时查询（auto-prefetch）：从 Loki/Tempo 自动获取日志和 Trace
+    1. 格式化证据：NormalizedEvidence → HumanMessage
     2. 手动循环：逐轮调用 LLM → 执行工具 → 工具结果入 messages
     3. 工具调用去重：相同参数的工具调用自动跳过
     4. 解析输出：复用现有的 parse_diagnosis_report / extract_findings
@@ -445,52 +425,6 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
     from src.tools import get_all_tools
 
     evidence: NormalizedEvidence = state.evidence
-
-    # ── 实时查询：从 Loki/Tempo 自动获取日志和 Trace ──────────────
-    # 新架构不再接收预收集证据，Doctor 始终现场查询可观测性数据。
-    if evidence.trigger_time:
-        logger.info("auto_prefetch_observability", trigger_time=evidence.trigger_time)
-        try:
-            from datetime import datetime as dt
-            from datetime import timedelta
-
-            from src.tools.observability_unified import search_observability
-
-            tt = dt.fromisoformat(evidence.trigger_time)
-            start = (tt - timedelta(minutes=5)).isoformat()
-            end = (tt + timedelta(minutes=5)).isoformat()
-
-            prefetch_result = await search_observability(
-                source="auto",
-                query='{service_name=~"demo-backend"}',
-                start=start,
-                end=end,
-                analysis="errors",
-                limit=50,
-            )
-
-            prefetch_data = json.loads(prefetch_result)
-            log_count = len(prefetch_data.get("logs", []))
-            trace_count = len(prefetch_data.get("traces", []))
-
-            logger.info("auto_prefetch_done", logs=log_count, traces=trace_count)
-
-            if log_count > 0 or trace_count > 0:
-                prefetch_signal = Signal(
-                    signal_id="sig-auto-prefetch",
-                    source="trace" if trace_count > 0 else "log",
-                    signal_type="error_span" if trace_count > 0 else "error_log",
-                    service_tier="backend",
-                    severity="error",
-                    summary=(
-                        f"实时查询：Loki={log_count}条日志, Tempo={trace_count}条Trace。"
-                        f"详情见下方【预查询原始数据】。"
-                    ),
-                    metadata={"prefetch_data": prefetch_data},
-                )
-                evidence.golden_signals.append(prefetch_signal)
-        except Exception as exc:
-            logger.warning("auto_prefetch_failed", error=str(exc))
 
     # Format evidence for the agent
     evidence_text = format_evidence_for_agent(evidence)
