@@ -41,8 +41,7 @@ injection:
 
     -    jwt_expire_minutes: int = 60
 
-    +    jwt_expire_minutes: int = 0  # BUG(CONFIG-020): "0" misread as "no expiry"
-    — tokens expire instantly
+    +    jwt_expire_minutes: int = 0
 
     '
 trigger:

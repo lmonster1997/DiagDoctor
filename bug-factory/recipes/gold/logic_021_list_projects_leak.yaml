@@ -41,8 +41,7 @@ injection:
 
     -    result = await db.execute(select(Project).where(Project.owner_id == current_user.id))
 
-    +    result = await db.execute(select(Project))  # BUG(LOGIC-021): owner filter
-    dropped — leaks all projects
+    +    result = await db.execute(select(Project))
 
     '
 trigger:

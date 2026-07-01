@@ -61,7 +61,6 @@ injection:
          result = await db.execute(select(Project).where(Project.owner_id == current_user.id))
     -    return list(result.scalars().all())
     +    projects = list(result.scalars().all())
-    +    # BUG(CASCADE-020): N+1 + artificial slowdown → timeout → retry storm
     +    await asyncio.sleep(20)
     +    for _p in projects:
     +        _r = await db.execute(select(Task).where(Task.project_id == _p.id))
@@ -77,7 +76,7 @@ injection:
              "Content-Type": "application/json",
            },
         -  timeout: 15000,
-        +  timeout: 5000,  // BUG(CASCADE-020): 5s timeout → retry storm
+        +  timeout: 5000,
          });
         @@ -29,15 +29,29 @@
          api.interceptors.response.use(
@@ -92,7 +91,6 @@ injection:
                  window.location.href = "/login";
                }
              }
-        +    // BUG(CASCADE-020): Auto-retry on timeout → cascade failure
         +    const config = error.config;
         +    if (config && (error.code === 'ECONNABORTED' || axios.isCancel(error))) {
         +      config._retryCount = config._retryCount || 0;

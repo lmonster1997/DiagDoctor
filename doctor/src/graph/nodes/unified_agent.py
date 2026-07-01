@@ -26,7 +26,8 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
-from langchain_core.messages import AIMessage, HumanMessage
+import tiktoken
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
 from src.graph.state import (
     BudgetState,
@@ -41,6 +42,15 @@ from src.observability.logger import get_logger
 from src.observability.tracing import traced
 
 logger = get_logger(__name__)
+
+# ── Token 编码器（cl100k_base，模块级缓存，避免重复构造）──────────
+_encoder = tiktoken.get_encoding("cl100k_base")
+
+
+def estimate_tokens(text: str) -> int:
+    """精确估算 token 数（cl100k_base 编码，适用于 OpenAI 兼容模型）。"""
+    return len(_encoder.encode(text))
+
 
 # ── Budget constants ─────────────────────────────────────────────────
 
@@ -337,15 +347,14 @@ def update_budget(budget: BudgetState, agent_result: dict[str, Any]) -> BudgetSt
         if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls") and msg.tool_calls:
             tool_call_count += len(msg.tool_calls)
 
-    # Estimate tokens (rough heuristic: ~4 chars per token)
-    total_chars = sum(len(str(m.content)) for m in messages if hasattr(m, "content"))
-    estimated_tokens = total_chars // 4
+    # Estimate tokens using tiktoken (cl100k_base, handles Chinese/English/code accurately)
+    total_tokens = sum(estimate_tokens(str(m.content)) for m in messages if hasattr(m, "content"))
 
     now = datetime.now(UTC)
     elapsed = (now - budget.started_at).total_seconds() if budget.started_at else 0.0
 
     return BudgetState(
-        total_tokens=budget.total_tokens + estimated_tokens,
+        total_tokens=budget.total_tokens + total_tokens,
         total_cost_usd=budget.total_cost_usd,  # Updated externally by cost accountant
         tool_calls=budget.tool_calls + tool_call_count,
         started_at=budget.started_at or now,
@@ -416,8 +425,14 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
     """
     LangGraph node: unified diagnosis — ingest 后的唯一步骤.
 
-    Uses the UnifiedAgent ReAct agent with all 5 tools to diagnose any
-    Web app bug type. Replaces the V2 multi-specialist fan-out.
+    使用手动驱动的 Agent 循环（替代 LangChain ``create_agent`` 黑盒），
+    以支持上下文工程、Hook、自省等 harness 机制。
+
+    核心结构：
+    1. 实时查询（auto-prefetch）：从 Loki/Tempo 自动获取日志和 Trace
+    2. 手动循环：逐轮调用 LLM → 执行工具 → 工具结果入 messages
+    3. 工具调用去重：相同参数的工具调用自动跳过
+    4. 解析输出：复用现有的 parse_diagnosis_report / extract_findings
 
     Args:
         state: Current DoctorState (after Ingest).
@@ -425,7 +440,9 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
     Returns:
         Dict with report, findings, budget, early_stopped for state merge.
     """
-    from src.graph.subgraphs.unified_agent import get_unified_agent
+    from src.graph.subgraphs.unified_agent import _build_system_prompt
+    from src.llm_factory import get_llm_for_role
+    from src.tools import get_all_tools
 
     evidence: NormalizedEvidence = state.evidence
 
@@ -434,12 +451,12 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
     if evidence.trigger_time:
         logger.info("auto_prefetch_observability", trigger_time=evidence.trigger_time)
         try:
-            from datetime import datetime, timedelta
+            from datetime import datetime as dt
+            from datetime import timedelta
 
-            from src.graph.state import Signal
             from src.tools.observability_unified import search_observability
 
-            tt = datetime.fromisoformat(evidence.trigger_time)
+            tt = dt.fromisoformat(evidence.trigger_time)
             start = (tt - timedelta(minutes=5)).isoformat()
             end = (tt + timedelta(minutes=5)).isoformat()
 
@@ -451,7 +468,6 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                 analysis="errors",
                 limit=50,
             )
-            import json
 
             prefetch_data = json.loads(prefetch_result)
             log_count = len(prefetch_data.get("logs", []))
@@ -486,41 +502,147 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
         correlation_count=len(evidence.correlations),
     )
 
-    # Invoke the ReAct agent
+    # ── 构建消息列表 ─────────────────────────────────────────────
+    base_prompt = _build_system_prompt()
+    messages: list[BaseMessage] = [
+        SystemMessage(content=base_prompt),
+        HumanMessage(content=evidence_text),
+    ]
+
+    # ── 准备 LLM + 工具 ──────────────────────────────────────────
+    llm = get_llm_for_role("diagnosis")
+    tools = get_all_tools()
+    tool_map = {t.name: t for t in tools}
+    llm_with_tools = llm.bind_tools(tools)
+
+    # 工具调用去重缓存
+    call_history: list[tuple[str, str]] = []
+
+    # ── 运行时预算追踪 ──────────────────────────────────────────
+    # 在循环中实时估算 token 消耗，用于上下文工程决策
+    budget: dict[str, int] = {
+        "tool_result_tokens": 0,
+        "agent_reasoning_tokens": 0,
+    }
+
+    # ── Langfuse LLM tracing (graceful degradation) ──────────────
+    invoke_config: dict[str, Any] = {}
+    langfuse_handler = None
     try:
-        agent = get_unified_agent()
+        from src.observability.langfuse_tracing import get_langfuse_handler
 
-        # ── Langfuse LLM tracing (graceful degradation) ──────────────
-        invoke_config: dict[str, Any] = {}
-        langfuse_handler = None
-        try:
-            from src.observability.langfuse_tracing import get_langfuse_handler
-
-            langfuse_handler = get_langfuse_handler()
-            invoke_config["callbacks"] = [langfuse_handler]
-            # Manually start trace — on_chain_start doesn't fire in
-            # LangGraph node context
-            langfuse_handler.start_trace(
-                input_data={"evidence": evidence_text[:500]},
-            )
-            logger.debug("langfuse_tracing_enabled", case_id=state.case_id)
-        except (ValueError, ImportError) as lf_exc:
-            logger.debug(
-                "langfuse_tracing_disabled",
-                case_id=state.case_id,
-                reason=str(lf_exc),
-            )
-
-        agent_result = await agent.ainvoke(
-            {"messages": [HumanMessage(content=evidence_text)]},
-            config=invoke_config if invoke_config else None,  # type: ignore[arg-type]
+        langfuse_handler = get_langfuse_handler()
+        invoke_config["callbacks"] = [langfuse_handler]
+        langfuse_handler.start_trace(
+            input_data={"evidence": evidence_text[:500]},
         )
+        logger.debug("langfuse_tracing_enabled", case_id=state.case_id)
+    except (ValueError, ImportError) as lf_exc:
+        logger.debug(
+            "langfuse_tracing_disabled",
+            case_id=state.case_id,
+            reason=str(lf_exc),
+        )
+
+    # ── 手动 Agent 循环 ──────────────────────────────────────────
+    try:
+        for iteration in range(MAX_TOOL_CALLS):
+            # TODO(方向4): maybe_compact_context(messages, budget)
+            # TODO(方向6): build_dynamic_system_prompt(base_prompt, budget)
+
+            response: AIMessage = await llm_with_tools.ainvoke(
+                messages,
+                config=invoke_config if invoke_config else None,  # type: ignore[arg-type]
+            )
+            messages.append(response)
+
+            # 更新 Agent 推理 token 预算
+            budget["agent_reasoning_tokens"] += estimate_tokens(str(response.content))
+
+            # 无 tool_calls → Agent 认为诊断完成
+            if not response.tool_calls:
+                logger.info(
+                    "agent_no_tool_calls",
+                    iteration=iteration + 1,
+                    case_id=state.case_id,
+                )
+                break
+
+            # 处理本轮所有 tool_calls
+            for tc in response.tool_calls:
+                tool_name = tc["name"]
+                tool_args = tc["args"]
+
+                # ── 工具调用去重 ─────────────────────────────────
+                call_key = (tool_name, json.dumps(tool_args, sort_keys=True))
+                if call_key in call_history:
+                    logger.debug(
+                        "tool_call_skipped_duplicate",
+                        tool_name=tool_name,
+                        iteration=iteration + 1,
+                    )
+                    messages.append(
+                        ToolMessage(
+                            content="[跳过：与之前调用完全相同]",
+                            tool_call_id=tc["id"],
+                            name=tool_name,
+                        )
+                    )
+                    continue
+                call_history.append(call_key)
+
+                # TODO(方向12): registry.run_pre(tool_name, tool_args)
+                # TODO(方向10): recorder.record_tool_call(...)
+
+                # ── 执行工具（错误不中断循环）────────────────────
+                try:
+                    result = await tool_map[tool_name].ainvoke(tool_args)
+                except Exception as tool_exc:
+                    logger.warning(
+                        "tool_execution_error",
+                        tool_name=tool_name,
+                        error=str(tool_exc),
+                        iteration=iteration + 1,
+                    )
+                    result = f"工具执行错误: {tool_exc}"
+
+                # TODO(方向4): truncate_tool_result(tool_name, result)
+                # TODO(方向12): registry.run_post(tool_name, result)
+
+                # 更新工具结果 token 预算
+                budget["tool_result_tokens"] += estimate_tokens(str(result))
+
+                messages.append(
+                    ToolMessage(
+                        content=str(result),
+                        tool_call_id=tc["id"],
+                        name=tool_name,
+                    )
+                )
+
+                logger.debug(
+                    "tool_executed",
+                    tool_name=tool_name,
+                    iteration=iteration + 1,
+                    result_len=len(str(result)),
+                    budget_tool_tokens=budget["tool_result_tokens"],
+                    budget_agent_tokens=budget["agent_reasoning_tokens"],
+                )
+
+        else:
+            # 循环耗尽（MAX_TOOL_CALLS 次迭代用完）
+            logger.warning(
+                "max_tool_calls_reached",
+                max_calls=MAX_TOOL_CALLS,
+                case_id=state.case_id,
+            )
 
         # Finalize Langfuse trace
         if langfuse_handler is not None:
             try:
+                last_msg_content = str(messages[-1].content)[:500] if messages else ""
                 langfuse_handler.end_trace(
-                    output_data={"result": str(agent_result)[:500]},
+                    output_data={"result": last_msg_content},
                 )
             except Exception as lf_exc:
                 logger.debug(
@@ -528,11 +650,17 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                     case_id=state.case_id,
                     error=str(lf_exc),
                 )
+
     except Exception as exc:
         logger.error("unified_agent_exception", error=str(exc), case_id=state.case_id)
+        if langfuse_handler is not None:
+            with contextlib.suppress(Exception):
+                langfuse_handler.end_trace(output_data={"error": str(exc)})
         return handle_agent_failure(state, exc)
 
-    # Parse outputs
+    # ── 解析输出（复用现有函数）──────────────────────────────────
+    # 将 messages 包装为 agent_result 格式，兼容现有解析函数
+    agent_result: dict[str, Any] = {"messages": messages}
     report = parse_diagnosis_report(agent_result)
     findings = extract_findings(agent_result)
 

@@ -47,8 +47,6 @@ injection:
 
     -        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
 
-    +    # BUG(BE-020): task-existence check removed — bad task_id hits a FK violation
-
     '
 trigger:
   type: e2e_action

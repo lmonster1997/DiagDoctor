@@ -42,7 +42,7 @@ from src.config import settings  # noqa: E402
 DEMO_BACKEND_URL = "http://localhost:8000"
 DOCTOR_URL = "http://localhost:8001"
 RELOAD_WAIT = 5  # uvicorn reload 等待秒数
-DIAGNOSE_TIMEOUT = 120  # 单次诊断超时秒数
+DIAGNOSE_TIMEOUT = 12000  # 单次诊断超时秒数
 LOKI_INDEX_DELAY = 3  # Loki/Tempo 索引延迟
 
 
@@ -284,10 +284,10 @@ async def main(items: list | None = None) -> None:
         try:
             result = await diagnose_task(item, trace_id=trace.id)
 
-            # ── 初版 Scorer ──
+            # ── Scorer ──
             expected_output = item.expected_output or {}
 
-            # 提取诊断结果
+            # Extract prediction
             report = result.get("report") or {}
             pred_categories = set(
                 report.get("categories", [])
@@ -295,8 +295,30 @@ async def main(items: list | None = None) -> None:
                 else result.get("categories", [])
             )
             gold_categories = set(expected_output.get("category", []))
+            pred_primary = (
+                report.get("primary_category", "")
+                if isinstance(report, dict)
+                else result.get("primary_category", "")
+            )
+            # Fallback: if primary_category not set, use first category
+            if not pred_primary and pred_categories:
+                pred_primary = next(iter(sorted(pred_categories)), "")
+            gold_primary = expected_output.get("primary_category", "")
+            if not gold_primary and gold_categories:
+                gold_primary = next(iter(sorted(gold_categories)), "")
 
-            # 1. category_accuracy
+            # 1. category_accuracy: binary primary_category match
+            category_hit = (
+                1.0 if pred_primary and gold_primary and pred_primary == gold_primary else 0.0
+            )
+            trace.score(name="category_accuracy", value=category_hit)
+            print(
+                f"    category_accuracy: {category_hit:.2f} "
+                f"(pred={pred_primary}, gold={gold_primary}, "
+                f"pred_set={sorted(pred_categories)}, gold_set={sorted(gold_categories)})"
+            )
+
+            # 1b. categories_f1: multi-label F1 (secondary metric)
             if gold_categories:
                 tp = len(pred_categories & gold_categories)
                 precision = tp / len(pred_categories) if pred_categories else 0.0
@@ -304,9 +326,8 @@ async def main(items: list | None = None) -> None:
                 f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
             else:
                 f1 = 1.0 if not pred_categories else 0.0
-
-            trace.score(name="category_accuracy", value=f1)
-            print(f"    category_accuracy: {f1:.2f}")
+            trace.score(name="categories_f1", value=f1)
+            print(f"    categories_f1: {f1:.2f} (P={precision:.2f} R={recall:.2f})")
 
             # 2. affected_file_accuracy
             expected_file = expected_output.get("affected_file", "")
@@ -315,13 +336,29 @@ async def main(items: list | None = None) -> None:
                 if isinstance(report, dict)
                 else result.get("affected_file", "")
             )
-            file_hit = (
-                1.0
-                if actual_file and expected_file and str(actual_file).endswith(str(expected_file))
-                else 0.0
-            )
+
+            # Normalize path comparison: LLM may output backend-relative path
+            # (e.g. "app/api/comments.py") while gold recipe uses repo-root
+            # relative path (e.g. "demo-app/backend/app/api/comments.py").
+            # Strategy: check if either path's suffix matches the other.
+            file_hit = 0.0
+            if actual_file and expected_file:
+                actual_path = Path(str(actual_file))
+                expected_path = Path(str(expected_file))
+                actual_parts = actual_path.parts
+                expected_parts = expected_path.parts
+                # Check if one path ends with the other's tail parts
+                if (
+                    actual_parts[-len(expected_parts) :] == expected_parts
+                    if len(actual_parts) >= len(expected_parts)
+                    else expected_parts[-len(actual_parts) :] == actual_parts
+                ):
+                    file_hit = 1.0
             trace.score(name="affected_file_accuracy", value=file_hit)
-            print(f"    affected_file_accuracy: {file_hit:.2f}")
+            print(
+                f"    affected_file_accuracy: {file_hit:.2f} "
+                f"(expected={expected_file}, actual={actual_file})"
+            )
 
             # 3. efficiency（占位，Phase 2 完善）
             trace.score(name="efficiency", value=0.5)

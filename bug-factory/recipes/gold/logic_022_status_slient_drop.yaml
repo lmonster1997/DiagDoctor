@@ -34,8 +34,7 @@ injection:
     '
   diff_patch: "\n--- a/demo-app/backend/app/api/tasks.py\n\n+++ b/demo-app/backend/app/api/tasks.py\n\
     \n@@ -106,1 +106,2 @@\n\n     update_data = payload.model_dump(exclude_unset=True)\n\
-    \n+    update_data.pop(\"status\", None)  # BUG(LOGIC-022): status updates silently\
-    \ dropped\n"
+    \n+    update_data.pop(\"status\", None)\n"
 trigger:
   type: e2e_action
   steps:

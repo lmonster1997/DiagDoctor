@@ -49,10 +49,6 @@ injection:
          update_data = payload.model_dump(exclude_unset=True)
     -    for field, value in update_data.items():
     -        setattr(task, field, value)
-    +    # BUG(RACE-020): Read-all-then-write-all — vulnerable to lost updates.
-    +    # Snapshot every mutable column BEFORE applying the payload, then
-    +    # write every column back.  A concurrent PATCH to a different field
-    +    # that lands between our read and write will be silently overwritten.
     +    _snapshot = {
     +        c.name: getattr(task, c.name)
     +        for c in task.__table__.columns

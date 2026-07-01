@@ -43,8 +43,7 @@ injection:
 
     -        select(Project).where(Project.id == project_id, Project.owner_id == current_user.id)
 
-    +        select(Project).where(Project.id == project_id)  # BUG(LOGIC-020): owner
-    check removed (IDOR)
+    +        select(Project).where(Project.id == project_id)
 
     '
 trigger:

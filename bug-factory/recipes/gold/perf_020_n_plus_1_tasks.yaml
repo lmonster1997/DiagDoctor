@@ -40,9 +40,7 @@ injection:
     @@ -17,2 +17,3 @@\n from app.models.task import Task\n+from app.models.comment\
     \ import Comment\n from app.models.user import User\n@@ -40,4 +40,8 @@\n-    \
     \    .options(selectinload(Task.comments))\n         .order_by(Task.created_at.desc())\n\
-    \     )\n-    return list(result.scalars().all())\n+    tasks = list(result.scalars().all())\n\
-    +    # BUG(PERF-020): N+1 — fetch each task's comments in a separate query\n+\
-    \    for _t in tasks:\n+        _c = await db.execute(select(Comment).where(Comment.task_id\
+    \     )\n-    return list(result.scalars().all())\n+    tasks = list(result.scalars().all())\n+    for _t in tasks:\n+        _c = await db.execute(select(Comment).where(Comment.task_id\
     \ == _t.id))\n+        _ = _c.scalars().all()\n+    return tasks\n"
 trigger:
   type: e2e_action

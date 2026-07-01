@@ -36,9 +36,7 @@ injection:
     @@ -11,2 +11,3 @@\n from app.models.project import Project\n+from app.models.task\
     \ import Task\n from app.models.user import User\n@@ -24,2 +24,7 @@\n     result\
     \ = await db.execute(select(Project).where(Project.owner_id == current_user.id))\n\
-    -    return list(result.scalars().all())\n+    projects = list(result.scalars().all())\n\
-    +    # BUG(PERF-021): N+1 — query tasks for each project separately\n+    for\
-    \ _p in projects:\n+        _r = await db.execute(select(Task).where(Task.project_id\
+    -    return list(result.scalars().all())\n+    projects = list(result.scalars().all())\n+    for _p in projects:\n+        _r = await db.execute(select(Task).where(Task.project_id\
     \ == _p.id))\n+        _ = _r.scalars().all()\n+    return projects\n"
 trigger:
   type: e2e_action
