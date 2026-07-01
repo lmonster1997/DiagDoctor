@@ -45,7 +45,7 @@ injection:
     -        due_date=payload.due_date,
 
 
-    +        due_date=None,  # BUG(DATA-021): due_date silently dropped on create
+    +        due_date=None,
 
     '
 trigger:

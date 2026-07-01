@@ -50,8 +50,7 @@ injection:
     -    task = result.scalar_one_or_none()
 
 
-    +    task = result.scalar_one()  # BUG(BE-021): raises 500 NoResultFound instead
-    of 404
+    +    task = result.scalar_one()
 
     '
 trigger:

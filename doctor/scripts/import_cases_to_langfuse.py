@@ -65,12 +65,18 @@ def main() -> None:
                 break
 
         try:
+            # Use id=bug_id for upsert: same id → update, new id → create.
+            # This prevents duplicates when re-importing.
             langfuse.create_dataset_item(
+                id=bug_id,
                 dataset_name=DATASET_NAME,
                 input={
                     "user_report": user_report,
                 },
                 expected_output={
+                    "primary_category": recipe[
+                        "category"
+                    ],  # single primary category for binary match
                     "category": categories,
                     "root_cause": expected.get("root_cause", ""),
                     "affected_file": expected.get("affected_file", ""),

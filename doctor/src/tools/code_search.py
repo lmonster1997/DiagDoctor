@@ -1,12 +1,18 @@
 """
-Code search tool — ripgrep-prioritised hybrid search.
+Code search tool — ripgrep exact search.
 
 Strategy:
 1. ripgrep exact/keyword match (fast, precise)
-2. Vector semantic search fallback (for natural-language queries)
+2. When no match: return structured suggestions to guide Agent
+   toward ``get_file_content`` or ``search_observability`` instead
+   of pretending semantic search works for code.
 
 ripgrep is optional — if ``rg`` is not installed the tool silently
-degrades to vector-only without errors.
+degrades to returning a helpful fallback message.
+
+Design rationale: RAG/vector search for code is a false safety net —
+embedding similarity does not map well to code identifiers.  The
+Agent's correct path is ``search_observability → get clue → ripgrep``.
 """
 
 from __future__ import annotations
@@ -20,7 +26,6 @@ from typing import Any
 from langchain_core.tools import StructuredTool
 
 from src.config import settings
-from src.knowledge.hybrid_service import get_knowledge_service
 from src.observability.tracing import traced
 
 logger = logging.getLogger(__name__)
@@ -320,67 +325,66 @@ def _parse_ripgrep_output(raw: str, k: int) -> list[dict[str, Any]]:
     return results[:k]
 
 
-# ── Vector search (fallback) ───────────────────────────────────────────
-
-
-async def _vector_search(query: str, k: int = 10) -> list[dict[str, Any]]:
-    """Fallback: semantic vector search via KnowledgeService → Qdrant."""
-    try:
-        svc = get_knowledge_service()
-        docs = await svc.search_code(query, k=k)
-    except Exception as exc:
-        logger.warning("Vector search failed: %s", exc)
-        return []
-
-    results: list[dict[str, Any]] = []
-    for doc in docs:
-        meta = doc.metadata or {}
-        file_path = meta.get("file_path", "unknown")
-        first_line = ""
-        if doc.page_content:
-            lines = doc.page_content.split("\n")
-            first_line = lines[0] if lines else ""
-        results.append(
-            {
-                "file_path": file_path,
-                "name": meta.get("name", ""),
-                "chunk_type": meta.get("chunk_type", "unknown"),
-                "start_line": meta.get("start_line", 0),
-                "end_line": meta.get("end_line", 0),
-                "language": meta.get("language", "python"),
-                "score": meta.get("_score", 0.0),
-                "line_number": meta.get("start_line", 0),
-                "line_content": first_line[:300],
-                "match_type": "vector",
-                "context_before": [],
-                "context_after": [],
-                "file_role": _classify_file_role(file_path),
-                "content": doc.page_content[:2000],
-            }
-        )
-
-    return results
-
-
 # ── Public API ─────────────────────────────────────────────────────────
+
+
+def _build_fallback_suggestion(query: str) -> str:
+    """Build a structured suggestion when ripgrep returns no matches.
+
+    Instead of a phantom vector search that produces low-quality results,
+    guide the Agent toward tools that actually work for diagnosis.
+    """
+    suggestion = {
+        "match_type": "fallback",
+        "results": [],
+        "message": (f"ripgrep 未找到与 '{query[:120]}' 匹配的代码。建议下一步："),
+        "suggestions": [
+            {
+                "action": "code_search",
+                "hint": (
+                    "尝试用更短的关键词重新搜索，如函数名、类名、"
+                    "变量名的核心部分（去掉前后缀/下划线）"
+                ),
+            },
+            {
+                "action": "get_file_content",
+                "hint": (
+                    "如果已从 search_observability 的日志/Trace 中"
+                    "获取到具体文件名和行号，直接用 get_file_content 打开"
+                ),
+            },
+            {
+                "action": "search_observability",
+                "hint": (
+                    "如果还没有拿到具体错误信息（stack trace / error log），"
+                    "先调 search_observability 获取更精确的线索"
+                ),
+            },
+        ],
+    }
+    return json.dumps(suggestion, ensure_ascii=False)
 
 
 @traced()
 async def code_search(query: str, k: int = 10) -> str:
-    """Search the codebase — ripgrep first, vector fallback.
+    """Search the codebase with ripgrep — no vector fallback.
+
+    When ripgrep returns nothing, the tool guides the Agent toward
+    ``get_file_content`` or ``search_observability`` instead.
 
     Args:
-        query: The search query.  For exact matches (function names, class
-               names, variable names) ripgrep will handle it directly.
-               For natural-language queries ("N+1 query problem") the
-               vector index is used as a fallback.
+        query: The search query.  Best for exact matches: function
+               names, class names, variable names, SQL table names.
         k: Maximum number of results (1–20, default 10).
 
     Returns:
         JSON string: a list of result objects, each containing:
         ``file_path``, ``line_number``, ``line_content``, ``match_type``
-        (``ripgrep`` or ``vector``), ``context_before``, ``context_after``,
+        (``ripgrep``), ``context_before``, ``context_after``,
         ``file_role``.
+
+        On no-match: a fallback JSON with ``match_type=fallback`` and
+        ``suggestions`` for next steps.
     """
     k = min(max(1, k), 20)
 
@@ -389,27 +393,18 @@ async def code_search(query: str, k: int = 10) -> str:
     try:
         rg_results = await _ripgrep_search(query, k=k)
     except Exception as exc:
-        logger.warning("ripgrep search crashed, falling back to vector: %s", exc)
+        logger.warning("ripgrep search crashed: %s", exc)
         rg_results = []
 
     if rg_results:
         logger.info("code_search_rg_hit count=%d", len(rg_results))
         return json.dumps(rg_results, ensure_ascii=False)
 
-    # ── Step 2: vector semantic search (DISABLED — knowledge base not ready) ─
-    # TODO: re-enable after `uv run python scripts/init_kb.py`
-    # logger.info("code_search_rg_miss fallback=vector query=%s", query[:200])
-    # try:
-    #     vector_results = await _vector_search(query, k=k)
-    # except Exception as exc:
-    #     logger.error("code_search_failed error=%s", exc)
-    #     return f"Error: {exc}"
-    # if vector_results:
-    #     logger.info("code_search_vector_hit count=%d", len(vector_results))
-    #     return json.dumps(vector_results, ensure_ascii=False)
-
-    logger.info("code_search_no_results query=%s", query[:200])
-    return "[]"
+    # ── Step 2: no match → structured fallback suggestion ──────────
+    # Deliberately NO vector/RAG fallback — semantic search for code
+    # identifiers is unreliable; guide the Agent toward better tools.
+    logger.info("code_search_rg_miss query=%s → fallback suggestion", query[:200])
+    return _build_fallback_suggestion(query)
 
 
 # ── LangChain StructuredTool wrapper ────────────────────────────────────
@@ -418,12 +413,15 @@ CODE_SEARCH_TOOL = StructuredTool.from_function(
     coroutine=code_search,
     name="code_search",
     description=(
-        "Search the demo-app codebase for relevant code snippets. "
-        "Uses exact/keyword matching (ripgrep). "
-        "Use this to locate the exact file, function, or code block related to a bug. "
+        "Search the demo-app codebase for exact code identifiers. "
+        "Uses ripgrep for fast, precise matching. "
+        "Best for: function names, class names, variable names, SQL table names. "
+        "Not suitable for natural-language queries ('N+1 problem') — "
+        "use search_observability first to get concrete identifiers, then retry. "
         "Examples: "
-        "query='list_tasks' to find task listing function definition; "
+        "query='list_tasks' to find task listing function; "
         "query='TaskResponse' to find the Pydantic schema class. "
+        "When no match: returns suggestions to try get_file_content or search_observability. "
         "Returns JSON with file_path, line_number, line_content, file_role, and context."
     ),
 )

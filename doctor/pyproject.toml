@@ -28,6 +28,7 @@ dependencies = [
     "langgraph-checkpoint-sqlite>=3.1.0",
     "sqlparse>=0.5.5",
     "langfuse>=2.60.10,<3.0.0",
+    "tiktoken>=0.13.0",
 ]
 
 [project.optional-dependencies]

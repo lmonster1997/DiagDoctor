@@ -45,8 +45,7 @@ injection:
     -        .order_by(Task.created_at.desc())
 
 
-    +        .order_by(Task.created_at.asc())  # BUG(DATA-020): wrong sort order (oldest
-    first)
+    +        .order_by(Task.created_at.asc())
 
     '
 trigger:
