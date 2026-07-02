@@ -313,7 +313,7 @@ def _detect_error_bursts(
         if len(sorted_counts) >= 2:
             if sorted_counts[0] > sorted_counts[1] * 2:
                 # Mark only the top bucket as anomalous
-                max_bucket = max(buckets, key=buckets.get)
+                max_bucket = max(buckets, key=lambda k: buckets[k])
                 window_start = datetime.fromtimestamp(
                     max_bucket * bucket_seconds, tz=UTC
                 )
@@ -334,6 +334,34 @@ def _detect_error_bursts(
                             "excess_pct": round(
                                 (sorted_counts[0] - mean) / max(mean, 1) * 100
                             ),
+                        },
+                    }
+                )
+                return anomalies
+        else:
+            # Only 1 bucket — flag as burst if count is substantial (≥8)
+            # relative to the time window size
+            if counts[0] >= 8:
+                max_bucket = max(buckets, key=lambda k: buckets[k])
+                window_start = datetime.fromtimestamp(
+                    max_bucket * bucket_seconds, tz=UTC
+                )
+                window_end = datetime.fromtimestamp(
+                    (max_bucket + 1) * bucket_seconds, tz=UTC
+                )
+                anomalies.append(
+                    {
+                        "type": "error_burst",
+                        "severity": "high" if counts[0] >= 10 else "medium",
+                        "details": {
+                            "window_start": window_start.isoformat(),
+                            "window_end": window_end.isoformat(),
+                            "error_count": counts[0],
+                            "mean_count": round(mean, 1),
+                            "stddev": round(stddev, 1),
+                            "threshold": "absolute_minimum(≥8)",
+                            "excess_pct": 0,
+                            "note": "Single-bucket burst; insufficient baseline for σ-based threshold.",
                         },
                     }
                 )
@@ -604,6 +632,187 @@ def _detect_timeout_chains(
     return anomalies
 
 
+# ── Helper: Causal chain reconstruction ──────────────────────────────
+
+
+def _derive_tier_label(node: SpanNode) -> str:
+    """Derive a human-readable tier label for a span node.
+
+    Returns one of: ``"Frontend"``, ``"Backend"``, ``"DB"``.
+    """
+    if node.is_frontend:
+        return "Frontend"
+    if node.is_db_span:
+        return "DB"
+    return "Backend"
+
+
+def _build_causal_chains(roots: list[SpanNode]) -> list[str]:
+    """Build causal chain representations from span trees.
+
+    Post-order traverses each span tree.  For branches that contain
+    error or slow spans, renders an indented text chain showing the
+    causal flow from root → intermediate → leaf, including tier,
+    operation name, duration, and status.
+
+    Example output::
+
+        Frontend fetch /api/tasks (error)
+          → Backend GET /api/tasks (error)
+            → DB SELECT tasks (slow, 1200ms)
+            → DB SELECT comments (50ms, ×5 N+1 pattern)
+
+    Args:
+        roots: Root nodes from ``build_cross_tier_tree()``.
+
+    Returns:
+        List of indented text strings, one per problematic root node.
+    """
+    chains: list[str] = []
+
+    def _has_problems(n: SpanNode) -> bool:
+        """Check if node or any descendant is error or slow."""
+        if n.is_error or n.is_slow():
+            return True
+        return any(_has_problems(c) for c in n.children)
+
+    def _render_branch(node: SpanNode, indent: int = 0) -> str:
+        """Render a single branch as indented text."""
+        prefix = "→ " if indent > 0 else ""
+        padding = "  " * indent
+
+        tier = _derive_tier_label(node)
+        name = node.name or "(unnamed)"
+
+        # Build status annotation
+        if node.is_error:
+            annotation = "error"
+        elif node.is_slow():
+            annotation = f"slow, {node.duration_ms:.0f}ms"
+        else:
+            annotation = f"{node.duration_ms:.0f}ms"
+
+        line = f"{padding}{prefix}{tier} {name} ({annotation})"
+
+        # Collect problem children
+        problem_children = [
+            c for c in node.children if _has_problems(c)
+        ]
+
+        if not problem_children:
+            return line
+
+        child_lines = [_render_branch(c, indent + 1) for c in problem_children]
+        return "\n".join([line] + child_lines)
+
+    for root in roots:
+        if _has_problems(root):
+            chains.append(_render_branch(root))
+
+    return chains
+
+
+# ── Helper: Insight generation ───────────────────────────────────────
+
+
+def _generate_insights(analysis_result: dict[str, Any]) -> str:
+    """Generate a human-readable insight summary from analysis data.
+
+    Pure rule engine — no LLM call.  Translates structured analysis
+    output (anomalies, bottlenecks, causal chains, etc.) into a concise
+    "## 自动洞察" Markdown section with actionable next-step suggestions.
+
+    Args:
+        analysis_result: The ``analysis`` dict produced by
+            ``_run_trace_analysis`` + anomaly detection.
+
+    Returns:
+        Markdown-formatted insight text, or empty string if nothing to report.
+    """
+    parts: list[str] = []
+
+    # ── 1. Error patterns from anomaly clusters ─────────────────
+    clusters = [
+        a["details"]
+        for a in analysis_result.get("anomalies", [])
+        if a.get("type") == "error_cluster"
+    ]
+    if clusters:
+        top = clusters[0]
+        n = top.get("occurrence_count", 0)
+        pattern = top.get("fingerprint", "unknown")
+        window = top.get("window_start", "?")
+        parts.append(
+            f"1. **错误模式**：检测到 {n} 个相同错误 "
+            f'"{pattern[:60]}"，集中在 {window[:19]}'
+        )
+
+    # ── 2. Performance bottlenecks ──────────────────────────────
+    bottlenecks = analysis_result.get("bottlenecks", [])
+    if bottlenecks:
+        durations = [float(b.get("duration_ms", 0)) for b in bottlenecks]
+        if durations:
+            p95 = sorted(durations)[int(len(durations) * 0.95)]
+            slowest = max(bottlenecks, key=lambda b: float(b.get("duration_ms", 0)))
+            parts.append(
+                f"2. **性能瓶颈**：P95 延迟 {p95:.0f}ms，"
+                f"最慢端点 {slowest.get('name', '?')}"
+                f"（{slowest.get('duration_ms', 0):.0f}ms）"
+            )
+
+    # ── 3. Causal chains ────────────────────────────────────────
+    chains = analysis_result.get("causal_chains", [])
+    if chains:
+        chain_text = "\n   ".join(chains[:3])  # top 3 chains
+        parts.append(f"3. **因果链**：\n   {chain_text}")
+
+    # ── 4. Next-step suggestions ────────────────────────────────
+    suggestions: list[str] = []
+
+    # From error spans → suggest code search
+    error_spans = analysis_result.get("error_spans", [])
+    if error_spans:
+        key_func = error_spans[0].get("name", "")
+        if key_func:
+            suggestions.append(f'用 code_search 搜索 "{key_func}" 的实现')
+
+    # From N+1 → suggest get_file_content
+    n1 = analysis_result.get("n_plus_one", [])
+    if n1:
+        parent_span = n1[0].get("parent_span", n1[0].get("span_name", ""))
+        suggestions.append(f"用 get_file_content 查看 {parent_span} 相关代码")
+    elif error_spans:
+        file_hint = error_spans[0].get("name", "suspected_file")
+        suggestions.append(f"用 get_file_content 查看包含 {file_hint} 的文件")
+
+    # From cascading failures → suggest db_query
+    cascades = [
+        a["details"]
+        for a in analysis_result.get("anomalies", [])
+        if a.get("type") == "cascading_failure"
+    ]
+    if cascades:
+        suggestions.append(
+            "用 db_query 验证数据库状态（检测到级联失败，"
+            "可能涉及数据完整性问题）"
+        )
+
+    # General fallback suggestion
+    if not suggestions:
+        suggestions.append(
+            "用 search_observability 缩小时间窗口，获取更精确的线索"
+        )
+
+    parts.append(
+        f"4. **建议下一步**：\n   - " + "\n   - ".join(suggestions)
+    )
+
+    if not parts:
+        return ""
+
+    return "## 自动洞察\n\n" + "\n\n".join(parts)
+
+
 # ── Helper: Run trace analysis ───────────────────────────────────────
 
 
@@ -640,6 +849,10 @@ def _run_trace_analysis(
     if analysis == "full":
         summary = get_tree_summary(roots)
         result["summary"] = summary
+        # Causal chain reconstruction (Task 1.13)
+        chains = _build_causal_chains(roots)
+        if chains:
+            result["causal_chains"] = chains
 
     return result
 
@@ -892,6 +1105,18 @@ async def search_observability(
         except Exception as fe_exc:
             logger.warning("search_observability_frontend_failed", error=str(fe_exc))
 
+    # ── Generate insights (Task 1.14) ────────────────────────────
+    insights_text = ""
+    if analysis != "raw":
+        try:
+            insights_text = _generate_insights(analysis_result)
+            if insights_text:
+                logger.info("search_observability_insights_generated")
+        except Exception as exc:
+            logger.warning(
+                "search_observability_insights_failed", error=str(exc)
+            )
+
     # ── Assemble response ──
     response = {
         "source": source,
@@ -905,6 +1130,7 @@ async def search_observability(
         "analysis": analysis_result,
         "metadata": metadata,
         "frontend_errors": frontend_errors[:limit],
+        "insights": insights_text,
     }
 
     # Truncate large payloads for LLM context
