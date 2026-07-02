@@ -15,7 +15,7 @@ node_modules/
 .vscode/
 
 # Docs - internal design documents (not for public repo)
-docs/
+docs/agent-dev-notes/
 
 # Docker
 .env
