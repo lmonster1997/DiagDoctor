@@ -20,6 +20,7 @@ Usage (in main_graph.py)::
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import json
 import re
@@ -29,6 +30,13 @@ from typing import Any
 import tiktoken
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
+from src.graph.context_engine import (
+    ContextBudget,
+    ContextPhase,
+    build_dynamic_system_prompt,
+    maybe_compact_context,
+    truncate_tool_result,
+)
 from src.graph.state import (
     BudgetState,
     Correlation,
@@ -453,11 +461,10 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
     call_history: list[tuple[str, str]] = []
 
     # ── 运行时预算追踪 ──────────────────────────────────────────
-    # 在循环中实时估算 token 消耗，用于上下文工程决策
-    budget: dict[str, int] = {
-        "tool_result_tokens": 0,
-        "agent_reasoning_tokens": 0,
-    }
+    # ContextBudget 提供 token 精准追踪 + 阶段判定 + 阈值告警
+    ctx_budget = ContextBudget()
+    ctx_budget.add_system_prompt(base_prompt)
+    ctx_budget.add_evidence(evidence_text)
 
     # ── Langfuse LLM tracing (graceful degradation) ──────────────
     invoke_config: dict[str, Any] = {}
@@ -480,18 +487,56 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
 
     # ── 手动 Agent 循环 ──────────────────────────────────────────
     try:
+        finalizing_warned = False  # 只注入一次 FINALIZING 警告
         for iteration in range(MAX_TOOL_CALLS):
-            # TODO(方向4): maybe_compact_context(messages, budget)
-            # TODO(方向6): build_dynamic_system_prompt(base_prompt, budget)
+            # ── 上下文压缩（方向4）───────────────────────────────
+            messages, compacted = maybe_compact_context(messages, ctx_budget)
 
-            response: AIMessage = await llm_with_tools.ainvoke(
-                messages,
-                config=invoke_config if invoke_config else None,  # type: ignore[arg-type]
+            # ── 动态 System Prompt（方向6）───────────────────────
+            dynamic_prompt = build_dynamic_system_prompt(base_prompt, ctx_budget)
+            messages[0] = SystemMessage(content=dynamic_prompt)
+
+            # ── FINALIZING 阶段：注入警告（只一次），不 break ─────
+            # 首次 FINALIZING → 注入警告让 LLM 自然输出 JSON
+            # 若 LLM 忽略警告仍调工具，下轮再次 FINALIZING 时强制终止
+            if ctx_budget.phase == ContextPhase.FINALIZING:
+                if not finalizing_warned:
+                    messages.append(
+                        HumanMessage(
+                            content="⚠️ 预算即将耗尽，请立即输出诊断 JSON。不要再调用任何工具。"
+                        )
+                    )
+                    logger.warning(
+                        "budget_finalizing_warning_injected",
+                        iteration=iteration + 1,
+                        usage_ratio=ctx_budget.usage_ratio,
+                    )
+                    finalizing_warned = True
+                else:
+                    # 已警告过一轮，LLM 仍未输出 → 强制终止
+                    messages.append(
+                        HumanMessage(
+                            content="🛑 预算耗尽，禁止再调工具。请基于已有信息立即输出 JSON。"
+                        )
+                    )
+                    logger.warning(
+                        "budget_finalizing_force_stop",
+                        iteration=iteration + 1,
+                        usage_ratio=ctx_budget.usage_ratio,
+                    )
+                    break
+
+            response: AIMessage = await asyncio.wait_for(
+                llm_with_tools.ainvoke(
+                    messages,
+                    config=invoke_config if invoke_config else None,  # type: ignore[arg-type]
+                ),
+                timeout=MAX_TIME_SECONDS,
             )
             messages.append(response)
 
             # 更新 Agent 推理 token 预算
-            budget["agent_reasoning_tokens"] += estimate_tokens(str(response.content))
+            ctx_budget.add_agent_reasoning(str(response.content))
 
             # 无 tool_calls → Agent 认为诊断完成
             if not response.tool_calls:
@@ -540,15 +585,16 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                     )
                     result = f"工具执行错误: {tool_exc}"
 
-                # TODO(方向4): truncate_tool_result(tool_name, result)
-                # TODO(方向12): registry.run_post(tool_name, result)
+                # ── 工具结果截断（方向4）────────────────────────
+                result_str = truncate_tool_result(tool_name, str(result))
+                # TODO(方向12): registry.run_post(tool_name, result_str)
 
                 # 更新工具结果 token 预算
-                budget["tool_result_tokens"] += estimate_tokens(str(result))
+                ctx_budget.add_tool_result(result_str)
 
                 messages.append(
                     ToolMessage(
-                        content=str(result),
+                        content=result_str,
                         tool_call_id=tc["id"],
                         name=tool_name,
                     )
@@ -558,9 +604,9 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                     "tool_executed",
                     tool_name=tool_name,
                     iteration=iteration + 1,
-                    result_len=len(str(result)),
-                    budget_tool_tokens=budget["tool_result_tokens"],
-                    budget_agent_tokens=budget["agent_reasoning_tokens"],
+                    result_len=len(result_str),
+                    budget_tool_tokens=ctx_budget.tool_result_tokens,
+                    budget_agent_tokens=ctx_budget.agent_reasoning_tokens,
                 )
 
         else:

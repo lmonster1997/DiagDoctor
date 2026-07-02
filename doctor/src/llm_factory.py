@@ -65,6 +65,8 @@ def get_llm_for_role(role: NodeRole) -> ChatOpenAI:
         base_url=settings.llm_base_url,
         temperature=temperature,
         max_completion_tokens=max_tokens,
+        timeout=120,  # 防止 LLM API 挂死
+        max_retries=2,
     )
 
 
