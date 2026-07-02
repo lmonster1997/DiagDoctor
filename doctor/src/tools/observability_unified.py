@@ -414,19 +414,20 @@ async def search_observability(
                         name = span.get("name", "")
                         if "client_error" in name or span.get("status") == "error":
                             attrs = span.get("attributes", {})
-                            frontend_errors.append({
-                                "span_name": name,
-                                "trace_id": tid,
-                                "span_id": span.get("span_id", ""),
-                                "duration_ms": span.get("duration_ms", 0),
-                                "error_message": (
-                                    attrs.get("error.message")
-                                    or attrs.get("error", "")
-                                ),
-                                "error_stack": attrs.get("error.stack", ""),
-                                "component_stack": attrs.get("component_stack", ""),
-                                "timestamp": span.get("start", ""),
-                            })
+                            frontend_errors.append(
+                                {
+                                    "span_name": name,
+                                    "trace_id": tid,
+                                    "span_id": span.get("span_id", ""),
+                                    "duration_ms": span.get("duration_ms", 0),
+                                    "error_message": (
+                                        attrs.get("error.message") or attrs.get("error", "")
+                                    ),
+                                    "error_stack": attrs.get("error.stack", ""),
+                                    "component_stack": attrs.get("component_stack", ""),
+                                    "timestamp": span.get("start", ""),
+                                }
+                            )
                     # Also add all frontend spans to the main traces
                     traces.extend(fe_spans)
                 except Exception as fe_exc:
@@ -463,6 +464,7 @@ async def search_observability(
 
     # Truncate large payloads for LLM context
     result_json = json.dumps(response, ensure_ascii=False, indent=2, default=str)
+    original_json = result_json  # keep reference for accurate comparison
 
     if len(result_json) > 8000:
         # Truncate logs and traces arrays, keep analysis
@@ -477,8 +479,9 @@ async def search_observability(
         result_json = json.dumps(truncated, ensure_ascii=False, indent=2, default=str)
         logger.warning(
             "search_observability_truncated",
-            original_size=len(json.dumps(response, ensure_ascii=False, default=str)),
+            original_size=len(original_json),
             truncated_size=len(result_json),
+            reduction_pct=round((1 - len(result_json) / len(original_json)) * 100, 1),
         )
 
     return result_json

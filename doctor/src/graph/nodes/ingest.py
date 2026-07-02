@@ -120,7 +120,13 @@ async def ingest_node(state: DoctorState) -> dict[str, Any]:
         return_exceptions=True,
     )
 
-    _empty: dict[str, Any] = {"logs": [], "traces": [], "error_spans": [], "log_count": 0, "trace_count": 0}
+    _empty: dict[str, Any] = {
+        "logs": [],
+        "traces": [],
+        "error_spans": [],
+        "log_count": 0,
+        "trace_count": 0,
+    }
     backend: dict[str, Any] = results[0] if not isinstance(results[0], BaseException) else _empty
     frontend: dict[str, Any] = results[1] if not isinstance(results[1], BaseException) else _empty
 
@@ -135,14 +141,15 @@ async def ingest_node(state: DoctorState) -> dict[str, Any]:
     f_traces = frontend["trace_count"]
     fe_error_spans = frontend["error_spans"]
 
-    client_error_count = len([
-        s for s in fe_error_spans
-        if s.get("name", "").startswith("client_error")
-    ])
+    client_error_count = len(
+        [s for s in fe_error_spans if s.get("name", "").startswith("client_error")]
+    )
     logger.info(
         "ingest_prefetch_done",
-        backend_logs=b_logs, backend_traces=b_traces,
-        frontend_logs=f_logs, frontend_traces=f_traces,
+        backend_logs=b_logs,
+        backend_traces=b_traces,
+        frontend_logs=f_logs,
+        frontend_traces=f_traces,
         client_error_spans=client_error_count,
     )
 
@@ -161,4 +168,3 @@ async def ingest_node(state: DoctorState) -> dict[str, Any]:
     normalized.metadata["frontend_error_spans"] = fe_error_spans
 
     return {"evidence": normalized}
-
