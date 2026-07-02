@@ -47,6 +47,15 @@ class DiagnoseRequest(BaseModel):
             "avoiding noisy historical data."
         ),
     )
+    langfuse_trace_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional Langfuse trace ID to reuse. When provided by the Experiment "
+            "runner, the Doctor agent records its LLM/tool observations onto this "
+            "trace so that process-quality scorers see the full invocation process "
+            "on the same trace that is being scored. None → agent creates a new trace."
+        ),
+    )
 
 
 class DiagnoseResponse(BaseModel):
@@ -73,6 +82,7 @@ def _build_initial_state(request: DiagnoseRequest, thread_id: str) -> dict[str, 
         "case_id": thread_id,
         "trace_id": thread_id,
         "session_id": thread_id,
+        "langfuse_trace_id": request.langfuse_trace_id,
     }
 
 
@@ -173,14 +183,15 @@ async def diagnose(
         ) from e
 
     report = final_state.get("report")
-    triage = final_state.get("triage")
+    # V3: categories are embedded in DiagnosisReport (unified_agent output),
+    # NOT in triage (triage node was removed in V3).
     primary_category: str | None = None
     categories: list[str] = []
-    if triage is not None:
-        if hasattr(triage, "primary"):
-            primary_category = triage.primary
-        if hasattr(triage, "scores"):
-            categories = [s.category for s in triage.scores]
+    if report is not None:
+        if hasattr(report, "primary_category"):
+            primary_category = report.primary_category
+        if hasattr(report, "categories"):
+            categories = list(report.categories) if report.categories else []
     findings = final_state.get("findings", [])
 
     return DiagnoseResponse(

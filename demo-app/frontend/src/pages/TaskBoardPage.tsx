@@ -129,6 +129,9 @@ function SortableTaskCard({
                   P{task.priority}
                 </Badge>
               )}
+              {task.tags.length > 0 && (
+                <span className="ml-1 text-xs text-muted-foreground">{task.tags.length} 标签</span>
+              )}
             </div>
           </div>
         </CardHeader>

@@ -98,24 +98,55 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         self,
         name: str | None = None,
         input_data: dict[str, Any] | None = None,
+        *,
+        trace_id: str | None = None,
     ) -> str:
         """Manually start a Langfuse trace.
 
         Call this before invoking the agent when the callback-based
         ``on_chain_start`` does not fire (e.g. inside a LangGraph node).
+
+        Args:
+            name: Optional trace name (defaults to ``self._trace_name``).
+            input_data: Optional trace input payload.
+            trace_id: Optional external trace ID to reuse. When provided
+                (e.g. by the Experiment runner), all observations recorded
+                by this handler land on that trace — enabling process-quality
+                scorers to read them on the same trace that is being scored.
+                When omitted, a new UUID is generated.
         """
-        self._trace_id = str(uuid.uuid4())
-        self._trace_name = name or self._trace_name
-        self._client.trace(
-            id=self._trace_id,
-            name=self._trace_name,
-            session_id=self._session_id,
-            input=input_data,
-            tags=self._tags,
-        )
+        self._trace_id = trace_id if trace_id else str(uuid.uuid4())
+        if name:
+            self._trace_name = name
+        # When reusing an external trace_id without an explicit name,
+        # keep self._trace_name untouched and upsert WITHOUT name so the
+        # original creator's name (e.g. "baseline_phase0_BE-020") is
+        # preserved — Langfuse upsert with name=None keeps the existing name.
+        # Reset per-trace counters so tool/llm indices are scoped to this trace
+        self._llm_call_idx = 0
+        self._tool_call_idx = 0
+        if trace_id and not name:
+            # Reusing existing trace — upsert without name to preserve it
+            self._client.trace(
+                id=self._trace_id,
+                session_id=self._session_id,
+                input=input_data,
+            )
+        else:
+            self._client.trace(
+                id=self._trace_id,
+                name=self._trace_name,
+                session_id=self._session_id,
+                input=input_data,
+                tags=self._tags,
+            )
         logger.debug(
             "langfuse_trace_created",
-            extra={"trace_id": self._trace_id, "session_id": self._session_id},
+            extra={
+                "trace_id": self._trace_id,
+                "session_id": self._session_id,
+                "reused": trace_id is not None,
+            },
         )
         return self._trace_id
 
@@ -136,6 +167,85 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         )
         self._client.flush()
         logger.debug("langfuse_trace_ended", extra={"trace_id": self._trace_id})
+
+    # ── Manual observation helpers (for manual agent loops where
+    #    tool callbacks don't fire) ────────────────────────────────
+
+    def record_tool_span(
+        self,
+        *,
+        tool_name: str,
+        tool_args: dict[str, Any] | str,
+        result: str,
+        latency_ms: float,
+        iteration: int,
+        error: str | None = None,
+    ) -> None:
+        """Record a single tool call as a Langfuse SPAN observation.
+
+        Used inside the manual agent loop where tools are invoked directly
+        (``await tool.ainvoke(args)`` without a callback config), so the
+        ``on_tool_start`` / ``on_tool_end`` callbacks never fire. Calling
+        this explicitly ensures every tool invocation is captured on the
+        trace for process-quality scoring.
+
+        Args:
+            tool_name: Name of the tool (e.g. ``search_observability``).
+            tool_args: Arguments passed to the tool (dict or stringified).
+            result: The (already-truncated) tool result that entered the
+                agent context. Truncated again here to 2000 chars for the
+                Langfuse UI display limit.
+            latency_ms: Wall-clock latency of the tool call in ms.
+            iteration: 1-based agent loop iteration index.
+            error: Optional error string if the tool raised.
+        """
+        if self._trace_id is None:
+            return
+
+        self._tool_call_idx += 1
+        metadata: dict[str, Any] = {
+            "tool_name": tool_name,
+            "latency_ms": round(latency_ms, 1),
+            "iteration": iteration,
+            "run_id": None,
+        }
+        if error is not None:
+            metadata["error"] = error
+
+        self._client.span(
+            trace_id=self._trace_id,
+            name=f"tool_{tool_name}_{self._tool_call_idx}",
+            input={"args": tool_args},
+            output={"result": result[:2000]},
+            metadata=metadata,
+        )
+
+    def record_tool_skipped(
+        self,
+        *,
+        tool_name: str,
+        tool_args: dict[str, Any] | str,
+        iteration: int,
+    ) -> None:
+        """Record a deduplicated (skipped) tool call as a lightweight EVENT.
+
+        Captures the agent's tendency to repeat identical tool calls, which
+        process-quality scoring uses to compute the dedup ratio. Recorded as
+        an EVENT (not SPAN) so it does not inflate the real tool-call count.
+        """
+        if self._trace_id is None:
+            return
+
+        self._client.event(
+            trace_id=self._trace_id,
+            name=f"tool_skipped_{tool_name}",
+            input={"args": tool_args},
+            metadata={
+                "tool_name": tool_name,
+                "iteration": iteration,
+                "deduplicated": True,
+            },
+        )
 
     # ── Trace lifecycle (callback-based) ────────────────────────
 

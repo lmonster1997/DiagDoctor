@@ -342,3 +342,8 @@ class DoctorState(BaseModel):
     # ── Metadata ──
     trace_id: str = ""
     session_id: str = ""
+
+    # ── Langfuse trace 复用 ID（与 OTel trace_id 语义不同）──
+    # 由 Experiment 传入，Agent 节点用它把 LLM/tool observation 记录到
+    # 与评分同一个 trace 上。None 时 Agent 自动生成新 trace。
+    langfuse_trace_id: str | None = None

@@ -37,18 +37,20 @@ search_observability(source="auto", query='{service_name="demo-backend"} |= "err
 
 ---
 
-### code_search — 语义搜索代码库
+### code_search — 精确搜索代码库
 
-在 demo-app 代码库中语义搜索相关代码。
+使用 ripgrep 在 demo-app 代码库中精确搜索函数名、类名、变量名、错误信息等。
 
 ```
-code_search(query="list_tasks 函数", k=5)
+code_search(query="list_tasks", k=5)
 ```
 
 | 参数 | 说明 |
 |------|------|
-| `query` | 自然语言搜索查询 |
+| `query` | 搜索关键词（函数名/类名/变量名/错误信息片段） |
 | `k` | 返回结果数（默认 5） |
+
+**提示**：用具体的标识符搜索（如 `TaskResponse`、`list_tasks`），而非自然语言描述。
 
 ---
 

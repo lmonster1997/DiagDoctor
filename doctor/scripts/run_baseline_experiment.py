@@ -38,6 +38,10 @@ BUG_FACTORY_DIR = PROJECT_ROOT.parent / "bug-factory"
 sys.path.insert(0, str(PROJECT_ROOT))
 from src.config import settings  # noqa: E402
 
+# Langfuse 多维度 Scorer（D13 任务 2.1）
+from scripts.langfuse_scorers import score_all_dimensions  # noqa: E402
+from scripts.langfuse_scorers import score_process_quality  # noqa: E402
+
 # ── 可配置参数 ─────────────────────────────────────────────────────────
 DEMO_BACKEND_URL = "http://localhost:8000"
 DOCTOR_URL = "http://localhost:8001"
@@ -144,20 +148,32 @@ async def wait_for_backend(url: str, max_wait: int = 30) -> bool:
     return False
 
 
-async def call_doctor(user_report: str, trigger_time: datetime) -> dict:
+async def call_doctor(
+    user_report: str,
+    trigger_time: datetime,
+    langfuse_trace_id: str | None = None,
+) -> dict:
     """调用 Doctor API 执行诊断。
 
     传入 trigger_time，Doctor 的 search_observability 工具用它缩小
     Loki/Tempo 查询窗口（trigger_time ± 5min）。
+
+    传入 langfuse_trace_id 时，Doctor agent 会把 LLM/tool observation
+    记录到该 trace 上，使过程质量评分（score_process_quality）能读到
+    完整调用过程。
     """
+    payload: dict = {
+        "evidence": {"user_report": user_report},
+        "trigger_time": trigger_time.isoformat(),
+    }
+    if langfuse_trace_id:
+        payload["langfuse_trace_id"] = langfuse_trace_id
+
     async with (
         aiohttp.ClientSession() as session,
         session.post(
             f"{DOCTOR_URL}/api/diagnose",
-            json={
-                "evidence": {"user_report": user_report},
-                "trigger_time": trigger_time.isoformat(),
-            },
+            json=payload,
             timeout=aiohttp.ClientTimeout(total=DIAGNOSE_TIMEOUT),
         ) as resp,
     ):
@@ -206,7 +222,11 @@ async def diagnose_task(item, trace_id: str) -> dict:
     # ── Step 4: 调用 Doctor（证据由 Doctor 自己实时查询） ─────────
     print("[4/4] 调用 Doctor API 诊断...")
     try:
-        diagnosis = await call_doctor(user_report, trigger_time)
+        diagnosis = await call_doctor(
+            user_report,
+            trigger_time,
+            langfuse_trace_id=trace_id,
+        )
     except Exception as exc:
         print(f"  ✗ 诊断失败: {exc}")
         diagnosis = {"error": str(exc), "report": None, "categories": [], "confidence": 0.0}
@@ -284,91 +304,55 @@ async def main(items: list | None = None) -> None:
         try:
             result = await diagnose_task(item, trace_id=trace.id)
 
-            # ── Scorer ──
+            # ── 7 维度 Scorer（D13 任务 2.1）──────────────────
             expected_output = item.expected_output or {}
 
-            # Extract prediction
+            # Build unified diagnosis dict merging top-level + report fields
             report = result.get("report") or {}
-            pred_categories = set(
-                report.get("categories", [])
-                if isinstance(report, dict)
-                else result.get("categories", [])
-            )
-            gold_categories = set(expected_output.get("category", []))
-            pred_primary = (
-                report.get("primary_category", "")
-                if isinstance(report, dict)
-                else result.get("primary_category", "")
-            )
-            # Fallback: if primary_category not set, use first category
-            if not pred_primary and pred_categories:
-                pred_primary = next(iter(sorted(pred_categories)), "")
-            gold_primary = expected_output.get("primary_category", "")
-            if not gold_primary and gold_categories:
-                gold_primary = next(iter(sorted(gold_categories)), "")
+            diagnosis_for_scorer: dict = {
+                **result,
+                **(report if isinstance(report, dict) else {}),
+            }
 
-            # 1. category_accuracy: binary primary_category match
-            category_hit = (
-                1.0 if pred_primary and gold_primary and pred_primary == gold_primary else 0.0
+            scores = await score_all_dimensions(
+                langfuse,
+                trace.id,
+                expected_output,
+                diagnosis_for_scorer,
+                skip_llm_judge=False,
             )
-            trace.score(name="category_accuracy", value=category_hit)
+
+            # ── 过程质量 Scorer（D14 任务 2.2）──────────────────
+            # Doctor agent 已把 LLM/tool observation 记录到同一个 trace，
+            # 这里读取 trace 的 observation 评估调用过程质量。
+            # 短暂等待确保 Langfuse 服务端完成索引（flush 已在 agent 端完成）。
+            await asyncio.sleep(1)
+            process_score = score_process_quality(langfuse, trace.id)
+
             print(
-                f"    category_accuracy: {category_hit:.2f} "
-                f"(pred={pred_primary}, gold={gold_primary}, "
-                f"pred_set={sorted(pred_categories)}, gold_set={sorted(gold_categories)})"
+                f"    overall: {scores.get('overall', 0):.2f} "
+                f"(root_cause={scores.get('root_cause_accuracy', 0):.2f}, "
+                f"category={scores.get('category_accuracy', 0):.2f}, "
+                f"file={scores.get('affected_file_accuracy', 0):.2f}, "
+                f"fix={scores.get('fix_suggestion_quality', 0):.2f}) "
+                f"process_quality={process_score:.2f}"
             )
 
-            # 1b. categories_f1: multi-label F1 (secondary metric)
-            if gold_categories:
-                tp = len(pred_categories & gold_categories)
-                precision = tp / len(pred_categories) if pred_categories else 0.0
-                recall = tp / len(gold_categories)
-                f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
-            else:
-                f1 = 1.0 if not pred_categories else 0.0
-            trace.score(name="categories_f1", value=f1)
-            print(f"    categories_f1: {f1:.2f} (P={precision:.2f} R={recall:.2f})")
-
-            # 2. affected_file_accuracy
-            expected_file = expected_output.get("affected_file", "")
-            actual_file = (
-                report.get("affected_file", "")
-                if isinstance(report, dict)
-                else result.get("affected_file", "")
+            results.append(
+                {
+                    "recipe_id": recipe_id,
+                    "success": True,
+                    "process_quality": process_score,
+                    **result,
+                }
             )
-
-            # Normalize path comparison: LLM may output backend-relative path
-            # (e.g. "app/api/comments.py") while gold recipe uses repo-root
-            # relative path (e.g. "demo-app/backend/app/api/comments.py").
-            # Strategy: check if either path's suffix matches the other.
-            file_hit = 0.0
-            if actual_file and expected_file:
-                actual_path = Path(str(actual_file))
-                expected_path = Path(str(expected_file))
-                actual_parts = actual_path.parts
-                expected_parts = expected_path.parts
-                # Check if one path ends with the other's tail parts
-                if (
-                    actual_parts[-len(expected_parts) :] == expected_parts
-                    if len(actual_parts) >= len(expected_parts)
-                    else expected_parts[-len(actual_parts) :] == actual_parts
-                ):
-                    file_hit = 1.0
-            trace.score(name="affected_file_accuracy", value=file_hit)
-            print(
-                f"    affected_file_accuracy: {file_hit:.2f} "
-                f"(expected={expected_file}, actual={actual_file})"
-            )
-
-            # 3. efficiency（占位，Phase 2 完善）
-            trace.score(name="efficiency", value=0.5)
-
-            results.append({"recipe_id": recipe_id, "success": True, **result})
 
         except Exception as exc:
             print(f"  ✗ Case 失败: {exc}")
             trace.score(name="category_accuracy", value=0.0)
             trace.score(name="affected_file_accuracy", value=0.0)
+            trace.score(name="overall", value=0.0)
+            trace.score(name="process_quality", value=0.0)
             results.append({"recipe_id": recipe_id, "success": False, "error": str(exc)})
 
         # 确保恢复 main 分支

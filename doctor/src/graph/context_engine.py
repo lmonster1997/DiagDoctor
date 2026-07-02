@@ -36,6 +36,7 @@ from typing import Any
 import tiktoken
 from langchain_core.messages import BaseMessage, ToolMessage
 
+from src.config import settings
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)
@@ -262,6 +263,10 @@ def truncate_tool_result(tool_name: str, content: str) -> str:
     Returns:
         截断后的内容（可能在阈值内保持原样）
     """
+    # 调试开关：禁用截断时原样返回，便于观察完整工具输出对诊断效果的影响
+    if not settings.tool_result_truncation_enabled:
+        return content
+
     char_limit = TOOL_CHAR_LIMITS.get(tool_name, _DEFAULT_CHAR_LIMIT)
 
     # 未超限 → 原样返回
@@ -416,11 +421,11 @@ _PHASE_STRATEGY: dict[ContextPhase, str] = {
         "- 优先验证代码和数据，确认根因"
     ),
     ContextPhase.FINALIZING: (
-        "## 当前策略：强制收束\n"
-        "- 🛑 预算即将耗尽（80%+），**不要再调用任何工具**\n"
-        "- 基于当前已有证据，立即输出最终诊断 JSON\n"
-        "- confidence 必须 ≤ 0.6（因为无法进一步验证）\n"
-        "- 如果证据不足，在 notes 中说明需要哪些额外调查"
+        "## 当前策略：给出最终结论\n"
+        "- ⏳ 预算已消耗 80%+，不应再发起新工具调用\n"
+        "- 综合已有证据，以 JSON 格式输出诊断报告\n"
+        "- 证据不充分时 confidence ≤ 0.6，并在 notes 中说明缺口\n"
+        "- 明确区分\"已确认\"与\"推测\"的结论\n"
     ),
 }
 

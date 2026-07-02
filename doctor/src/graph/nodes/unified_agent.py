@@ -24,6 +24,7 @@ import asyncio
 import contextlib
 import json
 import re
+import time
 from datetime import UTC, datetime
 from typing import Any
 
@@ -136,8 +137,9 @@ def format_evidence_for_agent(evidence: NormalizedEvidence) -> str:
         "⚡ 请基于以上实时查询结果进行诊断：\n"
         "1. 分析日志和 Trace 中的错误模式\n"
         "2. 调 code_search 定位相关代码\n"
-        "3. 调 get_file_content 确认根因\n"
-        "4. 输出 JSON 诊断报告（confidence 必须基于工具结果）"
+        "3. 调 get_file_content 确认代码细节\n"
+        "4. 必要时调 db_query 验证数据状态（如检查字段值是否为 NULL）\n"
+        "5. 输出 JSON 诊断报告（confidence 必须基于工具返回的实际数据）"
     )
 
     return "\n".join(parts)
@@ -229,7 +231,7 @@ def parse_diagnosis_report(agent_result: dict[str, Any]) -> DiagnosisReport | No
 
     if report_data:
         try:
-            return DiagnosisReport(
+            parsed_report = DiagnosisReport(
                 primary_category=str(report_data.get("primary_category", "")),
                 categories=_ensure_str_list(report_data.get("categories", [])),
                 symptom_tier=report_data.get("symptom_tier", "backend"),
@@ -241,14 +243,28 @@ def parse_diagnosis_report(agent_result: dict[str, Any]) -> DiagnosisReport | No
                 evidence_chain=_ensure_str_list(report_data.get("evidence_chain", [])),
                 confidence=float(report_data.get("confidence", 0.5)),
             )
+            logger.info(
+                "diagnosis_report_parsed",
+                primary_category=parsed_report.primary_category,
+                categories=parsed_report.categories,
+                confidence=parsed_report.confidence,
+                affected_file=parsed_report.affected_file,
+            )
+            return parsed_report
         except (ValueError, TypeError, KeyError) as exc:
             logger.warning(
                 "failed_to_parse_diagnosis_report",
                 error=str(exc),
                 content_preview=last_ai_content[:500],
+                extracted_json_keys=list(report_data.keys()) if report_data else [],
             )
 
     # Fallback: construct a best-effort report from raw text
+    logger.warning(
+        "diagnosis_json_extraction_failed",
+        content_len=len(last_ai_content),
+        content_tail=last_ai_content[-300:] if len(last_ai_content) > 300 else last_ai_content,
+    )
     return DiagnosisReport(
         primary_category="",
         root_cause=last_ai_content[:500] if last_ai_content else "（无法解析 Agent 输出）",
@@ -305,8 +321,17 @@ def extract_findings(agent_result: dict[str, Any]) -> list[Finding]:
 
 
 def _extract_json_from_text(text: str) -> dict[str, Any] | None:
-    """Try to extract a JSON object from text (handles markdown code fences and raw JSON)."""
-    # Try to find JSON in markdown code fences first
+    """Try to extract a JSON object from text (handles markdown code fences, raw JSON,
+    mixed natural-language+JSON output, and nested structures).
+
+    Strategy (tried in order):
+    1. Markdown code fences (```json ... ``` or ``` ... ```)
+    2. Brace-depth tracking — finds the FIRST complete JSON object by counting
+       depth, respecting string escapes. Handles arbitrary nesting and braces
+       inside string values.
+    3. Fallback: greedy scan for any balanced ``{...}`` candidate.
+    """
+    # ── 1. Markdown code fences ──────────────────────────────────
     json_pattern = r"```(?:json)?\s*\n?(.*?)\n?```"
     matches = re.findall(json_pattern, text, re.DOTALL)
     for match in matches:
@@ -315,12 +340,70 @@ def _extract_json_from_text(text: str) -> dict[str, Any] | None:
         except json.JSONDecodeError:
             continue
 
-    # Try to find raw JSON object (between { and })
-    brace_pattern = r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}"
-    brace_matches = re.findall(brace_pattern, text, re.DOTALL)
-    for match in brace_matches:
+    # ── 2. Brace-depth tracking (handles arbitrary nesting + braces in strings) ──
+    result = _extract_json_by_depth(text)
+    if result is not None:
+        return result
+
+    # ── 3. Fallback: json.loads on the whole text (in case it's pure JSON) ──
+    try:
+        return json.loads(text)  # type: ignore[no-any-return]
+    except json.JSONDecodeError:
+        pass
+
+    return None
+
+
+def _extract_json_by_depth(text: str) -> dict[str, Any] | None:
+    """Extract JSON object(s) from text using brace-depth tracking.
+
+    Unlike regex, this correctly handles:
+    - Arbitrary nesting depth
+    - Braces inside JSON string values (e.g. ``{"code": "if (x) { return; }"}``)
+    - Multiple JSON candidates (tries each, returns the first valid one)
+
+    Also tries the LAST JSON object first (LLMs tend to put JSON at the end
+    after natural-language reasoning).
+    """
+    # Collect all { } spans with their depth
+    candidates: list[tuple[int, int]] = []  # (start, end) pairs
+    depth = 0
+    in_string = False
+    escape_next = False
+    start = -1
+
+    for i, ch in enumerate(text):
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == "\\":
+            escape_next = True
+            continue
+        if ch == '"' and not escape_next:
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0 and start != -1:
+                candidates.append((start, i + 1))
+                start = -1
+
+    if not candidates:
+        return None
+
+    # Try candidates in reverse order (last JSON object first —
+    # LLMs typically output reasoning before JSON, so the last
+    # ``{...}`` block is most likely the intended structured output).
+    for start, end in reversed(candidates):
+        candidate = text[start:end]
         try:
-            return json.loads(match)  # type: ignore[no-any-return]
+            return json.loads(candidate)  # type: ignore[no-any-return]
         except json.JSONDecodeError:
             continue
 
@@ -502,8 +585,13 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
         invoke_config["callbacks"] = [langfuse_handler]
         langfuse_handler.start_trace(
             input_data={"evidence": evidence_text[:500]},
+            trace_id=state.langfuse_trace_id,
         )
-        logger.debug("langfuse_tracing_enabled", case_id=state.case_id)
+        logger.debug(
+            "langfuse_tracing_enabled",
+            case_id=state.case_id,
+            reused_trace_id=state.langfuse_trace_id is not None,
+        )
     except (ValueError, ImportError) as lf_exc:
         logger.debug(
             "langfuse_tracing_disabled",
@@ -529,7 +617,8 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                 if not finalizing_warned:
                     messages.append(
                         HumanMessage(
-                            content="⚠️ 预算即将耗尽，请立即输出诊断 JSON。不要再调用任何工具。"
+                            content="⏳ 预算已接近上限。请基于已有证据，以 JSON 格式给出你的最终诊断结论。"
+                            "如果证据不充分，请在 confidence 和 notes 中反映这一点。"
                         )
                     )
                     logger.warning(
@@ -542,7 +631,8 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                     # 已警告过一轮，LLM 仍未输出 → 强制终止
                     messages.append(
                         HumanMessage(
-                            content="🛑 预算耗尽，禁止再调工具。请基于已有信息立即输出 JSON。"
+                            content="🛑 本轮必须给出结论。请基于已有信息，用 JSON 格式输出诊断报告。"
+                            "降低 confidence 来反映证据的不完整程度。"
                         )
                     )
                     logger.warning(
@@ -586,6 +676,14 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                         tool_name=tool_name,
                         iteration=iteration + 1,
                     )
+                    # 记录去重跳过事件（轻量 EVENT，不 inflate 真实工具调用数）
+                    if langfuse_handler is not None:
+                        with contextlib.suppress(Exception):
+                            langfuse_handler.record_tool_skipped(
+                                tool_name=tool_name,
+                                tool_args=tool_args,
+                                iteration=iteration + 1,
+                            )
                     messages.append(
                         ToolMessage(
                             content="[跳过：与之前调用完全相同]",
@@ -600,6 +698,8 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                 # TODO(方向10): recorder.record_tool_call(...)
 
                 # ── 执行工具（错误不中断循环）────────────────────
+                tool_t0 = time.monotonic()
+                tool_error: str | None = None
                 try:
                     result = await tool_map[tool_name].ainvoke(tool_args)
                 except Exception as tool_exc:
@@ -609,11 +709,27 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                         error=str(tool_exc),
                         iteration=iteration + 1,
                     )
+                    tool_error = str(tool_exc)
                     result = f"工具执行错误: {tool_exc}"
+                tool_latency_ms = (time.monotonic() - tool_t0) * 1000
 
                 # ── 工具结果截断（方向4）────────────────────────
                 result_str = truncate_tool_result(tool_name, str(result))
                 # TODO(方向12): registry.run_post(tool_name, result_str)
+
+                # ── 显式记录工具调用为 Langfuse SPAN ──────────────
+                # 手动循环中 tool.ainvoke 未传 callback config，
+                # on_tool_start/on_tool_end 不会触发，因此显式记录。
+                if langfuse_handler is not None:
+                    with contextlib.suppress(Exception):
+                        langfuse_handler.record_tool_span(
+                            tool_name=tool_name,
+                            tool_args=tool_args,
+                            result=result_str,
+                            latency_ms=tool_latency_ms,
+                            iteration=iteration + 1,
+                            error=tool_error,
+                        )
 
                 # 更新工具结果 token 预算
                 ctx_budget.add_tool_result(result_str)
@@ -631,6 +747,7 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                     tool_name=tool_name,
                     iteration=iteration + 1,
                     result_len=len(result_str),
+                    latency_ms=round(tool_latency_ms, 1),
                     budget_tool_tokens=ctx_budget.tool_result_tokens,
                     budget_agent_tokens=ctx_budget.agent_reasoning_tokens,
                 )
@@ -642,20 +759,6 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                 max_calls=MAX_TOOL_CALLS,
                 case_id=state.case_id,
             )
-
-        # Finalize Langfuse trace
-        if langfuse_handler is not None:
-            try:
-                last_msg_content = str(messages[-1].content)[:500] if messages else ""
-                langfuse_handler.end_trace(
-                    output_data={"result": last_msg_content},
-                )
-            except Exception as lf_exc:
-                logger.debug(
-                    "langfuse_end_trace_error",
-                    case_id=state.case_id,
-                    error=str(lf_exc),
-                )
 
     except Exception as exc:
         logger.error("unified_agent_exception", error=str(exc), case_id=state.case_id)
@@ -690,6 +793,36 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
         report.early_stopped = True
         if not report.notes:
             report.notes = "预算超限，提前终止诊断"
+
+    # ── Finalize Langfuse trace（报告解析后，输出结构化诊断）─────
+    # 注意：必须在 parse_diagnosis_report 之后调用，否则 trace 的
+    # 顶层 output 会是 messages[-1]（可能是 ToolMessage=原始工具结果），
+    # 而非最终诊断报告。
+    if langfuse_handler is not None:
+        try:
+            report_dict = (
+                report.model_dump(mode="json") if hasattr(report, "model_dump") else {}
+            )
+            langfuse_handler.end_trace(
+                output_data={
+                    "diagnosis_report": report_dict,
+                    "early_stopped": early_stopped,
+                    "tool_calls": budget_state.tool_calls,
+                },
+            )
+            logger.debug(
+                "langfuse_trace_finalized",
+                case_id=state.case_id,
+                primary_category=report.primary_category,
+                confidence=report.confidence,
+                early_stopped=early_stopped,
+            )
+        except Exception as lf_exc:
+            logger.debug(
+                "langfuse_end_trace_error",
+                case_id=state.case_id,
+                error=str(lf_exc),
+            )
 
     logger.info(
         "unified_agent_completed",

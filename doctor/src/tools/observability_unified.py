@@ -29,6 +29,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
+from src.config import settings
 from src.observability.logger import get_logger
 from src.observability.tracing import traced
 from src.tools.observability_tools import (
@@ -1137,7 +1138,7 @@ async def search_observability(
     result_json = json.dumps(response, ensure_ascii=False, indent=2, default=str)
     original_json = result_json  # keep reference for accurate comparison
 
-    if len(result_json) > 8000:
+    if settings.tool_result_truncation_enabled and len(result_json) > 8000:
         # Truncate logs and traces arrays, keep analysis (including anomalies)
         truncated: dict[str, Any] = dict(response)
         truncated["logs"] = logs[:5]

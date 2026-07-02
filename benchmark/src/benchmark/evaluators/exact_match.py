@@ -64,22 +64,29 @@ class ClassificationEvaluator(BaseEvaluator):
             )
 
         diagnosis = result.diagnosis
+        # V3: structured fields (categories, symptom_tier, etc.) are inside
+        # ``report`` (DiagnosisReport). Top-level API fields are mirrors for
+        # backward compat, but may be missing for newer fields.
+        report = diagnosis.get("report", {}) if isinstance(diagnosis, dict) else {}
+        if not isinstance(report, dict):
+            report = {}
         reasons: list[str] = []
 
         # ── Extract predicted categories (multi-label) ──────────────
-        pred_categories: list[str] = diagnosis.get("categories", [])
+        # Priority: report.categories > top-level categories > triage scores > primary_category
+        pred_categories: list[str] = (
+            report.get("categories", [])
+            or diagnosis.get("categories", [])
+        )
         if not pred_categories:
-            # Fallback: try to extract from triage scores
             triage = diagnosis.get("triage", {})
-            scores = triage.get("scores", [])
+            scores = triage.get("scores", []) if triage else []
             if scores:
-                # Take categories with confidence > 0.3 as predicted set
                 pred_categories = [
                     s.get("category", "") for s in scores if s.get("confidence", 0) > 0.3
                 ]
         if not pred_categories:
-            # Last resort: use primary_category as singleton
-            primary = diagnosis.get("primary_category", "")
+            primary = report.get("primary_category", "") or diagnosis.get("primary_category", "")
             if primary:
                 pred_categories = [primary]
 
@@ -94,7 +101,7 @@ class ClassificationEvaluator(BaseEvaluator):
         )
 
         # ── Primary-category hit ────────────────────────────────────
-        pred_primary = diagnosis.get("primary_category", "")
+        pred_primary = report.get("primary_category", "") or diagnosis.get("primary_category", "")
         expected_primary = case.expected.category
         primary_hit = 1.0 if pred_primary.lower() == expected_primary.lower() else 0.0
         reasons.append(
@@ -105,8 +112,8 @@ class ClassificationEvaluator(BaseEvaluator):
         # ── Cross-layer hit ─────────────────────────────────────────
         cross_hit = 1.0
         if case.expected.cross_layer:
-            pred_symptom = diagnosis.get("symptom_tier", "")
-            pred_root = diagnosis.get("root_cause_tier", "")
+            pred_symptom = report.get("symptom_tier", "") or diagnosis.get("symptom_tier", "")
+            pred_root = report.get("root_cause_tier", "") or diagnosis.get("root_cause_tier", "")
             exp_symptom = case.expected.symptom_tier
             exp_root = case.expected.root_cause_tier
             symptom_ok = pred_symptom == exp_symptom
