@@ -18,8 +18,8 @@ V3 基线架构**已完整实现**，本手册不重复 V3 重构工作，而是
 | Ingest（采集+标准化） | `graph/nodes/ingest.py` + `ingest/normalizer.py` | ✅ 两阶段：① auto-prefetch 并行采集 Loki/Tempo（后端+前端）→ ② 9 步标准化管线 |
 | 前端错误采集 | `main.tsx` + `error-reporter.ts` + `otel-logs.ts` | ✅ 双通道：`console.error` → Loki（OTLP 日志）、`window.onerror` → Tempo（client_error span） |
 | UnifiedAgent | `graph/subgraphs/unified_agent.py` + `graph/nodes/unified_agent.py` | ✅ 手动 ReAct 循环 + 5 工具 + 证据格式化（不负责数据获取） |
-| 5 个工具 | `tools/__init__.py` | ✅ search_observability（含 include_frontend）/ code_search / db_query / inspect_frontend_error / get_file_content |
-| 信号提取 | `ingest/signal_extractor.py` | ✅ 黄金信号（error_log / error_span / slow_span / browser_error） |
+| 5 个工具 | `tools/__init__.py` | ✅ search_observability（含 include_frontend）/ code_search（ripgrep）/ db_query / inspect_frontend_error / get_file_content |
+| 信号提取 | `ingest/signal_extractor.py` | ✅ 黄金信号分类（error_log / error_span / slow_span / repeated_query / browser_error）+ Span 级 N+1 检测 |
 | 安全层 | `security/` | ✅ sql_guard（SELECT-only）+ sanitizer（路径沙箱）+ secrets（脱敏） |
 | System Prompt | `prompts/templates/unified_agent.j2` | ✅ 静态 3 步策略 + 工具选择表 |
 | 评测器 | `benchmark/evaluators/` | ✅ 自研 exact_match / keyword_match / llm_judge / efficiency → **迁移至 Langfuse** |
@@ -36,7 +36,7 @@ V3 基线架构**已完整实现**，本手册不重复 V3 重构工作，而是
 | 工具结果零管控 | context 爆炸 → 推理质量退化 | 方向 4：上下文工程 |
 | code_search 用向量检索 | 精确匹配能力弱 | 方向 3：ripgrep |
 | search_observability 无异常检测 | 只给数据不给洞察 | 方向 2 |
-| Ingest 无置信度评分 | Agent 无法判断信号可靠性 | 方向 1 |
+| ~~Ingest 无置信度评分~~ | ~~Agent 无法判断信号可靠性~~ → **已移除**（设计决策：置信度判断应交由 LLM） | ~~方向 1~~ |
 | 评测维度耦合 | 无法定位退化点 | 方向 5：Langfuse Scoring 解耦 |
 | System Prompt 静态化 | 不随诊断进展调整策略 | 方向 6 |
 | 无诊断计划 | Agent 容易漂移 | 方向 7：TodoWrite |
@@ -1013,48 +1013,19 @@ async def code_search(query: str, k: int = 10) -> str:
 ## D8-D9：Ingest 层深度化（方向 1，P0）
 
 > **基线已实现**：Ingest 节点已完成 auto-prefetch（并行采集 Loki/Tempo 后端+前端数据）+
-> 9 步标准化管线。本阶段在基线之上增加信号质量评估和更精细的检测能力。
+> 9 步标准化管线。本阶段在基线之上增加更精细的信号检测能力。
 
-### D8：信号置信度评分 + Span 级 N+1 检测
+> ⚠️ **设计决策（2026-07-02 修订）**：
+> 原计划为信号添加置信度评分（任务 1.8），但经架构评审后决定 **移除置信度评分**：
+> - 置信度规则（+0.3 / ×0.8 等）是基于 15 个 gold case 调出来的启发式数值，
+>   换一个系统可能完全不适用——本质是 overfitting。
+> - **核心原则**：规则引擎做 LLM 不擅长的事（去噪、计数、关联），
+>   LLM 做规则引擎不擅长的事（语义理解、推理、判断优先级）。
+>   置信度评分恰恰跨过了这条线——它在替 LLM 做判断。
+> - 保留：信号分类、Span 级 N+1 检测、去噪、去重、跨层关联。
+> - 移除：置信度评分、烟雾弹关键词匹配、middleware 白名单。
 
-#### 任务 1.8：信号置信度评分
-
-**AI 提示词**：
-
-> 修改 `doctor/src/ingest/signal_extractor.py`，为每个 Signal 添加 `confidence` 字段（0.0-1.0）：
->
-> 评分规则：
-> - `error_log`（ERROR 级别日志）：基础 0.5
-> - `error_span`（trace span status=error）：基础 0.5
-> - `slow_span`（duration > 阈值）：基础 0.3
-> - `browser_error`（前端 JS 错误）：基础 0.5
-> - `repeated_query`（N+1 模式）：基础 0.5
->
-> 加成规则（叠加后 clamp 到 [0, 1]）：
-> - 有 trace_id 且 trace 中有 error span：+0.3
-> - 有跨层关联（correlation 中存在）：+0.2
-> - ERROR 级日志且包含 stack trace：+0.2
-> - 日志来自业务服务（非 middleware）：+0.1
-> - browser_error 且有 source map 定位：+0.3
-> - slow_span 且有 db_statement：+0.2
-> - 信号时间在用户报告时间窗口 ±5min 内：+0.1
->
-> 降权规则：
-> - 信号来自 `/health` 或 `/metrics` 端点：confidence × 0.3
-> - 信号无 trace_id 关联：confidence × 0.8
->
-> 修改 `Signal` dataclass 添加 `confidence: float = 0.5` 字段。
-> 修改 `format_evidence_for_agent()` 在信号展示中包含置信度，并按置信度降序排列。
-
-**验收**：
-- 每个 Signal 都有 confidence 值
-- `/health` 端点的信号 confidence ≤ 0.3
-- Agent 在证据中能看到置信度
-- 信号按置信度降序排列
-
----
-
-#### 任务 1.9：Span 级 N+1 检测
+### D8：Span 级 N+1 检测（✅ 已实现）
 
 **AI 提示词**：
 
@@ -1079,41 +1050,24 @@ async def code_search(query: str, k: int = 10) -> str:
 
 ### D9：烟雾弹检测 + 证据上下文增强
 
-#### 任务 1.10：烟雾弹信号检测
+> ⚠️ **设计决策**：烟雾弹关键词匹配已移除。原因：
+> - "越权"/"不应该"/"idor" 等关键词匹配是静态规则，泛化能力差。
+> - LLM 天然擅长从 user_report 做语义推断——"无信号却有用户报告"
+>   本身就是 LLM 能识别的模式，不需要规则引擎僭越。
+> - 证据上下文增强的"信号统计"功能随之简化（不再有高/低置信分类）。
 
-**AI 提示词**：
-
-> 在 `signal_extractor.py` 中新增无信号场景的主动标记：
->
-> 当 `extract_golden_signals()` 返回空列表时，根据 user_report 关键词推断可能的 Bug 类型：
->
-> 1. 关键词含"越权"/"别人的"/"不应该"/"idor" → 标记 `smokeless_logic`，建议检查 API 端点的权限过滤条件
-> 2. 关键词含"排序"/"顺序"/"不对"/"错误的数据" → 标记 `smokeless_data`，建议检查排序逻辑、字段映射
-> 3. 关键词含"配置"/"环境"/"CORS" → 标记 `smokeless_config`，建议检查环境变量和配置项
->
-> 烟雾弹信号的 confidence = 0.4，severity = info。
-
-**验收**：
-- LOGIC-020 case 的无信号场景被标记为 `smokeless_logic`
-- DATA-020 case 被标记为 `smokeless_data`
-- 烟雾弹信号有明确的诊断建议
-
----
-
-#### 任务 1.11：证据上下文增强
+#### 任务 1.11（修订）：证据上下文增强
 
 **AI 提示词**：
 
 > 修改 `format_evidence_for_agent()` 函数，在证据上下文部分增加：
 >
-> 1. **信号统计**：`共 N 个信号（高置信 M 个，低置信 K 个）`
-> 2. **烟雾弹警告**：如果有烟雾弹信号，在证据开头追加 `⚠️ 注意：以下信号中可能包含烟雾弹（已标记）`
-> 3. **缺失数据提示**：如果无 trace 数据，追加 `（无 Trace 数据，建议先调 search_observability 获取）`
-> 4. **信号排序**：按 confidence 降序排列（高置信度信号排前面）
+> 1. **信号统计**：`共 N 个信号`
+> 2. **缺失数据提示**：如果无 trace 数据，追加 `（无 Trace 数据，建议先调 search_observability 获取）`
+> 3. **信号排序**：按 severity 降序排列（error → warning → info）
 
 **验收**：
-- 证据文本中信号按置信度排序
-- 烟雾弹信号有明确标记
+- 证据文本中信号按 severity 排序
 - 缺失数据有提示
 
 ---
@@ -1226,7 +1180,7 @@ uv run python scripts/run_experiment.py \
 **Phase 1 验收清单**：
 - [ ] 手动 Agent 循环：工具调用去重 + 错误不中断 + 预算追踪
 - [ ] 上下文引擎：工具结果截断 + 历史降级 + 动态 Prompt + 自动压缩
-- [ ] Ingest 深度：信号置信度 + Span 级 N+1 + 烟雾弹检测
+- [ ] Ingest 深度：信号分类 + Span 级 N+1（置信度评分已移除——LLM 自行判断优先级）
 - [ ] search_observability 深度：异常检测 + 因果链 + 洞察摘要
 - [ ] code_search 升级：ripgrep 精确搜索 + 结构化兜底建议（无向量兜底）
 - [ ] `overall` ≥ 基线 +15%
@@ -1263,6 +1217,10 @@ uv run python scripts/run_experiment.py \
 | **category_accuracy** | `category_accuracy` | Python 自定义 Scorer（多标签 F1） | 0.10 |
 | **evidence_chain_completeness** | `evidence_chain_completeness` | LLM-as-Judge | 0.10 |
 | **confidence_calibration** | `confidence_calibration` | Python 自定义 Scorer | 0.05 |
+
+> ⚠️ **MVP 阶段声明**：以上权重为人工设定（prioritize root_cause + fix_suggestion），
+> 未经过统计校准。Phase 2 实现后应通过 Langfuse Experiment 的 A/B 对比
+> 反推最优权重，或使用 Langfuse 内置的 score aggregation 自动加权。
 
 **自定义 Scorer 示例**（`scripts/langfuse_scorers.py`）：
 
@@ -2173,7 +2131,7 @@ Doctor                              Demo App
 | 方向 | 优先级 | 对应任务 | Phase |
 |------|--------|---------|-------|
 | 0. 手动 Agent 循环 | P0 | 1.1-1.2 | Phase 1 |
-| 1. Ingest 深度 | P0 | 1.8-1.11 | Phase 1 |
+| 1. Ingest 深度 | P0 | 1.9, 1.11（1.8 置信度已移除，1.10 烟雾弹已移除） | Phase 1 |
 | 2. search_observability 深度 | P0 | 1.12-1.14 | Phase 1 |
 | 3. code_search ripgrep | P0 | 1.3 | Phase 1 |
 | 4. 上下文工程 | P0 | 1.4-1.7 | Phase 1 |
@@ -2228,3 +2186,22 @@ Doctor                              Demo App
 | `scripts/eval_dashboard.py` | Langfuse Dashboard | **删** | 0 |
 | `doctor/src/observability/` (OTel) | 保留不变 | **留** | — |
 | `infra/` (Loki/Tempo/Grafana) | 保留不变 (Demo App 用) | **留** | — |
+
+---
+
+## 附录 D：可配置参数速查
+
+> 所有参数通过 Pydantic Settings 加载，支持环境变量覆盖（`DOCTOR_BACKEND_SERVICE_NAME=my-svc`）。
+
+| 环境变量 | 默认值 | 用途 |
+|---------|--------|------|
+| `DOCTOR_BACKEND_SERVICE_NAME` | `demo-backend` | 被诊断后端服务的 OTel service.name |
+| `DOCTOR_FRONTEND_SERVICE_NAME` | `demo-frontend` | 被诊断前端服务的 OTel service.name |
+| `DOCTOR_INGEST_SLOW_SPAN_THRESHOLD_MS` | `200.0` | Slow span 判定阈值（毫秒） |
+| `DOCTOR_INGEST_N1_MIN_COUNT` | `3` | N+1 检测：最少重复次数 |
+| `DOCTOR_INGEST_N1_LINEAR_TOLERANCE` | `0.3` | N+1 检测：线性增长容差 |
+| `DOCTOR_INGEST_TIME_WINDOW_MINUTES` | `5` | Loki/Tempo 查询时间窗口 |
+| `DOCTOR_AGENT_MAX_TOOL_CALLS` | `12` | Agent 最大工具调用次数 |
+| `DOCTOR_AGENT_MODEL_CONTEXT_WINDOW` | `128000` | 模型 context window 大小 |
+| `DOCTOR_AGENT_CONTEXT_WARNING_RATIO` | `0.6` | 上下文预算警告阈值 |
+| `DOCTOR_AGENT_CONTEXT_CRITICAL_RATIO` | `0.8` | 上下文强制终止阈值 |
