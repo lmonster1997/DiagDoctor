@@ -11,7 +11,9 @@ from __future__ import annotations
 
 from typing import Any
 
-# Log patterns to filter as noise (case-insensitive substring match)
+# Log patterns to filter as noise (case-insensitive substring match).
+# These are sensible defaults for any HTTP service; extend via env
+# DENOISER_EXTRA_NOISE_PATTERNS if your app has specific noise endpoints.
 _BACKEND_NOISE_PATTERNS: list[str] = [
     "/health",
     "/metrics",

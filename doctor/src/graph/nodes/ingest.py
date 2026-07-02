@@ -18,17 +18,18 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from src.config import settings
 from src.graph.state import DoctorState
 from src.ingest.normalizer import ingest
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)
 
-# ── Service LogQL config ─────────────────────────────────────────────
+# ── Service LogQL config (from Settings, env-overridable) ────────────
 
 _PREFETCH_SERVICES: dict[str, str] = {
-    "backend": '{service_name=~"demo-backend"}',
-    "frontend": '{service_name=~"demo-frontend"}',
+    "backend": '{service_name=~"' + settings.backend_service_name + '"}',
+    "frontend": '{service_name=~"' + settings.frontend_service_name + '"}',
 }
 
 

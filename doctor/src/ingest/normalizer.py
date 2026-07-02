@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.config import settings
 from src.graph.state import (
     NormalizedEvidence,
     TimelineEvent,
@@ -96,7 +97,7 @@ def _merge_timeline(
                     timestamp=ts,
                     source="browser_error",
                     service_tier="frontend",
-                    service_name="demo-frontend",
+                    service_name="unknown-frontend",
                     description=f"Browser Error: {str(err.get('message', ''))[:300]}",
                     evidence_ref=str(err.get("trace_id", err.get("span_id", ""))),
                     trace_id=str(err.get("trace_id", "") or None),
@@ -246,13 +247,26 @@ def ingest(raw_evidence: dict[str, Any]) -> NormalizedEvidence:
     # Step 5: Merge timeline
     timeline = _merge_timeline(folded_logs, traces, browser_errs)
 
-    # Step 6: Golden signal extraction
-    signals = extract_golden_signals(folded_logs, traces, browser_errs)
+    # Step 6: Golden signal extraction (includes span-level N+1 detection)
+    signals = extract_golden_signals(
+        folded_logs, traces, browser_errs,
+        slow_threshold_ms=settings.ingest_slow_span_threshold_ms,
+    )
 
-    # Append N+1 signals to the golden_signals
+    # Append tree-based N+1 signals (deduplicate against span-level ones)
     from src.graph.state import Signal
 
+    # Collect already-detected N+1 parent_span_ids
+    existing_n1_parents: set[str] = {
+        s.evidence_ref
+        for s in signals
+        if s.signal_type == "repeated_query" and s.metadata.get("detection_method") == "span_level"
+    }
+
     for np1 in n_plus_ones:
+        # Skip if span-level detection already caught this pattern
+        if np1["parent_span_id"] in existing_n1_parents:
+            continue
         signals.append(
             Signal(
                 signal_id=np1["pattern_id"],
@@ -268,6 +282,7 @@ def ingest(raw_evidence: dict[str, Any]) -> NormalizedEvidence:
                 evidence_ref=np1["parent_span_id"],
                 metadata={
                     "n_plus_one": True,
+                    "detection_method": "tree_based",
                     "count": np1["count"],
                     "total_duration_ms": np1["total_duration_ms"],
                     "db_statement": np1["db_statement"],

@@ -87,10 +87,30 @@ def format_evidence_for_agent(evidence: NormalizedEvidence) -> str:
         parts.append(f"【用户报告】\n{evidence.user_report}\n")
 
     # ── Golden signals ──
-    if evidence.golden_signals:
+    has_signals = bool(evidence.golden_signals)
+    has_trace_spans = (
+        evidence.frontend_span_count > 0 or evidence.backend_span_count > 0
+    )
+
+    if has_signals:
         parts.append("【实时查询信号】")
         parts.append(_format_signals(evidence.golden_signals))
         parts.append(f"（共 {len(evidence.golden_signals)} 个信号）")
+    else:
+        # 无错误信号场景——引导 LLM 主动调查
+        parts.append("【实时查询信号】")
+        parts.append("  ℹ️ （无错误/异常信号——日志和 Trace 均正常）")
+        parts.append(
+            "  💡 建议：根据用户报告推断 Bug 类型，主动调 search_observability "
+            "查看 API 响应内容，或调 code_search / get_file_content 检查代码逻辑。"
+        )
+
+    # ── Trace availability hint ──
+    if not has_trace_spans:
+        parts.append(
+            "\n⚠️ **缺失数据提示**：当前时间窗口内无 Trace 数据。"
+            "建议先调 search_observability 获取完整 Trace。"
+        )
 
     # ── Frontend error spans (from ingest metadata) ──
     frontend_errors = evidence.metadata.get("frontend_error_spans", [])
@@ -124,14 +144,20 @@ def format_evidence_for_agent(evidence: NormalizedEvidence) -> str:
 
 
 def _format_signals(signals: list[Signal]) -> str:
-    """Format golden signals compactly (max 30)."""
+    """Format golden signals compactly (max 30).
+
+    Signals are classified by type (error_log / error_span / slow_span /
+    repeated_query) but NOT scored — the LLM agent decides which signals
+    are most relevant based on the diagnostic context.
+    """
     lines: list[str] = []
     for sig in signals[:30]:
         tier_label = "前端" if sig.service_tier == "frontend" else "后端"
         sev_label = {"error": "❌", "warning": "⚠️", "info": "ℹ️"}.get(sig.severity, "•")
         ref = f" [{sig.signal_id}]" if sig.signal_id else ""
         lines.append(
-            f"  {sev_label} [{tier_label}] [{sig.source}/{sig.signal_type}] {sig.summary}{ref}"
+            f"  {sev_label} [{tier_label}] "
+            f"[{sig.source}/{sig.signal_type}] {sig.summary}{ref}"
         )
     if not lines:
         return "  （无信号）"

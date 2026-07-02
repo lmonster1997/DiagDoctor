@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.config import settings
+
 
 def _get_service_name(item: dict[str, Any]) -> str:
     """Extract service_name from item, checking top-level first, then labels."""
@@ -46,20 +48,26 @@ def derive_service_tier(
     Derive the service tier (frontend/backend) from metadata.
 
     Rules (priority order):
-    1. Explicit "demo-frontend" in service_name → frontend
-    2. Explicit "demo-backend" in service_name → backend
-    3. Span name hints (e.g. "fetch", "click") → frontend
+    1. Service name matches configured frontend/backend service name
+    2. Generic "frontend"/"backend" in service_name
+    3. Span name hints (e.g. "fetch", "click") → frontend (OTel standard)
     4. Default → backend
     """
     svc = service_name.lower()
 
-    if "demo-frontend" in svc or "frontend" in svc:
+    # Config-driven: match against configured service names
+    if settings.frontend_service_name.lower() in svc:
         return "frontend"
-
-    if "demo-backend" in svc or "backend" in svc:
+    if settings.backend_service_name.lower() in svc:
         return "backend"
 
-    # Heuristic: span name patterns
+    # Generic fallback: common naming conventions
+    if "frontend" in svc:
+        return "frontend"
+    if "backend" in svc:
+        return "backend"
+
+    # Heuristic: OTel standard span name patterns
     sn = span_name.lower()
     frontend_patterns = [
         "fetch",

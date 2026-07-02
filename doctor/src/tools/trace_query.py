@@ -87,10 +87,19 @@ class SpanNode:
 
 
 def _derive_service_tier(span: dict[str, Any]) -> str:
-    """Derive service tier from span metadata."""
+    """Derive service tier from span metadata (config-driven)."""
+    from src.config import settings
+
     svc = str(span.get("service_name", span.get("service", ""))).lower()
-    if "demo-frontend" in svc or "frontend" in svc:
+    # Config-driven: match against configured service names
+    if settings.frontend_service_name.lower() in svc:
         return "frontend"
+    if settings.backend_service_name.lower() in svc:
+        return "backend"
+    # Generic fallback
+    if "frontend" in svc:
+        return "frontend"
+    # Heuristic: OTel standard span name patterns
     name = str(span.get("name", "")).lower()
     frontend_patterns = [
         "fetch",

@@ -48,6 +48,26 @@ class Settings(BaseSettings):
     loki_url: str = "http://127.0.0.1:3100"
     tempo_url: str = "http://127.0.0.1:3200"
 
+    # --- Target Services ---
+    # Service names as they appear in OpenTelemetry instrumentation.
+    # Doctor uses these to auto-prefetch logs/traces from Loki/Tempo.
+    backend_service_name: str = "demo-backend"
+    frontend_service_name: str = "demo-frontend"
+
+    # --- Ingest Pipeline Thresholds ---
+    # All thresholds have sensible defaults; override via env for other apps.
+    ingest_slow_span_threshold_ms: float = 200.0  # Spans slower than this flagged as slow
+    ingest_n1_min_count: int = 3  # Min repeated queries to trigger N+1 detection
+    ingest_n1_linear_tolerance: float = 0.3  # Max deviation for linear growth check (0-1)
+    ingest_time_window_minutes: int = 5  # Trigger time ± N minutes for Loki/Tempo queries
+
+    # --- Agent Loop ---
+    agent_max_tool_calls: int = 12  # Max tool call iterations before forced termination
+    agent_model_context_window: int = 128_000  # Model context window (tokens)
+    agent_reserved_output_tokens: int = 4_000  # Reserved for final output
+    agent_context_warning_ratio: float = 0.6  # Start degradation at this budget usage
+    agent_context_critical_ratio: float = 0.8  # Force termination at this budget usage
+
     # --- OpenTelemetry ---
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
     otel_service_name: str = "doctor-api"
