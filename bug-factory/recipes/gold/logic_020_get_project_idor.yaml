@@ -12,7 +12,7 @@ expected_diagnosis:
   root_cause: get_project 的查询删除了 Project.owner_id == current_user.id 过滤，任何登录用户都能按
     ID 读取他人项目 (IDOR / 越权读取)
   affected_file: demo-app/backend/app/api/projects.py
-  affected_line: null
+  affected_line: 55
   fix_suggestion: 在 get_project 的 where 子句恢复 owner_id == current_user.id 限定，非属主返回
     404/403
   fix_keywords:

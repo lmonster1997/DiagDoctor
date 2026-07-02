@@ -12,7 +12,7 @@ expected_diagnosis:
   root_cause: jwt_expire_minutes 被设为 0（误以为 0 表示永不过期），实际导致 token 签发即过期，每个受保护请求都因 token
     过期返回 401
   affected_file: demo-app/backend/app/config.py
-  affected_line: null
+  affected_line: 32
   fix_suggestion: 将 jwt_expire_minutes 改回正数（如 60）；0 不代表永不过期，而是立即过期
   fix_keywords:
   - jwt_expire_minutes

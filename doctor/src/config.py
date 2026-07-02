@@ -44,12 +44,6 @@ class Settings(BaseSettings):
     llm_judge_temperature: float = 0.0  # judge 需要确定性
     llm_judge_max_tokens: int = 1024  # judge 只需输出分数 + 一句话理由
 
-    # 推理模型专用参数（如 DeepSeek V4 Pro、o1 系列）
-    # reasoning_effort: "low" / "medium" / "high"
-    # 仅对推理模型生效（自动检测 model/base_url 中含 "deepseek"/"o1"/"o3" 等关键词）
-    llm_reasoning_effort: str = "medium"
-    # 推理模型的 temperature（推理模型通常需要极低 temperature）
-    llm_reasoning_temperature: float = 0.1
     # DeepSeek thinking mode 开关（仅对 deepseek 模型生效）
     # false = 关掉思考模式，agent 工具调用更稳定（推荐）
     # true  = 开启思考模式，适合复杂推理任务
@@ -100,7 +94,7 @@ class Settings(BaseSettings):
     # 影响两处：
     #   1. context_engine.truncate_tool_result —— 入 context 前的字符上限
     #   2. observability_unified.search_observability —— 8000 字符 JSON 截断
-    tool_result_truncation_enabled: bool = True
+    tool_result_truncation_enabled: bool = False
 
     # --- OpenTelemetry ---
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"

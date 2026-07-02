@@ -80,6 +80,7 @@ def main() -> None:
                     "category": categories,
                     "root_cause": expected.get("root_cause", ""),
                     "affected_file": expected.get("affected_file", ""),
+                    "affected_line": expected.get("affected_line"),
                     "fix_suggestion": expected.get("fix_suggestion", ""),
                     "fix_keywords": expected.get("fix_keywords", []),
                 },

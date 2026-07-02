@@ -11,7 +11,7 @@ expected_diagnosis:
   root_cause: get_task 把 scalar_one_or_none() 改成了 scalar_one()，任务不存在时抛 NoResultFound
     异常导致 500，而不是返回 404
   affected_file: demo-app/backend/app/api/tasks.py
-  affected_line: null
+  affected_line: 87
   fix_suggestion: 将 get_task 中的 result.scalar_one() 改回 result.scalar_one_or_none()，保留
     None 检查返回 404
   fix_keywords:

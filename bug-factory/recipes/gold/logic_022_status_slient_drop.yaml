@@ -10,7 +10,7 @@ tags:
 expected_diagnosis:
   root_cause: update_task 在应用更新前用 update_data.pop('status', None) 把 status 字段剔除，导致状态更新被静默丢弃
   affected_file: demo-app/backend/app/api/tasks.py
-  affected_line: null
+  affected_line: 107
   fix_suggestion: 删除 update_data.pop('status', None)，让 status 与其它字段一样写入 task
   fix_keywords:
   - status

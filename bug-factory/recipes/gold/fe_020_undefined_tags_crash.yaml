@@ -18,8 +18,8 @@ expected_diagnosis:
 
     这是 API 契约缺陷 —— 列表接口未返回关联数据（selectinload 仅用于预加载 comments，不含 tags），
     前端却假设 tags 总是存在。真正的根因在后端 schema，而不是前端缺少判空。
-  affected_file: demo-app/backend/app/schemas/task.py
-  affected_line: null
+  affected_file: demo-app/frontend/src/pages/TaskBoardPage.tsx
+  affected_line: 132
   fix_suggestion: |
     方案 A（治本）：在 TaskResponse（列表用）schema 中补齐 tags 字段，
     并在 list_tasks 的查询中加入 .options(selectinload(Task.tags))

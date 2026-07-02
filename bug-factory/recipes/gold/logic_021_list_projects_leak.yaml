@@ -11,7 +11,7 @@ tags:
 expected_diagnosis:
   root_cause: list_projects 删除了 .where(Project.owner_id == current_user.id)，返回全表所有用户的项目，造成横向越权数据泄露
   affected_file: demo-app/backend/app/api/projects.py
-  affected_line: null
+  affected_line: 24
   fix_suggestion: 在 list_projects 的 select(Project) 上恢复 owner_id == current_user.id
     过滤，只返回当前用户的项目
   fix_keywords:

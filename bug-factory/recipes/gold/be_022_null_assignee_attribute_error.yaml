@@ -12,7 +12,7 @@ expected_diagnosis:
   root_cause: get_task 新增了 task.assignee_id.hex，但 assignee_id 可为 None；未分配负责人的任务访问
     .hex 抛 AttributeError 导致 500
   affected_file: demo-app/backend/app/api/tasks.py
-  affected_line: null
+  affected_line: 90
   fix_suggestion: 删除该 assignee_id.hex 解引用，或先判空 (if task.assignee_id is not None)，未分配时跳过
   fix_keywords:
   - AttributeError

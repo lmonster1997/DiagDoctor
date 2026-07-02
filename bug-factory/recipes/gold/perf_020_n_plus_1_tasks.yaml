@@ -11,7 +11,7 @@ expected_diagnosis:
   root_cause: list_tasks 删除了 selectinload(Task.comments) 预加载，改为对每个 task 单独查询 comments，构成
     N+1 查询
   affected_file: demo-app/backend/app/api/tasks.py
-  affected_line: null
+  affected_line: 18
   fix_suggestion: 恢复 .options(selectinload(Task.comments)) 预加载，或用单条聚合查询统计评论，删除按 task
     循环的逐条查询
   fix_keywords:

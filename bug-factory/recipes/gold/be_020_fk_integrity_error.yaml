@@ -11,7 +11,7 @@ expected_diagnosis:
   root_cause: create_comment 删除了任务存在性检查，对不存在的 task_id 直接插入 comment，触发外键约束违反 (IntegrityError)
     导致 500
   affected_file: demo-app/backend/app/api/comments.py
-  affected_line: null
+  affected_line: 31
   fix_suggestion: 恢复 create_comment 中的任务存在性校验：查询 Task，不存在则返回 404，避免外键违反
   fix_keywords:
   - IntegrityError

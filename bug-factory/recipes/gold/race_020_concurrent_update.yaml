@@ -15,7 +15,7 @@ expected_diagnosis:
     B 的 PATCH 在 A 之后到达，但 B 读取的是 A 修改前的旧数据，
     导致 B 的写入覆盖了 A 的 title 修改（丢失更新 / lost update）。
   affected_file: demo-app/backend/app/api/tasks.py
-  affected_line: null
+  affected_line: 107
   fix_suggestion: |
     方案 A（乐观锁）：给 Task 模型加 version 字段（Integer, default=0），
     update_task 用 WHERE id={id} AND version={current_version} 条件更新，

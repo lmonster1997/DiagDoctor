@@ -10,7 +10,7 @@ tags:
 expected_diagnosis:
   root_cause: list_projects 在返回项目前，对每个 project 单独执行一次 select(Task) 查询，构成 N+1 查询
   affected_file: demo-app/backend/app/api/projects.py
-  affected_line: null
+  affected_line: 12
   fix_suggestion: 删除按 project 循环的逐条任务查询；若需任务数请用单条 GROUP BY 聚合或 selectinload 一次性加载
   fix_keywords:
   - N+1
