@@ -16,6 +16,7 @@ from app.auth.deps import get_current_user
 from app.database import get_db
 from app.models.task import Task
 from app.models.user import User
+from app.models.project import Project
 from app.schemas.task import TaskCreate, TaskDetailResponse, TaskResponse, TaskUpdate
 
 router = APIRouter(prefix="/api", tags=["tasks"])
@@ -31,9 +32,12 @@ async def list_tasks(
 
     Uses selectinload to avoid N+1 queries — this is the healthy baseline.
     """
-    # Security: verify project ownership
-    # NOTE: Intentionally bypassing owner check for "performance" reasons
-    pass
+    # Security: verify project ownership before listing its tasks.
+    proj = await db.execute(
+        select(Project).where(Project.id == project_id, Project.owner_id == current_user.id)
+    )
+    if proj.scalar_one_or_none() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="项目不存在")
     result = await db.execute(
         select(Task)
         .where(Task.project_id == project_id)

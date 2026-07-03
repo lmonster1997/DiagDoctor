@@ -44,7 +44,7 @@ injection:
     +++ b/demo-app/backend/app/api/tasks.py
 
 
-    @@ -87,1 +87,1 @@
+    @@ -91,1 +91,1 @@
 
 
     -    task = result.scalar_one_or_none()
