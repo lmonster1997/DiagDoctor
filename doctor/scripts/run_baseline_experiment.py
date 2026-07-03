@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import json
 import subprocess
 import sys
 import time
@@ -49,6 +50,14 @@ RELOAD_WAIT = 5  # uvicorn reload 等待秒数
 DIAGNOSE_TIMEOUT = 12000  # 单次诊断超时秒数
 LOKI_INDEX_DELAY = 3  # Loki/Tempo 索引延迟
 
+# ── 评测子集（见 handbook「评测节奏」）──────────────────────────────
+# smoke: 4 个代表性 case，覆盖主要类别 + 1 个 smokeless 类。
+#   用途 = 改动后快速 catch 灾难性回归 / 验证机制生效，~5min。
+#   注意：4 case 无法检测小幅提升，只回答"有没有崩"。
+# train / all: 走 Langfuse Dataset 的 metadata.split 字段过滤，
+#   无该字段时回退为全量。用于决策点 ablation。
+SMOKE_CASES: set[str] = {"BE-020", "FE-020", "PERF-020", "LOGIC-020"}
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # Langfuse 客户端
@@ -66,8 +75,8 @@ langfuse = Langfuse(
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def run_cmd(cmd: list[str], cwd: Path | None = None) -> None:
-    """运行命令，失败时抛出异常。"""
+def run_cmd(cmd: list[str], cwd: Path | None = None) -> str:
+    """运行命令，失败时抛出异常。返回完整 stdout 供调用方解析。"""
     print(f"  > {' '.join(cmd)}")
     result = subprocess.run(
         cmd,
@@ -91,6 +100,7 @@ def run_cmd(cmd: list[str], cwd: Path | None = None) -> None:
         lines = result.stdout.strip().split("\n")
         for line in lines[-5:]:
             print(f"    {line}")
+    return result.stdout
 
 
 def git_checkout_main() -> None:
@@ -107,14 +117,17 @@ def inject_bug(recipe_id: str) -> None:
     )
 
 
-def trigger_bug(recipe_id: str) -> datetime:
+def trigger_bug(recipe_id: str) -> tuple[datetime, list[str]]:
     """触发 Bug：对 demo-app 发起请求，产生日志和 Trace。
 
-    返回触发开始时间（UTC），供 Doctor 缩小 Loki/Tempo 查询窗口。
+    返回 (触发开始时间 UTC, 本次触发关联的 trace_id 列表)。
+    trace_id 列表来自 bug-factory CLI 输出的 `TRACE_IDS_JSON=` 行，
+    包含注入的 aiohttp trace_id 与 UI 捕获的前端 trace_id，
+    供 Doctor 按 trace_id 精准查 Loki/Tempo（取代宽时间窗，避免跨 case 污染）。
     不加 --no-ui，保持真实用户操作路径。
     """
     trigger_start = datetime.now(UTC)
-    run_cmd(
+    stdout = run_cmd(
         [
             "uv",
             "run",
@@ -128,7 +141,17 @@ def trigger_bug(recipe_id: str) -> datetime:
         ],
         cwd=BUG_FACTORY_DIR,
     )
-    return trigger_start
+    trace_ids: list[str] = []
+    for line in stdout.splitlines():
+        line = line.strip()
+        if line.startswith("TRACE_IDS_JSON="):
+            try:
+                payload = json.loads(line[len("TRACE_IDS_JSON="):])
+                trace_ids = list(payload.get("trace_ids", []))
+            except (ValueError, TypeError):
+                pass
+            break
+    return trigger_start, trace_ids
 
 
 async def wait_for_backend(url: str, max_wait: int = 30) -> bool:
@@ -151,12 +174,17 @@ async def wait_for_backend(url: str, max_wait: int = 30) -> bool:
 async def call_doctor(
     user_report: str,
     trigger_time: datetime,
+    trace_ids: list[str] | None = None,
     langfuse_trace_id: str | None = None,
 ) -> dict:
     """调用 Doctor API 执行诊断。
 
     传入 trigger_time，Doctor 的 search_observability 工具用它缩小
     Loki/Tempo 查询窗口（trigger_time ± 5min）。
+
+    传入 trace_ids 时，Doctor ingest 优先按 trace_id 精准查 Tempo/Loki
+    （取代宽时间窗），实现 batch 运行里每个 case 只看自己触发产生的信号，
+    避免跨 case 日志污染。
 
     传入 langfuse_trace_id 时，Doctor agent 会把 LLM/tool observation
     记录到该 trace 上，使过程质量评分（score_process_quality）能读到
@@ -166,6 +194,8 @@ async def call_doctor(
         "evidence": {"user_report": user_report},
         "trigger_time": trigger_time.isoformat(),
     }
+    if trace_ids:
+        payload["trigger_trace_ids"] = trace_ids
     if langfuse_trace_id:
         payload["langfuse_trace_id"] = langfuse_trace_id
 
@@ -214,8 +244,9 @@ async def diagnose_task(item, trace_id: str) -> dict:
 
     # ── Step 3: 触发 Bug + 记录时间 ───────────────────────────────
     print(f"[3/4] 触发 Bug: {recipe_id}...")
-    trigger_time = trigger_bug(recipe_id)
+    trigger_time, trace_ids = trigger_bug(recipe_id)
     print(f"  触发时间: {trigger_time.isoformat()}")
+    print(f"  关联 trace_ids: {trace_ids or '(无)'}")
     print(f"  等待 Loki/Tempo 索引 ({LOKI_INDEX_DELAY}s)...")
     await asyncio.sleep(LOKI_INDEX_DELAY)
 
@@ -225,6 +256,7 @@ async def diagnose_task(item, trace_id: str) -> dict:
         diagnosis = await call_doctor(
             user_report,
             trigger_time,
+            trace_ids=trace_ids,
             langfuse_trace_id=trace_id,
         )
     except Exception as exc:
@@ -255,9 +287,14 @@ async def diagnose_task(item, trace_id: str) -> dict:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-async def main(items: list | None = None) -> None:
+async def main(
+    items: list | None = None,
+    run_name: str = "run",
+    split: str = "all",
+) -> None:
     print("=" * 60)
-    print("  DiagDoctor 基线 Experiment (Phase 0)")
+    print(f"  DiagDoctor 基线 Experiment (run={run_name}, split={split})")
+    print(f"  Langfuse: Sessions → {run_name} 可看本轮全部 trace")
     print("=" * 60)
 
     # 前置检查
@@ -296,9 +333,18 @@ async def main(items: list | None = None) -> None:
         print(f"{'─' * 60}")
 
         # 创建 Langfuse trace
+        # session_id=run_name 把同一轮的多个 case 归到同一个 Session 视图，
+        # 便于在 Langfuse Sessions 标签页一键找到本轮全部 trace（避免散落难找）。
         trace = langfuse.trace(
-            name=f"baseline_phase0_{recipe_id}",
-            metadata={"recipe_id": recipe_id, "run": "baseline_phase0"},
+            name=f"{run_name}_{recipe_id}",
+            session_id=run_name,
+            tags=[split, "phase0"],
+            metadata={
+                "recipe_id": recipe_id,
+                "run": run_name,
+                "run_name": run_name,
+                "split": split,
+            },
         )
 
         try:
@@ -363,7 +409,8 @@ async def main(items: list | None = None) -> None:
     print(f"\n{'=' * 60}")
     success_count = sum(1 for r in results if r.get("success"))
     print(f"  完成: {success_count}/{len(results)} case 成功")
-    print("  查看结果: Langfuse Dashboard → Traces")
+    print(f"  Run: {run_name}  (split={split})")
+    print(f"  查看结果: Langfuse Dashboard → Sessions → {run_name}")
     print(f"{'=' * 60}")
 
 
@@ -373,11 +420,48 @@ if __name__ == "__main__":
     parser.add_argument(
         "--cases", type=str, default=None, help="逗号分隔的 recipe_id 列表，如 BE-020,FE-020"
     )
+    parser.add_argument(
+        "--split",
+        type=str,
+        default="all",
+        choices=["smoke", "train", "all"],
+        help="评测子集：smoke=4 个代表性 case（快速冒烟）；train=metadata.split==train；all=全量",
+    )
+    parser.add_argument(
+        "--run-name",
+        type=str,
+        default=None,
+        help="Langfuse run 名（同时作为 session_id 归组本轮 trace）；"
+        "不填则自动生成 {split}-YYYYMMDD-HHMMSS",
+    )
     args = parser.parse_args()
+
+    # 自动生成 run_name（同时用作 session_id，便于在 Langfuse Sessions 里归组）
+    if args.run_name:
+        run_name = args.run_name
+    else:
+        run_name = f"{args.split}-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
+    print(f"[run-name] {run_name}  (Langfuse Sessions → {run_name} 查看本轮 trace)")
 
     # 获取并筛选 dataset items
     dataset = langfuse.get_dataset("diagdoctor-benchmark")
     items = sorted(dataset.items, key=lambda it: it.metadata.get("bug_id", "Z99"))
+
+    # --split 过滤（与 --cases 取交集）
+    if args.split == "smoke":
+        items = [it for it in items if it.metadata.get("bug_id", "") in SMOKE_CASES]
+        print(f"[split=smoke] 限定 {len(SMOKE_CASES)} 个代表性 case: {sorted(SMOKE_CASES)}")
+    elif args.split == "train":
+        train_items = [it for it in items if it.metadata.get("split") == "train"]
+        if train_items:
+            items = train_items
+            print(f"[split=train] 按 metadata.split==train 过滤 → {len(items)} 个 case")
+        else:
+            print(
+                f"[split=train] 无 case 带 metadata.split 标记，回退为全量 ({len(items)})。"
+                " 提示：重跑 import_cases_to_langfuse.py 以写入 split 元数据。"
+            )
+
     if args.cases:
         case_set = {c.strip() for c in args.cases.split(",")}
         items = [it for it in items if it.metadata.get("bug_id", "") in case_set]
@@ -385,4 +469,4 @@ if __name__ == "__main__":
     if args.limit:
         items = items[: args.limit]
 
-    asyncio.run(main(items=items))
+    asyncio.run(main(items=items, run_name=run_name, split=args.split))

@@ -126,10 +126,13 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         self._llm_call_idx = 0
         self._tool_call_idx = 0
         if trace_id and not name:
-            # Reusing existing trace — upsert without name to preserve it
+            # Reusing an existing trace created by an external caller (e.g. the
+            # Experiment runner). Upsert with id (+input) ONLY — do NOT pass
+            # session_id/tags/name/metadata, otherwise Langfuse upsert would
+            # overwrite the original creator's session_id (the runner groups
+            # traces by session_id=run_name; overriding it breaks Sessions view).
             self._client.trace(
                 id=self._trace_id,
-                session_id=self._session_id,
                 input=input_data,
             )
         else:

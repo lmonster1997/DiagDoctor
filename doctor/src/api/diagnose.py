@@ -47,6 +47,16 @@ class DiagnoseRequest(BaseModel):
             "avoiding noisy historical data."
         ),
     )
+    trigger_trace_ids: list[str] = Field(
+        default_factory=list,
+        description=(
+            "W3C trace_ids associated with this bug trigger (injected via "
+            "`traceparent` on api calls + frontend-captured UI trace_ids). "
+            "When present, Doctor ingest prefetches by these trace_ids for "
+            "per-case isolation instead of a broad time window — critical in "
+            "batch runs where multiple cases fire in the same stack/time window."
+        ),
+    )
     langfuse_trace_id: str | None = Field(
         default=None,
         description=(
@@ -76,6 +86,9 @@ def _build_initial_state(request: DiagnoseRequest, thread_id: str) -> dict[str, 
     # Inject trigger_time into evidence if provided at top level
     if request.trigger_time and not request.evidence.trigger_time:
         request.evidence.trigger_time = request.trigger_time
+    # Inject trigger_trace_ids into evidence if provided at top level
+    if request.trigger_trace_ids and not request.evidence.trigger_trace_ids:
+        request.evidence.trigger_trace_ids = request.trigger_trace_ids
 
     return {
         "raw_evidence": request.evidence,

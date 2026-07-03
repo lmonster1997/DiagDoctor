@@ -9,29 +9,30 @@
 统一查询入口，合并了日志查询和 Trace 查询。**首选工具**。
 
 ```
-# 查日志
-search_observability(source="loki", query='{service_name="demo-backend"} |= "error"', start="2026-06-28T10:00:00Z", end="2026-06-28T14:00:00Z")
+# 查日志 —— ⚠️ 省略 start/end，工具自动取 trigger_time ± 5min 窗口（精确覆盖本次触发的事件）。
+#            绝不要自己编造/照抄示例里的日期，那会查到过期空结果，或混入其他 case 的日志。
+search_observability(source="loki", query='{service_name="demo-backend"} |= "error"')
 
-# 查 Trace（用 trace_id）
+# 查 Trace（用 trace_id）—— 不需要时间范围
 search_observability(source="tempo", query="<32位hex trace_id>")
 
-# 按服务名搜索 Trace
-search_observability(source="tempo", query="demo-backend", start=..., end=...)
+# 按服务名搜索 Trace —— 同样省略 start/end
+search_observability(source="tempo", query="demo-backend")
 
 # 自动关联：先查 Loki → 提取 trace_id → 自动查 Tempo → 分析
-search_observability(source="auto", query='{service_name="demo-backend"} |= "error"', start=..., end=..., analysis="full")
+search_observability(source="auto", query='{service_name="demo-backend"} |= "error"', analysis="full")
 ```
 
 | 参数 | 说明 |
 |------|------|
 | `source` | `"loki"` 查日志 / `"tempo"` 查 Trace / `"auto"` 自动关联 |
 | `query` | LogQL（loki/auto）或 trace_id/服务名（tempo） |
-| `start` | ISO 格式起始时间（可选，默认 1 小时前） |
-| `end` | ISO 格式结束时间（可选，默认当前） |
+| `start` | ISO 起始时间。**默认省略**——工具自动取 `trigger_time ± 5min`（只看本次触发附近，避免混入其他 case 的信号） |
+| `end` | ISO 结束时间。**默认省略**——同上 |
 | `analysis` | `"raw"` 原始 / `"n_plus_one"` N+1检测 / `"bottlenecks"` 瓶颈 / `"errors"` 错误span / `"full"` 全部 |
 | `limit` | 最大返回条数（默认 20） |
 
-**时间范围限制**：跨度不超过 4 小时。
+**时间范围**：跨度不超过 4 小时。**绝大多数情况下省略 start/end**——工具会自动锁定本次 `trigger_time ± 5min`。若你显式传入的窗口整体早于当前 1 小时，工具会判定为过期并自动改用默认窗口（结果 metadata 里会标注 `time_range_auto_corrected`）。
 
 **返回 JSON 结构**：`{ source, query, time_range, logs: [...], traces: [...], analysis: { n_plus_one, bottlenecks, error_spans, summary } }`
 

@@ -162,6 +162,13 @@ def _parse_log_line(
     except (ValueError, TypeError):
         pass  # Not JSON, treat entire line as message
 
+    # Fallback: the demo-app Loki handler puts trace_id in the stream LABEL
+    # (not the JSON body) for http_request / unhandled_exception logs. Without
+    # this, those entries lose their trace_id and the `auto` Loki→Tempo
+    # correlation path breaks. Mirrors bug-factory's evidence_collector.
+    if not trace_id:
+        trace_id = stream_labels.get("trace_id")
+
     return LogEntry(
         timestamp=timestamp,
         level=level,

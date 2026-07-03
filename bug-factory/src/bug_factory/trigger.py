@@ -32,6 +32,7 @@ import json
 import os
 import re
 import time
+import uuid as _uuid
 from datetime import UTC, datetime, timezone
 from typing import Any
 from urllib.parse import urlparse, urlunparse
@@ -102,6 +103,19 @@ class TriggerRunner:
         }
         self.browser_errors: list[BrowserError] = []
         self.diff_evidence: list[DiffEvidence] = []
+        # W3C trace context for this trigger run.
+        # `trigger_trace_id` (32 hex) is injected as the `traceparent` header on
+        # every aiohttp call (api_call/create_data/login). The backend's OTel
+        # FastAPI instrumentation extracts it and adopts this trace_id, so all
+        # backend logs/spans for these requests carry it — letting the Doctor
+        # query precisely by this trace_id instead of a broad time window.
+        # `ui_trace_ids` collects frontend-generated trace_ids (read from
+        # `window.__otelLastTraceId` after each UI step), since the frontend
+        # OTel creates its own trace context for browser-initiated fetches.
+        self.trigger_trace_id: str = _uuid.uuid4().hex
+        self.ui_trace_ids: set[str] = set()
+        self._span_counter: int = 0
+        self._made_http_call: bool = False
         logger.info(
             "TriggerRunner initialised",
             base_url=self.base_url,
@@ -116,9 +130,11 @@ class TriggerRunner:
         processor) and patches any :class:`BrowserError` whose ``trace_id``
         is still ``None``.  Called just before ``browser.close()`` in UI
         action handlers.
+
+        Also captures the frontend trace_id into ``self.ui_trace_ids`` so the
+        Doctor can query precisely by it (UI fetches propagate this trace_id
+        to the backend via the frontend's own traceparent injection).
         """
-        if not self.browser_errors:
-            return
         try:
             otel_ctx = await page.evaluate(
                 """() => ({
@@ -128,7 +144,12 @@ class TriggerRunner:
             )
             _tid = (otel_ctx.get("trace_id") or "").strip()
             _sid = (otel_ctx.get("span_id") or "").strip()
+            if _tid:
+                # Capture for downstream precise trace_id queries.
+                self.ui_trace_ids.add(_tid)
             if not _tid and not _sid:
+                return
+            if not self.browser_errors:
                 return
             # Patch the last few errors that are still missing context.
             patched = 0
@@ -244,6 +265,17 @@ class TriggerRunner:
         else:
             logger.warning("Trigger had failures — skipping log-flush wait")
 
+        # Collect all trace_ids produced/used by this trigger run:
+        # the injected aiohttp trace_id (if any HTTP call was made) + UI-captured
+        # frontend trace_ids + trace_ids carried on browser_errors.
+        collected: set[str] = set()
+        if self._made_http_call:
+            collected.add(self.trigger_trace_id)
+        collected |= self.ui_trace_ids
+        for be in self.browser_errors:
+            if be.trace_id:
+                collected.add(be.trace_id)
+
         result = TriggerResult(
             success=overall_success,
             session=self.session,
@@ -251,6 +283,7 @@ class TriggerRunner:
             error=error_msg,
             browser_errors=self.browser_errors,
             diff_evidence=self.diff_evidence,
+            trace_ids=sorted(collected),
         )
         logger.info(
             "Trigger run complete",
@@ -258,6 +291,7 @@ class TriggerRunner:
             step_count=len(steps),
             browser_error_count=len(self.browser_errors),
             diff_evidence_count=len(self.diff_evidence),
+            trace_ids=result.trace_ids,
         )
         return result
 
@@ -1032,6 +1066,13 @@ class TriggerRunner:
         """
         url = f"{self.base_url}{path if path.startswith('/') else '/' + path}"
         headers: dict[str, str] = {}
+
+        # Inject W3C traceparent so the backend OTel adopts our trigger_trace_id.
+        # Format: 00-<trace_id 32hex>-<span_id 16hex>-<flags 2hex>
+        self._span_counter += 1
+        span_id = f"{self._span_counter & 0xFFFFFFFFFFFFFFFF:016x}"
+        headers["traceparent"] = f"00-{self.trigger_trace_id}-{span_id}-01"
+        self._made_http_call = True
 
         if auth_required:
             token = self.session.get("token")

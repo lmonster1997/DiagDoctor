@@ -214,6 +214,14 @@ class TriggerResult(BaseModel):
     error: str | None = None
     browser_errors: list[BrowserError] = []
     diff_evidence: list[DiffEvidence] = []
+    # W3C trace_ids associated with THIS trigger run:
+    #   - the injected trace_id (api_call/create_data/login via aiohttp, which
+    #     carry a `traceparent` header so the backend adopts this trace_id), and
+    #   - UI-captured trace_ids (frontend OTel generates its own trace per
+    #     interaction; read from `window.__otelLastTraceId`).
+    # Downstream (Doctor) uses these to query Loki/Tempo precisely by trace_id
+    # instead of a broad time window, giving per-case isolation in batch runs.
+    trace_ids: list[str] = []
 
 
 class TriggerError(Exception):

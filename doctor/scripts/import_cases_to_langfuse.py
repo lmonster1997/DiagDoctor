@@ -25,6 +25,10 @@ from src.config import settings  # noqa: E402
 RECIPES_DIR = PROJECT_ROOT.parent / "bug-factory" / "recipes" / "gold"
 DATASET_NAME = "diagdoctor-benchmark"
 
+# smoke 子集：4 个代表性 case，覆盖主要类别 + 1 个 smokeless 类。
+# 与 run_baseline_experiment.py 的 SMOKE_CASES 保持一致。
+SMOKE_CASES: set[str] = {"BE-020", "FE-020", "PERF-020", "LOGIC-020"}
+
 # ── 主逻辑 ──────────────────────────────────────────────────────────
 
 
@@ -89,6 +93,7 @@ def main() -> None:
                     "recipe_id": bug_id,
                     "difficulty": difficulty,
                     "severity": recipe.get("severity", "medium"),
+                    "split": "smoke" if bug_id in SMOKE_CASES else "train",
                 },
             )
             print(f"  ✓ {bug_id}: {user_report[:50]}...")

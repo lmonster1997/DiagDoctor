@@ -112,6 +112,13 @@ class Evidence(BaseModel):
         description="ISO 8601 UTC timestamp of when the bug was triggered. "
         "Used to narrow search_observability queries to a focused time window.",
     )
+    trigger_trace_ids: list[str] = Field(
+        default_factory=list,
+        description="W3C trace_ids associated with this bug trigger (injected "
+        "via `traceparent` on api calls + frontend-captured UI trace_ids). "
+        "When present, ingest prefetches by these trace_ids for per-case "
+        "isolation instead of a broad time window.",
+    )
 
 
 # ── Ingest / Normalized evidence sub-models ─────────────────────────
@@ -187,6 +194,11 @@ class NormalizedEvidence(BaseModel):
         default=None,
         description="ISO 8601 UTC timestamp of bug trigger, used to narrow "
         "search_observability time window to trigger_time ± 5min.",
+    )
+    trigger_trace_ids: list[str] = Field(
+        default_factory=list,
+        description="W3C trace_ids associated with THIS trigger. When present, "
+        "the agent can query Tempo/Loki precisely by them for per-case isolation.",
     )
     frontend_span_count: int = 0
     backend_span_count: int = 0

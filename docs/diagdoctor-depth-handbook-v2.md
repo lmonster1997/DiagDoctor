@@ -38,7 +38,7 @@ V3 基线架构**已完整实现**，本手册不重复 V3 重构工作，而是
 | search_observability 无异常检测 | 只给数据不给洞察 | 方向 2 |
 | ~~Ingest 无置信度评分~~ | ~~Agent 无法判断信号可靠性~~ → **已移除**（设计决策：置信度判断应交由 LLM） | ~~方向 1~~ |
 | 评测维度耦合 | 无法定位退化点 | 方向 5：Langfuse Scoring 解耦 |
-| System Prompt 静态化 | 不随诊断进展调整策略 | 方向 6 |
+| ~~System Prompt 静态化~~ | ~~不随诊断进展调整策略~~ → **暂缓**（复盘：显式策略选择对强模型是负优化，优化了非瓶颈环节；待 ablation 数据支持后再评估） | ~~方向 6~~ |
 | 无诊断计划 | Agent 容易漂移 | 方向 7：TodoWrite |
 | 无 Hook 扩展点 | 工具调用不可拦截 | 方向 12 |
 | 无自省机制 | 幻觉和误诊无纠正 | 方向 10 |
@@ -111,6 +111,95 @@ V3 基线架构**已完整实现**，本手册不重复 V3 重构工作，而是
 
 ---
 
+## 🔴 优先攻克清单（V4-Flash 弱点对症）
+
+> **背景**：当前 `LLM_MODEL=deepseek-v4-flash`。V4-Flash 是前沿档编码模型（SWE-bench 79%、LiveCodeBench 91.6%，非小模型），但官方与第三方评测一致指出其**在「长程 agentic 多步工具调用」上明显落后 V4-Pro**——Terminal-Bench 2.0 落后 11 分（56.9 vs 67.9）。DiagDoctor 的 unified_agent 恰好就是这类工作负载，因此优化重点应对症 Flash 的长程弱点，而非已删除的 D16 策略选择（策略选择不治此病）。
+
+### 优先项（按对症程度排序）
+
+| 序 | 任务 | 对症点 | 类型 | 对应卡片 |
+|----|------|--------|------|---------|
+| P0-a | **启用 Think Max 模式** | Flash-Max 推理质量逼近 Pro，成本仍低 12× | 新增（配置层） | T0（见下） |
+| P0-b | **code_search ripgrep 升级** | 工具能否找到证据 = 最大胜负手（~60%） | 已有 | D5 |
+| P0-c | **上下文工程**：预算追踪 + 工具结果截断 + 历史降级 | Flash 跑越长越掉链子，context 干净是续命药 | 已有 | D6-D7 |
+| P0-d | **方法论 prompt 重写**（假设日志 + pivot 纪律 + 停止条件） | 直接治「死磕错假设、不 pivot」 | 新增（替代已删 D16） | T1（见下） |
+| P0-e | **自省机制提前**（方向 10，原 Phase 3） | 同上，治幻觉与误诊不纠正 | 提前 | 见方向 10 |
+| P0-f | **search_observability 异常检测 + 洞察摘要** | 工具给洞察而非裸数据，减少 Agent 推理负担 | 已有 | D10-D11 |
+
+> 注：P0-b/c/f 已在 Phase 1（P0 地基），本清单仅是把它们与 V4-Flash 弱点显式挂钩，确认优先级。P0-a/d/e 是基于本次复盘新增或提前的。
+
+### T0：启用 Think Max 模式（配置层，最快见效）
+
+> 修改 `llm_factory.py`，在 unified_agent 的 LLM 调用处启用 `reasoning_effort="max"`：
+>
+> ```python
+> # agent 循环用 Flash + Think Max（推理质量逼近 Pro，成本仍低）
+> # judge 保持 deepseek-v4-pro（已在 .env 配置）
+> ```
+>
+> 参考官方：V4-Flash-Max 在给足 thinking budget 时推理质量逼近 V4-Pro-Max；Non-think 模式仅用于低风险日常任务，不适用于诊断 ReAct 循环。
+
+**验收**：
+- Langfuse trace 中可见 `reasoning_effort=max` 与 thinking token 计数
+- 4-case smoke set 上 `root_cause_accuracy` 不低于 Non-think/High 模式
+- 单 case 成本仍显著低于切到 V4-Pro 的方案
+
+### T1：方法论 prompt 重写（替代已删的 D16）
+
+> 重写 `prompts/templates/unified_agent.j2` 的诊断策略部分，从「静态 3 步策略 + 工具选择表」改为**通用调试方法论 + 假设日志**：
+>
+> ```
+> ## 诊断方法论（每轮必须执行）
+> 1. 第一轮：基于 golden_signals + user_report 形成 1-2 个最可能的假设，
+>    写出每个假设的验证路径，再调工具。不要先分类再诊断。
+> 2. 每轮更新（写入 <hypothesis_journal>）：
+>    - 当前 top 假设
+>    - 置信度（0-1）
+>    - 下一步要证伪什么
+> 3. pivot 信号：连续 2 次工具结果与当前假设矛盾 → 降置信度并生成新假设，不要死磕。
+> 4. 停止：假设被证据确认（root_cause + 证据链完整），或 3 个假设都被证伪时输出最可能结论并标注不确定。
+> ```
+>
+> 修改 `parse_diagnosis_report()` / `extract_findings()` 提取 `<hypothesis_journal>`，存入 findings 用于过程质量评估与 Langfuse trace。
+
+**验收**：
+- Agent 每轮输出 `<hypothesis_journal>`，含假设/置信度/验证路径
+- 跨 4-case smoke set，能看到至少 1 个 case 发生 pivot（证明机制生效）
+- 全量 15-case ablation：方法论 prompt vs 旧静态 3 步 prompt，`root_cause_accuracy` 不下降
+
+---
+
+## 评测节奏：4-case smoke vs 15-case ablation
+
+> **核心原则**：不是每改一处都跑全量。区分「冒烟」与「决策」两种场合。
+
+### 4-case smoke set（每次改动后跑）
+
+- **用途**：catch 灾难性回归 + 验证机制生效。**不是**用来检测小幅提升。
+- **规模**：4 个最具代表性的 case，覆盖主要类别——建议 `BE-020 / FE-020 / PERF-020 / LOGIC-020`（含一个 smokeless 类）。
+- **统计含义**：4 case 上每个 case 占 25%，**无法区分小幅提升与噪声**——只能告诉你「有没有崩」。所以它只回答："机制跑通了吗？有没有明显退化？"
+- **成本**：~5 分钟（并发 4），可高频跑。
+
+### 15-case ablation（决策点跑）
+
+- **用途**：决定「保留还是回滚」的真正 A/B。例如：Think Max 要不要保留？方法论 prompt v1 vs v2？是否切 V4-Pro？
+- **规模**：全量 15 case（后续 Bug 扩展到 25/30 后同步扩），baseline vs experiment **各跑一次** = 30 runs。
+- **统计含义**：15 case 能检测 ~10pt 量级的提升；要检测 2-3pt 的小幅提升需 30+ case。
+- **成本**：~10-15 分钟（并发 4），judge 用 V4-Pro 成本可忽略。
+- **判据**：复用 D14 的 5% 阈值——`overall` 下降 > 5% 阻断；提升 ≥ 5% 才认为值得保留。
+
+### 什么改动需要 ablation，什么不需要
+
+| 改动类型 | 评测方式 |
+|---------|---------|
+| prompt 变更、model/mode 变更（Think Max）、影响 Agent 所得信息的工具行为变更 | **必须 15-case ablation** |
+| 纯重构、bug 修复、安全层、CI/Langfuse 接线 | 只跑 4-case smoke |
+| 工具内部精度提升（如 ripgrep 替代向量检索） | 4-case smoke 看「能不能找到正确文件」，决策点再跑 ablation |
+
+> **落地建议**：在 Langfuse Dataset 里用 `metadata.split` 标一个 `smoke` 子集（上述 4 case），smoke 脚本默认只跑该子集；`run_experiment.py` 加 `--split smoke|train|all` 参数。这样日常改完后 `--split smoke` 5 分钟收工，决策点 `--split all` 跑全量。
+
+---
+
 ## 总览：4 个 Phase
 
 ```
@@ -118,7 +207,7 @@ Phase 0 (基线验证)     → 确认当前 V3 能跑通 + 部署 Langfuse + 建
     ↓
 Phase 1 (P0 地基)      → 手动循环 + ripgrep + 上下文工程 + Ingest 深度 + Observability 深度
     ↓                      Agent 推理质量的地基，直接提升诊断准确率
-Phase 2 (P1 质量与评测) → Langfuse 评测体系 + Prompt 策略化 + TodoWrite + Bug Factory 扩展
+Phase 2 (P1 质量与评测) → Langfuse 评测体系 + TodoWrite + Bug Factory 扩展
     ↓                      可量化、可回归、可追踪
 Phase 3 (P2 鲁棒性)    → 安全纵深 + Agent 自省 + Langfuse 成本追踪 + Hook 系统 + Subagent
                            生产级鲁棒性
@@ -130,7 +219,7 @@ Phase 3 (P2 鲁棒性)    → 安全纵深 + Agent 自省 + Langfuse 成本追�
 |-------|--------|--------|---------|---------|
 | **Phase 0** | 基线 | 2d | 确认 V3 可跑通 + 部署 Langfuse + 建立度量基线 | 15 case 全跑通，Langfuse 基线 Experiment 生成 |
 | **Phase 1** | P0 | 10d | 手动循环 + 上下文工程 + Ingest/search/code_search 深度 | overall ≥ 基线 +15% |
-| **Phase 2** | P1 | 13d | Langfuse 评测体系 + Prompt 策略 + TodoWrite + Bug 扩展 | 多维度 Scoring 可用 + overall ≥ 基线 +25% |
+| **Phase 2** | P1 | 10d | Langfuse 评测体系 + TodoWrite + Bug 扩展（System Prompt 策略化暂缓） | 多维度 Scoring 可用 + overall ≥ 基线 +25% |
 | **Phase 3** | P2 | 11d | 安全 + 自省 + Langfuse 成本追踪 + Hook + Subagent | 无幻觉 case + LLM 调用链全量可观测 |
 | **总计** | | **36d** | | |
 
@@ -1192,7 +1281,8 @@ uv run python scripts/run_experiment.py \
 
 # Phase 2: P1 质量与评测（D13-D25）
 
-> **目标**：建立 Langfuse 驱动的评测体系（替代自研 benchmark）+ Prompt 策略化 + 诊断计划 + Bug 覆盖面扩展。
+> **目标**：建立 Langfuse 驱动的评测体系（替代自研 benchmark）+ 诊断计划 + Bug 覆盖面扩展。
+> System Prompt 策略化（原方向 6）经复盘判定为优化非瓶颈环节，已移除，后续按需重新评估。
 > **验收目标**：Langfuse 多维度 Scoring 可用 + `overall` ≥ 基线 +25% + 评测 case 数 ≥ 30。
 
 ---
@@ -1363,115 +1453,6 @@ uv run python scripts/run_experiment.py \
 
 ---
 
-## D16-D18：System Prompt 策略化（方向 6，P1）
-
-### D16：动态策略选择
-
-#### 任务 2.4：信号驱动的策略选择
-
-**AI 提示词**：
-
-> 修改 `graph/nodes/unified_agent.py`，在 Agent 循环开始前根据证据信号类型选择策略：
->
-> ```python
-> def _select_strategy(evidence: NormalizedEvidence) -> str:
->     signals = evidence.golden_signals
->     has_error_span = any(s.signal_type == "error_span" for s in signals)
->     has_slow_span = any(s.signal_type == "slow_span" for s in signals)
->     has_repeated_query = any(s.signal_type == "repeated_query" for s in signals)
->     has_browser_error = any(s.source == "browser_error" for s in signals)
->     has_smokeless = any(s.signal_type.startswith("smokeless") for s in signals)
->     has_cross_layer = bool(evidence.correlations)
->
->     if has_cross_layer and has_browser_error:
->         return "cross_layer_crash"
->     elif has_repeated_query or has_slow_span:
->         return "performance"
->     elif has_error_span:
->         return "backend_error"
->     elif has_browser_error:
->         return "frontend_crash"
->     elif has_smokeless:
->         return "smokeless"
->     else:
->         return "default"
-> ```
->
-> 每个策略对应一个 Prompt 片段（在 `prompts/templates/strategies/` 目录下）：
-> - `cross_layer_crash.j2`：跨层崩溃诊断策略（前端→后端→DB 逐层追踪）
-> - `performance.j2`：性能问题诊断策略（trace 分析 → N+1 检测 → ORM 代码检查）
-> - `backend_error.j2`：后端错误诊断策略（错误日志 → 代码定位 → 数据验证）
-> - `frontend_crash.j2`：前端崩溃诊断策略（浏览器错误 → source map → 组件代码）
-> - `smokeless.j2`：无信号诊断策略（user_report 分析 → 权限/排序/配置检查）
-> - `default.j2`：默认策略
->
-> 策略片段注入到 System Prompt 的"诊断策略"部分。
-
-**验收**：
-- 不同 case 类型使用不同策略
-- 策略选择日志可见（`strategy=cross_layer_crash`）
-- 跨层 case 使用 `cross_layer_crash` 策略
-
----
-
-### D17：Few-shot 注入
-
-#### 任务 2.5：Few-shot 示例注入
-
-**AI 提示词**：
-
-> 在 `doctor/src/prompts/templates/few_shot/` 目录下创建 few-shot 示例：
->
-> 每个策略对应 1-2 个示例（从 gold case 的成功诊断中提取）：
-> - `cross_layer_crash_example.j2`：FE-020 的成功诊断过程
-> - `performance_example.j2`：PERF-020 的成功诊断过程
-> - `backend_error_example.j2`：BE-020 的成功诊断过程
-> - `smokeless_example.j2`：LOGIC-020 的成功诊断过程
->
-> 示例格式：
-> ```
-> ## 诊断示例
->
-> **输入证据**：[简要描述]
-> **诊断过程**：
-> 1. search_observability → [关键发现]
-> 2. code_search → [关键发现]
-> 3. get_file_content → [关键发现]
-> **输出**：[简要诊断结果]
-> ```
->
-> 在 `build_dynamic_system_prompt()` 中，根据当前策略注入对应示例。
-
-**验收**：
-- System Prompt 中包含与策略匹配的 few-shot 示例
-- 示例不超过 500 字符（不占太多 context）
-
----
-
-### D18：错误模式库集成
-
-#### 任务 2.6：错误模式库集成
-
-**AI 提示词**：
-
-> 修改 `doctor/src/prompts/registry.py`，新增 `build_error_pattern_reference()` 函数：
->
-> 从 `struct_kb.py` 的 error_patterns 表提取模式，生成 System Prompt 参考：
-> ```
-> ## 常见错误模式参考
-> - **FK 完整性错误**：正则 `foreign key constraint` → 检查关联数据是否存在
-> - **scalar_one 500**：正则 `No row was found` → 检查查询条件是否过严
-> - **N+1 查询**：正则 `repeated SELECT` → 恢复预加载
-> ```
->
-> 注入到 System Prompt 末尾（作为参考知识，不是策略指令）。
-
-**验收**：
-- System Prompt 包含错误模式参考
-- 模式参考不超过 300 字符
-
----
-
 ## D19：诊断计划 TodoWrite（方向 7，P1）
 
 ### 任务 2.7：TodoWrite 指令注入
@@ -1612,9 +1593,6 @@ uv run python scripts/run_experiment.py \
 - [ ] 过程质量 Scorer 可用
 - [ ] CI 回归门禁（Langfuse Experiment）工作
 - [ ] 盲集隔离（train 10 + blind 5+）
-- [ ] 动态策略选择（5+ 策略）
-- [ ] Few-shot 示例注入
-- [ ] 错误模式库集成
 - [ ] TodoWrite 诊断计划
 - [ ] Bug 配方 ≥ 30 个（15 原有 + 10 新增 + 6 变异 + 5 对抗性）
 - [ ] `overall` ≥ 基线 +25%

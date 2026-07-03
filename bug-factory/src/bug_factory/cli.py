@@ -25,6 +25,7 @@ Usage::
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -383,6 +384,11 @@ def trigger_cmd(
         raise SystemExit(1) from exc
 
     _display_trigger_result(result)
+
+    # Machine-readable trailer so the experiment runner can harvest trace_ids
+    # without parsing Rich output. Printed on stdout as a single JSON line.
+    if result.trace_ids:
+        print(f"TRACE_IDS_JSON={json.dumps({'trace_ids': result.trace_ids})}")
 
 
 def _display_trigger_result(result: TriggerResult) -> None:

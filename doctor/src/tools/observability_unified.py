@@ -13,11 +13,11 @@
 Usage:
     from src.tools.observability_unified import search_observability
 
+    # 省略 start/end —— 工具自动取 trigger_time ± 5min 窗口（精确覆盖本次触发的事件）。
+    # 不要在调用里硬编码示例日期，否则会查到过期空结果，或混入其他 case 的日志。
     result = await search_observability(
         source="auto",
         query='{service_name="demo-backend"} |= "error"',
-        start="2026-06-28T10:00:00Z",
-        end="2026-06-28T14:00:00Z",
         analysis="full",
     )
 """
@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import re
+from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
@@ -95,9 +96,38 @@ def _validate_time_range(start: datetime, end: datetime) -> None:
 
 
 def _default_time_range() -> tuple[datetime, datetime]:
-    """Return a default time range (last 1 hour) when start/end not provided."""
+    """Return the default query window for ``search_observability``.
+
+    Prefers ``trigger_time ± 5min`` when set via :func:`set_trigger_time`.
+    This gives per-case isolation in smoke/batch runs: each diagnosis only
+    sees the signals produced by ITS OWN trigger, not logs from other cases
+    triggered in the same stack within the same hour.
+
+    Falls back to "last 1 hour" when no trigger_time is available (e.g.
+    ad-hoc CLI usage without a trigger timestamp).
+    """
+    tt_iso = _trigger_time_ctx.get()
+    tt = _parse_time(tt_iso) if tt_iso else None
+    if tt is not None:
+        return tt - timedelta(minutes=5), tt + timedelta(minutes=5)
     now = datetime.now(tz=UTC)
     return now - timedelta(hours=1), now
+
+
+# Per-diagnosis trigger_time. Set by the agent node from ``state.evidence.trigger_time``
+# so that ``search_observability`` defaults to a narrow window around the actual
+# trigger (per-case isolation) instead of "last 1 hour" (which in batch runs
+# contains logs from other cases and pollutes the diagnosis).
+_trigger_time_ctx: ContextVar[str | None] = ContextVar("trigger_time", default=None)
+
+
+def set_trigger_time(iso: str | None) -> None:
+    """Set the trigger_time for the current diagnosis (ContextVar).
+
+    Call this at the start of the agent node. When set, ``search_observability``
+    defaults its time window to ``trigger_time ± 5min`` instead of "last 1 hour".
+    """
+    _trigger_time_ctx.set(iso)
 
 
 # ── Helper: Trace ID extraction from logs ────────────────────────────
@@ -891,8 +921,9 @@ async def search_observability(
         query: 查询字符串。source="loki" 时为 LogQL；
                source="tempo" 时为 trace_id 或服务名；
                source="auto" 时为 LogQL
-        start: ISO 格式起始时间（可选，默认为 1 小时前）
-        end: ISO 格式结束时间（可选，默认为当前时间）
+        start: ISO 起始时间。**建议省略**——默认取 trigger_time ± 5min（只看本次触发附近，避免混入其他 case 的信号）。
+            显式传入且整体早于当前 1 小时的窗口会被自动纠正为默认窗口。
+        end: ISO 结束时间。**建议省略**——同 start。
         analysis: 分析深度（仅在使用 trace 数据时生效）
         limit: 最大返回条数
         include_frontend: 是否同时查询前端服务（demo-frontend）的错误。
@@ -916,6 +947,7 @@ async def search_observability(
     # ── Parse and validate time range ──
     parsed_start = _parse_time(start)
     parsed_end = _parse_time(end)
+    stale_corrected = False
 
     if parsed_start is None or parsed_end is None:
         parsed_start, parsed_end = _default_time_range()
@@ -926,11 +958,31 @@ async def search_observability(
         )
     else:
         _validate_time_range(parsed_start, parsed_end)
+        # Defensive: the agent may copy a stale example date from the prompt
+        # (e.g. a hardcoded "2026-06-28"). If the explicitly provided window
+        # is entirely older than 1 hour, override to the default window
+        # (trigger_time ± 5min when available, else last 1 hour) so a
+        # just-triggered incident isn't silently missed.
+        _now = datetime.now(tz=UTC)
+        if parsed_end < _now - timedelta(hours=1):
+            logger.warning(
+                "search_observability_stale_window_overridden",
+                provided_start=parsed_start.isoformat(),
+                provided_end=parsed_end.isoformat(),
+            )
+            stale_corrected = True
+            parsed_start, parsed_end = _default_time_range()
 
     # ── Execute queries based on source ──
     logs: list[dict[str, Any]] = []
     traces: list[dict[str, Any]] = []
     metadata: dict[str, Any] = {}
+
+    if stale_corrected:
+        metadata["time_range_auto_corrected"] = (
+            "提供的时间窗口已过期（end 早于当前 1 小时），已自动改用默认窗口"
+            "（trigger_time ± 5min 或最近 1 小时）。建议省略 start/end 让工具自动取窗口。"
+        )
 
     if source in ("loki", "auto"):
         # Query Loki logs

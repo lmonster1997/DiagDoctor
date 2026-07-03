@@ -87,6 +87,19 @@ def format_evidence_for_agent(evidence: NormalizedEvidence) -> str:
     if evidence.user_report:
         parts.append(f"【用户报告】\n{evidence.user_report}\n")
 
+    # ── Trigger trace_ids (precise query handles) ──
+    # These W3C trace_ids belong to THIS bug trigger only. Querying Tempo/Loki
+    # by them yields exactly this trigger's spans/logs — no cross-case noise.
+    if evidence.trigger_trace_ids:
+        tids = ", ".join(evidence.trigger_trace_ids)
+        parts.append(
+            "【本次触发的 trace_id】\n"
+            f"  {tids}\n"
+            "  💡 用 search_observability(source=\"tempo\", query=\"<某个 trace_id>\") "
+            "可精准拿到本次请求的完整 Trace；查日志可用 "
+            "search_observability(source=\"loki\", query='{trace_id=\"<某个 trace_id>\"}')。"
+        )
+
     # ── Golden signals ──
     has_signals = bool(evidence.golden_signals)
     has_trace_spans = (
@@ -542,6 +555,17 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
     from src.tools import get_all_tools
 
     evidence: NormalizedEvidence = state.evidence
+
+    # Expose trigger_time to search_observability via ContextVar so the tool
+    # defaults its query window to trigger_time ± 5min (per-case isolation)
+    # instead of "last 1 hour" (which in batch runs contains logs from other
+    # cases and pollutes the diagnosis).
+    try:
+        from src.tools.observability_unified import set_trigger_time
+
+        set_trigger_time(evidence.trigger_time)
+    except (ImportError, AttributeError):
+        pass
 
     # Format evidence for the agent
     evidence_text = format_evidence_for_agent(evidence)

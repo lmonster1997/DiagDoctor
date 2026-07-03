@@ -313,4 +313,5 @@ def ingest(raw_evidence: dict[str, Any]) -> NormalizedEvidence:
         frontend_span_count=frontend_spans,
         backend_span_count=backend_spans,
         trigger_time=raw_evidence.get("trigger_time"),
+        trigger_trace_ids=list(raw_evidence.get("trigger_trace_ids") or []),
     )
