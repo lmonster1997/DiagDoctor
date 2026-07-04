@@ -81,6 +81,7 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         # Per-LLM-call timing
         self._llm_start_ts: float = 0.0
         self._llm_input: dict[str, Any] | None = None
+        self._current_llm_run_id: uuid.UUID | None = None  # 去重：防 on_chat_model_start + on_llm_start 双 fire
 
         # Per-tool-call tracking
         self._tool_name: str = "unknown_tool"
@@ -302,6 +303,46 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
 
     # ── LLM call tracking ───────────────────────────────────────
 
+    def on_chat_model_start(
+        self,
+        serialized: dict[str, Any],
+        messages: list[list[BaseMessage]],
+        *,
+        run_id: uuid.UUID,
+        parent_run_id: uuid.UUID | None = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Record start of a chat model call.
+
+        Chat 模型（ChatDeepSeek/ChatOpenAI）触发的是 on_chat_model_start 而非
+        on_llm_start，且 messages 作为位置参数（List[List[BaseMessage]]）传入——
+        不在 invocation_params 里。这是修复 generation.input 为空 ``{"messages": []}``
+        盲区的关键回调。
+        """
+        if run_id == self._current_llm_run_id:
+            return  # on_llm_start 已处理过同一 run，跳过防双计数
+        self._current_llm_run_id = run_id
+        self._llm_start_ts = time.monotonic()
+        self._llm_call_idx += 1
+
+        # messages 是 List[List[BaseMessage]]，取第一个 batch（通常只有一个）
+        msg_list = messages[0] if messages else []
+        self._llm_input = {
+            "messages": [self._serialize_message(m) for m in msg_list],
+        }
+
+        logger.debug(
+            "langfuse_chat_model_start",
+            extra={
+                "trace_id": self._trace_id,
+                "run_id": str(run_id),
+                "call_idx": self._llm_call_idx,
+                "msg_count": len(msg_list),
+            },
+        )
+
     def on_llm_start(
         self,
         serialized: dict[str, Any],
@@ -313,7 +354,14 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         metadata: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Record start of an LLM call."""
+        """Record start of an LLM call.
+
+        对 chat 模型通常不 fire（on_chat_model_start 负责）；对 completion-style
+        LLM fire。若 on_chat_model_start 已处理同一 run_id 则跳过防双计数。
+        """
+        if run_id == self._current_llm_run_id:
+            return  # on_chat_model_start 已处理
+        self._current_llm_run_id = run_id
         self._llm_start_ts = time.monotonic()
         self._llm_call_idx += 1
 
@@ -322,11 +370,12 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
             serialized.get("kwargs", {}).get("model_name", "unknown"),
         )
 
+        # completion-style LLM：用 prompts（stringified messages）兜底
         self._llm_input = {
             "messages": [
-                {"role": self._msg_role(m), "content": str(m.content)[:2000]}
-                for m in kwargs.get("invocation_params", {}).get("messages", [])
+                {"role": "user", "content": p[:2000]} for p in (prompts or [])
             ],
+            "model": model_name,
         }
 
         logger.debug(
@@ -381,6 +430,7 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
             },
         )
         self._llm_input = None
+        self._current_llm_run_id = None  # 释放，允许下一轮 LLM 调用被记录
 
     def on_llm_error(
         self,
@@ -408,6 +458,7 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
             extra={"trace_id": self._trace_id, "error": str(error)},
         )
         self._llm_input = None
+        self._current_llm_run_id = None
 
     # ── Tool call tracking ──────────────────────────────────────
 
@@ -506,6 +557,40 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         }
 
     # ── Helpers ─────────────────────────────────────────────────
+
+    @staticmethod
+    def _serialize_message(msg: BaseMessage) -> dict[str, Any]:
+        """把一条 LangChain message 序列化成可入 Langfuse 的 dict。
+
+        除 role + content 外，还捕获 AIMessage 的 tool_calls（agent 决定调什么工具）
+        和 ToolMessage 的 tool_call_id（对应哪次工具调用）——这两者在调试 agent
+        行为时关键，缺了就看不到「LLM 这轮决定了什么工具调用」。
+        """
+        type_name = type(msg).__name__
+        role_map = {
+            "SystemMessage": "system",
+            "HumanMessage": "user",
+            "AIMessage": "assistant",
+            "ToolMessage": "tool",
+            "FunctionMessage": "function",
+        }
+        entry: dict[str, Any] = {
+            "role": role_map.get(type_name, "unknown"),
+            "content": str(msg.content)[:2000],
+        }
+        # AIMessage 的 tool_calls：agent 这轮决定调哪些工具
+        tool_calls = getattr(msg, "tool_calls", None)
+        if tool_calls:
+            entry["tool_calls"] = [
+                {"name": tc.get("name") if isinstance(tc, dict) else getattr(tc, "name", ""),
+                 "args": tc.get("args") if isinstance(tc, dict) else getattr(tc, "args", {})}
+                for tc in tool_calls
+            ]
+        # ToolMessage 的 tool_call_id：这条结果对应哪次工具调用
+        tcid = getattr(msg, "tool_call_id", None)
+        if tcid:
+            entry["tool_call_id"] = tcid
+        return entry
 
     @staticmethod
     def _msg_role(msg: BaseMessage) -> str:
