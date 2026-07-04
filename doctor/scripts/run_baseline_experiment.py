@@ -106,7 +106,7 @@ def run_cmd(cmd: list[str], cwd: Path | None = None) -> str:
 def git_checkout_main() -> None:
     """切换到 main 分支，确保干净起点。"""
     run_cmd(["git", "checkout", "main"], cwd=PROJECT_ROOT.parent)
-    print("  ✓ 已切换到 main 分支")
+    print("  [OK] 已切换到 main 分支")
 
 
 def inject_bug(recipe_id: str) -> None:
@@ -240,7 +240,7 @@ async def diagnose_task(item, trace_id: str) -> dict:
 
     if not await wait_for_backend(DEMO_BACKEND_URL):
         raise RuntimeError(f"Demo backend 未在 {RELOAD_WAIT + 30}s 内就绪")
-    print("  ✓ Demo backend 已就绪")
+    print("  [OK] Demo backend 已就绪")
 
     # ── Step 3: 触发 Bug + 记录时间 ───────────────────────────────
     print(f"[3/4] 触发 Bug: {recipe_id}...")
@@ -260,7 +260,7 @@ async def diagnose_task(item, trace_id: str) -> dict:
             langfuse_trace_id=trace_id,
         )
     except Exception as exc:
-        print(f"  ✗ 诊断失败: {exc}")
+        print(f"  [FAIL] 诊断失败: {exc}")
         diagnosis = {"error": str(exc), "report": None, "categories": [], "confidence": 0.0}
 
     report = diagnosis.get("report") or {}
@@ -272,7 +272,7 @@ async def diagnose_task(item, trace_id: str) -> dict:
     confidence = (
         report.get("confidence", 0) if isinstance(report, dict) else diagnosis.get("confidence", 0)
     )
-    print(f"  ✓ 诊断完成（categories={categories}, confidence={confidence}）")
+    print(f"  [OK] 诊断完成（categories={categories}, confidence={confidence}）")
 
     # ── 恢复现场 ──────────────────────────────────────────────────
     print("  恢复 git main 分支...")
@@ -298,7 +298,7 @@ async def main(
     print("=" * 60)
 
     # 前置检查
-    print("\n── 前置检查 ──")
+    print("\n-- 前置检查 --")
     async with aiohttp.ClientSession() as session:
         for name, url in [("Doctor API", DOCTOR_URL), ("Demo Backend", DEMO_BACKEND_URL)]:
             try:
@@ -306,9 +306,9 @@ async def main(
                     f"{url}/health", timeout=aiohttp.ClientTimeout(total=3)
                 ) as resp:
                     assert resp.status == 200
-                    print(f"  ✓ {name}: {url}")
+                    print(f"  [OK] {name}: {url}")
             except Exception:
-                print(f"  ✗ {name} 不可达: {url}")
+                print(f"  [FAIL] {name} 不可达: {url}")
                 sys.exit(1)
 
     # 确保在 main 分支
@@ -322,15 +322,15 @@ async def main(
     print(f"\n  Dataset: diagdoctor-benchmark ({len(items)} items)")
 
     # 逐个运行
-    print("\n── 开始逐个运行 case ──")
+    print("\n-- 开始逐个运行 case --")
     results: list[dict] = []
     for i, item in enumerate(items):
         metadata = item.metadata or {}
         recipe_id = metadata.get("recipe_id", "unknown")
 
-        print(f"\n{'─' * 60}")
+        print(f"\n{'-' * 60}")
         print(f"  [{i + 1}/{len(items)}] {recipe_id}")
-        print(f"{'─' * 60}")
+        print(f"{'-' * 60}")
 
         # 创建 Langfuse trace
         # session_id=run_name 把同一轮的多个 case 归到同一个 Session 视图，
@@ -394,7 +394,7 @@ async def main(
             )
 
         except Exception as exc:
-            print(f"  ✗ Case 失败: {exc}")
+            print(f"  [FAIL] Case 失败: {exc}")
             trace.score(name="category_accuracy", value=0.0)
             trace.score(name="affected_file_accuracy", value=0.0)
             trace.score(name="overall", value=0.0)

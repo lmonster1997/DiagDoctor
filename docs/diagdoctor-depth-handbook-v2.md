@@ -196,6 +196,34 @@ mean=0.598  灾难(overall<0.4): 6 -> CONFIG/DATA-021/FE-020/FE-021/LOGIC-022/RA
 
 > 这次的「数字」是 throwaway（修完 S1 会重跑当 S2 的对比锚点），但「发现」不是 throwaway——尤其是「评测器本身有 bug」这个发现，若不修会污染后面所有 ablation 结论。
 
+#### S0.4 baseline 方差：同一套代码两次跑差很大（关键发现）
+
+修完 scorer 后用**当前代码**（本地 `uv run uvicorn` 起 doctor-api，非 docker）重跑一次干净 baseline（session `baseline-15case-pres1`），结果与 `baseline-15case-pre-fix` 差异巨大——**不是小幅 stochasticity，是 case 翻盘**：
+
+| case | run1 (pre-fix, "lucky") | run2 (pres1, "unlucky") | 翻盘方向 |
+|---|---|---|---|
+| BE-020 | 0.97（6 次调用收敛交付） | **0.04**（28 次调用 flail、early_stopped、空报告） | 稳定成功 → 灾难 |
+| BE-021 | 0.98 | 0.10 | 同上 |
+| BE-022 | 0.97 | 0.05 | 同上 |
+| DATA-021 | 0.33（early_stopped 空报告） | **0.87**（10 次收敛、完整报告） | 灾难 → 成功 |
+| CASCADE-020 | 0.70 | 0.25 | 成功 → 灾难 |
+| PERF/LOGIC-020/021/DATA-020 | 0.81-0.96 | 0.83-0.96 | 稳（每次都收敛）|
+| FE-021/CONFIG/LOGIC-022/RACE | 0.04-0.10 | 0.04-0.11 | 稳（每次都失败）|
+| **mean** | **0.598**（6 灾难） | **0.411**（9 灾难） | |
+
+trace 验证（`dump_session_scores.py` + 拉 trace output）确认翻盘机制：
+- **BE-020 run2**：`early_stopped=True`，28 次工具调用，`diagnosis_report` 全空（primary='', file=None, fix_len=0, evid=0, conf=0.2）→ 0.04。run1 同 case 是 6 次调用、`early_stopped=False`、完整报告 → 0.97。
+- **DATA-021 run2**：`early_stopped=False`，10 次调用，完整报告（file=tasks.py, fix_len=313, evid=5, conf=0.98）→ 0.87。run1 同 case 是 early_stopped 空报告 → 0.33。
+
+**结论：『预算耗尽 → 没交付结构化报告』是高方差、广覆盖的失败模式，不只命中几个 smokeless case。** 同一 case 同一套代码，agent 这次走顺路 6 次收敛交付（0.97），下次走岔路 28 次 flail 到耗尽、丢结论（0.04）。run1 的 0.598 是「lucky run」（BE 三兄弟恰好都收敛），run2 的 0.411 是「unlucky run」（BE 全 flail）。
+
+**对后续的影响**：
+1. **S1 的价值比之前评估的更大**——预算耗尽兜底不只是救 6 个灾难 case，是 **stabilise 全局方差**：没有它，任何 case 都可能在某次 run 崩到 0.04。修完后预期不仅 mean 抬升，**方差大幅收窄**（最差 case 从 0.04 抬到 ~0.2+，lucky/unlucky run 的 gap 从 0.187 收窄到 <0.05）。
+2. **单次 baseline 不可靠**——0.598 和 0.411 都是真实样本。S2 的 ablation 锚点必须跑 ≥2 次取均值，或明确标注方差带，否则 +5% 的提升判定会被 run-to-run 噪声盖过。
+3. **稳态 case 已识别**：PERF-020/021、LOGIC-020/021、DATA-020 每次都收敛交付（agent 对这几类 N+1/越权/排序 bug 的路径稳定）；BE 三兄弟 + DATA-021 + CASCADE 是高方差 case。S1 修完后高方差档应收敛到稳定成功。
+
+> 面试故事因此更强：「同一个 case 两次跑 0.97 → 0.04，trace 复盘发现是 harness 没有 budget 兜底，agent 一旦走偏就 flail 到耗尽、丢结论。这不是模型能力波动，是 harness 稳定性缺陷——修 harness 而非换模型。」有 before/after 两次 run 的 trace 铁证。
+
 #### S0 核对记录
 
 7 维度逐个核对（`scripts/_verify_scorers.py` 离线重算对比新旧分）：
@@ -209,28 +237,30 @@ mean=0.598  灾难(overall<0.4): 6 -> CONFIG/DATA-021/FE-020/FE-021/LOGIC-022/RA
 
 ---
 
-### S1：修 smokeless 灾难——预算耗尽强制落结构化报告（harness 修复，smoke 验证）
+### S1：修 smokeless 灾难 + 全局方差——预算耗尽强制落结构化报告（harness 修复，smoke + 双跑验证）
 
-> S0 跑完发现 6 个灾难 case，不是原来以为的「只有 FE-020 一个」。但分两档后，**两档的修法高度同构**，一次设计能覆盖：
+> S0.4 方差发现升级了 S1 的定位：原以为只是救 6 个灾难 case，**实际上是 stabilise 全局方差**。同一套代码两次跑，BE-020 从 0.97（6 次收敛交付）翻到 0.04（28 次 flail、early_stopped、空报告），mean 在 0.598 / 0.411 之间摆动 0.187。根因是同一个：**harness 没有 budget 耗尽兜底，agent 一旦走偏就 flail 到耗尽、丢结论**。S0.3 的两档分类仍成立，但「高方差档」（BE 三兄弟 + DATA-021 + CASCADE）才是 S1 的主战场——修完后这些 case 应从「有时 0.04 有时 0.97」收敛到「稳定 0.8+」。
 >
-> - **「诊断对但无报告」档（FE-020/DATA-021，overall 0.30-0.33）**：agent 找到了正确根因（root_cause judge 0.85-0.95）却只 0.2 自信、没把结论落成结构化 report（file/fix/cat/evidence_chain 全空）。**核心病灶是「没交付」不是「没找到」**。
-> - **「完全失败」档（CONFIG/LOGIC-022/RACE，overall 0.04-0.05）**：agent 没找到根因就耗尽预算，交付空报告。**核心病灶是「没收敛 + 没兜底」**。
+> - **「诊断对但无报告」档（FE-020/DATA-021）**：agent 找到了正确根因（root_cause judge 0.85-0.95）却没落成结构化 report。**核心病灶是「没交付」不是「没找到」**。
+> - **「完全失败」档（CONFIG/LOGIC-022/RACE）**：agent 没找到根因就耗尽预算，交付空报告。**核心病灶是「没收敛 + 没兜底」**。
+> - **「高方差」档（BE 三兄弟 + CASCADE）**：agent 路径不稳定，走顺路收敛交付（0.97），走岔路 flail 耗尽空报告（0.04）。**核心病灶同「完全失败」——没收敛检测 + 没兜底**。
 >
-> 两档共同解法：**预算耗尽（或检测到收敛）时，强制把 running hypothesis 落成完整结构化报告**，而非取最后一段 raw text 当 root_cause、其它字段留空。
+> 三档共同解法：**预算耗尽（或检测到收敛）时，强制把 running hypothesis 落成完整结构化报告**，而非取最后一段 raw text 当 root_cause、其它字段留空。
 
 **两个正交修复**：
 
-1. **预算兜底报告（治两档，主修复）**：维护 running hypothesis（每轮更新，至少含 root_cause_text / best_guess_file / confidence）。`early_stopped=True` 时用它生成**完整结构化报告**（root_cause / affected_file / fix_suggestion / categories / evidence_chain / confidence 全字段），而非半句话 + 空字段。这一条直接救「诊断对但无报告」档（FE-020/DATA-021 预期 0.30 → 0.80+），并给「完全失败」档兜一个 best-guess 报告（从 0.04 抬到 ~0.20，至少有结构化输出不再全空）。
-2. **收敛检测（治「完全失败」档的浪费，辅助修复）**：在 agent 每轮推理后，检查 evidence_chain 是否已覆盖「① 错误信号 ② 代码位置 ③ 机制解释」三要素。覆盖则在下一轮 system 注入「证据已充分，请输出 JSON 诊断报告，不要再调用工具」——避免 agent 在没头绪时反复 code_search 耗光预算。
+1. **预算兜底报告（治三档，主修复）**：维护 running hypothesis（每轮更新，至少含 root_cause_text / best_guess_file / confidence）。`early_stopped=True` 时用它生成**完整结构化报告**（root_cause / affected_file / fix_suggestion / categories / evidence_chain / confidence 全字段），而非半句话 + 空字段。这一条直接救「诊断对但无报告」档（FE-020/DATA-021 预期 0.30 → 0.80+），给「完全失败」档兜 best-guess 报告（0.04 → ~0.20），并消除「高方差」档的崩盘下限（BE-020 最差从 0.04 抬到 ~0.5+，即使走岔路也有结构化交付）。
+2. **收敛检测（治「完全失败」+「高方差」档的浪费，辅助修复）**：在 agent 每轮推理后，检查 evidence_chain 是否已覆盖「① 错误信号 ② 代码位置 ③ 机制解释」三要素。覆盖则在下一轮 system 注入「证据已充分，请输出 JSON 诊断报告，不要再调用工具」——避免 agent 在没头绪或已锁定时反复 code_search 耗光预算。这一条把「高方差」档的 flail 路径掐断在收敛点，让 BE-020 即便走岔路也能在 ~6 次内出报告而非 28 次。
 
 **为什么先做这个**：
-- harness 修复，**只需 4-case smoke 验证**（按评测规则，纯 harness 修复不跑 ablation）。
-- 一次设计覆盖 6 个灾难 case 的两档，worst case 整体拉起来 = baseline 抬一截，后面所有 ablation 起点干净。
-- 直接产出第 4 个面试故事：有 before/after 数据、有因果链、有 harness vs model 的区分判断力，且**「先修评测器再信数字」本身就是个加分故事**（体现评测器会骗人、ablation 前要先校准度量）。
+- harness 修复，**只需 4-case smoke 验证不退化** + **双跑验证方差收窄**（按评测规则，纯 harness 修复不跑 15-case ablation；但 S0.4 发现高方差后，需跑 2 次确认 lucky/unlucky gap 收窄）。
+- 一次设计覆盖三档，**不仅抬 mean，更收窄方差**——后面 S2 的 ablation 锚点才稳，+5% 判定才不被噪声盖过。
+- 直接产出第 4 个面试故事，且因 S0.4 方差发现而更强：**「同一 case 两次跑 0.97 → 0.04，trace 复盘定位是 harness 没 budget 兜底，修 harness 而非换模型」**——有两次 run 的 trace 铁证、有方差带数据、有 harness vs model 的区分判断力。叠加「先修评测器再信数字」，是两个加分故事。
 
 **验收**：
 - FE-020 / DATA-021 在预算耗尽时输出**完整结构化报告**（file/fix/cat/evidence_chain 非空），overall 从 0.30 → 0.80 档
 - CONFIG / LOGIC-022 / RACE 不再交付全空报告（至少有 best-guess root_cause + file），overall 从 0.04 → 0.20 档
+- **BE-020 / BE-021 / BE-022 / CASCADE 双跑最差值 ≥ 0.5**（不再出现 0.04 崩盘），lucky/unlucky run 的 mean gap 从 0.187 收窄到 < 0.05
 - `early_stopped=True` 时报告含完整 root_cause / affected_file / evidence_chain（非半句话、非空字段）
 - smoke 4 case 中其余 3 个（BE/LOGIC/PERF）不退化
 
@@ -240,7 +270,7 @@ mean=0.598  灾难(overall<0.4): 6 -> CONFIG/DATA-021/FE-020/FE-021/LOGIC-022/RA
 
 > S1 修完、smoke 干净后做。修改 `llm_factory.py`，在 unified_agent 的 LLM 调用处启用 `reasoning_effort="max"`。judge 保持 `deepseek-v4-pro`（已在 .env 配置）。
 >
-> **必须 15-case ablation**：model/mode 变更按评测规则需全量对比。跑两次 15-case：S1 修完后的干净 baseline vs Think Max experiment，按 D14 的 5% 阈值判保留/回滚。
+> **必须 15-case ablation，且因 S0.4 发现的 run-to-run 方差，锚点需双跑取均值**：跑两次 15-case baseline（S1 修完后）取均值 vs 两次 Think Max experiment 取均值，按 D14 的 5% 阈值判保留/回滚。单次跑的 ±0.19 方差会盖过 5% 提升判定。若 S1 修完后方差已收窄到 <0.05，可降为单跑。
 
 **验收**：
 - Langfuse trace 中可见 `reasoning_effort=max` 与 thinking token 计数
