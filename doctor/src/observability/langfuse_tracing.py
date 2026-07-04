@@ -220,7 +220,7 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
             trace_id=self._trace_id,
             name=f"tool_{tool_name}_{self._tool_call_idx}",
             input={"args": tool_args},
-            output={"result": result[:2000]},
+            output={"result": result[:20000]},
             metadata=metadata,
         )
 
@@ -410,7 +410,7 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
                 name=f"llm_call_{self._llm_call_idx}",
                 model=model_name,
                 input=self._llm_input,
-                output={"content": output_text[:2000]},
+                output={"content": output_text[:20000]},
                 usage=usage,
                 usage_details=usage,
                 metadata={
@@ -503,7 +503,7 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
                 trace_id=self._trace_id,
                 name=f"tool_{self._tool_name}_{self._tool_call_idx}",
                 input={"args": self._last_tool_input or {}},
-                output={"result": str(output)[:2000]},
+                output={"result": str(output)[:20000]},
                 metadata={
                     "latency_ms": round(latency_ms, 1),
                     "tool_name": self._tool_name,
@@ -576,7 +576,11 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         }
         entry: dict[str, Any] = {
             "role": role_map.get(type_name, "unknown"),
-            "content": str(msg.content)[:2000],
+            # 20000 安全网：truncate_tool_result 已在上游把 tool 结果压到 ≤8000，
+            # 系统提示也就几千字——这个上限远超真实消息长度，只为防病态长输入。
+            # 之前用 2000 会切掉 tool 结果的实际证据（agent 据此诊断的内容）+
+            # 系统提示末尾的动态 phase 策略（CONVERGING/FINALIZING 文本）。
+            "content": str(msg.content)[:20000],
         }
         # AIMessage 的 tool_calls：agent 这轮决定调哪些工具
         tool_calls = getattr(msg, "tool_calls", None)
