@@ -338,13 +338,23 @@ def _extract_json_from_text(text: str) -> dict[str, Any] | None:
     mixed natural-language+JSON output, and nested structures).
 
     Strategy (tried in order):
-    1. Markdown code fences (```json ... ``` or ``` ... ```)
-    2. Brace-depth tracking — finds the FIRST complete JSON object by counting
+    1. 剥离 DeepSeek 工具调用标记（``<｜｜DSML｜｜...>``）——LLM 即便未绑工具
+       仍会吐该标记污染内容，剥离后才能拿到前面的 JSON。
+    2. Markdown code fences (```json ... ``` or ``` ... ```)
+    3. Brace-depth tracking — finds the FIRST complete JSON object by counting
        depth, respecting string escapes. Handles arbitrary nesting and braces
        inside string values.
-    3. Fallback: greedy scan for any balanced ``{...}`` candidate.
+    4. Fallback: greedy scan for any balanced ``{...}`` candidate.
     """
-    # ── 1. Markdown code fences ──────────────────────────────────
+    # ── 1. 剥离 DeepSeek 工具调用标记 ───────────────────────────
+    # 形如 <｜｜DSML｜｜tool_calls>...</｜｜DSML｜｜tool_calls> 或自闭合片段。
+    # 用非贪婪匹配整段移除，避免标记内的伪 JSON 干扰解析。
+    if "DSML" in text or "｜｜" in text:
+        text = re.sub(r"<｜｜DSML｜｜[^>]*>.*?(?:</｜｜DSML｜｜[^>]*>|$)", "", text, flags=re.DOTALL)
+        # 残余的自闭合/未配对标记片段也清掉
+        text = re.sub(r"<｜｜DSML｜｜[^>]*>", "", text)
+
+    # ── 2. Markdown code fences ──────────────────────────────────
     json_pattern = r"```(?:json)?\s*\n?(.*?)\n?```"
     matches = re.findall(json_pattern, text, re.DOTALL)
     for match in matches:
@@ -430,6 +440,373 @@ def _ensure_str_list(value: Any) -> list[str]:
     if value and isinstance(value, str):
         return [value]
     return []
+
+
+# ═════════════════════════════════════════════════════════════════════
+# S1: 预算兜底报告 + 收敛检测
+# ═════════════════════════════════════════════════════════════════════
+#
+# 失败模式（S0.4 发现）：预算耗尽时 agent 最后一条 AIMessage 是 tool_call
+# 请求而非 JSON 报告 → parse_diagnosis_report 解析失败 → fallback 出
+# primary_category=''/affected_file=None/fix_suggestion='' 的空字段报告，
+# 即使 agent 在历史消息里已给出正确 root_cause。同一 case 两次跑 0.97→0.04
+# 的方差根因即此。
+#
+# 两个修复：
+# 1. running_hypothesis：每轮从 AIMessage 提取 partial JSON 字段 + 最强
+#    root_cause 叙述 + 引用过的 file 路径，累积成「已得诊断线索」。
+# 2. budget 耗尽时：先做一次「无工具的强制最终 LLM 调用」带 hypothesis
+#    提示让 LLM 把线索落成 JSON；仍失败则从 hypothesis + 历史合成完整
+#    结构化报告（不再交空字段）。
+# 3. 收敛检测：每轮后检查「信号 + 代码位置 + 机制」三要素齐备 → 注入
+#    nudge 让 agent 早交付，减少 flail 到耗尽。
+
+
+# 工具分类（收敛检测用）
+_SIGNAL_TOOL_NAMES: frozenset[str] = frozenset(
+    {
+        "search_observability",
+        "query_loki_logs",
+        "query_tempo_trace",
+        "search_tempo_traces",
+        "inspect_frontend_error",
+        "parse_browser_errors",
+        "extract_stack_trace",
+    }
+)
+_CODE_LOC_TOOL_NAMES: frozenset[str] = frozenset(
+    {"code_search", "get_file_content", "source_map_resolve"}
+)
+_VERIFY_TOOL_NAMES: frozenset[str] = frozenset({"db_query", "analyze_trace"})
+
+# 文件路径正则（匹配 *.py / *.ts / *.tsx / *.js / *.jsx / *.go 等，含可选路径前缀）
+_FILE_PATH_RE = re.compile(
+    r"(?:[\w./-]+/)?[\w-]+\.(?:py|ts|tsx|js|jsx|go|java|rs|rb|php|cs|cpp|c|h)\b",
+    re.IGNORECASE,
+)
+
+# 因果语言（中英）——判断 agent 是否已给出机制解释
+_CAUSAL_RE = re.compile(
+    r"(?:因为|由于|导致|根因|根本原因|触发|引起|源自|在于|错在|漏了|缺少|缺失|"
+    r"root cause|because|caused by|due to|leads to|results? in|stem|missing|lacks?|"
+    r"forgets?|omits?|fails to|never|incorrectly|wrongly)",
+    re.IGNORECASE,
+)
+
+# 类别关键词→类别映射（合成报告时用）
+_CATEGORY_KEYWORDS: list[tuple[str, str]] = [
+    ("frontend", "frontend_crash"),
+    ("前端", "frontend_crash"),
+    ("crash", "frontend_crash"),
+    ("backend", "backend_error"),
+    ("后端", "backend_error"),
+    ("5xx", "backend_error"),
+    ("500", "backend_error"),
+    ("exception", "backend_error"),
+    ("performance", "performance"),
+    ("性能", "performance"),
+    ("slow", "performance"),
+    ("n+1", "performance"),
+    ("latency", "performance"),
+    ("logic", "logic"),
+    ("逻辑", "logic"),
+    ("sort", "logic"),
+    ("order", "logic"),
+    ("data", "data"),
+    ("数据", "data"),
+    ("null", "data"),
+    ("missing field", "data"),
+    ("config", "config"),
+    ("配置", "config"),
+    ("env", "config"),
+]
+
+
+def _infer_categories_from_text(text: str) -> list[str]:
+    """从文本关键词推断 bug 类别（合成报告时用，弱启发式）。"""
+    lowered = text.lower()
+    hits: list[str] = []
+    seen: set[str] = set()
+    for kw, cat in _CATEGORY_KEYWORDS:
+        if kw in lowered and cat not in seen:
+            hits.append(cat)
+            seen.add(cat)
+    return hits
+
+
+def _extract_file_paths(text: str, limit: int = 3) -> list[str]:
+    """从文本中提取文件路径（去重，最多 limit 个）。"""
+    found: list[str] = []
+    seen: set[str] = set()
+    for m in _FILE_PATH_RE.finditer(text):
+        path = m.group(0)
+        # 过滤显然不是源码路径的噪音（如 version.py 这种常见库名可保留）
+        if path not in seen:
+            seen.add(path)
+            found.append(path)
+            if len(found) >= limit:
+                break
+    return found
+
+
+def _update_running_hypothesis(
+    hypothesis: dict[str, Any],
+    ai_content: str,
+    tool_calls: list[dict[str, Any]] | None,
+) -> None:
+    """每轮 AIMessage 后更新 running hypothesis（原地修改）。
+
+    hypothesis 字段：
+        root_cause_text: 最强 root_cause 叙述（最长且含因果词的 AIMessage 内容片段）
+        primary_category / categories / affected_file / affected_line / fix_suggestion /
+        evidence_chain / confidence: 从 partial JSON 提取（last non-empty wins）
+        referenced_files: agent 在文本里引用过的文件路径（累积）
+        probed_files: agent 通过 code_search/get_file_content 实际查看的文件（累积）
+    """
+    if not ai_content:
+        return
+
+    # 1. 提取 partial JSON 字段（last non-empty wins）
+    data = _extract_json_from_text(ai_content)
+    if data:
+        for field in (
+            "primary_category",
+            "affected_file",
+            "fix_suggestion",
+            "root_cause",
+        ):
+            val = data.get(field)
+            if val:
+                hypothesis[field] = str(val)
+        for field in ("categories", "evidence_chain"):
+            val = data.get(field)
+            if isinstance(val, list) and val:
+                hypothesis[field] = [str(v) for v in val]
+        line_val = data.get("affected_line")
+        if isinstance(line_val, (int, float)) and line_val:
+            hypothesis["affected_line"] = int(line_val)
+        conf_val = data.get("confidence")
+        if isinstance(conf_val, (int, float)):
+            hypothesis["confidence"] = float(conf_val)
+
+    # 2. 更新最强 root_cause 叙述：选含因果词且较长的内容
+    if _CAUSAL_RE.search(ai_content):
+        prev_text = hypothesis.get("root_cause_text", "") or ""
+        if len(ai_content) > len(prev_text):
+            # 截一段（避免整段 reasoning 太长）；取含因果词附近的窗口
+            m = _CAUSAL_RE.search(ai_content)
+            start = max(0, (m.start() if m else 0) - 200)
+            end = min(len(ai_content), start + 800)
+            hypothesis["root_cause_text"] = ai_content[start:end].strip()
+
+    # 3. 累积引用过的文件路径
+    refs = _extract_file_paths(ai_content, limit=5)
+    if refs:
+        hypothesis.setdefault("referenced_files", [])
+        for r in refs:
+            if r not in hypothesis["referenced_files"]:
+                hypothesis["referenced_files"].append(r)
+
+    # 4. 记录 agent 实际探测过的文件（从 tool_calls）
+    if tool_calls:
+        hypothesis.setdefault("probed_files", [])
+        for tc in tool_calls:
+            tname = tc.get("name", "")
+            if tname in _CODE_LOC_TOOL_NAMES:
+                args = tc.get("args", {}) or {}
+                # code_search: query / file_path; get_file_content: file_path
+                fp = args.get("file_path") or args.get("path") or args.get("file")
+                if isinstance(fp, str) and fp and fp not in hypothesis["probed_files"]:
+                    hypothesis["probed_files"].append(fp)
+
+
+def _format_hypothesis_hint(hypothesis: dict[str, Any]) -> str:
+    """把 running hypothesis 格式化成给 LLM 的「已得线索」提示。"""
+    parts: list[str] = ["你已经完成了调查，以下是你在调查过程中得出的诊断线索："]
+
+    rc = hypothesis.get("root_cause_text") or hypothesis.get("root_cause") or ""
+    if rc:
+        parts.append(f"\n【根因叙述】\n{rc}")
+
+    pc = hypothesis.get("primary_category", "")
+    cats = hypothesis.get("categories", [])
+    if pc or cats:
+        parts.append(f"\n【类别】primary={pc or '(未定)'}  categories={cats or []}")
+
+    af = hypothesis.get("affected_file")
+    if af:
+        parts.append(f"\n【受影响文件】{af}")
+
+    fs = hypothesis.get("fix_suggestion", "")
+    if fs:
+        parts.append(f"\n【修复建议（草稿）】{fs}")
+
+    refs = hypothesis.get("referenced_files", []) or []
+    probed = hypothesis.get("probed_files", []) or []
+    if probed:
+        parts.append(f"\n【你实际查看过的文件】{probed}")
+    if refs:
+        parts.append(f"\n【你提及过的文件】{refs}")
+
+    ec = hypothesis.get("evidence_chain", [])
+    if ec:
+        parts.append(f"\n【证据链】{ec}")
+
+    conf = hypothesis.get("confidence")
+    if isinstance(conf, (int, float)):
+        parts.append(f"\n【你此前的置信度】{conf}")
+
+    parts.append(
+        "\n---\n"
+        "请基于以上线索，现在直接输出**完整 JSON 诊断报告**（不要再调用任何工具，"
+        "不要输出任何工具调用语法或 <｜｜DSML｜｜> 标记，不要输出 JSON 以外的任何文字）。"
+        "JSON 必须包含字段：primary_category, categories, symptom_tier, root_cause_tier, "
+        "root_cause, affected_file, affected_line, fix_suggestion, evidence_chain, confidence。"
+        "若证据不充分，confidence 取低值（0.3-0.5）并在 root_cause 中说明缺口。"
+        "如果线索里某个字段为空，请基于你的最佳判断补全（不要留空）。"
+        "输出格式：```json\\n{...}\\n```"
+    )
+    return "\n".join(parts)
+
+
+def _synthesize_fallback_report(
+    hypothesis: dict[str, Any],
+    messages: list[BaseMessage],
+    early_stopped: bool,
+) -> DiagnosisReport:
+    """从 running hypothesis + 消息历史合成完整结构化报告（兜底，不交空字段）。
+
+    仅在「强制最终 LLM 调用仍失败」时启用——尽力保证报告字段非空。
+    """
+    # root_cause：优先 hypothesis.root_cause_text，否则扫所有 AIMessage 找含因果词的最长段
+    rc_text = hypothesis.get("root_cause_text") or hypothesis.get("root_cause") or ""
+    if not rc_text:
+        best_snippet = ""
+        for msg in messages:
+            if not isinstance(msg, AIMessage):
+                continue
+            content = str(msg.content)
+            if _CAUSAL_RE.search(content) and len(content) > len(best_snippet):
+                m = _CAUSAL_RE.search(content)
+                start = max(0, (m.start() if m else 0) - 200)
+                end = min(len(content), start + 800)
+                best_snippet = content[start:end].strip()
+        rc_text = best_snippet or "（预算耗尽，未能确定根因）"
+
+    # affected_file：优先 root_cause_text 里出现的文件（最可能是真因文件），
+    # 否则 hypothesis.affected_file，否则 probed_files 里在 root_cause_text 出现过的，
+    # 否则 probed_files[-1]，否则 referenced_files[-1]
+    affected_file = hypothesis.get("affected_file")
+    if not affected_file:
+        rc_lower = rc_text.lower()
+        # 1) 先从 root_cause_text 提取文件路径（这些是 agent 在解释根因时引用的文件）
+        rc_files = _extract_file_paths(rc_text, limit=5)
+        if rc_files:
+            affected_file = rc_files[0]
+        else:
+            # 2) probed_files 里在 root_cause_text 出现过的
+            probed = hypothesis.get("probed_files", []) or []
+            matched = [p for p in probed if p.lower() in rc_lower]
+            if matched:
+                affected_file = matched[-1]
+            elif probed:
+                affected_file = probed[-1]
+            else:
+                refs = hypothesis.get("referenced_files", []) or []
+                if refs:
+                    affected_file = refs[-1]
+
+    # categories：优先 hypothesis，否则从 root_cause 文本推断
+    categories = hypothesis.get("categories", []) or []
+    primary_category = hypothesis.get("primary_category", "") or (categories[0] if categories else "")
+    if not categories:
+        inferred = _infer_categories_from_text(rc_text)
+        categories = inferred
+        if not primary_category and inferred:
+            primary_category = inferred[0]
+
+    # fix_suggestion：优先 hypothesis，否则从 root_cause 派生一句
+    fix_suggestion = hypothesis.get("fix_suggestion", "") or ""
+    if not fix_suggestion and affected_file:
+        fix_suggestion = (
+            f"建议在 {affected_file} 中检查与根因相关的逻辑：{rc_text[:200]}。"
+            "（预算耗尽，未及给出精确修复方案）"
+        )
+
+    evidence_chain = hypothesis.get("evidence_chain", []) or []
+    confidence = hypothesis.get("confidence")
+    if not isinstance(confidence, (int, float)):
+        # 兜底合成：置信度保守
+        confidence = 0.35 if affected_file else 0.2
+
+    affected_line = hypothesis.get("affected_line")
+
+    report = DiagnosisReport(
+        primary_category=primary_category or "",
+        categories=categories,
+        symptom_tier="backend",
+        root_cause_tier="backend",
+        root_cause=rc_text[:1500] if rc_text else "",
+        affected_file=affected_file,
+        affected_line=affected_line,
+        fix_suggestion=fix_suggestion,
+        evidence_chain=evidence_chain,
+        confidence=float(confidence),
+        early_stopped=True,
+        notes=(
+            "预算耗尽兜底合成报告（S1）：agent 在历史消息中已得诊断线索，"
+            "强制最终 LLM 调用未能产出完整 JSON，由 harness 从 running hypothesis 合成。"
+            if early_stopped
+            else "harness 兜底合成报告（agent 未交付完整 JSON）。"
+        ),
+    )
+    logger.warning(
+        "s1_fallback_report_synthesized",
+        primary_category=report.primary_category,
+        affected_file=report.affected_file,
+        confidence=report.confidence,
+        had_root_cause_text=bool(rc_text),
+        early_stopped=early_stopped,
+    )
+    return report
+
+
+def _report_is_incomplete(report: DiagnosisReport | None) -> bool:
+    """判断报告是否「字段不完整」——需要兜底。"""
+    if report is None:
+        return True
+    # 三个关键结构化字段全空 → 视为不完整（即使 root_cause 有内容也不算交付）
+    return (
+        not report.primary_category
+        and not report.affected_file
+        and not report.fix_suggestion
+    )
+
+
+def _detect_convergence(
+    has_signal: bool,
+    has_code_loc: bool,
+    latest_ai_content: str,
+    iteration: int,
+    min_iterations: int = 3,
+) -> bool:
+    """收敛检测：信号 + 代码位置 + 机制三要素齐备且已达最小轮数。
+
+    机制判定：最新 AIMessage 含因果词且引用了文件/函数/行号（说明 agent 已形成解释）。
+    """
+    if iteration + 1 < min_iterations:
+        return False
+    if not (has_signal and has_code_loc):
+        return False
+    if not latest_ai_content or not _CAUSAL_RE.search(latest_ai_content):
+        return False
+    # 必须引用了具体位置（文件路径或行号或函数）
+    has_loc_ref = bool(
+        _FILE_PATH_RE.search(latest_ai_content)
+        or re.search(r"(?:line|行|L)\s*\d+", latest_ai_content, re.IGNORECASE)
+        or re.search(r"\b\w+\(\)", latest_ai_content)
+    )
+    return has_loc_ref
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -624,6 +1001,17 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
         )
 
     # ── 手动 Agent 循环 ──────────────────────────────────────────
+    # S1: running_hypothesis 累积 agent 已得诊断线索（用于预算耗尽兜底）
+    running_hypothesis: dict[str, Any] = {}
+    # S1: 收敛检测状态
+    convergence_nudged = False
+    has_signal_evidence = bool(evidence.golden_signals) or bool(
+        evidence.metadata.get("frontend_error_spans")
+    )
+    has_code_loc = False
+    # S1: budget 耗尽标记（区分自然交付 vs 强制终止）
+    budget_exhausted = False
+
     try:
         finalizing_warned = False  # 只注入一次 FINALIZING 警告
         for iteration in range(MAX_TOOL_CALLS):
@@ -653,6 +1041,8 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                     finalizing_warned = True
                 else:
                     # 已警告过一轮，LLM 仍未输出 → 强制终止
+                    # S1: 不再 break 后丢空字段；标记 budget_exhausted，
+                    # 循环外做「强制最终 LLM 调用 + 兜底合成」
                     messages.append(
                         HumanMessage(
                             content="🛑 本轮必须给出结论。请基于已有信息，用 JSON 格式输出诊断报告。"
@@ -664,6 +1054,7 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                         iteration=iteration + 1,
                         usage_ratio=ctx_budget.usage_ratio,
                     )
+                    budget_exhausted = True
                     break
 
             response: AIMessage = await asyncio.wait_for(
@@ -677,6 +1068,13 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
 
             # 更新 Agent 推理 token 预算
             ctx_budget.add_agent_reasoning(str(response.content))
+
+            # S1: 更新 running hypothesis（每轮 AIMessage 后）
+            _update_running_hypothesis(
+                running_hypothesis,
+                str(response.content),
+                getattr(response, "tool_calls", None),
+            )
 
             # 无 tool_calls → Agent 认为诊断完成
             if not response.tool_calls:
@@ -741,6 +1139,12 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                 result_str = truncate_tool_result(tool_name, str(result))
                 # TODO(方向12): registry.run_post(tool_name, result_str)
 
+                # S1: 收敛检测——更新证据三要素标志
+                if tool_name in _SIGNAL_TOOL_NAMES and result_str and "工具执行错误" not in result_str:
+                    has_signal_evidence = True
+                if tool_name in _CODE_LOC_TOOL_NAMES and result_str and "工具执行错误" not in result_str:
+                    has_code_loc = True
+
                 # ── 显式记录工具调用为 Langfuse SPAN ──────────────
                 # 手动循环中 tool.ainvoke 未传 callback config，
                 # on_tool_start/on_tool_end 不会触发，因此显式记录。
@@ -776,6 +1180,30 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                     budget_agent_tokens=ctx_budget.agent_reasoning_tokens,
                 )
 
+            # S1: 收敛检测——本轮工具处理完后，若三要素齐备则注入 nudge（仅一次）
+            if (
+                not convergence_nudged
+                and _detect_convergence(
+                    has_signal_evidence,
+                    has_code_loc,
+                    str(response.content),
+                    iteration,
+                )
+            ):
+                messages.append(
+                    HumanMessage(
+                        content="✅ 证据已充分（错误信号 + 代码位置 + 机制解释均已获得）。"
+                        "请直接以 JSON 格式输出最终诊断报告，不要再调用工具。"
+                        "confidence 应反映证据强度。"
+                    )
+                )
+                convergence_nudged = True
+                logger.info(
+                    "s1_convergence_nudge_injected",
+                    iteration=iteration + 1,
+                    case_id=state.case_id,
+                )
+
         else:
             # 循环耗尽（MAX_TOOL_CALLS 次迭代用完）
             logger.warning(
@@ -783,6 +1211,7 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                 max_calls=MAX_TOOL_CALLS,
                 case_id=state.case_id,
             )
+            budget_exhausted = True
 
     except Exception as exc:
         logger.error("unified_agent_exception", error=str(exc), case_id=state.case_id)
@@ -790,6 +1219,48 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
             with contextlib.suppress(Exception):
                 langfuse_handler.end_trace(output_data={"error": str(exc)})
         return handle_agent_failure(state, exc)
+
+    # ── S1: 预算耗尽兜底——强制最终 LLM 调用 + 合成 ──────────────
+    # 当 budget 耗尽时，agent 最后一条 AIMessage 可能是 tool_call 请求而非
+    # JSON 报告。parse_diagnosis_report 会失败并 fallback 出空字段报告。
+    # 修复：先用 running hypothesis 做一次「无工具的强制最终 LLM 调用」，
+    # 让 LLM 把已得线索落成 JSON；仍失败则由 harness 合成完整报告。
+    forced_final_done = False
+    if budget_exhausted:
+        agent_result_check: dict[str, Any] = {"messages": messages}
+        pre_report = parse_diagnosis_report(agent_result_check)
+        if _report_is_incomplete(pre_report):
+            logger.info(
+                "s1_forced_final_llm_call",
+                case_id=state.case_id,
+                hypothesis_keys=list(running_hypothesis.keys()),
+                convergence_nudged=convergence_nudged,
+            )
+            try:
+                hint = _format_hypothesis_hint(running_hypothesis)
+                forced_messages = messages + [SystemMessage(content=hint)]
+                # 无工具绑定——LLM 只能输出文本/JSON，不能再 flail
+                forced_response: AIMessage = await asyncio.wait_for(
+                    llm.ainvoke(
+                        forced_messages,
+                        config=invoke_config if invoke_config else None,  # type: ignore[arg-type]
+                    ),
+                    timeout=MAX_TIME_SECONDS,
+                )
+                messages.append(forced_response)
+                ctx_budget.add_agent_reasoning(str(forced_response.content))
+                forced_final_done = True
+                logger.info(
+                    "s1_forced_final_response_received",
+                    case_id=state.case_id,
+                    response_len=len(str(forced_response.content)),
+                )
+            except Exception as ff_exc:
+                logger.warning(
+                    "s1_forced_final_call_failed",
+                    case_id=state.case_id,
+                    error=str(ff_exc),
+                )
 
     # ── 解析输出（复用现有函数）──────────────────────────────────
     # 将 messages 包装为 agent_result 格式，兼容现有解析函数
@@ -799,10 +1270,22 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
 
     # Update budget
     budget_state = update_budget(state.budget, agent_result)
-    early_stopped = is_budget_exceeded(budget_state)
+    early_stopped = is_budget_exceeded(budget_state) or budget_exhausted
 
-    # If report is None but we have findings, construct best-effort
-    if report is None:
+    # S1: 若报告字段仍不完整（含 forced_final 仍失败的情况）→ 合成兜底报告
+    if _report_is_incomplete(report):
+        logger.warning(
+            "s1_report_incomplete_synthesizing",
+            case_id=state.case_id,
+            budget_exhausted=budget_exhausted,
+            forced_final_done=forced_final_done,
+        )
+        report = _synthesize_fallback_report(
+            running_hypothesis,
+            messages,
+            early_stopped=early_stopped,
+        )
+    elif report is None:
         best_summary = findings[0].summary if findings else "诊断未完成"
         report = DiagnosisReport(
             primary_category="",
