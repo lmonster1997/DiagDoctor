@@ -486,10 +486,13 @@ _FILE_PATH_RE = re.compile(
 )
 
 # 因果语言（中英）——判断 agent 是否已给出机制解释
+# 涵盖：显式因果词 + 诊断结论措辞 + 错误描述措辞
 _CAUSAL_RE = re.compile(
     r"(?:因为|由于|导致|根因|根本原因|触发|引起|源自|在于|错在|漏了|缺少|缺失|"
+    r"是因为|问题出在|就会报|找不到|不存在|"
     r"root cause|because|caused by|due to|leads to|results? in|stem|missing|lacks?|"
-    r"forgets?|omits?|fails to|never|incorrectly|wrongly)",
+    r"forgets?|omits?|fails to|never|incorrectly|wrongly|"
+    r"is undefined|is null|cannot read|TypeError)",
     re.IGNORECASE,
 )
 
@@ -678,20 +681,35 @@ def _synthesize_fallback_report(
 
     仅在「强制最终 LLM 调用仍失败」时启用——尽力保证报告字段非空。
     """
-    # root_cause：优先 hypothesis.root_cause_text，否则扫所有 AIMessage 找含因果词的最长段
+    # root_cause：优先 hypothesis.root_cause_text，否则扫所有 AIMessage 找含因果词的最长段；
+    # 若都没有因果词，退而取最长的 substantive AIMessage（>80 字符）——避免空 root_cause
+    # 导致 judge 打 0 分。LLM 的因果叙述措辞多样（"就会报这个错"/"是因为"/"问题出在"），
+    # _CAUSAL_RE 不一定全覆盖，所以有这个兜底。
     rc_text = hypothesis.get("root_cause_text") or hypothesis.get("root_cause") or ""
     if not rc_text:
         best_snippet = ""
+        best_fallback = ""
         for msg in messages:
             if not isinstance(msg, AIMessage):
                 continue
             content = str(msg.content)
+            if not content or len(content) < 30:
+                continue
+            # 跟踪最长的 substantive 段（兜底用）
+            if len(content) > len(best_fallback):
+                best_fallback = content
+            # 优先找含因果词的段
             if _CAUSAL_RE.search(content) and len(content) > len(best_snippet):
                 m = _CAUSAL_RE.search(content)
                 start = max(0, (m.start() if m else 0) - 200)
                 end = min(len(content), start + 800)
                 best_snippet = content[start:end].strip()
-        rc_text = best_snippet or "（预算耗尽，未能确定根因）"
+        rc_text = best_snippet or (best_fallback[:800] if best_fallback else "")
+        if rc_text and not best_snippet:
+            # 来自兜底段，截取含文件/函数引用附近的内容
+            rc_text = rc_text.strip()
+    if not rc_text:
+        rc_text = "（预算耗尽，未能确定根因）"
 
     # affected_file：优先 root_cause_text 里出现的文件（最可能是真因文件），
     # 否则 hypothesis.affected_file，否则 probed_files 里在 root_cause_text 出现过的，
@@ -807,6 +825,43 @@ def _detect_convergence(
         or re.search(r"\b\w+\(\)", latest_ai_content)
     )
     return has_loc_ref
+
+
+def _detect_flailing(
+    iteration_tool_categories: list[set[str]],
+    probed_files_counts: dict[str, int],
+    iteration: int,
+    consecutive_code_loc_only: int = 6,
+    min_iterations: int = 6,
+    reprobe_threshold: int = 3,
+) -> bool:
+    """flailing 检测：agent 在兜圈子，没在推进诊断。
+
+    判据（任一满足且 iteration >= min_iterations）：
+    1. 连续 ``consecutive_code_loc_only`` 轮**只**用 code-loc 工具（无 signal/verify）——
+       agent 在反复读代码却没取新信号或验证假设。阈值 6 区分合法深挖（FE-020 确认
+       tags 缺失需 5 轮 code-loc / LOGIC-020 连 4 轮后接 verify）与真 flailing
+       （BE-020 unlucky 连 10 轮）。
+    2. 某个文件被探测（code_search/get_file_content）>= ``reprobe_threshold`` 次——
+       agent 在反复读同一个文件。
+
+    与收敛检测互补：收敛检测在「证据齐备」时让 agent 早交付；
+    flailing 检测在「agent 卡住」时强制它交付 best-guess。
+    """
+    if iteration + 1 < min_iterations:
+        return False
+
+    # 判据 1：连续 N 轮只用 code-loc 工具
+    if len(iteration_tool_categories) >= consecutive_code_loc_only:
+        recent = iteration_tool_categories[-consecutive_code_loc_only:]
+        if all(cats == {"code_loc"} for cats in recent):
+            return True
+
+    # 判据 2：某个文件被反复探测
+    if any(count >= reprobe_threshold for count in probed_files_counts.values()):
+        return True
+
+    return False
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -1012,9 +1067,23 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
     # S1: budget 耗尽标记（区分自然交付 vs 强制终止）
     budget_exhausted = False
 
+    # S1.5: flailing 检测状态
+    iteration_tool_categories: list[set[str]] = []  # 每轮用过的工具类别集合
+    probed_files_counts: dict[str, int] = {}  # 文件路径 -> 被探测次数
+    flailing_warned = False  # 是否已注入过 flailing nudge
+
+    # S1.5: 启动总诊断计时器 + 配置 iteration/tool_calls 上限
+    ctx_budget.start_timer()
+    ctx_budget.max_iterations = MAX_TOOL_CALLS
+    ctx_budget.max_tool_calls = 18  # 辅助计量：12 迭代里塞 18+ 工具调用 → FINALIZING
+    ctx_budget.max_time_seconds = 180.0  # 总诊断 3 分钟帽
+
     try:
         finalizing_warned = False  # 只注入一次 FINALIZING 警告
         for iteration in range(MAX_TOOL_CALLS):
+            # S1.5: 推进迭代计数（phase 据此判定）
+            ctx_budget.tick_iteration()
+
             # ── 上下文压缩（方向4）───────────────────────────────
             messages, compacted = maybe_compact_context(messages, ctx_budget)
 
@@ -1037,6 +1106,8 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                         "budget_finalizing_warning_injected",
                         iteration=iteration + 1,
                         usage_ratio=ctx_budget.usage_ratio,
+                        tool_calls=ctx_budget.tool_calls,
+                        elapsed_seconds=round(ctx_budget.elapsed_seconds, 1),
                     )
                     finalizing_warned = True
                 else:
@@ -1053,6 +1124,8 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                         "budget_finalizing_force_stop",
                         iteration=iteration + 1,
                         usage_ratio=ctx_budget.usage_ratio,
+                        tool_calls=ctx_budget.tool_calls,
+                        elapsed_seconds=round(ctx_budget.elapsed_seconds, 1),
                     )
                     budget_exhausted = True
                     break
@@ -1086,6 +1159,7 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                 break
 
             # 处理本轮所有 tool_calls
+            iter_cats: set[str] = set()  # S1.5: 本轮用过的工具类别
             for tc in response.tool_calls:
                 tool_name = tc["name"]
                 tool_args = tc["args"]
@@ -1142,8 +1216,18 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                 # S1: 收敛检测——更新证据三要素标志
                 if tool_name in _SIGNAL_TOOL_NAMES and result_str and "工具执行错误" not in result_str:
                     has_signal_evidence = True
+                    iter_cats.add("signal")
                 if tool_name in _CODE_LOC_TOOL_NAMES and result_str and "工具执行错误" not in result_str:
                     has_code_loc = True
+                    iter_cats.add("code_loc")
+                    # S1.5: 记录被探测的文件路径（用于 flailing reprobe 检测）
+                    fp = tool_args.get("file_path") or tool_args.get("path") or tool_args.get("file")
+                    if isinstance(fp, str) and fp:
+                        probed_files_counts[fp] = probed_files_counts.get(fp, 0) + 1
+                if tool_name in _VERIFY_TOOL_NAMES and result_str and "工具执行错误" not in result_str:
+                    iter_cats.add("verify")
+                # S1.5: 计入工具调用预算（辅助计量，防 12 迭代塞 30 调用）
+                ctx_budget.add_tool_call(1)
 
                 # ── 显式记录工具调用为 Langfuse SPAN ──────────────
                 # 手动循环中 tool.ainvoke 未传 callback config，
@@ -1181,6 +1265,7 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                 )
 
             # S1: 收敛检测——本轮工具处理完后，若三要素齐备则注入 nudge（仅一次）
+            iteration_tool_categories.append(iter_cats)
             if (
                 not convergence_nudged
                 and _detect_convergence(
@@ -1204,12 +1289,42 @@ async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
                     case_id=state.case_id,
                 )
 
+            # S1.5: flailing 检测——agent 在兜圈子时强制它交付 best-guess
+            # 与收敛检测互补：收敛在「证据齐备」时早交付；flailing 在「卡住」时强制交付。
+            if not flailing_warned and _detect_flailing(
+                iteration_tool_categories,
+                probed_files_counts,
+                iteration,
+            ):
+                messages.append(
+                    HumanMessage(
+                        content="⚠️ 你似乎在反复检索代码却没有推进诊断（连续多轮只读代码未取新信号，"
+                        "或反复读同一个文件）。如果证据已足够支撑诊断，请以 JSON 格式输出 best-guess "
+                        "诊断报告；证据不充分时 confidence 取低值（0.3-0.5）并在 notes 说明缺口。"
+                    )
+                )
+                flailing_warned = True
+                logger.warning(
+                    "s1_5_flailing_nudge_injected",
+                    iteration=iteration + 1,
+                    case_id=state.case_id,
+                    iter_cats=iteration_tool_categories[-3:],
+                    probed_files_counts={
+                        k: v for k, v in probed_files_counts.items() if v >= 2
+                    },
+                )
+            # 注：flailing 只软 nudge，不 force-stop——force-stop 会误杀合法的多文件
+            # 深挖（如 FE-020 确认 tags 字段缺失需读 5+ 个文件）。最终交付由 iteration-based
+            # FINALIZING（iter 10+）+ S1 兜底保证，flailing nudge 只是提前提醒。
+
         else:
             # 循环耗尽（MAX_TOOL_CALLS 次迭代用完）
             logger.warning(
                 "max_tool_calls_reached",
                 max_calls=MAX_TOOL_CALLS,
                 case_id=state.case_id,
+                tool_calls=ctx_budget.tool_calls,
+                elapsed_seconds=round(ctx_budget.elapsed_seconds, 1),
             )
             budget_exhausted = True
 

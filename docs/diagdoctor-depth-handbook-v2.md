@@ -40,6 +40,7 @@ V3 基线架构**已完整实现**，本手册不重复 V3 重构工作，而是
 | 评测维度耦合 | 无法定位退化点 | 方向 5：Langfuse Scoring 解耦 |
 | 评测器本身有 bug | ablation 结论被污染 | **S0 已修**：`process_quality`/`category_accuracy`/`confidence_calibration` 三个 scorer 校准（gold 泄露、按工具名去重、calibration 代理太弱）；详见 S0.1 |
 | 预算耗尽丢结论 / 全局高方差 | 同一 case 两次跑 0.97→0.04，6→9 灾难 | **S1 已实现**：running hypothesis 累积 + 强制最终 LLM 调用 + 兜底合成完整结构化报告 + 收敛检测 nudge；详见 S1 实现笔记 |
+| budget 控制机制与真实约束脱节 / 无 flailing 检测 | token phase 是死代码（15-case 规模 token 永不到 80%）、12 iter 塞 28 工具调用、agent 换说法重搜抓不住 | **S1.5 已实现**：ContextBudget.phase 改为 token+iteration+tool_calls+time 四维度取最严（iter 7 CONVERGING / iter 10 FINALIZING 真正 fire）+ flailing 软 nudge（连续 6 轮 code-loc-only 或文件 reprobe≥3）+ 总时间帽 180s；详见 S1.5 实现笔记 |
 | ~~System Prompt 静态化~~ | ~~不随诊断进展调整策略~~ → **暂缓**（复盘：显式策略选择对强模型是负优化，优化了非瓶颈环节；待 ablation 数据支持后再评估） | ~~方向 6~~ |
 | 无诊断计划 | Agent 容易漂移 | 方向 7：TodoWrite |
 | 无 Hook 扩展点 | 工具调用不可拦截 | 方向 12 |
@@ -125,7 +126,8 @@ V3 基线架构**已完整实现**，本手册不重复 V3 重构工作，而是
 |----|------|------|---------|------|
 | **S0** | **15-case 全量基线发现跑 + Scorer 修复** | 评测 + 评测器修复 | `--split all` 一次 | ✅ 完成 |
 | **S1** | **修 smokeless 灾难 + 全局方差：预算耗尽强制落结构化报告** | harness 修复 | 4-case smoke + 双跑验证方差收窄 | ✅ 完成（smoke mean 0.865） |
-| **S2** | **T0 启用 Think Max** | model 变更 | 15-case ablation | ⬜ 待 S1 smoke 干净 |
+| **S1.5** | **budget 重构：iteration-based phase + flailing 检测 + 总时间帽** | harness 修复 | 4-case smoke | ✅ 完成（smoke mean 0.84，FE-020 回归修复） |
+| **S2** | **T0 启用 Think Max** | model 变更 | 15-case ablation | ⬜ 待 S1.5 smoke 干净 |
 | **S3** | **T1 方法论 prompt 重写**（视 S1/S2 结果决定是否需要） | prompt 变更 | 15-case ablation | ⬜ 待定 |
 
 > 原则：harness 修复只需 smoke（5min），model/prompt 变更必须 15-case ablation（10-15min）。先把只需 smoke 的修完，把 baseline 抬干净，再跑需要 ablation 的决策项，避免在「被已知 bug 污染的 baseline」上做 ablation。
@@ -311,11 +313,62 @@ v1→v2 的两个改进立竿见影：
 
 ---
 
+### S1.5：budget 重构——iteration-based phase + flailing 检测 + 总时间帽（harness 修复，smoke 验证）
+
+> S1 治的是**症状**（耗尽后兜底交付），S1.5 治的是**根因**（为什么会耗尽）。复盘 S0.4 的方差发现：BE-020 unlucky run 在 12 次迭代里 flail 28 次工具调用直到耗尽——这不是「没兜底」，是 **budget 设计本身有结构性缺陷**：
+>
+> 1. **token-based phase 是死代码**：15-case 规模 token 永远到不了 80%（BE-020 unlucky 跑完 12 iter 仅用 16% 上下文窗口），`ContextPhase.FINALIZING` 从不 fire。phase 策略文本（CONVERGING「收紧探索」/FINALIZING「强制出报告」）从来没注入过。
+> 2. **迭代数是糟糕的 budget 单位**：12 次迭代能塞 28 次工具调用（每次迭代 2-3 个），`budget.tool_calls` 到 28 但循环只看迭代数。两套计量互不看对方。
+> 3. **没有 flailing 检测**：agent 用不同 args 反复 `code_search` 同一意图，dedup 只抓完全相同的，抓不住「换说法重搜」。
+> 4. **没有总时间帽**：`asyncio.wait_for(300s)` 是单次 LLM 调用超时，不是整次诊断。12 iter 理论上能跑 60 分钟。
+
+**三个修复**（`doctor/src/graph/context_engine.py` + `doctor/src/graph/nodes/unified_agent.py`）：
+
+1. **ContextBudget.phase 改为四维度取最严**（token / iteration / tool_calls / time）：
+   - 加 `iteration` / `max_iterations` / `tool_calls` / `max_tool_calls` / `started_at_monotonic` / `max_time_seconds` 字段。
+   - `_iteration_phase` 按 `iteration/max_iterations` 比例：INITIAL 0-24% / INVESTIGATING 25-57% / CONVERGING 58-82% / FINALIZING 83-100%（即 iter 0-2 / 3-6 / 7-9 / 10-12）。
+   - `phase` 属性取 token/iteration/tool_calls/time 四个维度的最严级别。对 15-case 规模，iteration 维度是真实触发 phase 的主路径——CONVERGING 在 iter 7 fire、FINALIZING 在 iter 10 fire，让策略文本真正在 agent flail 之前注入。
+   - 加 `start_timer()` / `tick_iteration()` / `add_tool_call()` 方法。
+
+2. **flailing 检测**（`_detect_flailing`，每轮工具处理后调，仅注入一次软 nudge）：
+   - 判据 1：连续 6 轮**只**用 code-loc 工具（无 signal/verify）——阈值 6 区分合法深挖（FE-020 确认 tags 缺失需 5 轮 code-loc / LOGIC-020 连 4 轮后接 verify）与真 flailing（BE-020 unlucky 连 10 轮）。
+   - 判据 2：某文件被探测 ≥3 次——agent 反复读同一个文件。
+   - 触发 → 注入软 nudge「你似乎在反复检索代码…如果证据已足够，请输出 best-guess 报告」。
+   - **关键：只 nudge 不 force-stop**。初版有 force-stop（已警告一轮仍调工具就强制终止），但 FE-020 合法的 5 连 code-loc 被误判 → force-stop 在 iter 7 正好掐断 agent 形成根因 → synthesis 拿到空 root_cause_text → 报告崩成 0.05。去掉 force-stop 后，最终交付由 iteration-based FINALIZING（iter 10+）+ S1 兜底保证，flailing nudge 只是提前提醒。
+
+3. **synthesis root_cause_text 兜底加宽** + `_CAUSAL_RE` 扩词：
+   - 旧版 `_CAUSAL_RE` 抓不住「就会报这个错」「问题出在」「是因为」等中文诊断措辞 → running_hypothesis 没捕获 root_cause_text → synthesis 报告 root_cause 为空 → judge 打 0 分。
+   - 加宽正则：补 `是因为|问题出在|就会报|找不到|不存在|is undefined|is null|cannot read|TypeError`。
+   - synthesis 兜底再加一层：无因果词匹配时，取最长的 substantive AIMessage（>80 字符）作 root_cause_text，避免空 root_cause。
+
+**两轮 smoke 验证**：
+
+| case | unlucky baseline | S1 v2 | S1.5a（有 force-stop bug） | S1.5b（修复后） |
+|---|---|---|---|---|
+| BE-020 | 0.04 | 0.96 | 0.94 | 0.63（这次走 flail 路径，synthesis 兜底，root/file/cat 全对 fix 弱） |
+| FE-020 | 0.10 | 0.71 | **0.05**（回归！） | **0.88**（回归修复，clean 交付 conf=0.95） |
+| LOGIC-020 | 0.96 | 0.96 | 0.97 | 0.97 |
+| PERF-020 | 0.86 | 0.83 | 0.87 | 0.87 |
+| **mean** | ~0.49 | 0.865 | 0.71 | **0.84** |
+
+S1.5a 的 FE-020=0.05 暴露了 flailing force-stop 的误杀——这是 S1.5 开发过程中的关键教训：**harness 的「硬终止」机制必须保守，否则会误杀合法的深挖路径**。S1.5b 去掉 force-stop 改为软 nudge 后，FE-020 不仅修复回归还超过 S1 v2（0.88 vs 0.71）——软 nudge 让它在 iter 10+ 自然交付了完整报告。
+
+**S1.5 验收结论**：
+- ✅ FE-020 回归修复（0.05→0.88）且超过 S1 v2——软 nudge + 阈值 6 不误杀合法深挖。
+- ✅ LOGIC/PERF 稳态不退化（0.97/0.87）。
+- ✅ 无崩盘 case（最低 BE-020=0.63，root/file/cat 全对）——iteration-based FINALIZING 在 iter 10-11 force-stop + S1 兜底，比纯 S1 的 iter 12 更早收束。
+- ⚠️ BE-020 这次走 flail 路径（0.63）vs S1 v2 走 clean 路径（0.96）——run-to-run variance 仍存在，需 15-case 双跑严格验证方差收窄。
+- ✅ budget 设计缺陷修复：CONVERGING/FINALIZING phase 现在真正 fire（iter 7/10），不再是死代码；总时间帽 180s + tool_calls 辅助计量 18 防失控。
+
+> 面试故事再升级：S1.5 把「为什么会耗尽」的根因诊断清楚——不是「harness 没兜底」这么简单，而是 **budget 控制机制（token phase）与真实约束（迭代数）脱节 + 无 flailing 检测**。修法是让 phase 绑到迭代比例真正 fire + 加 flailing 软 nudge。过程中还踩了一个坑：flailing 的硬终止误杀了 FE-020 的合法深挖（0.05），改成软 nudge 后反而更好（0.88）——体现「harness 硬机制要保守」的实战教训。
+
+---
+
 ### S2：T0 启用 Think Max 模式（model 变更，ablation 验证）
 
-> S1 修完、smoke 干净后做。修改 `llm_factory.py`，在 unified_agent 的 LLM 调用处启用 `reasoning_effort="max"`。judge 保持 `deepseek-v4-pro`（已在 .env 配置）。
+> S1.5 修完、smoke 干净后做。修改 `llm_factory.py`，在 unified_agent 的 LLM 调用处启用 `reasoning_effort="max"`。judge 保持 `deepseek-v4-pro`（已在 .env 配置）。
 >
-> **必须 15-case ablation，且因 S0.4 发现的 run-to-run 方差，锚点需双跑取均值**：跑两次 15-case baseline（S1 修完后）取均值 vs 两次 Think Max experiment 取均值，按 D14 的 5% 阈值判保留/回滚。单次跑的 ±0.19 方差会盖过 5% 提升判定。若 S1 修完后方差已收窄到 <0.05，可降为单跑。
+> **必须 15-case ablation，且因 S0.4 发现的 run-to-run 方差，锚点需双跑取均值**：跑两次 15-case baseline（S1.5 修完后）取均值 vs 两次 Think Max experiment 取均值，按 D14 的 5% 阈值判保留/回滚。单次跑的 ±0.19 方差会盖过 5% 提升判定。若 S1.5 修完后方差已收窄到 <0.05，可降为单跑。
 
 **验收**：
 - Langfuse trace 中可见 `reasoning_effort=max` 与 thinking token 计数

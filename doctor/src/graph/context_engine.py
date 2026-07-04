@@ -79,6 +79,10 @@ class ContextPhase(StrEnum):
 class ContextBudget:
     """追踪 system_prompt / evidence / tool_result / agent_reasoning 的 token 使用。
 
+    S1.5：phase 现在同时考虑 token / iteration / tool_calls / time 四个维度，
+    取最严级别。对 15-case 规模，token 几乎到不了 80%，但 iteration 10-12
+    会触发 FINALIZING——让 phase 策略真正在 agent flail 之前 fire。
+
     属性:
         model_context_window: 模型上下文窗口大小（token 数）
         reserved_for_output: 保留给输出的 token 数
@@ -87,7 +91,7 @@ class ContextBudget:
 
     计算属性:
         usage_ratio: 已用 token / 可用 token
-        phase: 当前上下文消耗阶段
+        phase: 当前上下文消耗阶段（四维度取最严）
     """
 
     model_context_window: int = 128_000
@@ -100,6 +104,19 @@ class ContextBudget:
     evidence_tokens: int = 0
     tool_result_tokens: int = 0
     agent_reasoning_tokens: int = 0
+
+    # ── S1.5：iteration / tool_calls / time 维度 ──
+    iteration: int = 0
+    max_iterations: int = 12
+    tool_calls: int = 0
+    max_tool_calls: int = 18  # 辅助计量：tool_calls 到此也 FINALIZING
+    started_at_monotonic: float = 0.0  # time.monotonic() 起点
+    max_time_seconds: float = 180.0  # 总诊断时间帽
+
+    # iteration-based phase 阈值（按 max_iterations 比例）
+    iter_investigating_ratio: float = 0.25  # ≥25% (iter 3/12)
+    iter_converging_ratio: float = 0.58  # ≥58% (iter 7/12)
+    iter_finalizing_ratio: float = 0.83  # ≥83% (iter 10/12)
 
     @property
     def effective_window(self) -> int:
@@ -124,8 +141,17 @@ class ContextBudget:
         return min(self.total_used / self.effective_window, 1.0)
 
     @property
-    def phase(self) -> ContextPhase:
-        """根据 usage_ratio 自动判定当前阶段。"""
+    def elapsed_seconds(self) -> float:
+        """已用诊断时间（秒）。"""
+        if not self.started_at_monotonic:
+            return 0.0
+        import time as _time
+
+        return _time.monotonic() - self.started_at_monotonic
+
+    @property
+    def _token_phase(self) -> ContextPhase:
+        """token 维度的 phase（原逻辑）。"""
         if self.usage_ratio >= self.critical_threshold:
             return ContextPhase.FINALIZING
         if self.usage_ratio >= self.warning_threshold:
@@ -135,9 +161,65 @@ class ContextBudget:
         return ContextPhase.INITIAL
 
     @property
+    def _iteration_phase(self) -> ContextPhase:
+        """iteration 维度的 phase（S1.5 新增，按 max_iterations 比例）。
+
+        对 15-case 规模这是真实触发 phase 的主路径——token 几乎到不了 80%，
+        但 iteration 10-12 会触发 FINALIZING，让收敛策略在 flail 之前 fire。
+        """
+        if self.max_iterations <= 0:
+            return ContextPhase.INITIAL
+        ratio = self.iteration / self.max_iterations
+        if ratio >= self.iter_finalizing_ratio:
+            return ContextPhase.FINALIZING
+        if ratio >= self.iter_converging_ratio:
+            return ContextPhase.CONVERGING
+        if ratio >= self.iter_investigating_ratio:
+            return ContextPhase.INVESTIGATING
+        return ContextPhase.INITIAL
+
+    @property
+    def phase(self) -> ContextPhase:
+        """综合 phase：token / iteration / tool_calls / time 四维度取最严。
+
+        严度排序：INITIAL < INVESTIGATING < CONVERGING < FINALIZING。
+        任一维度触达 FINALIZING 即 FINALIZING；否则取各维度的最严。
+        """
+        candidates = [self._token_phase, self._iteration_phase]
+        # tool_calls 维度：超 max_tool_calls 直接 FINALIZING
+        if self.tool_calls >= self.max_tool_calls:
+            candidates.append(ContextPhase.FINALIZING)
+        # time 维度：超 max_time_seconds 直接 FINALIZING
+        if self.max_time_seconds > 0 and self.elapsed_seconds >= self.max_time_seconds:
+            candidates.append(ContextPhase.FINALIZING)
+        severity = {
+            ContextPhase.INITIAL: 0,
+            ContextPhase.INVESTIGATING: 1,
+            ContextPhase.CONVERGING: 2,
+            ContextPhase.FINALIZING: 3,
+        }
+        return max(candidates, key=lambda p: severity[p])
+
+    @property
     def remaining_tokens(self) -> int:
         """剩余可用 token 数。"""
         return max(0, self.effective_window - self.total_used)
+
+    def start_timer(self) -> None:
+        """启动总诊断计时器（在 agent 循环开始时调一次）。"""
+        import time as _time
+
+        self.started_at_monotonic = _time.monotonic()
+
+    def tick_iteration(self) -> int:
+        """进入下一轮迭代（在循环体开头调）。返回当前 iteration。"""
+        self.iteration += 1
+        return self.iteration
+
+    def add_tool_call(self, count: int = 1) -> int:
+        """记录工具调用数。返回当前累计。"""
+        self.tool_calls += count
+        return self.tool_calls
 
     def add_system_prompt(self, text: str) -> int:
         """记录 system_prompt token 使用。返回新增 token 数。"""
@@ -185,6 +267,11 @@ class ContextBudget:
             "remaining_tokens": self.remaining_tokens,
             "is_warning": self.is_warning(),
             "is_critical": self.is_critical(),
+            "iteration": self.iteration,
+            "max_iterations": self.max_iterations,
+            "tool_calls": self.tool_calls,
+            "max_tool_calls": self.max_tool_calls,
+            "elapsed_seconds": round(self.elapsed_seconds, 1),
         }
 
 
