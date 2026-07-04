@@ -38,11 +38,12 @@ V3 基线架构**已完整实现**，本手册不重复 V3 重构工作，而是
 | search_observability 无异常检测 | 只给数据不给洞察 | 方向 2 |
 | ~~Ingest 无置信度评分~~ | ~~Agent 无法判断信号可靠性~~ → **已移除**（设计决策：置信度判断应交由 LLM） | ~~方向 1~~ |
 | 评测维度耦合 | 无法定位退化点 | 方向 5：Langfuse Scoring 解耦 |
+| 评测器本身有 bug | ablation 结论被污染 | **S0 已修**：`process_quality`/`category_accuracy`/`confidence_calibration` 三个 scorer 校准（gold 泄露、按工具名去重、calibration 代理太弱）；详见 S0.1 |
 | ~~System Prompt 静态化~~ | ~~不随诊断进展调整策略~~ → **暂缓**（复盘：显式策略选择对强模型是负优化，优化了非瓶颈环节；待 ablation 数据支持后再评估） | ~~方向 6~~ |
 | 无诊断计划 | Agent 容易漂移 | 方向 7：TodoWrite |
 | 无 Hook 扩展点 | 工具调用不可拦截 | 方向 12 |
 | 无自省机制 | 幻觉和误诊无纠正 | 方向 10 |
-| Bug 覆盖面有限 | 评测不充分 | 方向 8 |
+| ~~Bug 覆盖面有限~~ | ~~评测不充分~~ → **决策：不扩展**（15 case 跨 8 类已足够简历项目，见附录 E） | ~~方向 8~~ |
 | 无 Subagent 隔离 | 复杂 case context 膨胀 | 方向 13 |
 | Doctor LLM 调用链不可见 | token/cost/工具调用全盲 | **Doctor 可观测：Langfuse Tracing** |
 
@@ -111,61 +112,163 @@ V3 基线架构**已完整实现**，本手册不重复 V3 重构工作，而是
 
 ---
 
-## 🔴 优先攻克清单（V4-Flash 弱点对症）
+## 🔴 当前执行路线（按时间顺序，非按对症程度）
 
-> **背景**：当前 `LLM_MODEL=deepseek-v4-flash`。V4-Flash 是前沿档编码模型（SWE-bench 79%、LiveCodeBench 91.6%，非小模型），但官方与第三方评测一致指出其**在「长程 agentic 多步工具调用」上明显落后 V4-Pro**——Terminal-Bench 2.0 落后 11 分（56.9 vs 67.9）。DiagDoctor 的 unified_agent 恰好就是这类工作负载，因此优化重点应对症 Flash 的长程弱点，而非已删除的 D16 策略选择（策略选择不治此病）。
-
-### 优先项（按对症程度排序）
-
-| 序 | 任务 | 对症点 | 类型 | 对应卡片 |
-|----|------|--------|------|---------|
-| P0-a | **启用 Think Max 模式** | Flash-Max 推理质量逼近 Pro，成本仍低 12× | 新增（配置层） | T0（见下） |
-| P0-b | **code_search ripgrep 升级** | 工具能否找到证据 = 最大胜负手（~60%） | 已有 | D5 |
-| P0-c | **上下文工程**：预算追踪 + 工具结果截断 + 历史降级 | Flash 跑越长越掉链子，context 干净是续命药 | 已有 | D6-D7 |
-| P0-d | **方法论 prompt 重写**（假设日志 + pivot 纪律 + 停止条件） | 直接治「死磕错假设、不 pivot」 | 新增（替代已删 D16） | T1（见下） |
-| P0-e | **自省机制提前**（方向 10，原 Phase 3） | 同上，治幻觉与误诊不纠正 | 提前 | 见方向 10 |
-| P0-f | **search_observability 异常检测 + 洞察摘要** | 工具给洞察而非裸数据，减少 Agent 推理负担 | 已有 | D10-D11 |
-
-> 注：P0-b/c/f 已在 Phase 1（P0 地基），本清单仅是把它们与 V4-Flash 弱点显式挂钩，确认优先级。P0-a/d/e 是基于本次复盘新增或提前的。
-
-### T0：启用 Think Max 模式（配置层，最快见效）
-
-> 修改 `llm_factory.py`，在 unified_agent 的 LLM 调用处启用 `reasoning_effort="max"`：
+> **背景**：当前 `LLM_MODEL=deepseek-v4-flash`。V4-Flash 是前沿档编码模型（SWE-bench 79%、LiveCodeBench 91.6%，非小模型），但官方与第三方评测一致指出其**在「长程 agentic 多步工具调用」上明显落后 V4-Pro**——Terminal-Bench 2.0 落后 11 分（56.9 vs 67.9）。DiagDoctor 的 unified_agent 恰好就是这类工作负载。
 >
-> ```python
-> # agent 循环用 Flash + Think Max（推理质量逼近 Pro，成本仍低）
-> # judge 保持 deepseek-v4-pro（已在 .env 配置）
-> ```
+> **本项目的定位**：简历/面试项目，不是生产系统。ROI 排序永远是：**能讲清楚的故事 > 干净的对比数据 > case 数量**。15 个 case 跨 8 类已足够（见「评测节奏」与「附录 E：Case 规模决策」），**不再扩展**。
+
+### 执行顺序
+
+| 序 | 任务 | 类型 | 评测方式 | 状态 |
+|----|------|------|---------|------|
+| **S0** | **15-case 全量基线发现跑 + Scorer 修复** | 评测 + 评测器修复 | `--split all` 一次 | ✅ 完成 |
+| **S1** | **修 smokeless 灾难：预算耗尽强制落结构化报告** | harness 修复 | 4-case smoke | ⬜ 待动工 |
+| **S2** | **T0 启用 Think Max** | model 变更 | 15-case ablation | ⬜ 待 S1 smoke 干净 |
+| **S3** | **T1 方法论 prompt 重写**（视 S1/S2 结果决定是否需要） | prompt 变更 | 15-case ablation | ⬜ 待定 |
+
+> 原则：harness 修复只需 smoke（5min），model/prompt 变更必须 15-case ablation（10-15min）。先把只需 smoke 的修完，把 baseline 抬干净，再跑需要 ablation 的决策项，避免在「被已知 bug 污染的 baseline」上做 ablation。
+
+---
+
+### S0：15-case 全量基线发现跑 + Scorer 修复（✅ 完成）
+
+> **目的不是拿平均分，是「发现」**。先照亮盲区，再决定修什么。跑完后发现**评测器本身有 bug**，先修评测器再信数字——这是这轮最大的收获。
+
+**做法**：
+
+```bash
+cd doctor
+uv run python scripts/run_baseline_experiment.py --split all --run-name baseline-15case-pre-fix
+```
+
+#### S0.1 发现的 3 个 Scorer bug（先修评测器再信数字）
+
+跑完一看分数不合理：PERF-020 诊断全对却 process_quality=0.14（全场最低）；灾难 case（RACE/CONFIG/LOGIC-022）category 全 1.00。逐个核 7 个维度，发现 3 个评测器 bug：
+
+1. **`process_quality` 公式错**（`scripts/langfuse_scorers.py`）：旧 `dedup_ratio(按工具名去重) + budget_ratio(用满预算惩罚)` 两个分项都错。把「同工具名」当重复——PERF-020 跑 5 条不同 SQL 的 db_query 是合理多目标查证不是重复；把「用满预算」当坏事——难 case 用满预算得正确答案不是坏过程。**重写为 `0.5*evidence_coverage + 0.5*efficiency`**：evidence_coverage = 是否覆盖 signal+code+verify 三类工具（与 case 难度无关的方法信号）；efficiency = `1 - 真重复/总数`，真重复 = 同工具名+同参数字符串（不再把合理多目标查证当重复）。
+
+2. **`category_accuracy` gold 泄露**（真因不是 F1）：旧兜底 `primary_category or expected.get("primary_category")` 把 **gold 的 primary_category 泄露进预测**——agent 输出空 categories 时用 gold 答案当 pred，于是空输出的灾难 case 反而得 1.00。这才是「灾难 category 普遍 1.00、成功 case 反而 0.5-0.67」反向相关的真因。**改 F1 → recall（命中 gold 即计分，多给正确类别不罚）+ 删 gold 泄露兜底**（只用 agent 自己的 primary_category）。
+
+3. **`confidence_calibration` 正确性代理太弱**：旧版只用 category_hit，CASCADE-020（cat 命中但 root_cause=0.40、conf=1.0）拿满 1.0，没抓到过度自信。**改用 judge 的 root_cause_accuracy 当正确性代理**（在 `score_all_dimensions` 里 judge 算完后传入），无 judge 时退化为 结构+关键词 兜底。
+
+> 附带：dump 脚本 `_dump_session_scores.py` 原用错名 `fix_suggestion_accuracy`（实际是 `fix_suggestion_quality`）显示空，已修；同名 score 有历史时取 timestamp 最新。
+
+#### S0.2 修后基线（trustworthy）
+
+```
+bug_id         overall   root   cat  file   fix   proc   evid
+-------------------------------------------------------------
+BE-020            0.97   0.95  1.00  1.00  0.95   1.00   0.95
+BE-021            0.98   0.98  1.00  1.00  0.95   1.00   0.95
+BE-022            0.97   0.95  1.00  1.00  0.95   1.00   0.95
+CASCADE-020       0.70   0.40  1.00  1.00  0.85   1.00   0.95
+CONFIG-020        0.04   0.00  0.00  0.00  0.00   0.83   0.00
+DATA-020          0.81   0.85  0.00  1.00  0.95   1.00   0.70
+DATA-021          0.33   0.95  0.00  0.00  0.00   1.00   0.30
+FE-020            0.30   0.85  0.00  0.00  0.00   1.00   0.30
+FE-021            0.10   0.15  0.00  0.00  0.00   1.00   0.10
+LOGIC-020         0.96   0.95  1.00  1.00  0.95   1.00   0.85
+LOGIC-021         0.96   0.95  1.00  1.00  0.95   1.00   0.85
+LOGIC-022         0.04   0.00  0.00  0.00  0.00   0.83   0.00
+PERF-020          0.86   0.95  1.00  1.00  0.95   1.00   0.85
+PERF-021          0.91   0.95  1.00  1.00  0.95   1.00   0.85
+RACE-020          0.05   0.00  0.00  0.00  0.00   0.83   0.10
+mean=0.598  灾难(overall<0.4): 6 -> CONFIG/DATA-021/FE-020/FE-021/LOGIC-022/RACE
+```
+
+7 个维度逐个核对结论：root_cause / fix / affected_file / affected_line / evidence_chain 5 个合理；category / confidence_calibration 2 个已修。核对细节见 [S0 核对记录](#s0-核对记录)。
+
+#### S0.3 失败模式分类（决定 S1 修什么）
+
+6 个灾难 case 分三档，**不是同一个失败模式**：
+
+| 档 | case | overall | 画像 | 根因 |
+|----|------|---------|------|------|
+| 完全失败 | CONFIG-020 / LOGIC-022 / RACE-020 | 0.04-0.05 | 全空输出（root/file/fix/cat/evid 全 0），confidence 0.2-0.3 | agent 没找到根因就耗尽预算，交付空报告 |
+| 诊断对但无报告 | FE-020 / DATA-021 | 0.30-0.33 | root_cause=0.85-0.95 **但** file/fix/cat=0，evidence_chain=[]，confidence=0.2 | **找到了正确根因却没落成结构化报告**——欠自信/没交付 |
+| 诊断错 | FE-021 | 0.10 | root_cause=0.15（错诊），confidence=0.2 | agent 走偏，低自信地错 |
+
+关键洞察（来自修后的 calibration 维度）：
+- **「诊断对但无报告」档（FE-020/DATA-021）是 smokeless 失败的精确画像**：agent 找到了正确根因（root_cause judge 给 0.85-0.95）却只 0.2 自信、没把结论落成结构化 report。calibration 给 0.25-0.35（欠自信被罚）精确捕捉到这点。
+- 这意味着 **S1 的核心不是「收敛检测」而是「budget 耗尽时强制把已得 root_cause 落成结构化 report」**——agent 不是没能力，是没交付。
+- 「完全失败」档（CONFIG/LOGIC-022/RACE）才是真没找到 + 耗尽预算，需要收敛检测 + 兜底报告双管齐下。
+
+> 这次的「数字」是 throwaway（修完 S1 会重跑当 S2 的对比锚点），但「发现」不是 throwaway——尤其是「评测器本身有 bug」这个发现，若不修会污染后面所有 ablation 结论。
+
+#### S0 核对记录
+
+7 维度逐个核对（`scripts/_verify_scorers.py` 离线重算对比新旧分）：
+- **root_cause_accuracy (judge, 0.30)** ✅：验证了 partial disaster 的 root_cause 文本确实有内容（DATA-021 len=178 命中 due_date=None、FE-020 len=421 命中 TaskResponse 缺 tags），judge 没对空输入打高分。CASCADE=0.40 略严（找到 N+1 但漏重试级联、误引入 sleep(20)），落"部分相关"锚点可接受。
+- **fix_suggestion_quality (judge, 0.20)** ✅：空 fix→0.0，详细 fix→0.85-0.95。
+- **affected_file_accuracy (Python basename, 0.15)** ✅：basename 比较处理 `demo-app/` 前缀差异。
+- **affected_line_accuracy (Python ±5/±20, 0.10)** ✅：PERF-020 exp=18 diag=48（diff=30→0.0）合理——agent 指向症状行（循环）而非因行（缺 selectinload）。
+- **category_accuracy (Python, 0.10)** 🔧 已修（见 S0.1）。
+- **evidence_chain_completeness (judge, 0.10)** ✅ 略宽：空 evidence_chain 列表给 0.3（"纯猜测"锚点 0.0-0.3 上沿），因 judge 看完整诊断、root_cause 文本引用代码行号给了一点分，可接受。
+- **confidence_calibration (Python, 0.05)** 🔧 已修（见 S0.1）。修后揭示三种失败模式：过度自信（CASCADE）、欠自信（DATA-021/FE-020）、恰当不确定（FE-021/CONFIG/RACE）。
+
+---
+
+### S1：修 smokeless 灾难——预算耗尽强制落结构化报告（harness 修复，smoke 验证）
+
+> S0 跑完发现 6 个灾难 case，不是原来以为的「只有 FE-020 一个」。但分两档后，**两档的修法高度同构**，一次设计能覆盖：
 >
-> 参考官方：V4-Flash-Max 在给足 thinking budget 时推理质量逼近 V4-Pro-Max；Non-think 模式仅用于低风险日常任务，不适用于诊断 ReAct 循环。
+> - **「诊断对但无报告」档（FE-020/DATA-021，overall 0.30-0.33）**：agent 找到了正确根因（root_cause judge 0.85-0.95）却只 0.2 自信、没把结论落成结构化 report（file/fix/cat/evidence_chain 全空）。**核心病灶是「没交付」不是「没找到」**。
+> - **「完全失败」档（CONFIG/LOGIC-022/RACE，overall 0.04-0.05）**：agent 没找到根因就耗尽预算，交付空报告。**核心病灶是「没收敛 + 没兜底」**。
+>
+> 两档共同解法：**预算耗尽（或检测到收敛）时，强制把 running hypothesis 落成完整结构化报告**，而非取最后一段 raw text 当 root_cause、其它字段留空。
+
+**两个正交修复**：
+
+1. **预算兜底报告（治两档，主修复）**：维护 running hypothesis（每轮更新，至少含 root_cause_text / best_guess_file / confidence）。`early_stopped=True` 时用它生成**完整结构化报告**（root_cause / affected_file / fix_suggestion / categories / evidence_chain / confidence 全字段），而非半句话 + 空字段。这一条直接救「诊断对但无报告」档（FE-020/DATA-021 预期 0.30 → 0.80+），并给「完全失败」档兜一个 best-guess 报告（从 0.04 抬到 ~0.20，至少有结构化输出不再全空）。
+2. **收敛检测（治「完全失败」档的浪费，辅助修复）**：在 agent 每轮推理后，检查 evidence_chain 是否已覆盖「① 错误信号 ② 代码位置 ③ 机制解释」三要素。覆盖则在下一轮 system 注入「证据已充分，请输出 JSON 诊断报告，不要再调用工具」——避免 agent 在没头绪时反复 code_search 耗光预算。
+
+**为什么先做这个**：
+- harness 修复，**只需 4-case smoke 验证**（按评测规则，纯 harness 修复不跑 ablation）。
+- 一次设计覆盖 6 个灾难 case 的两档，worst case 整体拉起来 = baseline 抬一截，后面所有 ablation 起点干净。
+- 直接产出第 4 个面试故事：有 before/after 数据、有因果链、有 harness vs model 的区分判断力，且**「先修评测器再信数字」本身就是个加分故事**（体现评测器会骗人、ablation 前要先校准度量）。
+
+**验收**：
+- FE-020 / DATA-021 在预算耗尽时输出**完整结构化报告**（file/fix/cat/evidence_chain 非空），overall 从 0.30 → 0.80 档
+- CONFIG / LOGIC-022 / RACE 不再交付全空报告（至少有 best-guess root_cause + file），overall 从 0.04 → 0.20 档
+- `early_stopped=True` 时报告含完整 root_cause / affected_file / evidence_chain（非半句话、非空字段）
+- smoke 4 case 中其余 3 个（BE/LOGIC/PERF）不退化
+
+---
+
+### S2：T0 启用 Think Max 模式（model 变更，ablation 验证）
+
+> S1 修完、smoke 干净后做。修改 `llm_factory.py`，在 unified_agent 的 LLM 调用处启用 `reasoning_effort="max"`。judge 保持 `deepseek-v4-pro`（已在 .env 配置）。
+>
+> **必须 15-case ablation**：model/mode 变更按评测规则需全量对比。跑两次 15-case：S1 修完后的干净 baseline vs Think Max experiment，按 D14 的 5% 阈值判保留/回滚。
 
 **验收**：
 - Langfuse trace 中可见 `reasoning_effort=max` 与 thinking token 计数
-- 4-case smoke set 上 `root_cause_accuracy` 不低于 Non-think/High 模式
+- 15-case `overall` 提升 ≥ 5% 才保留；下降 > 5% 回滚
 - 单 case 成本仍显著低于切到 V4-Pro 的方案
 
-### T1：方法论 prompt 重写（替代已删的 D16）
+---
 
-> 重写 `prompts/templates/unified_agent.j2` 的诊断策略部分，从「静态 3 步策略 + 工具选择表」改为**通用调试方法论 + 假设日志**：
+### S3：T1 方法论 prompt 重写（视 S1/S2 结果决定是否需要）
+
+> S1 的「预算兜底报告 + 收敛检测」已治「预算耗尽丢结论 / 没头绪反复 search 耗光预算」。如果 S1 修完 smoke/15-case 都干净，T1 可推迟甚至不做（避免单独 ablation 成本）。只在 S2 之后仍有 case 表现出「死磕错假设、不 pivot」时才做。
 >
-> ```
-> ## 诊断方法论（每轮必须执行）
-> 1. 第一轮：基于 golden_signals + user_report 形成 1-2 个最可能的假设，
->    写出每个假设的验证路径，再调工具。不要先分类再诊断。
-> 2. 每轮更新（写入 <hypothesis_journal>）：
->    - 当前 top 假设
->    - 置信度（0-1）
->    - 下一步要证伪什么
-> 3. pivot 信号：连续 2 次工具结果与当前假设矛盾 → 降置信度并生成新假设，不要死磕。
-> 4. 停止：假设被证据确认（root_cause + 证据链完整），或 3 个假设都被证伪时输出最可能结论并标注不确定。
-> ```
->
-> 修改 `parse_diagnosis_report()` / `extract_findings()` 提取 `<hypothesis_journal>`，存入 findings 用于过程质量评估与 Langfuse trace。
+> 重写 `prompts/templates/unified_agent.j2` 诊断策略部分：通用调试方法论 + `<hypothesis_journal>`（假设/置信度/验证路径 + pivot 纪律 + 停止条件）。修改 `parse_diagnosis_report()` / `extract_findings()` 提取 journal 存入 findings。
 
 **验收**：
-- Agent 每轮输出 `<hypothesis_journal>`，含假设/置信度/验证路径
-- 跨 4-case smoke set，能看到至少 1 个 case 发生 pivot（证明机制生效）
-- 全量 15-case ablation：方法论 prompt vs 旧静态 3 步 prompt，`root_cause_accuracy` 不下降
+- Agent 每轮输出 `<hypothesis_journal>`
+- 15-case ablation：方法论 prompt vs 旧静态 3 步 prompt，`root_cause_accuracy` 不下降
+
+---
+
+### 已落地的地基（Phase 1 完成，不再单列优先级）
+
+| 机制 | 对症点 | 状态 |
+|------|--------|------|
+| code_search ripgrep 升级 | 工具能否找到证据 = 最大胜负手 | ✅ |
+| 上下文工程（预算追踪 + 工具结果截断 + 历史降级） | Flash 跑越长越掉链子 | ✅ |
+| search_observability 异常检测 + 洞察摘要 | 工具给洞察而非裸数据 | ✅ |
+| W3C traceparent 注入 per-case 隔离 | batch 运行跨 case 信号污染 | ✅ |
 
 ---
 
@@ -183,7 +286,7 @@ V3 基线架构**已完整实现**，本手册不重复 V3 重构工作，而是
 ### 15-case ablation（决策点跑）
 
 - **用途**：决定「保留还是回滚」的真正 A/B。例如：Think Max 要不要保留？方法论 prompt v1 vs v2？是否切 V4-Pro？
-- **规模**：全量 15 case（后续 Bug 扩展到 25/30 后同步扩），baseline vs experiment **各跑一次** = 30 runs。
+- **规模**：全量 15 case，baseline vs experiment **各跑一次** = 30 runs。
 - **统计含义**：15 case 能检测 ~10pt 量级的提升；要检测 2-3pt 的小幅提升需 30+ case。
 - **成本**：~10-15 分钟（并发 4），judge 用 V4-Pro 成本可忽略。
 - **判据**：复用 D14 的 5% 阈值——`overall` 下降 > 5% 阻断；提升 ≥ 5% 才认为值得保留。
@@ -207,7 +310,7 @@ Phase 0 (基线验证)     → 确认当前 V3 能跑通 + 部署 Langfuse + 建
     ↓
 Phase 1 (P0 地基)      → 手动循环 + ripgrep + 上下文工程 + Ingest 深度 + Observability 深度
     ↓                      Agent 推理质量的地基，直接提升诊断准确率
-Phase 2 (P1 质量与评测) → Langfuse 评测体系 + TodoWrite + Bug Factory 扩展
+Phase 2 (P1 质量与评测) → Langfuse 评测体系 + TodoWrite
     ↓                      可量化、可回归、可追踪
 Phase 3 (P2 鲁棒性)    → 安全纵深 + Agent 自省 + Langfuse 成本追踪 + Hook 系统 + Subagent
                            生产级鲁棒性
@@ -219,7 +322,7 @@ Phase 3 (P2 鲁棒性)    → 安全纵深 + Agent 自省 + Langfuse 成本追�
 |-------|--------|--------|---------|---------|
 | **Phase 0** | 基线 | 2d | 确认 V3 可跑通 + 部署 Langfuse + 建立度量基线 | 15 case 全跑通，Langfuse 基线 Experiment 生成 |
 | **Phase 1** | P0 | 10d | 手动循环 + 上下文工程 + Ingest/search/code_search 深度 | overall ≥ 基线 +15% |
-| **Phase 2** | P1 | 10d | Langfuse 评测体系 + TodoWrite + Bug 扩展（System Prompt 策略化暂缓） | 多维度 Scoring 可用 + overall ≥ 基线 +25% |
+| **Phase 2** | P1 | 7d | Langfuse 评测体系 + TodoWrite（System Prompt 策略化暂缓；Bug 扩展已决策不做） | 多维度 Scoring 可用 + overall ≥ 基线 +25% |
 | **Phase 3** | P2 | 11d | 安全 + 自省 + Langfuse 成本追踪 + Hook + Subagent | 无幻觉 case + LLM 调用链全量可观测 |
 | **总计** | | **36d** | | |
 
@@ -1279,11 +1382,12 @@ uv run python scripts/run_experiment.py \
 
 ---
 
-# Phase 2: P1 质量与评测（D13-D25）
+# Phase 2: P1 质量与评测（D13-D19）
 
-> **目标**：建立 Langfuse 驱动的评测体系（替代自研 benchmark）+ 诊断计划 + Bug 覆盖面扩展。
+> **目标**：建立 Langfuse 驱动的评测体系（替代自研 benchmark）+ 诊断计划。
 > System Prompt 策略化（原方向 6）经复盘判定为优化非瓶颈环节，已移除，后续按需重新评估。
-> **验收目标**：Langfuse 多维度 Scoring 可用 + `overall` ≥ 基线 +25% + 评测 case 数 ≥ 30。
+> Bug Factory 扩展（原方向 8）已决策不做——15 case 跨 8 类对简历项目已足够（详见附录 E）。
+> **验收目标**：Langfuse 多维度 Scoring 可用 + `overall` ≥ 基线 +25%。
 
 ---
 
@@ -1304,9 +1408,9 @@ uv run python scripts/run_experiment.py \
 | **affected_file_accuracy** | `affected_file_accuracy` | Python 自定义 Scorer（精确匹配） | 0.15 |
 | **affected_line_accuracy** | `affected_line_accuracy` | Python 自定义 Scorer（范围匹配） | 0.10 |
 | **fix_suggestion_quality** | `fix_suggestion_quality` | LLM-as-Judge | 0.20 |
-| **category_accuracy** | `category_accuracy` | Python 自定义 Scorer（多标签 F1） | 0.10 |
+| **category_accuracy** | `category_accuracy` | Python 自定义 Scorer（类别命中召回率，S0 修） | 0.10 |
 | **evidence_chain_completeness** | `evidence_chain_completeness` | LLM-as-Judge | 0.10 |
-| **confidence_calibration** | `confidence_calibration` | Python 自定义 Scorer | 0.05 |
+| **confidence_calibration** | `confidence_calibration` | Python 自定义 Scorer（用 judge root_cause 作正确性代理，S0 修） | 0.05 |
 
 > ⚠️ **MVP 阶段声明**：以上权重为人工设定（prioritize root_cause + fix_suggestion），
 > 未经过统计校准。Phase 2 实现后应通过 Langfuse Experiment 的 A/B 对比
@@ -1319,23 +1423,35 @@ from langfuse import Langfuse
 
 langfuse = Langfuse()
 
-def score_category_accuracy(trace_id: str, expected: dict, diagnosis: dict):
-    """多标签分类 F1 Scorer。"""
-    pred = set(diagnosis.get("categories", []))
-    gold = set(expected.get("categories", []))
-    tp = len(pred & gold)
-    precision = tp / len(pred) if pred else 0.0
-    recall = tp / len(gold) if gold else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
-    langfuse.score(trace_id=trace_id, name="category_accuracy", value=f1)
+def score_category_accuracy(expected: dict, diagnosis: dict) -> float:
+    """类别命中召回率（recall-only，不惩罚多给类别，不泄露 gold）。
 
-def score_affected_file_accuracy(trace_id: str, expected: dict, diagnosis: dict):
-    """文件定位精确匹配 Scorer。"""
-    expected_file = expected.get("affected_file", "")
-    actual_file = diagnosis.get("affected_file", "")
-    hit = 1.0 if actual_file and actual_file.endswith(expected_file) else 0.0
-    langfuse.score(trace_id=trace_id, name="affected_file_accuracy", value=hit)
+    旧版用多标签 F1 + ``primary or expected.primary`` 兜底，两个都坏：
+    F1 的 precision 惩罚合理多类别输出；兜底把 gold primary 泄露进预测，
+    导致空输出灾难 case 反而得 1.00（反向相关真因）。
+    """
+    gold = set(expected.get("category") or [])
+    pred_set = set(diagnosis.get("categories") or [])
+    if not pred_set:
+        pc = diagnosis.get("primary_category")  # 只用 agent 自己的，绝不读 expected
+        if pc:
+            pred_set = {pc}
+    if not gold:
+        return 1.0 if not pred_set else 0.5
+    return float(len(pred_set & gold) / len(gold))  # recall，多给正确类别不罚
+
+def score_affected_file_accuracy(expected: dict, diagnosis: dict) -> float:
+    """文件定位精确匹配（basename 容错，兼容 demo-app/ 前缀差异）。"""
+    ef = (expected.get("affected_file") or "").strip()
+    af = (diagnosis.get("affected_file") or "").strip()
+    if not ef or not af:
+        return 0.0
+    if Path(ef).name == Path(af).name or af.endswith(ef) or ef.endswith(af):
+        return 1.0
+    return 0.0
 ```
+
+> **关键教训**：Scorer 也会骗人。本项目在 S0 基线发现 `process_quality` / `category_accuracy` / `confidence_calibration` 三个评测器有 bug（gold 泄露、按工具名去重把合理多目标查证当重复、calibration 正确性代理太弱），导致 PERF-020 诊断全对却得 0.14、灾难 case category 全 1.00。**任何 ablation 前必须先校准度量本身**——否则在「被评测器 bug 污染的 baseline」上做 ablation 会得错误结论。详见 S0.1。
 
 > **LLM-as-Judge Scorer**：`root_cause_accuracy`、`fix_suggestion_quality`、`evidence_chain_completeness`
 > 三个维度使用 Langfuse 内置 LLM Judge（配置 prompt template + 选择 judge 模型如 gpt-4o）。
@@ -1357,27 +1473,45 @@ def score_affected_file_accuracy(trace_id: str, expected: dict, diagnosis: dict)
 ```python
 # scripts/langfuse_scorers.py 追加
 
-def score_process_quality(trace_id: str, langfuse_client):
-    """基于 Trace 数据评估过程质量。"""
-    trace = langfuse_client.get_trace(trace_id)
-    observations = trace.observations
+# 工具按「证据类别」归组：扎实诊断应覆盖 signal + code + verify 三类
+_TOOL_CATEGORY = {
+    "search_observability": "signal", "inspect_frontend_error": "signal",
+    "code_search": "code", "get_file_content": "code",
+    "db_query": "verify",
+}
+_EVIDENCE_CATEGORIES = ("signal", "code", "verify")
 
-    # 1. 工具选择合理性：是否第一步调用了 search_observability
-    first_tool = next((o for o in observations if o.type == "GENERATION"), None)
+def score_process_quality(langfuse, trace_id: str) -> float:
+    """基于 Trace 评估过程质量：evidence_coverage + efficiency。
 
-    # 2. 工具调用效率：去重后调用次数 vs 总调用次数
-    tool_names = [o.name for o in observations if o.type == "GENERATION"]
-    unique_tools = len(set(tool_names))
-    total_calls = len(tool_names)
-    dedup_ratio = unique_tools / total_calls if total_calls else 1.0
+    旧版 ``dedup_ratio(按工具名去重) + budget_ratio(用满预算惩罚)`` 两个分项
+    都错——把合理多目标查证（5 条不同 SQL 的 db_query）当重复，把难 case
+    用满预算得正确答案当坏事，导致 PERF-020 诊断全对却得 0.14。
+    """
+    trace = langfuse.get_trace(trace_id)
+    calls = []  # (tool_name, args_key)
+    for obs in trace.observations:
+        tn = _extract_tool_name(obs.name)  # tool_db_query_3 -> db_query
+        if not tn or "_skipped_" in obs.name:
+            continue  # 跳过被安全层去重的未执行调用
+        calls.append((tn, str((obs.input or {}).get("args", ""))))
+    total = len(calls)
+    if total == 0:
+        return 0.0
 
-    # 3. 预算使用率
-    max_calls = 12
-    budget_ratio = min(total_calls / max_calls, 1.0)
+    # 1. evidence_coverage：覆盖 signal+code+verify 三类（与 case 难度无关的方法信号）
+    used = {_TOOL_CATEGORY.get(tn) for tn, _ in calls if _TOOL_CATEGORY.get(tn)}
+    evidence_coverage = len(used & set(_EVIDENCE_CATEGORIES)) / 3
 
-    # 4. 综合过程得分
-    score = (dedup_ratio * 0.5 + (1 - budget_ratio) * 0.5)
-    langfuse_client.score(trace_id=trace_id, name="process_quality", value=score)
+    # 2. efficiency：真重复 = 同工具名 + 同参数字符串（不罚合理多目标查证）
+    seen, dupes = set(), 0
+    for c in calls:
+        if c in seen: dupes += 1
+        else: seen.add(c)
+    efficiency = 1.0 - dupes / total
+
+    score = 0.5 * evidence_coverage + 0.5 * efficiency
+    langfuse.score(trace_id=trace_id, name="process_quality", value=score)
 ```
 
 **验收**：
@@ -1489,103 +1623,19 @@ uv run python scripts/run_experiment.py \
 
 ---
 
-## D20-D25：Bug Factory 扩展（方向 8，P1）
-
-### D20-D21：新增 Bug 类型
-
-#### 任务 2.8：新增 10 个 Bug 配方
-
-**AI 提示词**：
-
-> 在 `bug-factory/recipes/gold/` 新增以下 Bug 配方（目标：从 15 → 25 个）：
->
-> | ID | 类别 | 描述 | 难度 |
-> |----|------|------|------|
-> | BE-023 | backend_error | 500 错误：序列化 datetime 失败 | L2 |
-> | BE-024 | backend_error | 500 错误：除零异常 | L1 |
-> | FE-022 | frontend_crash | 无限渲染循环（useEffect 缺依赖） | L3 |
-> | FE-023 | frontend_crash | 状态更新后组件卸载（内存泄漏） | L3 |
-> | PERF-022 | performance | 缺少数据库索引导致全表扫描 | L2 |
-> | PERF-023 | performance | 同步阻塞操作在 async 函数中 | L2 |
-> | LOGIC-023 | logic | 评论权限检查遗漏（可编辑他人评论） | L3 |
-> | DATA-022 | data | 时区处理错误导致日期偏移 | L2 |
-> | CONFIG-021 | config | CORS 配置错误导致前端请求被拒 | L2 |
-> | RACE-021 | race | 并发创建重复项目（缺唯一约束） | L4 |
->
-> 每个配方包含完整的：inject、trigger、evidence_collection、expected_diagnosis。
-
-**验收**：
-- 10 个新配方都能通过 `python -m bug_factory.cli full <case_id>` 跑通
-- 证据收集完整（日志 + Trace + browser_errors）
-- expected_diagnosis 字段完整
-
----
-
-### D22-D23：Bug 变异引擎
-
-#### 任务 2.9：Bug 变异引擎
-
-**AI 提示词**：
-
-> 在 `bug-factory/src/bug_factory/mutator.py` 创建 Bug 变异引擎：
->
-> ```python
-> class BugMutator:
->     """从一个基础 Bug 配方生成变体。"""
->
->     MUTATION_STRATEGIES = {
->         "rename_function": "修改被注入 bug 的函数名",
->         "shift_line": "将 bug 注入位置上下移动 5-10 行",
->         "change_field": "修改涉及的字段名（如 tags → labels）",
->         "change_error_type": "修改错误类型（如 TypeError → AttributeError）",
->     }
->
->     def mutate(self, recipe: dict, strategy: str, count: int = 3) -> list[dict]:
->         """生成变体配方。"""
->         ...
-> ```
->
-> 从 BE-020 生成 3 个变体，从 FE-020 生成 3 个变体，共 6 个新 case。
-
-**验收**：
-- 变异引擎生成 6 个新 case
-- 变体 case 的 expected_diagnosis 与原 case 不同（函数名/行号/字段不同）
-- 变体 case 能跑通
-
----
-
-### D24-D25：对抗性 Bug + Phase 2 验收
-
-#### 任务 2.10：对抗性 Bug 设计
-
-**AI 提示词**：
-
-> 在 `bug-factory/recipes/gold/` 新增 5 个对抗性 Bug：
->
-> | 策略 | Bug 描述 | Agent 容易犯的错误 |
-> |------|---------|-------------------|
-> | 烟雾弹 | 日志有 ERROR 但根因是数据问题 | 停留在 ERROR 日志 |
-> | 误导性栈帧 | 前端报错指向组件 A，根因在组件 B | 只看组件 A |
-> | 多根因竞争 | 同时有 N+1 和越权，用户只报告慢 | 只诊断 N+1 |
-> | 假阳性信号 | health check 偶尔超时 | 浪费预算调查 health check |
-> | 时间差陷阱 | Bug 只在缓存过期后出现 | 查询时间窗口不对 |
-
-**验收**：
-- 5 个对抗性 case 能跑通
-- 评测报告中对抗性 case 的分数单独统计
+> **D20-D25 Bug Factory 扩展已决策不做**：15 个 case 跨 8 类对简历/面试项目已足够（详见附录 E）。原计划的「15 → 25 + 6 变异 + 5 对抗性 = 30+ case」对当前阶段 ROI 过低，时间投入更应该花在「把现有 15 个跑出干净的 before/after 对比数据」和「攒有因果链的面试故事」上。
 
 ---
 
 ### Phase 2 验收
 
 ```bash
-# 运行 Langfuse Experiment（现在 ≥ 30 case）
-uv run python scripts/run_experiment.py \
-    --dataset diagdoctor-benchmark \
-    --run-name "phase2_final"
+# 运行 Langfuse Experiment（15 case）
+uv run python scripts/run_baseline_experiment.py \
+    --split all --run-name "phase2_final"
 
-# 在 Langfuse Dashboard 中对比 Phase 1 基线
-# Dashboard → Experiments → 选择 phase2_final vs baseline_phase1
+# 在 Langfuse Dashboard 中对比基线
+# Sessions → phase2_final vs baseline-15case-pre-fix
 ```
 
 **Phase 2 验收清单**：
@@ -1594,7 +1644,6 @@ uv run python scripts/run_experiment.py \
 - [ ] CI 回归门禁（Langfuse Experiment）工作
 - [ ] 盲集隔离（train 10 + blind 5+）
 - [ ] TodoWrite 诊断计划
-- [ ] Bug 配方 ≥ 30 个（15 原有 + 10 新增 + 6 变异 + 5 对抗性）
 - [ ] `overall` ≥ 基线 +25%
 - [ ] Langfuse Dashboard 中多维度分数可视化
 
@@ -2030,7 +2079,7 @@ done
 | `affected_file_accuracy` | `affected_file_accuracy` | Python Scorer 精确匹配 | ≥ 0.75 |
 | `affected_line_accuracy` | `affected_line_accuracy` | Python Scorer 范围匹配 | ≥ 0.60 |
 | `fix_suggestion_quality` | `fix_suggestion_quality` | LLM-as-Judge | ≥ 0.65 |
-| `category_accuracy` | `category_accuracy` | Python Scorer 多标签 F1 | ≥ 0.80 |
+| `category_accuracy` | `category_accuracy` | Python Scorer 类别命中召回率（recall，S0 修） | ≥ 0.80 |
 | `evidence_chain_completeness` | `evidence_chain_completeness` | LLM-as-Judge | ≥ 0.60 |
 | `confidence_calibration` | `confidence_calibration` | Python Scorer | ≥ 0.70 |
 | `avg_tool_calls` | 从 Trace 自动提取 | Langfuse Trace observations 统计 | ≤ 6.0 |
@@ -2040,15 +2089,15 @@ done
 
 ## 各 Phase 预期指标
 
-| 指标 | Phase 0 (基线) | Phase 1 | Phase 2 | Phase 3 |
-|------|---------------|---------|---------|---------|
-| `overall` | ~0.45 | ≥ 0.52 | ≥ 0.56 | ≥ 0.58 |
+| 指标 | Phase 0 (基线，S0 实测) | Phase 1 | Phase 2 | Phase 3 |
+|------|-------------------------|---------|---------|---------|
+| `overall` | **0.598**（修 scorer 后；6 灾难拉低均值） | ≥ 0.65 | ≥ 0.70 | ≥ 0.75 |
 | `avg_tool_calls` | ~7.2 | ≤ 6.5 | ≤ 6.0 | ≤ 5.5 |
 | `avg_tokens` | ~35000 | ≤ 28000 | ≤ 25000 | ≤ 22000 |
 | `avg_latency_s` | ~45 | ≤ 50 | ≤ 55 | ≤ 60 |
-| case 数 | 15 | 15 | 30+ | 30+ |
+| case 数 | 15 | 15 | 15（不扩展，见附录 E） | 15 |
 
-> **注意**：延迟可能随功能增加而上升，但准确率和效率应持续改善。token 消耗应因上下文工程而显著下降。
+> **Phase 0 实测说明**：mean overall=0.598 是修完 3 个 scorer bug 后的可信基线（`baseline-15case-pre-fix` session）。6 个灾难 case（CONFIG/LOGIC-022/RACE 全空输出 + FE-020/DATA-021 诊断对但无报告 + FE-021 错诊）拉低均值；9 个非灾难 case 均值 ~0.86。S1 修完预算兜底后预期灾难档抬升、整体均值跳一截，作为 S2 ablation 的干净锚点。
 
 ---
 
@@ -2114,9 +2163,9 @@ Doctor                              Demo App
 | 3. code_search ripgrep | P0 | 1.3 | Phase 1 |
 | 4. 上下文工程 | P0 | 1.4-1.7 | Phase 1 |
 | 5. Langfuse 评测体系 | P1 | 0.0 (部署) → 0.3-0.5 (基线) → 2.1-2.4 (深化) | Phase 0-2 |
-| 6. System Prompt 策略 | P1 | 2.4-2.6 | Phase 2 |
+| 6. System Prompt 策略 | ~~P1~~ | ~~2.4-2.6~~ → 已暂缓（复盘：优化非瓶颈环节） | ~~Phase 2~~ |
 | 7. TodoWrite | P1 | 2.7 | Phase 2 |
-| 8. Bug Factory 扩展 | P1 | 2.8-2.10 | Phase 2 |
+| 8. Bug Factory 扩展 | ~~P1~~ | ~~2.8-2.10~~ → 已决策不做（15 case 足够，见附录 E） | ~~Phase 2~~ |
 | 9. 安全沙箱 | P2 | 3.1-3.3 | Phase 3 |
 | 10. Agent 自省 | P2 | 3.4-3.6 | Phase 3 |
 | 11. Langfuse 成本追踪 | P2 | 3.7 (利用 Langfuse 内置) | Phase 3 |
@@ -2135,10 +2184,10 @@ Doctor                              Demo App
 | s04 Hooks | HookRegistry | Phase 3 |
 | s05 TodoWrite | 诊断计划注入 | Phase 2 |
 | s06 Subagent | SubagentTask + run_subagent | Phase 3 |
-| s07 Skill Loading | 动态策略 + few-shot | Phase 2 |
+| s07 Skill Loading | ~~动态策略 + few-shot~~ → 已暂缓（D16-D18 删除） | ~~Phase 2~~ |
 | s08 Context Compact | context_engine 四层压缩 | ✅ Phase 1 |
 | s09 Memory | 暂不实施 | — |
-| s10 System Prompt | 动态组装 + 策略 | ✅ Phase 1-2 |
+| s10 System Prompt | 动态组装 | ✅ Phase 1（策略化部分已暂缓） |
 | s11 Error Recovery | 模型降级 + 假设证伪 | Phase 3 |
 | s12 Observability | **Langfuse** (LLM 级) + OTel (服务级) | ✅ Phase 0-3 |
 | s13 Evaluation | **Langfuse** Scoring + Experiments | ✅ Phase 0-2 |
@@ -2183,3 +2232,43 @@ Doctor                              Demo App
 | `DOCTOR_AGENT_MODEL_CONTEXT_WINDOW` | `128000` | 模型 context window 大小 |
 | `DOCTOR_AGENT_CONTEXT_WARNING_RATIO` | `0.6` | 上下文预算警告阈值 |
 | `DOCTOR_AGENT_CONTEXT_CRITICAL_RATIO` | `0.8` | 上下文强制终止阈值 |
+
+---
+
+## 附录 E：Case 规模决策（为什么不扩展到 30）
+
+> **决策**：保留 15 个 gold case 跨 8 类，**不做 D20-D25 扩展**。
+
+### 当前盘点
+
+| 类别 | 数量 | 例 |
+|------|------|------|
+| BE | 3 | fk / scalar_one / null_assignee |
+| FE | 2 | undefined_tags / null_assignee_crash |
+| PERF | 2 | N+1 tasks / N+1 projects |
+| LOGIC | 3 | idor / leak / status_drop |
+| DATA | 2 | sort_order / due_date |
+| RACE | 1 | concurrent_update |
+| CONFIG | 1 | jwt_expiry_zero |
+| CASCADE | 1 | retry_storm |
+
+### 为什么 15 够
+
+1. **项目定位是简历/面试，不是生产系统**。没人因你没做 100 个 case 扣分；他们想看的是：能不能把 LLM agent 跑起来、能不能量化好坏、能不能讲清因果。这三件事 15 case 已足够支撑。
+2. **覆盖度比数量重要**。8 个类别已覆盖「错误 / 性能 / 前端 / 越权 / 数据正确性 / 并发 / 配置 / 级联」，足够 claim「agent 能跨类别泛化」。再堆 case 是在已够宽的面上加密度，边际价值低。
+3. **15 在统计上有意义**。手册「评测节奏」明确：15 case 能检测 ~10pt 量级提升，正是面试时被追问「你怎么知道优化是真的」能甩出的答案。4 个不够、30 个收益递减、15 是甜点。
+
+### 真正的瓶颈不是 case 数
+
+时间有限时，加 case 是性价比最低方向。更能加分的是：
+- **把现有 15 个跑出干净的 ablation 对比数据**（baseline vs 优化，一张「0.62 → 0.78」的表比 10 个新 case 有说服力 10 倍）
+- **攒有因果链的面试故事**（如 FE-020「答对但没收敛」、traceparent 隔离、测试床审计）——一个故事值 5 个 case
+
+### 什么情况才重新考虑扩展
+
+只有这两种：
+1. **某类别只有 1 个 case 且要 claim「agent 在 X 类问题上表现好/差」**——单 case 撑不起 claim（RACE/CONFIG/CASCADE 各 1 个，若要讲「agent 能处理并发类 bug」至少再加 1 个 RACE）。
+2. **某 ablation 优化涉及某类问题但样本不足**——如要验证「收敛检测对 CASCADE 长链路 case 有效」，CASCADE 只有 1 个样本不行。
+
+> 这两种都是「按需补单样本类别」，目标 ~18 个，**不必追到 30**。
+

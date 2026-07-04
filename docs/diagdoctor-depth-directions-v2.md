@@ -18,7 +18,7 @@
 | 3 | code_search：从向量检索到 ripgrep 混合检索 | 精确匹配 >> 语义搜索 | P0 |
 | 4 | 上下文工程：压缩、预算、动态策略 | Agent 推理质量的地基 | P0 |
 | 5 | 评测体系：从"打分"到"诊断质量门禁" | 可量化、可回归 | P1 |
-| 6 | System Prompt 工程：从"指令"到"策略" | Agent 决策质量上限 | P1 |
+| ~~6~~ | ~~System Prompt 工程：从"指令"到"策略"~~ | ~~Agent 决策质量上限~~ → **已暂缓**（复盘：优化非瓶颈环节，待 ablation 数据支持后再评估） | ~~P1~~ |
 | 7 | 诊断计划（TodoWrite） | 先规划再执行，防止漂移 | P1 |
 | 8 | Bug Factory：从"静态配方"到"变异生成" | 评测覆盖面 | P1 |
 | 9 | 安全沙箱：从"单点防护"到"纵深防御" | 生产可用性 | P2 |
@@ -1516,8 +1516,10 @@ class DimensionScores(BaseModel):
 
 #### 5.3.2 过程质量评估
 
+> ⚠️ **实现已偏离此设计**：实际过程质量评估落在 `scripts/langfuse_scorers.py` 的 `score_process_quality`，基于 Langfuse Trace observations 而非自研 `benchmark/evaluators/process.py`。且 S0 基线发现此处的「预算使用率」分项设计有错（把难 case 用满预算得正确答案当坏事），已重写为 `0.5*evidence_coverage + 0.5*efficiency`（覆盖 signal+code+verify 三类工具 + 真重复检测）。详见 handbook S0.1。下方伪代码保留作设计思路记录。
+
 ```python
-# benchmark/src/benchmark/evaluators/process.py 新增
+# benchmark/src/benchmark/evaluators/process.py 新建（设计稿，未实际落地）
 
 class ProcessEvaluator(BaseEvaluator):
     """评估诊断过程的工具调用质量。
@@ -1888,11 +1890,13 @@ DIAGNOSIS_PLAN_INSTRUCTION = """
 
 ---
 
-## 8. Bug Factory：从"静态配方"到"变异生成"
+## 8. Bug Factory：从"静态配方"到"变异生成"（已决策不做）
+
+> **决策**：本方向已废弃。15 个 gold case 跨 8 类对简历/面试项目已足够（详见 handbook 附录 E）。扩展到 30 case 的 ROI 低于「把现有 15 个跑出干净 ablation 对比数据 + 攒有因果链的面试故事」。仅当某类别单样本要支撑 claim、或某 ablation 需要更多该类样本时，才按需补 ~3 个到 18，不追 30。下文保留作历史参考。
 
 ### 8.1 现状
 
-`bug-factory/recipes/gold/` 有 15 个 YAML 配方，覆盖 7 个类别。
+`bug-factory/recipes/gold/` 有 15 个 YAML 配方，覆盖 8 个类别。
 
 **不足**：
 1. Bug 类型覆盖面有限——缺少 SQL 注入、XSS、CSRF 等安全类 Bug
@@ -2511,15 +2515,15 @@ if tool_name == "delegate_subagent":
 | 2. Observability | 异常检测 + 因果链 | 2.5d |
 | **小计** | | **9.5d** |
 
-### Phase 2（W2-W3）：P1 质量——评测 + Prompt + 计划 + Bug Factory
+### Phase 2（W2-W3）：P1 质量——评测 + 计划（Prompt 策略化暂缓；Bug Factory 已决策不做）
 
 | 方向 | 子项 | 工作量 |
 |------|------|--------|
 | 5. 评测 | 维度解耦 + 过程评估 + 回归门禁 + 盲集 | 4d |
-| 6. Prompt | 动态策略 + Few-shot | 2.5d |
+| ~~6. Prompt~~ | ~~动态策略 + Few-shot~~ → 已暂缓（复盘：优化非瓶颈环节） | ~~2.5d~~ |
 | 7. TodoWrite | 诊断计划 Prompt + 状态解析 | 1d |
-| 8. Bug Factory | 变异引擎 + 新增类型 | 5d |
-| **小计** | | **12.5d** |
+| ~~8. Bug Factory~~ | ~~变异引擎 + 新增类型~~ → 已决策不做 | ~~5d~~ |
+| **小计** | | **5d** |
 
 ### Phase 3（W4）：P2 鲁棒——安全 + 自省 + 成本 + Hook + Subagent
 
@@ -2537,8 +2541,8 @@ if tool_name == "delegate_subagent":
 | 阶段 | 工作量 | 累计 |
 |------|--------|------|
 | Phase 1 | 9.5d | 9.5d |
-| Phase 2 | 12.5d | 22d |
-| Phase 3 | 11d | 33d |
+| Phase 2 | 5d | 14.5d |
+| Phase 3 | 11d | 25.5d |
 
 > **建议**：Phase 1 是所有其他方向的基础，必须优先完成。Phase 2 直接提升诊断准确率和评测可信度，ROI 最高。Phase 3 根据实际需求选择性实施。
 
