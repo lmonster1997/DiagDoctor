@@ -538,8 +538,8 @@ def main() -> None:
         text=True,
     )
     branch = result.stdout.strip()
-    if branch != "main":
-        warn(f"当前分支: {branch} — 记得切回: git checkout main")
+    if branch != "dev-harness-redesign":
+        warn(f"当前分支: {branch} — 记得切回: git checkout dev-harness-redesign")
 
 
 # ═══════════════════════════════════════════════════════════════════════

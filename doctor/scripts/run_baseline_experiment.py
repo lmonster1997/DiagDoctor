@@ -9,7 +9,7 @@
   - demo-app backend 运行在 http://localhost:8000（uvicorn --reload）
   - Doctor API 运行在 http://localhost:8001
   - Loki/Tempo 可访问
-  - 当前在 git main 分支且工作区干净
+  - 当前在 git {BASE_BRANCH} 分支且工作区干净
 
 用法：
     cd doctor && uv run python scripts/run_baseline_experiment.py
@@ -103,10 +103,13 @@ def run_cmd(cmd: list[str], cwd: Path | None = None) -> str:
     return result.stdout
 
 
-def git_checkout_main() -> None:
-    """切换到 main 分支，确保干净起点。"""
-    run_cmd(["git", "checkout", "main"], cwd=PROJECT_ROOT.parent)
-    print("  [OK] 已切换到 main 分支")
+BASE_BRANCH = "dev-harness-redesign"
+
+
+def git_checkout_base() -> None:
+    """切换到 base 分支，确保干净起点。"""
+    run_cmd(["git", "checkout", BASE_BRANCH], cwd=PROJECT_ROOT.parent)
+    print(f"  [OK] 已切换到 {BASE_BRANCH} 分支")
 
 
 def inject_bug(recipe_id: str) -> None:
@@ -229,8 +232,8 @@ async def diagnose_task(item, trace_id: str) -> dict:
     print(f"{'=' * 60}")
 
     # ── Step 1: 恢复干净起点 ───────────────────────────────────────
-    print("[1/4] 恢复 git main 分支...")
-    git_checkout_main()
+    print("[1/4] 恢复 git base 分支...")
+    git_checkout_base()
 
     # ── Step 2: 注入 Bug ──────────────────────────────────────────
     print(f"[2/4] 注入 Bug: {recipe_id}...")
@@ -275,8 +278,8 @@ async def diagnose_task(item, trace_id: str) -> dict:
     print(f"  [OK] 诊断完成（categories={categories}, confidence={confidence}）")
 
     # ── 恢复现场 ──────────────────────────────────────────────────
-    print("  恢复 git main 分支...")
-    git_checkout_main()
+    print("  恢复 git base 分支...")
+    git_checkout_base()
     time.sleep(2)
 
     return diagnosis
@@ -311,8 +314,8 @@ async def main(
                 print(f"  [FAIL] {name} 不可达: {url}")
                 sys.exit(1)
 
-    # 确保在 main 分支
-    git_checkout_main()
+    # 确保在 base 分支
+    git_checkout_base()
 
     # 获取 Dataset
     dataset = langfuse.get_dataset("diagdoctor-benchmark")
@@ -401,9 +404,9 @@ async def main(
             trace.score(name="process_quality", value=0.0)
             results.append({"recipe_id": recipe_id, "success": False, "error": str(exc)})
 
-        # 确保恢复 main 分支
+        # 确保恢复 base 分支
         with contextlib.suppress(Exception):
-            git_checkout_main()
+            git_checkout_base()
 
     # ── 汇总 ──
     print(f"\n{'=' * 60}")

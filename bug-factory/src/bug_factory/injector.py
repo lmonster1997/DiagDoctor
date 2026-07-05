@@ -192,7 +192,7 @@ class BugInjector:
         logger.info("Changes committed", hexsha=commit_hexsha)
 
         # ── 7. Compute diff ────────────────────────────────────────
-        diff = self.git.diff_against_main()
+        diff = self.git.diff_against_base()
         logger.info(
             "Injection complete",
             recipe_id=recipe.id,
