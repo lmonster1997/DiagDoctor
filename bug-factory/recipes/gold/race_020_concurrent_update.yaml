@@ -15,7 +15,7 @@ expected_diagnosis:
     B 的 PATCH 在 A 之后到达，但 B 读取的是 A 修改前的旧数据，
     导致 B 的写入覆盖了 A 的 title 修改（丢失更新 / lost update）。
   affected_file: demo-app/backend/app/api/tasks.py
-  affected_line: 107
+  affected_line: 111
   fix_suggestion: |
     方案 A（乐观锁）：给 Task 模型加 version 字段（Integer, default=0），
     update_task 用 WHERE id={id} AND version={current_version} 条件更新，
@@ -40,12 +40,15 @@ injection:
   ai_instruction: |
     在 update_task 中，将原来的"仅更新 payload 中显式传入的字段"模式，
     改为"先读取当前所有字段值，合并 payload，再全量写回"模式。
-    这样单次 PATCH 行为不变（读到的就是当前值，写回不变），
-    但并发场景下另一个请求修改的字段会被覆盖（lost update）。
+    关键：必须用 raw SQL UPDATE（`sqlalchemy.update(...).values(**snapshot)`）
+    而非 ORM 的 `setattr(task, field, value)`——后者有脏字段追踪，重新 set
+    相同值不算 dirty，flush 时只写变化的字段，lost update 不会发生。
+    raw UPDATE 强制写所有字段，B 的旧快照覆盖 A 的修改，lost update 才会真实出现。
+    在读快照与写回之间插入 0.3s sleep，拉宽 race 窗口。
   diff_patch: |
     --- a/demo-app/backend/app/api/tasks.py
     +++ b/demo-app/backend/app/api/tasks.py
-    @@ -110,3 +110,13 @@
+    @@ -110,3 +110,15 @@
          update_data = payload.model_dump(exclude_unset=True)
     -    for field, value in update_data.items():
     -        setattr(task, field, value)
@@ -55,8 +58,12 @@ injection:
     +        if c.name not in ("id", "created_at", "updated_at")
     +    }
     +    _snapshot.update(update_data)
-    +    for field, value in _snapshot.items():
-    +        setattr(task, field, value)
+    +    import asyncio as _asyncio
+    +    await _asyncio.sleep(0.3)
+    +    from sqlalchemy import update as _sa_update
+    +    await db.execute(
+    +        _sa_update(Task).where(Task.id == task_id).values(**_snapshot)
+    +    )
 trigger:
   type: api_call
   ui_reachable: false
@@ -81,18 +88,17 @@ trigger:
   - action: wait
     params:
       seconds: 1
-  - action: api_call
+  - action: api_call_concurrent
     params:
-      method: PATCH
-      path: /api/tasks/{task_id}
-      body:
-        title: Alice 的修改
-  - action: api_call
-    params:
-      method: PATCH
-      path: /api/tasks/{task_id}
-      body:
-        status: doing
+      calls:
+      - method: PATCH
+        path: /api/tasks/{task_id}
+        body:
+          title: Alice 的修改
+      - method: PATCH
+        path: /api/tasks/{task_id}
+        body:
+          status: doing
   - action: collect_diff
     params:
       diff_type: behavior_mismatch
@@ -102,7 +108,7 @@ trigger:
         path: /api/tasks/{task_id}
         label: "最终任务状态"
       expectation: "title 应为 'Alice 的修改' 且 status 应为 'doing'（两个并发修改都生效）"
-      discrepancy: "title 被后续 PATCH 覆盖为空字符串（model_dump 全量覆盖把未传字段写为默认值），丢失了 Alice 的修改"
+      discrepancy: "两个 PATCH 并发执行：B 读取的是 A 写入前的旧状态，B 的全量写回覆盖了 A 的 title 修改（lost update）。最终 title 回到原始值而非 'Alice 的修改'，只有 status='doing' 生效"
   expected_observation:
     log_patterns:
     - pattern: '"method":"PATCH","path":"/api/tasks/.*","status":200'
@@ -131,9 +137,10 @@ evaluation:
   - model_dump
   - exclude_unset
   llm_judge_criteria: |
-    诊断必须指出 update_task 由于 model_dump() 全量覆盖导致并发编辑丢失（lost update），
-    并建议使用乐观锁（version 字段 + WHERE 条件）或恢复 exclude_unset=True。
-    需体现"两个并发请求，后者覆盖前者"的因果链，而非仅仅报告数据不一致。
+    诊断必须指出 update_task 使用 read-modify-write 模式（先读全量快照、合并 payload、
+    再用 raw SQL UPDATE 全量写回），缺少乐观锁/悲观锁保护，导致并发编辑丢失更新（lost update）。
+    并建议使用乐观锁（version 字段 + WHERE 条件）或恢复字段级 PATCH（只更新 exclude_unset 的字段）。
+    需体现"两个并发请求，后者用旧快照覆盖前者"的因果链，而非仅仅报告数据不一致。
   min_confidence: 0.5
 categories:
 - logic

@@ -164,9 +164,6 @@ def main() -> int:
         except Exception as e:
             print(f"  ⚠️  extractor error: {e}")
 
-        # 检测 DSML 标记
-        if "DSML" in last_out or "｜｜" in last_out:
-            print("  ⚠️  输出含 DSML 标记（DeepSeek 工具调用语法污染）")
         # 检测 tool_calls 字段
         if '"tool_calls"' in last_out or "'tool_calls'" in last_out:
             print("  ⚠️  输出含 tool_calls 字段（LLM 仍想调工具，可能没交付 JSON）")

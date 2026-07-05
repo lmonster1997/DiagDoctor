@@ -440,10 +440,22 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # 自动生成 run_name（同时用作 session_id，便于在 Langfuse Sessions 里归组）
+    # 注意：Langfuse session_id 字段做前缀匹配，所以 run_name 共享前缀会
+    # 导致不同 run 的 trace 在 Sessions 视图里被聚合到一起（你之前的
+    # baseline-15case / baseline-15case-pre-fix / baseline-15case-pre-s1 就是
+    # 因此被合并显示成 30+ trace）。强制每个 run_name 末尾带 timestamp 后缀，
+    # 即使显式传 --run-name 也补上；已带时间戳格式的不重复补。
+    ts_suffix = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     if args.run_name:
-        run_name = args.run_name
+        # 检测是否已含 8 位日期 + 6 位时间格式（YYYYMMDD-HHMMSS）
+        import re as _re
+
+        if _re.search(r"\d{8}-\d{6}$", args.run_name):
+            run_name = args.run_name
+        else:
+            run_name = f"{args.run_name}-{ts_suffix}"
     else:
-        run_name = f"{args.split}-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
+        run_name = f"{args.split}-{ts_suffix}"
     print(f"[run-name] {run_name}  (Langfuse Sessions → {run_name} 查看本轮 trace)")
 
     # 获取并筛选 dataset items

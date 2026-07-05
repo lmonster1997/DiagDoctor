@@ -335,23 +335,13 @@ def _extract_json_from_text(text: str) -> dict[str, Any] | None:
     mixed natural-language+JSON output, and nested structures).
 
     Strategy (tried in order):
-    1. 剥离 DeepSeek 工具调用标记（``<｜｜DSML｜｜...>``）——LLM 即便未绑工具
-       仍会吐该标记污染内容，剥离后才能拿到前面的 JSON。
-    2. Markdown code fences (```json ... ``` or ``` ... ```)
-    3. Brace-depth tracking — finds the FIRST complete JSON object by counting
+    1. Markdown code fences (```json ... ``` or ``` ... ```)
+    2. Brace-depth tracking — finds the FIRST complete JSON object by counting
        depth, respecting string escapes. Handles arbitrary nesting and braces
        inside string values.
-    4. Fallback: greedy scan for any balanced ``{...}`` candidate.
+    3. Fallback: greedy scan for any balanced ``{...}`` candidate.
     """
-    # ── 1. 剥离 DeepSeek 工具调用标记 ───────────────────────────
-    # 形如 <｜｜DSML｜｜tool_calls>...</｜｜DSML｜｜tool_calls> 或自闭合片段。
-    # 用非贪婪匹配整段移除，避免标记内的伪 JSON 干扰解析。
-    if "DSML" in text or "｜｜" in text:
-        text = re.sub(r"<｜｜DSML｜｜[^>]*>.*?(?:</｜｜DSML｜｜[^>]*>|$)", "", text, flags=re.DOTALL)
-        # 残余的自闭合/未配对标记片段也清掉
-        text = re.sub(r"<｜｜DSML｜｜[^>]*>", "", text)
-
-    # ── 2. Markdown code fences ──────────────────────────────────
+    # ── 1. Markdown code fences ──────────────────────────────────
     json_pattern = r"```(?:json)?\s*\n?(.*?)\n?```"
     matches = re.findall(json_pattern, text, re.DOTALL)
     for match in matches:

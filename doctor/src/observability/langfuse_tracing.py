@@ -160,7 +160,10 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
     ) -> None:
         """Manually end the current Langfuse trace and flush data.
 
-        Call this after the agent completes.
+        Call this after the agent completes. Resets ``_trace_id`` so the
+        handler is stateless between cases——避免下一次 ``on_chain_start``
+        复用上一次的 trace_id（在外部 caller 忘了调 ``start_trace`` 的退化
+        场景下尤其重要）。
         """
         if self._trace_id is None:
             return
@@ -171,6 +174,11 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         )
         self._client.flush()
         logger.debug("langfuse_trace_ended", extra={"trace_id": self._trace_id})
+        self._trace_id = None
+        self._llm_call_idx = 0
+        self._tool_call_idx = 0
+        self._current_llm_run_id = None
+        self._llm_input = None
 
     # ── Manual observation helpers (for manual agent loops where
     #    tool callbacks don't fire) ────────────────────────────────
@@ -264,9 +272,23 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         metadata: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Create a Langfuse trace when the agent chain starts."""
+        """Create a Langfuse trace when the agent chain starts.
+
+        若 ``start_trace(trace_id=...)`` 已被外部 caller 调用（实验 runner 复用
+        trace_id 模式），此处**不要**创建新 trace——否则会覆盖外部 caller 设的
+        trace_id，导致后续 LLM/tool observation 全部落到孤儿 trace 上，被评分
+        的目标 trace 反而空着。早期版本因这里无条件 ``str(uuid.uuid4())`` 触发过
+        大量 0-observation 孤儿 trace（session 视图里同名 trace 重复 9+ 次）。
+        """
         if parent_run_id is not None:
             return  # Only create trace at top-level chain
+        if self._trace_id is not None:
+            # 外部 caller 已通过 start_trace 设了 trace_id，复用之，不创建新 trace
+            logger.debug(
+                "langfuse_chain_start_reused_trace",
+                extra={"trace_id": self._trace_id, "session_id": self._session_id},
+            )
+            return
 
         self._trace_id = str(uuid.uuid4())
         self._client.trace(

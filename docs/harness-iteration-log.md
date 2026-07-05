@@ -170,13 +170,13 @@ agent 在无 harness 干预下的可能行为：
 1. **自然 stop**：agent 输出无 tool_calls 的 AIMessage → parse 那条为 JSON。理想路径。
 2. **跑满 12 轮**：agent 一直调工具直到迭代上限 → `budget_exhausted=True`，parse 最后一条 AIMessage。
 3. **触发硬约束**：token 超 100k 或时间超 300s → `budget_exhausted=True`，break，parse 最后一条。
-4. **parse 失败**：最后一条 AIMessage 不是合法 JSON（含 DSML 污染 / narrative 文本 / 空 content）→ 空报告（`primary_category=""` / `confidence=0.3`）。
+4. **parse 失败**：最后一条 AIMessage 不是合法 JSON（narrative 文本 / 空 content）→ fallback 报告（`primary_category=""` / `confidence=0.2`，root_cause 塞原始文本）。
 5. **异常**：未预期异常 → `handle_agent_failure` 返回 `confidence=0.0` 报告。
 
-**已知风险（从第一版 trace 已观测）**：
-- DeepSeek 在对话历史有 tool_calls 时会持续输出 DSML 标记 → parse 失败 → 空报告
-- agent 找到根因后可能继续调工具直到 12 轮耗尽（无早交付机制）
-- 没有 forced call，parse 失败就直接空报告（无兜底合成）
+**已知风险（从第一版 trace 已观测；baseline 实际验证见第 3 章 Iteration 0）**：
+- agent 找到根因后可能继续调工具直到 12 轮耗尽（无早交付机制）→ 末轮 content 空 → 空报告
+- agent 即便自然 stop，也可能输出 narrative 散文而非 JSON → parse 失败
+- 没有 forced call，parse 失败就直接 fallback 空报告（无兜底合成）
 
 → 这些正是后续 iteration 要逐个 case 驱动解决的。
 
@@ -221,7 +221,7 @@ agent 在无 harness 干预下的可能行为：
 | # | 维度 | 解决什么 | 当前 baseline 状态 |
 |---|---|---|---|
 | 1 | **收敛 / 停止** | 何时算完、何时强切 | 砍光，只剩硬约束 |
-| 2 | **输出格式 / 解析** | 让 LLM 吐出可 parse 的 JSON | 砍光——这正是 FE-020/PERF-020 的 DSML 污染病灶 |
+| 2 | **输出格式 / 解析** | 让 LLM 吐出可 parse 的 JSON | 砍光——baseline 4 个 disaster 全栽在这：3 个跑到 cap 末轮 content 空、1 个自然 stop 但输出散文 |
 | 3 | **上下文工程** | 每轮 LLM 看到什么 | 砍光，只剩静态截断 |
 | 4 | **Prompt 工程** | system prompt 怎么写、工具怎么描述 | 未动——`unified_agent.j2` + `tools_reference.md` 还是原版 |
 | 5 | **工具行为** | 工具调用去重、错误信息、并行、参数校验 | 仅留去重；错误信息是 raw exception 字符串 |
@@ -229,16 +229,16 @@ agent 在无 harness 干预下的可能行为：
 | 7 | **预算 / 模型路由** | 哪个角色用哪个模型、cost cap | 仅留硬 token cap；模型路由是 `get_llm_for_role` 单一 |
 | 8 | **失败恢复 / 健壮性** | API timeout、malformed args、工具异常 | 仅留 `handle_agent_failure` 兜底 |
 
-**预期占比（凭 4 个 smoke 的失败模式预判）**：
+**预期占比（凭 4 个 smoke 的失败模式预判；实际 baseline 发现见第 3 章 Iteration 0）**：
 
 ```
-输出格式  ████████  ←  FE-020/PERF-020 的 DSML 污染，第一刀必落在这
+输出格式  ████████  ←  4 个 disaster 全栽在这（空 content / 散文，不是 DSML）
 收敛      ██████    ←  agent 找到根因后何时停、停了怎么落 JSON
 上下文    ████      ←  token 不够时怎么压、压了怎么不让 nudge 失语境
 Prompt    ███       ←  system prompt 里的"输出 JSON"指令现在太弱
 工具行为  ██        ←  工具错误信息现在是 raw exception，LLM 看不懂
 循环编排  █         ←  目前单循环够用，多 agent 是后期事
-模型路由  █         ←  DeepSeek 是已知有 DSML bug 的模型，换模型可能直接解决一半
+模型路由  █         ←  换模型可能改善交付，但 baseline 数据显示不是模型 bug
 失败恢复  █         ←  edge case 兜底
 ```
 
@@ -250,18 +250,18 @@ Prompt    ███       ←  system prompt 里的"输出 JSON"指令现在太�
 |---|---|
 | 收敛判据依赖上下文内容 | 收敛 nudge 引用"第 5 轮读到的 stack trace"，但下一版上下文压缩把那条 ToolMessage 降级成 `[已归档]`，nudge 语境就断了 |
 | 上下文压缩触发依赖预算 | `maybe_compact_context` 在 `usage_ratio > 60%` 触发；收敛早交付会减少 token 消耗 → 永远触发不了压缩 → 你优化好的压缩机制在收敛好的 case 上根本不跑 |
-| 输出格式依赖对话历史 | DSML 污染问题——这既不是纯收敛也不是纯上下文，是"forced call 的上下文该用什么"——属于两个维度的交叉地带 |
+| 输出格式依赖对话历史 | forced final call 的上下文该用什么——既不是纯收敛（什么时候触发）也不是纯上下文（喂什么内容），属于两个维度的交叉地带 |
 
 → **正确做法：按 case 失败严重度排序，不按机制分类。** 每次取最严重的失败模式来修，不管修的是收敛、上下文还是输出格式——修完跑全量 smoke，4 个 case 都不能退步，才合并。一个失败模式可能需要同时改收敛和上下文——这没问题，反正每次只改一个失败模式。
 
 ### 2.5 反直觉建议：先验证模型假设，再做机制
 
-维度 7（模型路由）虽然画了 1 格，但**它可能是真正的第二步**——在投入做 DSML 防污染机制之前，先花一次 iteration 跑一个对照实验：同样的 baseline，把 diagnosis 模型换成 GPT-4o-mini 跑 4 个 case。
+维度 7（模型路由）虽然画了 1 格，但**它可能是真正的第二步**——在投入做输出格式机制之前，先花一次 iteration 跑一个对照实验：同样的 baseline，把 diagnosis 模型换成 GPT-4o-mini 跑 4 个 case。
 
-- 如果分数立刻飙升 → DSML 是 DeepSeek 特有问题，"输出格式"维度大半可以省下来，直接换成"在 forced call 时切 GPT-4o-mini"这种轻机制
+- 如果分数立刻飙升 → 输出格式问题是 DeepSeek 特有问题（比如它更容易「停不下来」或「输出散文而非 JSON」），"输出格式"维度大半可以省下来，直接换成"在 forced call 时切 GPT-4o-mini"这种轻机制
 - 如果换了还是烂 → 问题真是 harness 设计问题，再扎进去做机制
 
-→ **用最便宜的实验砍掉一整个维度的工作量**，比闷头写 DSML 过滤器高效得多。
+→ **用最便宜的实验砍掉一整个维度的工作量**，比闷头写格式约束机制高效得多。
 
 ---
 
@@ -272,14 +272,70 @@ Prompt    ███       ←  system prompt 里的"输出 JSON"指令现在太�
 
 ### Iteration 0: Baseline 跑通
 
-- **日期**：待填
+- **日期**：2026-07-05
 - **改动**：无（baseline 已就绪，见第 1 章）
-- **4 case 分数**：待填
+- **Run**：`baseline-15case`（15 case 全量，session_id 在 Langfuse）
+- **15 case 分数**：
+
+| bug_id | overall | root | cat | file | fix | line | evid | conf | proc | 类别 | 难度 | 备注 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **BE-020** | **0.04** | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.70 | 0.83 | backend_error | L1 | smoke；跑到 12 轮 cap，空报告 |
+| **BE-021** | **0.31** | 0.95 | 0.00 | 0.00 | 0.00 | 0.00 | 0.15 | 0.25 | 1.00 | backend_error | L2 | root 对了但 JSON parse 失败 |
+| **BE-022** | 0.95 | 0.95 | 1.00 | 1.00 | 0.85 | 1.00 | 0.95 | 0.98 | 1.00 | backend_error | L3 | red-herring，自然 stop |
+| **CASCADE-020** | 0.68 | 0.65 | 0.50 | 1.00 | 0.55 | 0.50 | 0.95 | 0.67 | 1.00 | performance | L4 | 复合 case，category 选错 |
+| **CONFIG-020** | 0.97 | 0.95 | 1.00 | 1.00 | 0.95 | 1.00 | 0.95 | 0.97 | 0.83 | config | L3 | misleading-default，几乎完美 |
+| **DATA-020** | 0.96 | 0.95 | 1.00 | 1.00 | 0.95 | 1.00 | 0.85 | 0.97 | 1.00 | data | L2 | 自然 stop |
+| **DATA-021** | 0.95 | 0.95 | 1.00 | 1.00 | 1.00 | 1.00 | 0.70 | 0.95 | 1.00 | data | L2 | 自然 stop |
+| **FE-020** | **0.04** | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.70 | 0.83 | frontend_crash | L4 | smoke；跑到 cap，空报告 |
+| **FE-021** | **0.04** | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.70 | 1.00 | frontend_crash | L2 | 跑到 cap，第 1 轮 4 个并发 search |
+| **LOGIC-020** | 0.94 | 0.95 | 1.00 | 1.00 | 0.95 | 1.00 | 0.70 | 0.97 | 1.00 | logic | L2 | smoke；自然 stop |
+| **LOGIC-021** | 0.96 | 0.95 | 1.00 | 1.00 | 0.95 | 1.00 | 0.85 | 0.95 | 1.00 | logic | L3 | red-herring，5 轮自然 stop |
+| **LOGIC-022** | 0.94 | 0.95 | 1.00 | 1.00 | 0.95 | 1.00 | 0.70 | 0.96 | 1.00 | logic | L2 | silent-drop，自然 stop |
+| **PERF-020** | 0.83 | 0.85 | 1.00 | 1.00 | 0.95 | 0.00 | 0.95 | 0.90 | 1.00 | performance | L1 | smoke；line=0（N+1 无单一行号） |
+| **PERF-021** | 0.91 | 0.95 | 1.00 | 1.00 | 0.95 | 0.50 | 0.85 | 0.97 | 1.00 | performance | L2 | line=0.5（同上） |
+| **RACE-020** | 0.87 | 0.95 | 1.00 | 1.00 | 0.65 | 1.00 | 0.60 | 0.97 | 1.00 | logic | L4 | smokeless；fix=0.65（乐观锁建议弱） |
+
+- **聚合统计**：
+  - overall mean=**0.693**，min=0.04，max=0.97
+  - **4 个 disaster**（overall<0.4）：BE-020 / BE-021 / FE-020 / FE-021
+  - 11 个 healthy（0.68-0.97）
+  - 各维度均值：root=0.733 / cat=0.700 / file=0.733 / fix=0.647 / line=0.600 / evid=0.613 / conf=0.841 / **proc=0.967**
+
 - **观察**：
-  - 待填：哪些 case agent 自然 stop？哪些跑满 12 轮？
-  - 待填：最后一条 AIMessage 是 JSON 还是 narrative/DSML？
-  - 待填：token / time / iteration 分布
-- **结论**：待填——baseline 表现如何？最差的 case 是哪个？失败模式是什么？下一步该改哪个维度？
+  - **自然 stop vs 跑满 12 轮**：清晰的二分。验证了 4 个 disaster case 的 LLM call 序列：
+    - BE-020（disaster）：12 LLM + 15 tools，**末轮 content=0 chars（空）** → 跑到 cap，最后一条 AIMessage 是纯 tool_call 消息（content 空，所有输出在 `tool_calls` 字段）
+    - FE-020（disaster）：12 LLM + 20 tools，**末轮 content=0 chars（空）** → 同上
+    - FE-021（disaster）：12 LLM + 21 tools，**末轮 content=0 chars（空）** → 同上
+    - BE-021（disaster，**关键反例**）：**仅 11 LLM + 16 tools**，**末轮 content=1376 chars 叙事散文** → 第 11 轮**自然 stop 了**，但输出的是解释根因的散文，不是 JSON
+    - LOGIC-021（healthy）：5 LLM + 7 tools，末轮是 `llm_call_5`（无后续 tool）→ 第 5 轮 natural stop，parse 那条为 JSON 成功
+  - **最后一条 AIMessage 是什么**：4 个 disaster 分两种失败模式：
+    1. **跑到 cap + 末轮空 content**（3/4：BE-020 / FE-020 / FE-021）：agent 一直调工具到 12 轮上限，末轮 LLM 把所有输出放进 `tool_calls` 字段，`content=""`。`parse_diagnosis_report` 拿到空字符串 → `_extract_json_from_text("")` → None → fallback 空报告（`primary_category=""` / `confidence=0.2`）
+    2. **自然 stop + narrative 不带 JSON**（1/4：BE-021）：agent 在第 11 轮自然 stop（不再调工具），但 1376 字 content 是叙事散文解释根因，不含 JSON 结构。`_extract_json_from_text` 找不到 JSON → fallback。这解释了 BE-021 的 `root_cause_accuracy=0.95`——LLM judge 从 fallback 的 `root_cause=last_ai_content[:500]` 字段里读到了正确根因，但 `category/file/fix/line` 全 0 因为没有结构化字段
+  - **token / time / iteration 分布**：从 trace 时间戳看，disaster case 整体耗时 20-30s（BE-020 20s，FE-021 27s），未触发 100k token / 300s 硬约束——**所有 disaster 都是 iteration cap (12 轮) 触发的，不是预算触发的**（BE-021 除外，它是自然 stop 但格式错）
+  - **proc=0.967 的反直觉**：过程质量几乎满分说明 agent 的查证方法本身没问题（用了 signal + code + db 三类工具，无真重复），问题不在「怎么查」而在「查完怎么交付」
+
+- **与第一版（带 4 层 harness）的 smoke 4 case 对比**：
+
+| case | 第一版（带 harness） | baseline（无 harness） | 解读 |
+|---|---|---|---|
+| BE-020 | 0.97 | **0.04** | 第一版的 REPORTING phase 在这里**真的有用**——强制交付 JSON 拯救了 easy case |
+| LOGIC-020 | 0.97 | 0.94 | 微降，harness 几乎无影响 |
+| FE-020 | 0.44 | **0.04** | 第一版至少有低质量报告（0.44），baseline 连报告都没有 |
+| PERF-020 | 0.64 | **0.83** | **baseline 反而更好**——第一版的 REPORTING phase 干扰了原本能自然交付的 case |
+
+- **结论**：
+  - **baseline 表现**：overall mean 0.693，两极分化严重（4 个 0.04-0.31 + 11 个 0.68-0.97）。**「难 case 全过、易 case 全崩」的反直觉分布**——L3/L4 的 red-herring / smokeless / config 类全过，L1/L2 的 backend_error / frontend_crash 类全崩。
+  - **最差的 case**：BE-020 / FE-020 / FE-021（overall=0.04 并列最低）。BE-021 (0.31) 是次差但诊断价值最高——它证明了 agent **找到了根因、也自然停止了，但交付的不是 JSON 格式**。
+  - **核心失败模式（两种）**：
+    1. **跑到 cap + 末轮空 content**（3/4 disaster）：agent 一直调工具到 12 轮上限，末轮 LLM 输出 `content=""` + `tool_calls=[...]`。loop 因 `range(12)` 耗尽而 break，`parse_diagnosis_report` 拿到空 content → 空报告
+    2. **自然 stop + narrative 不带 JSON**（1/4 disaster，BE-021）：agent 自然停止调工具，但输出的是 1376 字叙事散文，不含 JSON 结构
+  - **为什么易 case 反而崩、难 case 反而过**：难 case（logic / data / config）的根因查证路径明确——agent 查到关键证据后**自然会停止推理并输出 JSON**。易 case（backend_error / frontend_crash）的根因在错误堆栈里直接可见——agent 找到后**信心不足**，继续调更多工具「再确认一下」，停不下来，直到 cap；即便停下来的（BE-021）也输出散文而非 JSON。
+  - **下一步该改哪个维度**：**输出格式 / 收敛**（第 2.3 节维度 1 + 2，最高优先级）。基于两种失败模式，**单一机制即可同时覆盖**：
+    - **统一的「stop 后 forced final JSON call」**：不论 agent 是自然 stop 还是跑到 cap，在 loop 结束后做一次**额外 LLM call**，prompt 明确要求「基于已收集的证据输出 DiagnosisReport JSON，不要再调任何工具」。这一招同时救：
+      - failure mode 1（3/4 disaster）：cap 后给 agent 一次「只能输出 content、不能调工具」的机会，把 `content=""` 变成 `content=<JSON>`
+      - failure mode 2（1/4 disaster，BE-021）：自然 stop 后给 agent 一次「请把你的叙事格式化成 JSON」的机会
+    - 这个机制比第一版的 REPORTING phase 简单得多——不需要 phase 状态机、不需要收敛检测、不需要 nudge 注入；只需在 loop 末尾加一次 LLM call，prompt 强制「no tools, JSON only」
+  - **面试叙事点**：baseline 跑出来「难 case 全过、易 case 全崩」是个反直觉发现——直觉上易 case 应该最稳。这揭露了诊断 Agent 的一个本质特征：**harness 的价值不在「帮 agent 推理」（agent 推理能力本来就够），而在「帮 agent 知道何时停止推理并交付」**。第一版的 4 层机制方向错了——它在「帮 agent 推理得更好」，而真问题是「帮 agent 交付得出来」。case 驱动方法的价值就在这里：不跑 baseline 你看不见这个反转。
 
 ---
 
@@ -372,11 +428,34 @@ A: 我把 harness 拆成 8 个维度：收敛/停止、输出格式/解析、上
 > 每次开新会话窗口时，让 AI 先读这份文档，再从下面这段继续。
 
 ```
-当前状态：Iteration 0 baseline 已就绪（见第 1 章），尚未跑 smoke。
-下一步：跑 smoke-baseline-dev session，填 Iteration 0 的观察，定位最差 case 的失败模式，设计第一个最小机制。
-命令：
+当前状态：Iteration 0 baseline 已完成（2026-07-05，run=baseline-15case，overall mean=0.693，4 disaster）。
+  失败模式定位（看 trace LLM call 序列验证过，不是猜的）：
+    - mode 1（3/4 disaster，BE-020/FE-020/FE-021）：跑到 12 轮 cap，末轮 content="" → parse 空 → 空报告
+    - mode 2（1/4 disaster，BE-021）：第 11 轮自然 stop，但末轮是 1376 字叙事散文，不是 JSON → parse 失败
+  反直觉发现：易 case（BE-020/FE-020/FE-021）全崩，难 case（L3/L4 red-herring/smokeless）全过。
+  根因：agent 推理能力够，问题在「不知道何时停止 + 停了也不输出 JSON 格式」。
+
+下一步：Iteration 1，加「stop 后 forced final JSON call」——单一机制同时覆盖两种 failure mode。
+  loop 结束后做一次额外 LLM call，prompt 强制「基于已收集证据输出 DiagnosisReport JSON，不要再调任何工具」。
+  自然 stop 时把最后一条 narrative 喂进去做格式化；跑到 cap 时把 accumulated findings 喂进去做交付。
+
+命令（三层节奏）：
+  # Iteration 1 实现完后跑 train（8 case，~40min）——主战场
   cd D:\Work\LearnAI\DiagDoctor\doctor
-  uv run python scripts/run_baseline_experiment.py --session smoke-baseline-dev
-  uv run python scripts/dump_session_scores.py smoke-baseline-dev
-  uv run python scripts/dump_trace_llm_responses.py --session smoke-baseline-dev --bug <最差case> --show-input
+  uv run python scripts/run_baseline_experiment.py --split train --run-name iter1-forced-json
+  uv run python scripts/dump_session_scores.py iter1-forced-json-<ts>
+
+  # 大改后先跑 smoke（4 case，~5min）做 sanity check
+  uv run python scripts/run_baseline_experiment.py --split smoke --run-name iter1-smoke
+
+  # 决策点跑全量 15 + 与 baseline-15case 对比
+  uv run python scripts/run_baseline_experiment.py --run-name iter1-full
+  uv run python scripts/dump_session_scores.py iter1-full-<ts>
+
+  # 看具体 trace 的 LLM 输入输出（用于失败模式定位）
+  uv run python scripts/dump_trace_llm_responses.py --session <sid> --bug <id> --show-input
+
+注意：run_name 现在会自动补 timestamp 后缀（避免 Langfuse session 前缀聚合歧义）。
+  显式传 --run-name iter1-foo → 实际 run_name = iter1-foo-20260705-2103
+  已带 YYYYMMDD-HHMMSS 后缀的不再重复补。
 ```
