@@ -21,6 +21,7 @@ import asyncio
 import json
 import logging
 import shutil
+import subprocess
 from typing import Any
 
 from langchain_core.tools import StructuredTool
@@ -108,6 +109,28 @@ def _classify_file_role(file_path: str) -> str:
 # ── ripgrep search ─────────────────────────────────────────────────────
 
 
+def _run_ripgrep_sync(cmd: list[str], timeout: float) -> tuple[int, bytes, bytes]:
+    """Run rg synchronously and return ``(returncode, stdout, stderr)``.
+
+    Uses the blocking ``subprocess.run`` API deliberately, wrapped in
+    ``asyncio.to_thread`` by the caller. This sidesteps the Windows
+    event-loop policy problem: ``db_query.py`` switches the global
+    policy to ``WindowsSelectorEventLoopPolicy`` for psycopg 3, and that
+    loop does not implement subprocess transport — so
+    ``asyncio.create_subprocess_exec`` raises ``NotImplementedError``.
+    The blocking API goes through the OS directly, not the loop.
+    """
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise TimeoutError(f"ripgrep timed out after {timeout}s") from exc
+    return proc.returncode, proc.stdout or b"", proc.stderr or b""
+
+
 async def _ripgrep_search(query: str, k: int = 10) -> list[dict[str, Any]]:
     """Run ripgrep and return structured match results.
 
@@ -149,13 +172,8 @@ async def _ripgrep_search(query: str, k: int = 10) -> list[dict[str, Any]]:
         logger.debug("ripgrep attempt %d: %s", attempt + 1, " ".join(cmd))
 
         try:
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                proc.communicate(), timeout=RG_TIMEOUT
+            returncode, stdout_bytes, stderr_bytes = await asyncio.to_thread(
+                _run_ripgrep_sync, cmd, RG_TIMEOUT
             )
         except TimeoutError:
             logger.warning("ripgrep timed out after %.1fs", RG_TIMEOUT)
@@ -167,7 +185,7 @@ async def _ripgrep_search(query: str, k: int = 10) -> list[dict[str, Any]]:
             logger.warning("ripgrep execution failed: %s", exc)
             return []
 
-        if proc.returncode == 0 and stdout_bytes:
+        if returncode == 0 and stdout_bytes:
             results = _parse_ripgrep_output(stdout_bytes.decode("utf-8", errors="replace"), k=k)
             if results:
                 logger.info(
@@ -179,11 +197,11 @@ async def _ripgrep_search(query: str, k: int = 10) -> list[dict[str, Any]]:
                 return results
 
         # rc=1 means no matches — expected for rg
-        if proc.returncode not in (0, 1):
+        if returncode not in (0, 1):
             stderr = stderr_bytes.decode("utf-8", errors="replace")[:500] if stderr_bytes else ""
-            logger.warning("ripgrep exit=%d: %s", proc.returncode, stderr)
+            logger.warning("ripgrep exit=%d: %s", returncode, stderr)
 
-        if use_word and proc.returncode == 1:
+        if use_word and returncode == 1:
             logger.debug("No whole-word matches, retrying without -w")
             continue
 
