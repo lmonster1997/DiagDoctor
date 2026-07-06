@@ -172,7 +172,7 @@ def _extract_json_from_text(text: str) -> dict[str, Any] | None:
     matches = re.findall(json_pattern, text, re.DOTALL)
     for match in matches:
         try:
-            return json.loads(match)  # type: ignore[no-any-return]
+            return json.loads(match, strict=False)  # type: ignore[no-any-return]
         except json.JSONDecodeError:
             continue
 
@@ -183,7 +183,7 @@ def _extract_json_from_text(text: str) -> dict[str, Any] | None:
 
     # ── 3. Fallback: json.loads on the whole text (in case it's pure JSON) ──
     try:
-        return json.loads(text)  # type: ignore[no-any-return]
+        return json.loads(text, strict=False)  # type: ignore[no-any-return]
     except json.JSONDecodeError:
         pass
 
@@ -239,7 +239,7 @@ def _extract_json_by_depth(text: str) -> dict[str, Any] | None:
     for start, end in reversed(candidates):
         candidate = text[start:end]
         try:
-            return json.loads(candidate)  # type: ignore[no-any-return]
+            return json.loads(candidate, strict=False)  # type: ignore[no-any-return]
         except json.JSONDecodeError:
             continue
 
