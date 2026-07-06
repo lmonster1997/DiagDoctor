@@ -14,7 +14,7 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  // Retain source maps for Doctor's source_map_resolve tool (see §13.1.2).
+  // Retain source maps for frontend source resolution tooling.
   build: {
     sourcemap: true,
   },

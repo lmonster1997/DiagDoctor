@@ -114,7 +114,7 @@ SEED_TASKS = [
         "assignee_idx": 1,
     },
     {
-        "title": "Optimize N+1 query in task list endpoint",
+        "title": "Add caching layer for frequently accessed project metadata",
         "status": "doing",
         "priority": 3,
         "assignee_idx": None,
@@ -206,15 +206,15 @@ SEED_COMMENTS_BY_TASK: dict[str, list[dict]] = {
         },
         {"author_idx": 1, "content": "I can reproduce this — page 3 shows duplicates from page 2."},
     ],
-    "Optimize N+1 query in task list endpoint": [
+    "Add caching layer for frequently accessed project metadata": [
         {
             "author_idx": 0,
-            "content": "We should use selectinload() or joinedload() to prefetch comments.",
+            "content": "Maybe a simple Redis cache with a short TTL would be enough here.",
         },
         {
             "author_idx": 1,
             "content": (
-                "Agreed. The current code makes a separate query per task — that's the bottleneck."
+                "Agreed. We can start with a read-through cache and measure the hit rate."
             ),
         },
     ],

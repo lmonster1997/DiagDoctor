@@ -48,7 +48,7 @@ injection:
   diff_patch: |
     --- a/demo-app/backend/app/api/tasks.py
     +++ b/demo-app/backend/app/api/tasks.py
-    @@ -110,3 +110,15 @@
+    @@ -102,3 +102,15 @@
          update_data = payload.model_dump(exclude_unset=True)
     -    for field, value in update_data.items():
     -        setattr(task, field, value)

@@ -33,7 +33,7 @@ injection:
 
     '
   diff_patch: "\n--- a/demo-app/backend/app/api/tasks.py\n\n+++ b/demo-app/backend/app/api/tasks.py\n\
-    \n@@ -110,1 +110,2 @@\n\n     update_data = payload.model_dump(exclude_unset=True)\n\
+    \n@@ -102,1 +102,2 @@\n\n     update_data = payload.model_dump(exclude_unset=True)\n\
     \n+    update_data.pop(\"status\", None)\n"
 trigger:
   type: e2e_action

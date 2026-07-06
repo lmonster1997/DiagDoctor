@@ -96,12 +96,12 @@ injection:
         +      config._retryCount = config._retryCount || 0;
         +      const maxRetries = 3;
         +      if (config._retryCount >= maxRetries) {
-        +        console.error('[CASCADE] Retry exhausted', { url: config.url, retries: config._retryCount });
+        +        console.error('[RETRY] Retry exhausted', { url: config.url, retries: config._retryCount });
         +        return Promise.reject(error);
         +      }
         +      config._retryCount += 1;
-        +      const backoff = Math.pow(2, config._retryCount - 1) * 1000;  // 1s, 2s, 4s
-        +      console.warn(`[CASCADE] Retry ${config._retryCount}/${maxRetries} after ${backoff}ms`, { url: config.url });
+        +      const backoff = Math.pow(2, config._retryCount - 1) * 1000;
+        +      console.warn(`[RETRY] Retry ${config._retryCount}/${maxRetries} after ${backoff}ms`, { url: config.url });
         +      await new Promise(resolve => setTimeout(resolve, backoff));
         +      return api(config);
         +    }

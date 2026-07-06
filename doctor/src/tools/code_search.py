@@ -96,7 +96,7 @@ def _classify_file_role(file_path: str) -> str:
     if "/tests/" in path_lower or "/__tests__/" in path_lower or path_lower.endswith("_test.py"):
         return "test"
     if "/recipes/" in path_lower or "/bug_factory/" in path_lower:
-        return "bug_recipe"
+        return "tooling"
     if ".py" in path_lower:
         return "python_module"
     if any(path_lower.endswith(ext) for ext in (".ts", ".tsx", ".js", ".jsx")):

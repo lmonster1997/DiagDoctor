@@ -34,7 +34,7 @@ injection:
 
     '
   diff_patch: "\n--- a/demo-app/backend/app/api/tasks.py\n\n+++ b/demo-app/backend/app/api/tasks.py\n\
-    \n@@ -93,2 +93,4 @@\n\n         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,\
+    \n@@ -85,2 +85,4 @@\n\n         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,\
 \ detail=\"任务不存在\")\n\n+    _audit_label = task.assignee_id.hex\n\n\
     \     return task\n"
 trigger:

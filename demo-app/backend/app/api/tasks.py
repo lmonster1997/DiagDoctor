@@ -1,9 +1,4 @@
-"""Tasks API routes: CRUD with comments and tags.
-
-NOTE: GET /api/projects/{pid}/tasks uses selectinload(Task.comments) — this is
-the *healthy* implementation. Bug Factory will later corrupt it to introduce
-an N+1 query for Doctor to diagnose.
-"""
+"""Tasks API routes: CRUD with comments and tags."""
 
 import uuid
 
@@ -28,10 +23,7 @@ async def list_tasks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[Task]:
-    """List all tasks in a project, with comments preloaded.
-
-    Uses selectinload to avoid N+1 queries — this is the healthy baseline.
-    """
+    """List all tasks in a project, with comments preloaded."""
     # Security: verify project ownership before listing its tasks.
     proj = await db.execute(
         select(Project).where(Project.id == project_id, Project.owner_id == current_user.id)
