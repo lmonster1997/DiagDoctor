@@ -2,7 +2,7 @@
 TriageAgent node — ⚠️ FULLY DEPRECATED in V3 ⚠️
 
 This module is NO LONGER USED in the DiagDoctor graph. In V3, triage
-classification is embedded directly in the ``unified_agent`` System Prompt
+classification is embedded directly in the ``diagnosis_agent`` System Prompt
 (step 1: "理解证据"). Evaluation metrics read ``primary_category`` and
 ``categories`` from the Agent's JSON output, not from this module.
 
@@ -114,7 +114,7 @@ def route_after_triage(state: DoctorState) -> list[str]:
 
     Determine which specialist agents to activate based on triage confidence.
 
-    V3 uses a linear topology (ingest → unified_agent → reporter) without
+    V3 uses a linear topology (ingest → diagnosis_agent → reporter) without
     specialist fan-out. This function is retained for backward compatibility
     and reference only.
 
@@ -183,7 +183,7 @@ async def triage_node(state: DoctorState) -> dict[str, Any]:
 
     Multi-label triage node: analyze normalized evidence → TriageOutput.
 
-    In V3, this node is replaced by the unified_agent's System Prompt
+    In V3, this node is replaced by the diagnosis_agent's System Prompt
     (step 1: classification analysis). Evaluation reads ``primary_category``
     and ``categories`` from the Agent's JSON output directly.
 

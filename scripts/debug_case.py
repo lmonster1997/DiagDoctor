@@ -255,7 +255,7 @@ async def run_case(
     if debug:
         print("[DEBUG] 进入 pdb — 在 doctor 源码设断点后按 c 继续")
         print("[DEBUG] 推荐断点位置:")
-        print("        src/graph/nodes/unified_agent.py → unified_agent_node")
+        print("        src/graph/nodes/diagnosis_agent/node.py → diagnosis_agent_node")
         print("        src/graph/nodes/ingest.py → ingest_node")
         breakpoint()  # ← VS Code: 在此设断点或 F5 附加后按 c
 

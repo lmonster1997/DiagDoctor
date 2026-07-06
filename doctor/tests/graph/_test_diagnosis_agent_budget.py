@@ -1,11 +1,11 @@
 """
-Budget exceeded tests for UnifiedAgent (V3).
+Budget exceeded tests for DiagnosisAgent (V3).
 
 Covers:
 - Budget exceeded by tool call count (>12)
 - Budget exceeded by token count (>100k)
 - Budget exceeded by elapsed time (>300s)
-- early_stopped propagation through unified_agent_node
+- early_stopped propagation through diagnosis_agent_node
 - Best-effort report generation when budget exceeded
 
 Uses mocked agents — no real LLM calls required.
@@ -19,13 +19,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from langchain_core.messages import AIMessage
 
-from src.graph.nodes.unified_agent import (
+from src.graph.nodes.diagnosis_agent import (
     BUDGET_WARNING_THRESHOLD,
     MAX_TIME_SECONDS,
     MAX_TOKENS_BUDGET,
     MAX_TOOL_CALLS,
+    diagnosis_agent_node,
     is_budget_exceeded,
-    unified_agent_node,
     update_budget,
 )
 from src.graph.state import (
@@ -37,7 +37,7 @@ from src.graph.state import (
     Signal,
     TriageOutput,
 )
-from src.graph.subgraphs.unified_agent import clear_unified_agent_cache
+from src.graph.subgraphs.diagnosis_agent import clear_diagnosis_agent_cache
 
 # ═════════════════════════════════════════════════════════════════════
 # Fixtures
@@ -46,8 +46,8 @@ from src.graph.subgraphs.unified_agent import clear_unified_agent_cache
 
 @pytest.fixture(autouse=True)
 def reset_cache() -> None:
-    """Reset the cached UnifiedAgent before each test."""
-    clear_unified_agent_cache()
+    """Reset the cached DiagnosisAgent before each test."""
+    clear_diagnosis_agent_cache()
 
 
 @pytest.fixture
@@ -206,10 +206,10 @@ class TestUpdateBudgetEdgeCases:
 
 
 class TestNodeBudgetExceeded:
-    """Tests that unified_agent_node correctly handles budget exceeded."""
+    """Tests that diagnosis_agent_node correctly handles budget exceeded."""
 
     @patch(
-        "src.graph.subgraphs.unified_agent.get_unified_agent",
+        "src.graph.subgraphs.diagnosis_agent.get_diagnosis_agent",
         autospec=True,
     )
     async def test_early_stopped_when_tool_calls_exceeded(
@@ -238,7 +238,7 @@ class TestNodeBudgetExceeded:
         mock_agent.ainvoke = AsyncMock(return_value={"messages": [msg]})
         mock_get_agent.return_value = mock_agent
 
-        result = await unified_agent_node(base_state)
+        result = await diagnosis_agent_node(base_state)
 
         assert result["early_stopped"] is True
         report = result["report"]
@@ -248,7 +248,7 @@ class TestNodeBudgetExceeded:
         assert "预算超限" in report.notes or report.notes != ""
 
     @patch(
-        "src.graph.subgraphs.unified_agent.get_unified_agent",
+        "src.graph.subgraphs.diagnosis_agent.get_diagnosis_agent",
         autospec=True,
     )
     async def test_budget_not_exceeded_normal_operation(
@@ -286,7 +286,7 @@ class TestNodeBudgetExceeded:
         mock_agent.ainvoke = AsyncMock(return_value={"messages": [msg]})
         mock_get_agent.return_value = mock_agent
 
-        result = await unified_agent_node(base_state)
+        result = await diagnosis_agent_node(base_state)
 
         assert result["early_stopped"] is False
         report = result["report"]
@@ -295,7 +295,7 @@ class TestNodeBudgetExceeded:
         assert report.confidence == 0.85
 
     @patch(
-        "src.graph.subgraphs.unified_agent.get_unified_agent",
+        "src.graph.subgraphs.diagnosis_agent.get_diagnosis_agent",
         autospec=True,
     )
     async def test_budget_at_warning_threshold_not_exceeded(
@@ -336,7 +336,7 @@ class TestNodeBudgetExceeded:
         mock_agent.ainvoke = AsyncMock(return_value={"messages": [msg]})
         mock_get_agent.return_value = mock_agent
 
-        result = await unified_agent_node(base_state)
+        result = await diagnosis_agent_node(base_state)
 
         # 8 calls = warning, not yet exceeded
         assert result["early_stopped"] is False
@@ -345,7 +345,7 @@ class TestNodeBudgetExceeded:
         assert report.early_stopped is False
 
     @patch(
-        "src.graph.subgraphs.unified_agent.get_unified_agent",
+        "src.graph.subgraphs.diagnosis_agent.get_diagnosis_agent",
         autospec=True,
     )
     async def test_failure_handler_sets_early_stopped(
@@ -358,14 +358,14 @@ class TestNodeBudgetExceeded:
         mock_agent.ainvoke = AsyncMock(side_effect=RuntimeError("Budget exhausted: token limit"))
         mock_get_agent.return_value = mock_agent
 
-        result = await unified_agent_node(base_state)
+        result = await diagnosis_agent_node(base_state)
 
         assert result["early_stopped"] is True
         report = result["report"]
         assert "Budget exhausted" in report.root_cause
 
     @patch(
-        "src.graph.subgraphs.unified_agent.get_unified_agent",
+        "src.graph.subgraphs.diagnosis_agent.get_diagnosis_agent",
         autospec=True,
     )
     async def test_very_long_operation_triggers_time_budget(
@@ -390,7 +390,7 @@ class TestNodeBudgetExceeded:
         mock_agent.ainvoke = AsyncMock(return_value={"messages": [msg]})
         mock_get_agent.return_value = mock_agent
 
-        result = await unified_agent_node(base_state)
+        result = await diagnosis_agent_node(base_state)
 
         # elapsed should exceed 300s
         assert result["early_stopped"] is True

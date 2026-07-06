@@ -2,15 +2,15 @@
 Main LangGraph definition for DiagDoctor diagnosis pipeline (v3).
 
 V3 topology (3 nodes, linear):
-    START → ingest → unified_agent → reporter → END
+    START → ingest → diagnosis_agent → reporter → END
 
     ingest:        Collects logs+traces from Loki/Tempo for backend + frontend
                    (parallel fetch), then runs deterministic normalization pipeline
                    (denoise→dedup→tree→signals→correlate→index).
-    unified_agent: Formats normalized evidence → ReAct LLM loop with 5 tools
+    diagnosis_agent: Formats normalized evidence → ReAct LLM loop with 5 tools
                    (search_observability, code_search, db_query,
                     inspect_frontend_error, get_file_content).
-    reporter:      Best-effort fallback when unified_agent output is invalid.
+    reporter:      Best-effort fallback when diagnosis_agent output is invalid.
 
 No conditional routing, no specialist fan-out, no critic loop.
 """
@@ -23,8 +23,8 @@ from typing import Any
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 
+from src.graph.nodes.diagnosis_agent import diagnosis_agent_node
 from src.graph.nodes.ingest import ingest_node
-from src.graph.nodes.unified_agent import unified_agent_node
 from src.graph.state import DiagnosisReport, DoctorState, Finding, NormalizedEvidence
 from src.observability.logger import get_logger
 
@@ -36,7 +36,7 @@ logger = get_logger(__name__)
 
 def _best_effort_report(state: DoctorState) -> DiagnosisReport:
     """
-    Construct a best-effort diagnosis report when the unified_agent fails.
+    Construct a best-effort diagnosis report when the diagnosis_agent fails.
 
     Uses available findings and evidence signals to produce a skeleton
     report with minimal information.
@@ -80,9 +80,9 @@ def _best_effort_report(state: DoctorState) -> DiagnosisReport:
 
 async def reporter_node(state: DoctorState) -> dict[str, Any]:
     """
-    Reporter node (v3): simplified — unified_agent directly produces DiagnosisReport.
+    Reporter node (v3): simplified — diagnosis_agent directly produces DiagnosisReport.
 
-    In V3, the unified_agent already outputs a structured DiagnosisReport
+    In V3, the diagnosis_agent already outputs a structured DiagnosisReport
     (with primary_category, categories, root_cause, fix_suggestion, etc.).
     The reporter's only job is to provide a best-effort fallback when the
     agent's report is None (e.g. budget exceeded, agent error).
@@ -119,22 +119,22 @@ def build_graph() -> Any:
     Build the DiagDoctor diagnosis graph (v3).
 
     V3 linear topology (3 nodes, 2 edges):
-        START → ingest → unified_agent → reporter → END
+        START → ingest → diagnosis_agent → reporter → END
 
     No conditional routing, no specialist fan-out, no critic loop.
-    The unified_agent performs triage internally via its System Prompt.
+    The diagnosis_agent performs triage internally via its System Prompt.
     """
     graph: StateGraph[DoctorState, None, DoctorState, DoctorState] = StateGraph(DoctorState)
 
     # ── 3 nodes ──
     graph.add_node("ingest", ingest_node)
-    graph.add_node("unified_agent", unified_agent_node)
+    graph.add_node("diagnosis_agent", diagnosis_agent_node)
     graph.add_node("reporter", reporter_node)
 
     # ── Linear edges ──
     graph.set_entry_point("ingest")
-    graph.add_edge("ingest", "unified_agent")
-    graph.add_edge("unified_agent", "reporter")
+    graph.add_edge("ingest", "diagnosis_agent")
+    graph.add_edge("diagnosis_agent", "reporter")
     graph.add_edge("reporter", END)
 
     return graph

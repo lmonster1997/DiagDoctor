@@ -337,6 +337,22 @@ Prompt    ███       ←  system prompt 里的"输出 JSON"指令现在太�
     - 这个机制比第一版的 REPORTING phase 简单得多——不需要 phase 状态机、不需要收敛检测、不需要 nudge 注入；只需在 loop 末尾加一次 LLM call，prompt 强制「no tools, JSON only」
   - **面试叙事点**：baseline 跑出来「难 case 全过、易 case 全崩」是个反直觉发现——直觉上易 case 应该最稳。这揭露了诊断 Agent 的一个本质特征：**harness 的价值不在「帮 agent 推理」（agent 推理能力本来就够），而在「帮 agent 知道何时停止推理并交付」**。第一版的 4 层机制方向错了——它在「帮 agent 推理得更好」，而真问题是「帮 agent 交付得出来」。case 驱动方法的价值就在这里：不跑 baseline 你看不见这个反转。
 
+#### 1.8 Baseline 方差观测（2026-07-05 复跑）
+
+同一套代码、同一批 15 case，第二次跑 `baseline-15case-20260705-155209`：
+
+- overall mean = **0.666**（vs 首跑 0.693，Δ=−0.027）
+- disaster（overall<0.4）= **5 个**（vs 首跑 4 个），但**组成变了**：
+  - 出灾难区：BE-021 0.31→0.97（自然 stop 这次恰好交付了 JSON）
+  - 进灾难区：CONFIG-020 0.97→0.30、PERF-021 0.91→0.30（这两个 root_cause_accuracy 仍是 0.95，只是这次没把结论落成 JSON——`notes="JSON 解析失败"`）
+- 各维度均值：root=0.810 / cat=0.533 / file=0.667 / fix=0.607 / line=0.533 / evid=0.557 / conf=0.791 / proc=0.933
+
+**关键结论**：
+
+1. **两版差距纯属 LLM 方差，不是任何机制改动驱动**。两次跑之间唯一改过的是 `code_search` 的 Windows 事件循环 bug fix（`asyncio.create_subprocess_exec` → `subprocess.run` + `asyncio.to_thread`，见 commit 历史），但首跑 baseline 时 `code_search` 本就是好的——那个 bug 只在中间一次单 case 跑（`all-20260705-153450_BE-020`）里出现过，不进两次 baseline 对比。所以 −0.027 不能归因给 fix。
+2. **方差主要落在"JSON 交付"环节，不落在"推理"环节**。两个回归 case 的 root_cause_accuracy 都还是 0.95，掉的全是 cat/file/fix/line 这些需要结构化 JSON 才能拿分的维度。这进一步收紧了第 3 章 Iteration 0 的结论：**失败模式不是 case 固有属性，而是"这一轮 LLM 恰好有没有交付 JSON"的高方差随机事件**——CONFIG-020（L3）和 PERF-021（L2）上一轮过、这轮崩，证明它跟难易度无关。
+3. **baseline 自身噪声 ≈ ±0.03（overall mean 量级），disaster 归属都不稳定**。后续 iteration 的 improvement 必须超过这个方差带才算信号，否则可能是噪声。Iteration 1（forced JSON）如果能把 disaster 数从 5 稳定压到 ≤2、overall mean 提到 ≥0.75，才算真生效。
+
 ---
 
 ### Iteration N: [机制名]（模板）
@@ -420,6 +436,127 @@ A: 我把 harness 拆成 8 个维度：收敛/停止、输出格式/解析、上
 | `scripts/dump_trace_observations.py --session <sid> --bug <id>` | 看一个 trace 的 observation 列表 |
 | `scripts/dump_trace_llm_responses.py --session <sid> --bug <id>` | 看一个 trace 的所有 LLM call 输入输出（最有用——能看 agent 每一轮在想什么） |
 | `scripts/dump_obs_compact.py <trace_id>` | 紧凑版 observation dump |
+| `scripts/dump_forced_call_flag.py <session_id>` | 看 Iteration 1 forced_final_json_call 在每个 case 是否真触发（区分「方差救活」vs「机制救活」） |
+
+---
+
+### Iteration 1: stop 后 forced final JSON call
+
+- **日期**：2026-07-06
+- **维度**：输出格式 / 解析 + 收敛（按 case 失败严重度而非维度分类做——这一改同时落在两个维度）
+- **针对的 case**：BE-020 / FE-020 / FE-021（mode 1）+ BE-021 / CONFIG-020 / PERF-021（mode 2）——baseline 两次跑合计 5 个 disaster 全栽在这两种 failure mode 上
+- **观测到的失败模式**：
+  - **mode 1（跑到 cap + 末轮空 content）**：BE-020 / FE-020 / FE-021——agent 一直调工具到 `MAX_TOOL_CALLS=12`，末轮 LLM 把所有输出放进 `tool_calls` 字段，`content=""`。loop 因 `range(12)` 耗尽而 break，`parse_diagnosis_report` 拿到空 content → fallback 空报告（`primary_category=""` / `confidence=0.2`）
+  - **mode 2（自然 stop + narrative 不带 JSON）**：BE-021 / CONFIG-020 / PERF-021——agent 自然停止调工具，但输出 1376 字叙事散文解释根因，不含 JSON 结构。`_extract_json_from_text` 找不到 JSON → fallback。`root_cause_accuracy` 仍是 0.95（judge 从 `root_cause=last_ai_content[:500]` 字段读到正确根因），但 `cat/file/fix/line` 全 0 因为没有结构化字段
+  - 为什么没被现有机制拦住：baseline 砍光了所有收敛 / forced call / REPORTING phase 机制，loop 结束就直接 parse，parse 失败就给空报告
+- **加的机制**：在 ReAct loop 结束后、`parse_diagnosis_report` 之前插入一次 forced final JSON call
+  - **代码位置**：`doctor/src/graph/nodes/unified_agent.py`
+    - 新增 `_FORCED_FINAL_JSON_SCHEMA_HINT` / `_FORCED_FINAL_INSTRUCTION_CAP` / `_FORCED_FINAL_INSTRUCTION_NARRATIVE` 三个 prompt 常量
+    - 新增 `_last_ai_has_json(messages)` helper——判断 loop 末尾 AIMessage 是否已含可 parse 的 JSON
+    - 新增 `_last_ai_is_natural_stop(messages)` helper——区分 mode 1 / mode 2 选不同 instruction
+    - 新增 async `_forced_final_json_call(messages, llm, invoke_config, natural_stop, case_id)`——做一次额外 LLM call
+    - `unified_agent_node` 在 loop 末尾插入触发分支
+  - **逻辑简述**：
+    1. loop 结束后查 `_last_ai_has_json(messages)`——已含 JSON 则跳过（不影响 baseline 11 个 healthy case）
+    2. 不含 JSON 且 token 预算未爆时，按 `_last_ai_is_natural_stop` 选 instruction（mode 1 用「工具调用上限」instruction / mode 2 用「叙事性格式化」instruction）
+    3. 把 `messages + [HumanMessage(instruction)]` 喂给**未 bind_tools 的** `llm`（不是 `llm_with_tools`——这是关键：从 API 层面拿掉 tool surface，DeepSeek 想 emit DSML 也 emit 不了）
+    4. forced response append 进 messages，`parse_diagnosis_report` 自然 pick up 它作为新的 last AIMessage
+  - **为什么是最小改动**：
+    - 没有 phase 状态机、没有收敛检测、没有 nudge 注入、没有 hypothesis tracking——直接在 loop 末尾加一次 LLM call
+    - 不改变 agent 在 loop 内的任何决策——只是「loop 后加一次格式化机会」
+    - 单点触发条件（`not _last_ai_has_json`）+ 单点失败兜底（forced call 自己 raise/timeout → return None → 走原 fallback 路径），不引入新的状态变量
+    - 与 v1 REPORTING phase 的关键差异：v1 在 loop **内**禁工具 + 注入 nudge，DeepSeek 仍持续输出 DSML 标记（API 层面 tools 还 bound，模型能继续 emit `tool_calls`，prompt 禁不掉）；本机制在 loop **外**做一次 call 且**完全不 bind tools**，从根本上拿掉了 DSML 触发面
+- **单元测试**：
+  - **测试文件**：`doctor/tests/graph/test_forced_final_json_call.py`（15 tests，全部通过）
+  - **覆盖的场景**：
+    - `_last_ai_has_json`：JSON object / markdown fence / 空 content / 纯叙事 / 无 AIMessage / 只看最后一条 AIMessage（6 cases）
+    - `_last_ai_is_natural_stop`：无 tool_calls / 有 tool_calls / 无 AIMessage（3 cases）
+    - `_forced_final_json_call`：append instruction 不 mutate input / mode 1 用 cap instruction / mode 2 用 narrative instruction / LLM 抛异常返回 None（4 cases）
+    - 端到端 wire 进 `unified_agent_node`：mode 1 触发 forced call 并 parse 成功 / healthy case 不触发 forced call（2 cases，用 monkeypatch 替换 LLM 跑真实 ReAct loop）
+- **smoke 重跑结果**：session=`smoke-v1-20260706-125927`（4 case，全部成功）
+  - 4 case 分数对比表：
+
+| case | iter1 overall | iter1 维度（root/cat/file/fix/proc） | baseline overall | Δ | forced_call 触发？ |
+|---|---|---|---|---|---|
+| BE-020 | **0.96** | 0.95 / 1.00 / 1.00 / 0.95 / 1.00 | 0.04（disaster, mode 1） | **+0.92** | **False**（agent 这次自然交付 JSON） |
+| FE-020 | **0.79** | 0.85 / 0.50 / 1.00 / 0.45 / 1.00 | 0.04（disaster, mode 1） | **+0.75** | **True**（机制救活） |
+| LOGIC-020 | **0.96** | 0.95 / 1.00 / 1.00 / 0.95 / 1.00 | 0.94（healthy） | +0.02 | False（gate 跳过） |
+| PERF-020 | **0.87** | 0.95 / 1.00 / 1.00 / 0.95 / 1.00 | 0.83（healthy） | +0.04 | False（gate 跳过） |
+
+  - **聚合**：smoke mean = **0.895**（baseline smoke mean ≈ 0.46），Δ=+0.43，远超 ±0.03 方差带 → 信号极强；disaster 数 = **0**（baseline 2 个）；零回归（两个 healthy case 都没退步）
+  - **那个最差 case 改善了吗**：FE-020（0.04→0.79）是 forced call 直接救活的——trace 显示 LLM #12 自然 stop 输出 388 字 narrative（无 JSON），LLM #13 [LAST] 是 forced call 输出 1412 字**纯 JSON**（无 markdown 前缀），parse 成功，10 个字段全有
+  - **其他 case 退步了吗**：没有。LOGIC-020 / PERF-020 两个 healthy case 都微涨（+0.02 / +0.04），`_last_ai_has_json` gate 正确跳过了 forced call——零回归设计验证通过
+  - **关键诚实点（methodology §2.2「trace 里机制真的触发了吗」）**：
+    - **BE-020 的救活是 LLM 方差，不是机制功劳**——trace `forced_final_json_call=False`，agent 这次在 cap 末轮自然交付了 2115 字 markdown+JSON（baseline 那次末轮是空 content）。这与 baseline ±0.03 方差带、disaster 归属不稳定的观察完全一致。如果只看分数不看 trace，会误以为机制救了 BE-020
+    - **只有 FE-020 是机制的真证据**——forced call 真触发了，且把 mode 2（narrative 不带 JSON）转成了合法 JSON
+    - **4 case 样本太小，BE-020 这种「方差救活」不可持续**——必须跑 train 8 case / 全量 15 case 看 forced call 触发率 + 真机制救活率才能下定论
+  - **FE-020 残留问题**：cat=0.50 / fix=0.45 不满分——forced call 输出的 JSON 字段都有但**内容质量不够**（categories 选了 `frontend_crash + data` 但 grader 期望更准；fix_suggestion 是 null guard 而非 schema 修根因）。这是 instruction 的 schema hint / 引导问题，不是机制本身的交付问题——下一轮 iteration 可针对此调 instruction
+- **结论**：**保留**。机制本身（forced final JSON call）在 FE-020 上证明有效，gate 在 3 个 healthy/naturally-delivered case 上正确跳过，零回归。但 4 case smoke 样本太小、BE-020 的救活是方差——**必须跑 train 8 case + 全量 15 case** 验证：(a) forced call 触发率是否稳定在合理区间（baseline disaster case 应触发）；(b) 真机制救活率（forced_call=True 且 parse 成功）是否高；(c) overall mean 是否 ≥0.75 且超过 baseline ±0.03 方差带；(d) disaster 数是否稳定 ≤2
+
+#### 1.9 全量 15 case 验证（2026-07-06，session=`baseline-15case-v1-20260706-131440`）
+
+> 注：run_name 字面是 `baseline-15case-v1`，但代码已是含 Iteration 1 forced call 的版本（git status 显示 `M doctor/src/graph/nodes/unified_agent.py`），所以这实质是 **iter1-full** 跑。
+
+**15 case 分数 + forced_call flag**：
+
+| bug_id | iter1 overall | iter1 维度（root/cat/file/fix/line/evid/conf/proc） | baseline v2 overall | Δ | forced_call | 归因 |
+|---|---|---|---|---|---|---|
+| BE-020 | 0.97 | 0.95/1.00/1.00/0.95/1.00/0.95/0.97/0.83 | 0.04 | +0.93 | **False** | 方差救活 |
+| BE-021 | 0.98 | 1.00/1.00/1.00/0.98/1.00/0.85/0.98/1.00 | 0.31 | +0.67 | **False** | 方差救活 |
+| BE-022 | 0.95 | 0.95/1.00/1.00/0.85/1.00/0.95/0.97/1.00 | 0.95 | 0 | False | healthy 稳定 |
+| CASCADE-020 | 0.70 | 0.65/0.50/1.00/0.65/0.50/0.95/0.65/1.00 | 0.68 | +0.02 | False | 稳定 |
+| **CONFIG-020** | **0.97** | 0.95/1.00/1.00/0.95/1.00/0.95/0.97/0.83 | 0.30 | **+0.67** | **True** | **机制救活** ✓ |
+| DATA-020 | 0.97 | 0.95/1.00/1.00/0.95/1.00/0.95/0.95/1.00 | 0.96 | +0.01 | False | 稳定 |
+| DATA-021 | 0.90 | 1.00/0.00/1.00/1.00/1.00/0.95/1.00/1.00 | 0.95 | -0.05 | False | 方差回归（cat=0.00，选错类） |
+| **FE-020** | **0.73** | 0.65/0.50/1.00/0.55/1.00/0.95/0.70/1.00 | 0.04 | **+0.69** | **True** | **机制救活** ✓ |
+| **FE-021** | **0.97** | 0.95/1.00/1.00/0.95/1.00/0.95/0.98/1.00 | 0.04 | **+0.93** | **True** | **机制救活** ✓ |
+| LOGIC-020 | 0.97 | 0.95/1.00/1.00/0.95/1.00/0.95/0.97/1.00 | 0.94 | +0.03 | False | 稳定 |
+| LOGIC-021 | 0.97 | 0.95/1.00/1.00/0.95/1.00/0.95/0.95/1.00 | 0.96 | +0.01 | **True** | 机制触发但本就 healthy，无回归 |
+| LOGIC-022 | 0.94 | 0.95/1.00/1.00/0.95/1.00/0.70/0.97/1.00 | 0.94 | 0 | **True** | 机制触发但本就 healthy，无回归 |
+| PERF-020 | 0.86 | 0.95/1.00/1.00/0.95/0.00/0.85/0.97/1.00 | 0.83 | +0.03 | False | 稳定（line=0，N+1 无单一行号） |
+| **PERF-021** | **0.28** | 0.00/1.00/0.00/0.45/0.00/0.85/0.08/1.00 | 0.30 | -0.02 | **True** | **机制触发但救不了**（真诊断失败） |
+| RACE-020 | 0.96 | 0.95/1.00/1.00/0.95/1.00/0.85/0.97/1.00 | 0.87 | +0.09 | False | 稳定 |
+
+**聚合统计**：
+- **overall mean = 0.874**（vs baseline v2 mean=0.666，**Δ=+0.208**，远超 ±0.03 方差带 → 信号极强）
+- **disasters (overall<0.4) = 1**（PERF-021）——vs baseline v2 5 个，验收阈值「≤2」满足
+- 各维度均值：root=0.853 / cat=0.867 / file=0.933 / fix=0.869 / line=0.833 / evid=0.907 / conf=0.872 / proc=0.978
+- vs baseline v2 各维度：root 0.810→0.853 / cat 0.533→0.867 / file 0.667→0.933 / fix 0.607→0.869 / line 0.533→0.833 / evid 0.557→0.907 / conf 0.791→0.872 / proc 0.933→0.978——**所有维度都涨**，cat / file / fix / line 涨幅最大（这些正是需要结构化 JSON 才能拿分的维度）
+
+**forced_call 触发分布（6/15 = 40%）**：
+- **机制救活 3 个 disaster**：CONFIG-020（0.30→0.97）/ FE-020（0.04→0.73）/ FE-021（0.04→0.97）——forced_call=True 且从 disaster → healthy，**这是机制的真证据**
+- **方差救活 2 个 disaster**：BE-020（0.04→0.97）/ BE-021（0.31→0.98）——forced_call=False，agent 这次恰好自然交付 JSON，与 baseline v2 的 BE-021 0.31→0.97 出灾难区是同种方差现象
+- **机制触发但救不了 1 个**：PERF-021——forced_call=True，forced call (LLM #13) 输出 1184 字干净 JSON（10 字段全有，parse 成功），**但诊断内容错**：agent 把「项目列表慢」误读成「任务列表 N+1」（PERF-020 的 pattern），affected_file 错指 `tasks.py` 而非 project 路径。这是「推理失败」而非「交付失败」，Iteration 1 的设计点不在这
+- **机制在 healthy case 触发 2 个，无回归**：LOGIC-021（0.96→0.97）/ LOGIC-022（0.94→0.94）——agent 这次恰好 narrative stop，forced call 把 narrative 转 JSON，分数没掉。证明 gate 是「last AI 有没有 JSON」而非「case 历史是否 healthy」——这是正确设计：防止方差导致的临时 narrative stop 让 healthy case 退步
+- **gate 正确跳过 9 个**：BE-020 / BE-021 / BE-022 / CASCADE-020 / DATA-020 / DATA-021 / LOGIC-020 / PERF-020 / RACE-020——agent 已交付 JSON，零误判
+
+**新失败模式定位（PERF-021，看 trace LLM call 序列验证过）**：
+- **症状误读 + 锁死错误路径**：
+  - LLM #4：agent 看到 `GET /api/projects/` 只有 2 个 SQL 查询（24ms+52ms），"并不慢"——这是关键岔路口
+  - LLM #4：agent **误判**——"可能指的是进入某个项目后看到任务列表变慢"，把症状从「项目列表」偷换成「任务列表」
+  - LLM #5：在 `GET /api/projects/{id}/tasks` 找到 N+1（50 次 comments 查询）——这是 **PERF-020 的 bug pattern**，不是 PERF-021
+  - LLM #6-12：agent 在错误路径上越走越深，LLM #12 甚至注意到矛盾（代码有 `selectinload` 但 trace 显示 N+1）却解释成「selectinload 未生效或已被 Bug Factory 污染」而非「看错了 endpoint」
+  - LLM #13 forced call：把错误诊断格式化成漂亮 JSON——机制救不了错诊断
+- **根因**：agent 推理能力在「症状 → 路径」映射这一步出错，不是工具调用不够、不是 JSON 交付不出。属于 Prompt / 推理维度，不是输出格式维度
+- **PERF-021 注入日志佐证**：注入的是 `app.models.user` / `app.schemas.project`（project 路径），agent 错指 `tasks.py` 是错的
+
+**最终结论（Iteration 1）**：
+- **保留机制**。验收阈值全部满足：mean=0.874 ≥0.75 ✓，disasters=1 ≤2 ✓，Δ=+0.208 远超 ±0.03 方差带 ✓
+- **机制真证据**：3 个 disaster 被 forced call 直接救活（CONFIG-020 / FE-020 / FE-021），6 个维度涨幅都超过方差带
+- **零回归**：9 个 gate-skipped case 全部不退步；2 个 healthy-but-forced-triggered case 也不退步
+- **诚实归因**：BE-020 / BE-021 的救活是 LLM 方差（forced_call=False），不是机制功劳。如果只看分数不看 trace flag，会高估机制效果——这正是 methodology §2.2「trace 里机制真的触发了吗」的纪律价值
+- **新失败模式（PERF-021）留给 Iteration 2+**：「症状误读 + 锁死错误路径」——属于 Prompt / 推理维度，forced call 救不了。这是 case 驱动方法的下一轮起点
+
+**面试叙事点（全量补充）**：
+- **方差带纪律的实战价值**：baseline v2 已经建立 ±0.03 方差带 + disaster 归属不稳定的认知。全量跑出来 BE-020 / BE-021 forced_call=False 但分数飙高——只有靠 trace flag 才能区分「方差救活」vs「机制救活」。**没有方差带认知就会把 5 个 disaster 全归功给机制**，归因错就会误判机制的真实效果边界（以为它能救 PERF-021，其实救不了）
+- **机制的「能力边界」由 case 揭示**：PERF-021 是 forced call 触发了但救不了的 case——它界定了 Iteration 1 的能力边界：**机制只解决「交付」不解决「推理」**。这个边界不是设计时画出来的，是跑完全量才看见的。这就是 case 驱动方法 vs 概念驱动的根本差异
+- **gate 设计的「方差防护」副作用**：LOGIC-021 / LOGIC-022 本就是 healthy case，但这一轮 agent 恰好 narrative stop（mode 2），forced call 触发把 narrative 转 JSON——分数没掉反而 LOGIC-021 微涨。这说明 gate 不是简单的「省 cost」，还有「防止方差导致的临时 narrative stop 让 healthy case 退步」的方差防护作用——这是设计时没预想到的红利
+- **面试叙事点**：
+  - **「拿掉 tool surface」比「prompt 禁工具」可靠**：v1 REPORTING phase 的失败教训是 prompt 级模式切换打不过 DeepSeek 在 tool-call history 下的 DSML pattern matching。Iteration 1 从 API 层面解决——`llm.ainvoke`（不 `bind_tools`）让模型在 response 里**根本没有 `tool_calls` 字段可填**，DSML 也就无从触发。FE-020 的 forced call（LLM #13）输出纯 JSON 无任何 DSML 痕迹，直接验证了这点
+  - **单机制覆盖两种 failure mode**：mode 1 / mode 2 看似不同（一个是「停不下来」、一个是「停了但不格式化」），但根因都是「loop 末尾没有 content-only 的输出机会」。一次 forced call 同时救两种——这是「按 case 失败严重度做、不按维度分类做」的方法论红利（§2.4）
+  - **健康 case 零回归设计**：`_last_ai_has_json` gate 确保 healthy case 不会被多塞一次 LLM call——既省 cost 又避免给已交付的 case 增加方差。smoke 4 case 里 3 个 case（BE-020 / LOGIC-020 / PERF-020）gate 正确跳过，验证通过
+  - **可观测性 + 诚实归因**：forced call 触发与否写入 Langfuse `output_data.forced_final_json_call` 字段。这次 smoke 跑出来 BE-020 分数飙到 0.96，但 trace flag 显示 `forced_call=False`——是 LLM 方差救的不是机制救的。**「看分数不看 trace」会归因错**，methodology §2.2 的第三件事「trace 里机制真的触发了吗」就是防这个坑
+  - **case 驱动方法对「方差 vs 信号」的纪律**：baseline 复跑已经建立 ±0.03 方差带 + disaster 归属不稳定的认知，所以 smoke 4 case 的 +0.43 不能直接当机制功劳——必须拆开看 forced_call flag 才能区分「方差救活」（BE-020）和「机制救活」（FE-020）。这是「先建立方差带再做 iteration」的工程纪律红利
 
 ---
 
@@ -428,34 +565,49 @@ A: 我把 harness 拆成 8 个维度：收敛/停止、输出格式/解析、上
 > 每次开新会话窗口时，让 AI 先读这份文档，再从下面这段继续。
 
 ```
-当前状态：Iteration 0 baseline 已完成（2026-07-05，run=baseline-15case，overall mean=0.693，4 disaster）。
-  失败模式定位（看 trace LLM call 序列验证过，不是猜的）：
-    - mode 1（3/4 disaster，BE-020/FE-020/FE-021）：跑到 12 轮 cap，末轮 content="" → parse 空 → 空报告
-    - mode 2（1/4 disaster，BE-021）：第 11 轮自然 stop，但末轮是 1376 字叙事散文，不是 JSON → parse 失败
-  反直觉发现：易 case（BE-020/FE-020/FE-021）全崩，难 case（L3/L4 red-herring/smokeless）全过。
-  根因：agent 推理能力够，问题在「不知道何时停止 + 停了也不输出 JSON 格式」。
+当前状态：Iteration 1 已完成（实现 + 单测 + smoke + 全量 15 case 验证）。
+  机制：loop 结束后若 last AIMessage 不含可 parse JSON，做一次未 bind_tools 的额外 LLM call
+        强制输出 JSON。两个 instruction 模板分别覆盖 mode 1（cap + 空 content）/ mode 2（narrative）。
+  gate：_last_ai_has_json → 已含 JSON 的 case 跳过（零回归设计 + 方差防护副作用）。
+  单测：tests/graph/test_forced_final_json_call.py 15 tests 全过；ruff clean。
+  全量结果（session=baseline-15case-v1-20260706-131440，实质是 iter1-full）：
+    mean=0.874（vs baseline v2 mean=0.666，Δ=+0.208，远超 ±0.03 方差带）
+    disasters=1（PERF-021）——验收阈值（≤2、≥0.75）全部满足
+    forced_call 触发 6/15：
+      机制救活 3 个 disaster（CONFIG-020 / FE-020 / FE-021，forced_call=True 且 disaster→healthy）
+      方差救活 2 个 disaster（BE-020 / BE-021，forced_call=False，agent 这次恰好自然交付 JSON）
+      机制触发但救不了 1 个（PERF-021，forced call 输出干净 JSON 但诊断内容错——推理失败非交付失败）
+      机制在 healthy case 触发 2 个无回归（LOGIC-021 / LOGIC-022，gate 设计的方差防护副作用）
+    gate 正确跳过 9 个（已交付 JSON 的 case，零误判）
 
-下一步：Iteration 1，加「stop 后 forced final JSON call」——单一机制同时覆盖两种 failure mode。
-  loop 结束后做一次额外 LLM call，prompt 强制「基于已收集证据输出 DiagnosisReport JSON，不要再调任何工具」。
-  自然 stop 时把最后一条 narrative 喂进去做格式化；跑到 cap 时把 accumulated findings 喂进去做交付。
+下一步：Iteration 2，针对 PERF-021 的新失败模式——「症状误读 + 锁死错误路径」。
+  trace 显示 agent 在 LLM #4 看到 `GET /api/projects/` 只 2 个 SQL 查询（24ms+52ms）"并不慢"，
+    却把症状偷换成"任务列表慢"，锁死在 PERF-020 的 N+1 pattern 上。
+  LLM #12 注意到矛盾（代码有 selectinload 但 trace 显示 N+1）却解释成"Bug Factory 污染"而非"看错了 endpoint"。
+  这是 Prompt / 推理维度问题，不是输出格式问题——forced call 救不了。
+  候选机制（待 case 驱动验证，不要理论先行）：
+    - 在 system prompt 加「症状锚定」约束：每轮复查 user_report 的关键词，路径选择必须回溯到症状
+    - 检测"矛盾解释 away"行为：agent 用"污染/未生效"解释代码-trace 矛盾时，注入 nudge 让它复查 endpoint
+    - 但要先跑几次 PERF-021 看是否稳定复现，确认不是方差
+  验收阈值（Iteration 2）：PERF-021 root_cause_accuracy 从 0.00 提到 ≥0.85，且不破坏其他 14 case（特别是 already-healthy 的 12 个不能退步超过 ±0.03 方差带）。
 
-命令（三层节奏）：
-  # Iteration 1 实现完后跑 train（8 case，~40min）——主战场
+命令（Iteration 2 节奏）：
+  # 改完先跑 smoke（4 case，~5min）做 sanity check——确保没灾难性回归
   cd D:\Work\LearnAI\DiagDoctor\doctor
-  uv run python scripts/run_baseline_experiment.py --split train --run-name iter1-forced-json
-  uv run python scripts/dump_session_scores.py iter1-forced-json-<ts>
+  uv run python scripts/run_baseline_experiment.py --split smoke --run-name iter2-smoke
+  uv run python scripts/dump_session_scores.py iter2-smoke-<ts>
+  uv run python scripts/dump_forced_call_flag.py iter2-smoke-<ts>
 
-  # 大改后先跑 smoke（4 case，~5min）做 sanity check
-  uv run python scripts/run_baseline_experiment.py --split smoke --run-name iter1-smoke
+  # 决策点跑全量 15 + 与 baseline-15case-v1-20260706-131440 对比（iter1-full，mean=0.874）
+  #   注意：必须看 PERF-021 是否被救活 + 其他 14 case 不退步
+  uv run python scripts/run_baseline_experiment.py --run-name iter2-full
+  uv run python scripts/dump_session_scores.py iter2-full-<ts>
+  uv run python scripts/dump_forced_call_flag.py iter2-full-<ts>
 
-  # 决策点跑全量 15 + 与 baseline-15case 对比
-  uv run python scripts/run_baseline_experiment.py --run-name iter1-full
-  uv run python scripts/dump_session_scores.py iter1-full-<ts>
-
-  # 看具体 trace 的 LLM 输入输出（用于失败模式定位）
-  uv run python scripts/dump_trace_llm_responses.py --session <sid> --bug <id> --show-input
+  # 看 PERF-021 trace 验证症状锚定机制是否生效
+  uv run python scripts/dump_trace_llm_responses.py --session <sid> --bug PERF-021 --show-input
 
 注意：run_name 现在会自动补 timestamp 后缀（避免 Langfuse session 前缀聚合歧义）。
-  显式传 --run-name iter1-foo → 实际 run_name = iter1-foo-20260705-2103
+  显式传 --run-name iter2-foo → 实际 run_name = iter2-foo-20260705-2103
   已带 YYYYMMDD-HHMMSS 后缀的不再重复补。
 ```

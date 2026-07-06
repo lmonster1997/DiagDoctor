@@ -35,11 +35,11 @@
 
 ### 0.1 现状
 
-当前 `unified_agent_node` 直接调用 `create_agent().ainvoke()`：
+当前 `diagnosis_agent_node` 直接调用 `create_agent().ainvoke()`：
 
 ```python
-# graph/nodes/unified_agent.py — 现状
-agent = get_unified_agent()  # create_agent() 构建的编译图
+# graph/nodes/diagnosis_agent.py — 现状
+agent = get_diagnosis_agent()  # create_agent() 构建的编译图
 agent_result = await agent.ainvoke({"messages": [HumanMessage(...)]})
 # ↑ 这一行进去，里面发生了什么你完全管不了
 ```
@@ -61,14 +61,14 @@ learn-claude-code 的核心原则是 *"The loop belongs to the agent. The mechan
 
 ### 0.3 目标
 
-将内层 Agent 循环从 `create_agent` 拿出来，自己写 `while` 循环。**外层 LangGraph 图拓扑不变**（ingest → unified_agent → reporter），只是 `unified_agent` 节点内部从"调黑盒"改为"自控循环"。
+将内层 Agent 循环从 `create_agent` 拿出来，自己写 `while` 循环。**外层 LangGraph 图拓扑不变**（ingest → diagnosis_agent → reporter），只是 `diagnosis_agent` 节点内部从"调黑盒"改为"自控循环"。
 
 ### 0.4 具体方案
 
 ```python
-# doctor/src/graph/nodes/unified_agent.py — 改后核心结构
+# doctor/src/graph/nodes/diagnosis_agent.py — 改后核心结构
 
-async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
+async def diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
     """LangGraph node: 手动驱动的统一诊断 Agent。"""
     evidence: NormalizedEvidence = state.evidence
     evidence_text = format_evidence_for_agent(evidence)
@@ -275,7 +275,7 @@ def _detect_span_n_plus_one(spans: list[dict]) -> Signal | None:
 **改动文件**：
 - `doctor/src/graph/state.py`：`Signal` 增加 `confidence: float = 0.5` 字段
 - `doctor/src/ingest/signal_extractor.py`：提取信号时计算置信度
-- `doctor/src/graph/nodes/unified_agent.py`：`format_evidence_for_agent()` 按置信度排序展示
+- `doctor/src/graph/nodes/diagnosis_agent.py`：`format_evidence_for_agent()` 按置信度排序展示
 
 #### 1.3.3 自适应噪声过滤
 
@@ -1434,7 +1434,7 @@ async def maybe_compact_context(
 
 **改动文件**：
 - `doctor/src/graph/context_engine.py`（新建，~300 行）
-- `doctor/src/graph/nodes/unified_agent.py`（修改，集成到手动循环）
+- `doctor/src/graph/nodes/diagnosis_agent.py`（修改，集成到手动循环）
 
 ### 4.4 优先级评估
 
@@ -1631,7 +1631,7 @@ bug-factory/recipes/gold/
 
 ### 6.1 现状
 
-`doctor/src/prompts/templates/unified_agent.j2` 当前是一个静态模板，包含：
+`doctor/src/prompts/templates/diagnosis_agent.j2` 当前是一个静态模板，包含：
 - 诊断三步骤（理解证据 → 深入调查 → 定位根因）
 - 工具选择表
 - 输出 JSON 格式定义
@@ -1651,7 +1651,7 @@ bug-factory/recipes/gold/
 #### 6.3.1 动态策略选择
 
 ```python
-# doctor/src/graph/nodes/unified_agent.py 修改
+# doctor/src/graph/nodes/diagnosis_agent.py 修改
 
 def _select_strategy(evidence: NormalizedEvidence) -> str:
     """根据证据类型选择诊断策略。"""
@@ -1768,7 +1768,7 @@ _SMOKELESS_STRATEGY = """
 """
 ```
 
-**改动文件**：`doctor/src/graph/nodes/unified_agent.py`、`doctor/src/prompts/templates/`（新增策略片段）
+**改动文件**：`doctor/src/graph/nodes/diagnosis_agent.py`、`doctor/src/prompts/templates/`（新增策略片段）
 
 #### 6.3.2 Few-shot 示例注入
 
@@ -1854,7 +1854,7 @@ Agent 在第一次工具调用前输出诊断计划，每步完成后更新状�
 ### 7.3 具体方案
 
 ```python
-# doctor/src/prompts/templates/unified_agent.j2 追加
+# doctor/src/prompts/templates/diagnosis_agent.j2 追加
 
 DIAGNOSIS_PLAN_INSTRUCTION = """
 ## 诊断计划
@@ -2099,7 +2099,7 @@ HYPOTHESIS_TRACKING_INSTRUCTION = """
 """
 ```
 
-**改动文件**：`doctor/src/prompts/templates/unified_agent.j2`
+**改动文件**：`doctor/src/prompts/templates/diagnosis_agent.j2`
 
 #### 10.3.2 证据覆盖度检查
 
@@ -2140,7 +2140,7 @@ def _check_evidence_coverage(
     return coverage
 ```
 
-**改动文件**：`doctor/src/graph/nodes/unified_agent.py`
+**改动文件**：`doctor/src/graph/nodes/diagnosis_agent.py`
 
 #### 10.3.3 自我审查提示
 
@@ -2480,7 +2480,7 @@ if tool_name == "delegate_subagent":
 
 **改动文件**：
 - `doctor/src/graph/subagent.py`（新建）
-- `doctor/src/graph/nodes/unified_agent.py`（增加 delegate_subagent 工具调用处理）
+- `doctor/src/graph/nodes/diagnosis_agent.py`（增加 delegate_subagent 工具调用处理）
 - `doctor/src/tools/__init__.py`（注册 delegate_subagent 工具）
 
 ### 13.5 适用场景

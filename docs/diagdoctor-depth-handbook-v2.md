@@ -14,14 +14,14 @@ V3 基线架构**已完整实现**，本手册不重复 V3 重构工作，而是
 
 | 模块 | 文件 | 状态 |
 |------|------|------|
-| 图拓扑 | `graph/main_graph.py` | ✅ 3 节点（ingest → unified_agent → reporter） |
+| 图拓扑 | `graph/main_graph.py` | ✅ 3 节点（ingest → diagnosis_agent → reporter） |
 | Ingest（采集+标准化） | `graph/nodes/ingest.py` + `ingest/normalizer.py` | ✅ 两阶段：① auto-prefetch 并行采集 Loki/Tempo（后端+前端）→ ② 9 步标准化管线 |
 | 前端错误采集 | `main.tsx` + `error-reporter.ts` + `otel-logs.ts` | ✅ 双通道：`console.error` → Loki（OTLP 日志）、`window.onerror` → Tempo（client_error span） |
-| UnifiedAgent | `graph/subgraphs/unified_agent.py` + `graph/nodes/unified_agent.py` | ✅ 手动 ReAct 循环 + 5 工具 + 证据格式化（不负责数据获取） |
+| DiagnosisAgent | `graph/subgraphs/diagnosis_agent.py` + `graph/nodes/diagnosis_agent.py` | ✅ 手动 ReAct 循环 + 5 工具 + 证据格式化（不负责数据获取） |
 | 5 个工具 | `tools/__init__.py` | ✅ search_observability（含 include_frontend）/ code_search（ripgrep）/ db_query / inspect_frontend_error / get_file_content |
 | 信号提取 | `ingest/signal_extractor.py` | ✅ 黄金信号分类（error_log / error_span / slow_span / repeated_query / browser_error）+ Span 级 N+1 检测 |
 | 安全层 | `security/` | ✅ sql_guard（SELECT-only）+ sanitizer（路径沙箱）+ secrets（脱敏） |
-| System Prompt | `prompts/templates/unified_agent.j2` | ✅ 静态 3 步策略 + 工具选择表 |
+| System Prompt | `prompts/templates/diagnosis_agent.j2` | ✅ 静态 3 步策略 + 工具选择表 |
 | 评测器 | `benchmark/evaluators/` | ✅ 自研 exact_match / keyword_match / llm_judge / efficiency → **迁移至 Langfuse** |
 | Bug 配方 | `bug-factory/recipes/gold/` | ✅ 15 个 YAML（7 类别） |
 | API | `api/diagnose.py` | ✅ POST /api/diagnose + SSE 流式 |
@@ -53,7 +53,7 @@ V3 基线架构**已完整实现**，本手册不重复 V3 重构工作，而是
 
 ## 数据流全景（V3 基线）
 
-### Ingest → UnifiedAgent 渐进式信息披露
+### Ingest → DiagnosisAgent 渐进式信息披露
 
 ```
 ┌─ ingest（首轮广撒网）──────────────────────────────┐
@@ -67,10 +67,10 @@ V3 基线架构**已完整实现**，本手册不重复 V3 重构工作，而是
 │          ↓                                         │
 │  9 步标准化管线（denoise→dedup→signals→correlate）  │
 │          ↓                                         │
-│  NormalizedEvidence（压缩后）→ unified_agent       │
+│  NormalizedEvidence（压缩后）→ diagnosis_agent       │
 └────────────────────────────────────────────────────┘
                         ↓
-┌─ unified_agent（按需精准深挖）──────────────────────┐
+┌─ diagnosis_agent（按需精准深挖）──────────────────────┐
 │  已有 golden_signals + correlations 开局上下文       │
 │  LLM 按需调工具：                                    │
 │    search_observability → 查特定 trace_id/spans     │
@@ -116,7 +116,7 @@ V3 基线架构**已完整实现**，本手册不重复 V3 重构工作，而是
 
 ## 🔴 当前执行路线（按时间顺序，非按对症程度）
 
-> **背景**：当前 `LLM_MODEL=deepseek-v4-flash`。V4-Flash 是前沿档编码模型（SWE-bench 79%、LiveCodeBench 91.6%，非小模型），但官方与第三方评测一致指出其**在「长程 agentic 多步工具调用」上明显落后 V4-Pro**——Terminal-Bench 2.0 落后 11 分（56.9 vs 67.9）。DiagDoctor 的 unified_agent 恰好就是这类工作负载。
+> **背景**：当前 `LLM_MODEL=deepseek-v4-flash`。V4-Flash 是前沿档编码模型（SWE-bench 79%、LiveCodeBench 91.6%，非小模型），但官方与第三方评测一致指出其**在「长程 agentic 多步工具调用」上明显落后 V4-Pro**——Terminal-Bench 2.0 落后 11 分（56.9 vs 67.9）。DiagDoctor 的 diagnosis_agent 恰好就是这类工作负载。
 >
 > **本项目的定位**：简历/面试项目，不是生产系统。ROI 排序永远是：**能讲清楚的故事 > 干净的对比数据 > case 数量**。15 个 case 跨 8 类已足够（见「评测节奏」与「附录 E：Case 规模决策」），**不再扩展**。
 
@@ -267,9 +267,9 @@ trace 验证（`dump_session_scores.py` + 拉 trace output）确认翻盘机制�
 - `early_stopped=True` 时报告含完整 root_cause / affected_file / evidence_chain（非半句话、非空字段）
 - smoke 4 case 中其余 3 个（BE/LOGIC/PERF）不退化
 
-**实现笔记**（`doctor/src/graph/nodes/unified_agent.py`，🚧 实现完成待验证）：
+**实现笔记**（`doctor/src/graph/nodes/diagnosis_agent.py`，🚧 实现完成待验证）：
 
-三个新增组件，全部在 `unified_agent_node` 内，无新依赖：
+三个新增组件，全部在 `diagnosis_agent_node` 内，无新依赖：
 
 1. **running hypothesis 累积**（`_update_running_hypothesis`，每轮 AIMessage 后调用）：
    - 从 AIMessage 提取 partial JSON 字段（`primary_category`/`categories`/`affected_file`/`affected_line`/`fix_suggestion`/`evidence_chain`/`confidence`），last non-empty wins。
@@ -322,7 +322,7 @@ v1→v2 的两个改进立竿见影：
 > 3. **没有 flailing 检测**：agent 用不同 args 反复 `code_search` 同一意图，dedup 只抓完全相同的，抓不住「换说法重搜」。
 > 4. **没有总时间帽**：`asyncio.wait_for(300s)` 是单次 LLM 调用超时，不是整次诊断。12 iter 理论上能跑 60 分钟。
 
-**三个修复**（`doctor/src/graph/context_engine.py` + `doctor/src/graph/nodes/unified_agent.py`）：
+**三个修复**（`doctor/src/graph/context_engine.py` + `doctor/src/graph/nodes/diagnosis_agent.py`）：
 
 1. **ContextBudget.phase 改为四维度取最严**（token / iteration / tool_calls / time）：
    - 加 `iteration` / `max_iterations` / `tool_calls` / `max_tool_calls` / `started_at_monotonic` / `max_time_seconds` 字段。
@@ -366,7 +366,7 @@ S1.5a 的 FE-020=0.05 暴露了 flailing force-stop 的误杀——这是 S1.5 �
 
 ### S2：T0 启用 Think Max 模式（model 变更，ablation 验证）
 
-> S1.5 修完、smoke 干净后做。修改 `llm_factory.py`，在 unified_agent 的 LLM 调用处启用 `reasoning_effort="max"`。judge 保持 `deepseek-v4-pro`（已在 .env 配置）。
+> S1.5 修完、smoke 干净后做。修改 `llm_factory.py`，在 diagnosis_agent 的 LLM 调用处启用 `reasoning_effort="max"`。judge 保持 `deepseek-v4-pro`（已在 .env 配置）。
 >
 > **必须 15-case ablation，且因 S0.4 发现的 run-to-run 方差，锚点需双跑取均值**：跑两次 15-case baseline（S1.5 修完后）取均值 vs 两次 Think Max experiment 取均值，按 D14 的 5% 阈值判保留/回滚。单次跑的 ±0.19 方差会盖过 5% 提升判定。若 S1.5 修完后方差已收窄到 <0.05，可降为单跑。
 
@@ -381,7 +381,7 @@ S1.5a 的 FE-020=0.05 暴露了 flailing force-stop 的误杀——这是 S1.5 �
 
 > S1 的「预算兜底报告 + 收敛检测」已治「预算耗尽丢结论 / 没头绪反复 search 耗光预算」。如果 S1 修完 smoke/15-case 都干净，T1 可推迟甚至不做（避免单独 ablation 成本）。只在 S2 之后仍有 case 表现出「死磕错假设、不 pivot」时才做。
 >
-> 重写 `prompts/templates/unified_agent.j2` 诊断策略部分：通用调试方法论 + `<hypothesis_journal>`（假设/置信度/验证路径 + pivot 纪律 + 停止条件）。修改 `parse_diagnosis_report()` / `extract_findings()` 提取 journal 存入 findings。
+> 重写 `prompts/templates/diagnosis_agent.j2` 诊断策略部分：通用调试方法论 + `<hypothesis_journal>`（假设/置信度/验证路径 + pivot 纪律 + 停止条件）。修改 `parse_diagnosis_report()` / `extract_findings()` 提取 journal 存入 findings。
 
 **验收**：
 - Agent 每轮输出 `<hypothesis_journal>`
@@ -520,7 +520,7 @@ def get_langfuse_handler() -> CallbackHandler:
     )
 ```
 
-**在 Agent 循环中注入**（`unified_agent.py`）：
+**在 Agent 循环中注入**（`diagnosis_agent.py`）：
 
 ```python
 langfuse_handler = get_langfuse_handler()
@@ -1068,15 +1068,15 @@ mkdir -p output/baselines
 
 ### D3：手动循环骨架 + 工具调用去重
 
-#### 任务 1.1：重写 `unified_agent_node` 为手动循环
+#### 任务 1.1：重写 `diagnosis_agent_node` 为手动循环
 
 **AI 提示词**：
 
-> 重写 `doctor/src/graph/nodes/unified_agent.py` 的 `unified_agent_node` 函数，从 `agent.ainvoke()` 改为手动驱动 Agent 循环。
+> 重写 `doctor/src/graph/nodes/diagnosis_agent.py` 的 `diagnosis_agent_node` 函数，从 `agent.ainvoke()` 改为手动驱动 Agent 循环。
 >
 > 核心结构：
 > ```python
-> async def unified_agent_node(state: DoctorState) -> dict[str, Any]:
+> async def diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
 >     evidence = state.evidence
 >     evidence_text = format_evidence_for_agent(evidence)
 >
@@ -1137,15 +1137,15 @@ mkdir -p output/baselines
 > - 保留现有的 `format_evidence_for_agent`、`parse_diagnosis_report`、`extract_findings`、`update_budget`、`handle_agent_failure` 函数
 > - `MAX_TOOL_CALLS` 保持 12
 > - 工具执行错误不中断循环，返回错误信息给 Agent
-> - 外层 LangGraph 图拓扑不变（ingest → unified_agent → reporter）
+> - 外层 LangGraph 图拓扑不变（ingest → diagnosis_agent → reporter）
 >   - **ingest** 已实现：auto-prefetch 并行采集 Loki/Tempo + 9 步标准化管线
->   - **unified_agent** 职责：纯 LLM 诊断（格式化证据 → ReAct 循环），不负责数据获取
+>   - **diagnosis_agent** 职责：纯 LLM 诊断（格式化证据 → ReAct 循环），不负责数据获取
 
 **验收**：
 - BE-020 case 跑通，Agent 调用工具正常
 - 工具调用去重生效（相同参数的重复调用被跳过）
 - 工具执行错误不中断循环
-- `graph/subgraphs/unified_agent.py` 中的 `create_agent` 不再被调用
+- `graph/subgraphs/diagnosis_agent.py` 中的 `create_agent` 不再被调用
 
 ---
 
@@ -1315,7 +1315,7 @@ async def code_search(query: str, k: int = 10) -> str:
 >    - 预算 > 75%：额外将所有工具结果截断到 500 tokens 以内
 >    - 返回 `(messages, compacted: bool)`
 >
-> 2. 修改 `unified_agent_node`（任务 1.1 的手动循环），将以下注入点填充：
+> 2. 修改 `diagnosis_agent_node`（任务 1.1 的手动循环），将以下注入点填充：
 >    - 每次迭代开始时：`messages, compacted = await maybe_compact_context(messages, budget)`
 >    - FINALIZING 阶段：`messages.append(HumanMessage("⚠️ 预算即将耗尽，请立即输出诊断 JSON。"))`
 >    - 工具结果入 messages 前：`result = truncate_tool_result(tc["name"], str(result))`
@@ -1721,7 +1721,7 @@ uv run python scripts/run_experiment.py \
 
 **AI 提示词**：
 
-> 在 `unified_agent.j2` 的诊断策略部分，第 1 步之前新增"诊断计划"指令：
+> 在 `diagnosis_agent.j2` 的诊断策略部分，第 1 步之前新增"诊断计划"指令：
 >
 > ```jinja2
 > ## 诊断计划（必须在第一次工具调用前输出）
@@ -1851,7 +1851,7 @@ uv run python scripts/run_baseline_experiment.py \
 
 **AI 提示词**：
 
-> 在 `unified_agent.j2` 追加假设追踪指令：
+> 在 `diagnosis_agent.j2` 追加假设追踪指令：
 >
 > ```jinja2
 > ## 假设追踪
@@ -1883,7 +1883,7 @@ uv run python scripts/run_baseline_experiment.py \
 
 **AI 提示词**：
 
-> 在 `unified_agent.py` 新增 `_check_evidence_coverage()` 函数：
+> 在 `diagnosis_agent.py` 新增 `_check_evidence_coverage()` 函数：
 >
 > 检查诊断报告是否基于：
 > - 可观测性数据（search_observability）
@@ -1906,7 +1906,7 @@ uv run python scripts/run_baseline_experiment.py \
 
 **AI 提示词**：
 
-> 在 `unified_agent.j2` 追加输出前自检指令：
+> 在 `diagnosis_agent.j2` 追加输出前自检指令：
 >
 > ```jinja2
 > ## 输出前自检
@@ -2306,7 +2306,7 @@ Doctor                              Demo App
 
 | learn-claude-code 机制 | DiagDoctor 对应 | 实现状态 |
 |----------------------|----------------|---------|
-| s01 Agent Loop | unified_agent 手动循环 | ✅ Phase 1 |
+| s01 Agent Loop | diagnosis_agent 手动循环 | ✅ Phase 1 |
 | s02 Tool Use | 5 工具 dispatch map | ✅ 已实现 |
 | s03 Permission | sql_guard + sanitizer + secrets + output_sanitizer | ✅ Phase 3 深化 |
 | s04 Hooks | HookRegistry | Phase 3 |

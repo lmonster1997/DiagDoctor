@@ -1,11 +1,11 @@
 """
-Integration tests for UnifiedAgent subgraph & node wrapper (V3).
+Integration tests for DiagnosisAgent subgraph & node wrapper (V3).
 
 Covers:
 - ``format_evidence_for_agent()`` — evidence formatting for agent HumanMessage
 - ``parse_diagnosis_report()`` — parsing agent JSON output into DiagnosisReport
 - ``extract_findings()`` — extracting Finding list from agent messages
-- ``unified_agent_node()`` — node integration with mocked agent
+- ``diagnosis_agent_node()`` — node integration with mocked agent
 - Cross-layer diagnosis scenarios (FE-020 style)
 - Performance diagnosis scenarios (PERF-020 style)
 
@@ -20,13 +20,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from src.graph.nodes.unified_agent import (
+from src.graph.nodes.diagnosis_agent import (
+    diagnosis_agent_node,
     extract_findings,
     format_evidence_for_agent,
     handle_agent_failure,
     is_budget_exceeded,
     parse_diagnosis_report,
-    unified_agent_node,
     update_budget,
 )
 from src.graph.state import (
@@ -38,7 +38,7 @@ from src.graph.state import (
     Signal,
     TriageOutput,
 )
-from src.graph.subgraphs.unified_agent import clear_unified_agent_cache
+from src.graph.subgraphs.diagnosis_agent import clear_diagnosis_agent_cache
 
 # ═════════════════════════════════════════════════════════════════════
 # Fixtures
@@ -47,8 +47,8 @@ from src.graph.subgraphs.unified_agent import clear_unified_agent_cache
 
 @pytest.fixture(autouse=True)
 def reset_cache() -> None:
-    """Reset the cached UnifiedAgent before each test."""
-    clear_unified_agent_cache()
+    """Reset the cached DiagnosisAgent before each test."""
+    clear_diagnosis_agent_cache()
 
 
 @pytest.fixture
@@ -223,7 +223,7 @@ def perf020_state() -> DoctorState:
 
 
 class TestFormatEvidenceForAgent:
-    """Tests for evidence formatting into HumanMessage for UnifiedAgent."""
+    """Tests for evidence formatting into HumanMessage for DiagnosisAgent."""
 
     def test_formats_empty_evidence(self) -> None:
         """Empty evidence produces a usable prompt with fallback text."""
@@ -303,7 +303,7 @@ class TestFormatEvidenceForAgent:
 
 
 class TestParseDiagnosisReport:
-    """Tests for parsing UnifiedAgent JSON output into DiagnosisReport."""
+    """Tests for parsing DiagnosisAgent JSON output into DiagnosisReport."""
 
     def test_parses_be020_style_n1_report(self) -> None:
         """BE-020 N+1 report: affected_file, fix_suggestion, evidence_chain."""
@@ -515,7 +515,7 @@ Final diagnosis:
 
         findings = extract_findings(agent_result)
         assert len(findings) >= 1
-        assert findings[0].agent == "unified_agent"
+        assert findings[0].agent == "diagnosis_agent"
         assert any("N+1" in f.summary for f in findings)
 
     def test_extracts_root_cause_as_summary(self) -> None:
@@ -628,13 +628,13 @@ class TestHandleAgentFailure:
 
         findings = result["findings"]
         assert len(findings) == 1
-        assert findings[0].agent == "unified_agent"
+        assert findings[0].agent == "diagnosis_agent"
         assert findings[0].confidence == 0.0
 
     def test_preserves_triage_category(self, be020_state: DoctorState) -> None:
         """V3: Fallback report uses empty category (triage node removed in V3).
 
-        In V3, classification is embedded in the unified_agent System Prompt,
+        In V3, classification is embedded in the diagnosis_agent System Prompt,
         not in a separate triage node. When the agent fails, there is no
         triage output to fall back to — primary_category defaults to empty.
         """
@@ -646,15 +646,15 @@ class TestHandleAgentFailure:
 
 
 # ═════════════════════════════════════════════════════════════════════
-# unified_agent_node integration tests (mocked agent)
+# diagnosis_agent_node integration tests (mocked agent)
 # ═════════════════════════════════════════════════════════════════════
 
 
-class TestUnifiedAgentNode:
-    """Tests for the UnifiedAgent node function with mocked agent."""
+class TestDiagnosisAgentNode:
+    """Tests for the DiagnosisAgent node function with mocked agent."""
 
     @patch(
-        "src.graph.subgraphs.unified_agent.get_unified_agent",
+        "src.graph.subgraphs.diagnosis_agent.get_diagnosis_agent",
         autospec=True,
     )
     async def test_skips_when_no_evidence(
@@ -665,7 +665,7 @@ class TestUnifiedAgentNode:
         mock_agent.ainvoke = AsyncMock(side_effect=RuntimeError("No evidence available"))
         mock_get_agent.return_value = mock_agent
 
-        result = await unified_agent_node(empty_state)
+        result = await diagnosis_agent_node(empty_state)
 
         report = result["report"]
         assert isinstance(report, DiagnosisReport)
@@ -675,7 +675,7 @@ class TestUnifiedAgentNode:
         assert len(findings) >= 1
 
     @patch(
-        "src.graph.subgraphs.unified_agent.get_unified_agent",
+        "src.graph.subgraphs.diagnosis_agent.get_diagnosis_agent",
         autospec=True,
     )
     async def test_be020_diagnosis_n1_affected_file(
@@ -712,7 +712,7 @@ class TestUnifiedAgentNode:
         )
         mock_get_agent.return_value = mock_agent
 
-        result = await unified_agent_node(be020_state)
+        result = await diagnosis_agent_node(be020_state)
 
         # Verify agent was called with formatted evidence
         mock_agent.ainvoke.assert_called_once()
@@ -731,7 +731,7 @@ class TestUnifiedAgentNode:
         assert report.confidence == 0.92
 
     @patch(
-        "src.graph.subgraphs.unified_agent.get_unified_agent",
+        "src.graph.subgraphs.diagnosis_agent.get_diagnosis_agent",
         autospec=True,
     )
     async def test_fe020_cross_layer_diagnosis(
@@ -768,7 +768,7 @@ class TestUnifiedAgentNode:
         )
         mock_get_agent.return_value = mock_agent
 
-        result = await unified_agent_node(fe020_state)
+        result = await diagnosis_agent_node(fe020_state)
 
         report = result["report"]
         assert report is not None
@@ -780,7 +780,7 @@ class TestUnifiedAgentNode:
         assert "tags" in report.root_cause.lower()
 
     @patch(
-        "src.graph.subgraphs.unified_agent.get_unified_agent",
+        "src.graph.subgraphs.diagnosis_agent.get_diagnosis_agent",
         autospec=True,
     )
     async def test_perf020_n1_identification(
@@ -817,7 +817,7 @@ class TestUnifiedAgentNode:
         )
         mock_get_agent.return_value = mock_agent
 
-        result = await unified_agent_node(perf020_state)
+        result = await diagnosis_agent_node(perf020_state)
 
         report = result["report"]
         assert report is not None
@@ -827,7 +827,7 @@ class TestUnifiedAgentNode:
         assert "index" in report.fix_suggestion.lower() or "索引" in report.fix_suggestion
 
     @patch(
-        "src.graph.subgraphs.unified_agent.get_unified_agent",
+        "src.graph.subgraphs.diagnosis_agent.get_diagnosis_agent",
         autospec=True,
     )
     async def test_handles_agent_error(
@@ -838,7 +838,7 @@ class TestUnifiedAgentNode:
         mock_agent.ainvoke = AsyncMock(side_effect=RuntimeError("LLM API timeout after 30s"))
         mock_get_agent.return_value = mock_agent
 
-        result = await unified_agent_node(be020_state)
+        result = await diagnosis_agent_node(be020_state)
 
         report = result["report"]
         assert isinstance(report, DiagnosisReport)
@@ -846,7 +846,7 @@ class TestUnifiedAgentNode:
         assert result["early_stopped"] is True
 
     @patch(
-        "src.graph.subgraphs.unified_agent.get_unified_agent",
+        "src.graph.subgraphs.diagnosis_agent.get_diagnosis_agent",
         autospec=True,
     )
     async def test_sets_early_stopped_on_budget_exceeded(
@@ -880,7 +880,7 @@ class TestUnifiedAgentNode:
         mock_agent.ainvoke = AsyncMock(return_value={"messages": [msg]})
         mock_get_agent.return_value = mock_agent
 
-        result = await unified_agent_node(be020_state)
+        result = await diagnosis_agent_node(be020_state)
 
         assert result["early_stopped"] is True
         report = result["report"]

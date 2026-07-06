@@ -10,7 +10,7 @@
 
 依赖方向 0（手动循环）提供注入点。
 
-Usage (in unified_agent_node)::
+Usage (in diagnosis_agent_node)::
 
     from src.graph.context_engine import (
         ContextBudget,

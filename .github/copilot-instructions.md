@@ -119,7 +119,7 @@ DiagDoctor/
 │   ├── recipes/               # Bug 配方 YAML（28 个）
 │   └── src/                   # injector, trigger, evidence collector, case generator
 ├── doctor/                    # 诊断 Agent ✅ V3 基线已实现
-│   └── src/                   # LangGraph + RAG + FastAPI（ingest→unified_agent→reporter）
+│   └── src/                   # LangGraph + RAG + FastAPI（ingest→diagnosis_agent→reporter）
 ├── benchmark/                 # 评测系统（已迁移至 Langfuse，仅保留导入脚本）
 ├── infra/                     # 部署配置
 │   ├── docker-compose.yml
@@ -169,11 +169,11 @@ DiagDoctor/
 
 ## 当前开发阶段
 
-**V3 基线 ✅ 已实现**（3 节点：ingest → unified_agent → reporter）
+**V3 基线 ✅ 已实现**（3 节点：ingest → diagnosis_agent → reporter）
 
 **架构要点**：
 - **Ingest**：两阶段（① auto-prefetch 并行采集 Loki/Tempo 后端+前端数据 → ② 9 步标准化管线），输出 `NormalizedEvidence`
-- **UnifiedAgent**：手动 ReAct 循环 + 5 工具，纯 LLM 诊断（不负责数据获取）
+- **DiagnosisAgent**：手动 ReAct 循环 + 5 工具，纯 LLM 诊断（不负责数据获取）
 - **前端错误双通道**：`console.error` → Loki、`window.onerror` → Tempo（client_error span）
 - **search_observability** 支持 `include_frontend=True` 查询前端 client_error span
 

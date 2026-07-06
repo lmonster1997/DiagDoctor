@@ -319,7 +319,7 @@ class DoctorState(BaseModel):
     - Removed: iterations, critic_feedback, verdict (no Critic loop in V3)
     - Removed: draft_report (no synthesis node in V3)
     - Kept: triage field (default-empty, for backward compat; classification
-      now embedded in unified_agent System Prompt)
+      now embedded in diagnosis_agent System Prompt)
     - Kept: raw_evidence, evidence, findings, hypotheses, report, budget,
       retrieval_trace, total_cost, messages
     """
@@ -338,7 +338,7 @@ class DoctorState(BaseModel):
     findings: Annotated[list[Finding], add] = Field(default_factory=list)
     hypotheses: Annotated[list[DiagnosisHypothesis], add] = Field(default_factory=list)
 
-    # ── Reports (V3: unified_agent produces report directly; no draft_report) ──
+    # ── Reports (V3: diagnosis_agent produces report directly; no draft_report) ──
     report: DiagnosisReport | None = None
 
     # ── Message history (for ReAct agents) ──

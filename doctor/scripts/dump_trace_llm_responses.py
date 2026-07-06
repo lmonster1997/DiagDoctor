@@ -147,9 +147,9 @@ def main() -> int:
         last_out = _extract_llm_content(llm_calls[-1][1])[1]
         print("=" * 60)
         print("# JSON parsability check on LAST LLM output:")
-        # 复用 unified_agent 的 JSON 提取器
+        # 复用 diagnosis_agent 的 JSON 提取器
         try:
-            from src.graph.nodes.unified_agent import _extract_json_from_text
+            from src.graph.nodes.diagnosis_agent import _extract_json_from_text
             data = _extract_json_from_text(last_out)
             if data is None:
                 print("  ❌ _extract_json_from_text returned None")

@@ -172,7 +172,7 @@ TRACE_ANALYSIS_TOOL = StructuredTool.from_function(
     ),
 )
 
-# ── V3 统一工具集 (5 tools for UnifiedAgent) ────────────────────────
+# ── V3 统一工具集 (5 tools for DiagnosisAgent) ────────────────────────
 
 _ALL_TOOLS_CACHE: list[StructuredTool] | None = None
 

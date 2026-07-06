@@ -196,7 +196,7 @@ async def diagnose(
         ) from e
 
     report = final_state.get("report")
-    # V3: categories are embedded in DiagnosisReport (unified_agent output),
+    # V3: categories are embedded in DiagnosisReport (diagnosis_agent output),
     # NOT in triage (triage node was removed in V3).
     primary_category: str | None = None
     categories: list[str] = []

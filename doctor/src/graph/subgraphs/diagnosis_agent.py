@@ -1,5 +1,5 @@
 """
-UnifiedAgent subgraph — V3 统一诊断 Agent (ReAct with full toolset).
+DiagnosisAgent subgraph — V3 统一诊断 Agent (ReAct with full toolset).
 
 Replaces V2's multi-specialist fan-out architecture with a single agent
 that has access to ALL 5 tools and can diagnose any Web app bug type.
@@ -11,16 +11,16 @@ Uses LangChain's ``create_agent`` to build a ReAct agent that:
 3. Produces a structured DiagnosisReport with root cause and fix suggestion
 
 Design:
-    - System prompt from ``templates/unified_agent.j2`` (Jinja2, cached)
+    - System prompt from ``templates/diagnosis_agent.j2`` (Jinja2, cached)
     - Tools from ``src.tools.ALL_TOOLS`` (V3 unified 5-tool set)
     - LLM: ``get_llm_for_role("diagnosis")`` (strongest model, same tier as specialist)
     - Agent cached at module level for reuse across diagnosis sessions
 
 Usage::
 
-    from src.graph.subgraphs.unified_agent import get_unified_agent
+    from src.graph.subgraphs.diagnosis_agent import get_diagnosis_agent
 
-    agent = get_unified_agent()
+    agent = get_diagnosis_agent()
     result = await agent.ainvoke({"messages": [HumanMessage(content=evidence_text)]})
 """
 
@@ -44,11 +44,11 @@ logger = get_logger(__name__)
 
 # ── Module-level cache ───────────────────────────────────────────────
 
-_unified_agent_cache: CompiledStateGraph | None = None  # type: ignore[type-arg]
+_diagnosis_agent_cache: CompiledStateGraph | None = None  # type: ignore[type-arg]
 
 
 def _get_llm() -> BaseChatModel:
-    """Get the LLM instance for the UnifiedAgent (diagnosis tier = strongest)."""
+    """Get the LLM instance for the DiagnosisAgent (diagnosis tier = strongest)."""
     return get_llm_for_role("diagnosis")
 
 
@@ -82,23 +82,23 @@ def load_tools_reference() -> str:
 
 def _build_system_prompt() -> str:
     """
-    Render the UnifiedAgent system prompt from the Jinja2 template.
+    Render the DiagnosisAgent system prompt from the Jinja2 template.
 
     Only ``tools_reference`` is injected — evidence data is passed via
     the user message at runtime (not baked into the system prompt).
     """
     tools_ref = load_tools_reference()
-    return render_prompt("unified_agent.j2", tools_reference=tools_ref)
+    return render_prompt("diagnosis_agent.j2", tools_reference=tools_ref)
 
 
-def build_unified_agent() -> Any:  # CompiledStateGraph (relaxed per B2 policy)
+def build_diagnosis_agent() -> Any:  # CompiledStateGraph (relaxed per B2 policy)
     """
-    Build the UnifiedAgent ReAct agent.
+    Build the DiagnosisAgent ReAct agent.
 
     Uses LangChain's ``create_agent`` with:
     - All 5 V3 tools (search_observability, code_search, db_query,
       inspect_frontend_error, get_file_content)
-    - System prompt from unified_agent.j2 template
+    - System prompt from diagnosis_agent.j2 template
     - LLM configured via ``get_llm_for_role("diagnosis")``
 
     Returns:
@@ -109,7 +109,7 @@ def build_unified_agent() -> Any:  # CompiledStateGraph (relaxed per B2 policy)
     system_prompt = _build_system_prompt()
 
     logger.info(
-        "building_unified_agent",
+        "building_diagnosis_agent",
         model=settings.llm_specialist_model or settings.llm_model,
         tool_count=len(tools),
         tool_names=[t.name for t in tools],
@@ -124,21 +124,21 @@ def build_unified_agent() -> Any:  # CompiledStateGraph (relaxed per B2 policy)
     return agent
 
 
-def get_unified_agent() -> CompiledStateGraph:  # type: ignore[type-arg]
+def get_diagnosis_agent() -> CompiledStateGraph:  # type: ignore[type-arg]
     """
-    Get or create the cached UnifiedAgent instance.
+    Get or create the cached DiagnosisAgent instance.
 
     The agent is built once and reused across all diagnosis sessions
     to avoid re-creating the LLM, tools, and system prompt for each request.
     """
-    global _unified_agent_cache
-    if _unified_agent_cache is None:
-        _unified_agent_cache = build_unified_agent()
-    return _unified_agent_cache
+    global _diagnosis_agent_cache
+    if _diagnosis_agent_cache is None:
+        _diagnosis_agent_cache = build_diagnosis_agent()
+    return _diagnosis_agent_cache
 
 
-def clear_unified_agent_cache() -> None:
+def clear_diagnosis_agent_cache() -> None:
     """Clear the cached agent (useful for testing or hot-reload)."""
-    global _unified_agent_cache
-    _unified_agent_cache = None
-    logger.info("unified_agent_cache_cleared")
+    global _diagnosis_agent_cache
+    _diagnosis_agent_cache = None
+    logger.info("diagnosis_agent_cache_cleared")

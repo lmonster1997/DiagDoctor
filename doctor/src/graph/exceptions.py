@@ -56,7 +56,7 @@ class BudgetExceeded(DiagnosisInterrupt):
 class DiagnosisComplete(DiagnosisInterrupt):
     """Agent 正常完成诊断。
 
-    当 UnifiedAgent 成功定位根因并生成结构化报告后抛出。
+    当 DiagnosisAgent 成功定位根因并生成结构化报告后抛出。
     携带完整的 DiagnosisReport，Reporter 节点直接使用。
 
     Attributes:
