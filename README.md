@@ -17,7 +17,7 @@
 |--------|------|------|
 | **demo-app** | `demo-app/` | 被诊断的目标 Web 应用 — TaskFlow 任务管理系统（FastAPI + React） |
 | **bug-factory** | `bug-factory/` | Bug 生成与注入工厂（AI 自动制造 Bug，可量产评测数据） |
-| **doctor** | `doctor/` | 诊断 Agent 主体（LangGraph 多 Agent 协作 + RAG 知识库） |
+| **doctor** | `doctor/` | 诊断 Agent 主体（LangGraph，ingest → diagnosis_agent → reporter 线性图） |
 
 ### 核心能力
 
@@ -33,9 +33,9 @@
 | 维度 | 传统诊断工具 | DiagDoctor |
 |------|------------|------------|
 | Bug 来源 | 真实生产 Bug（稀缺） | **AI 自动生成 + 注入**（可控、可量产） |
-| 诊断方式 | 人工 GDB/CDB 调试 | **LangGraph 多 Agent 自动协作** |
-| 知识库 | 领域专有 | **RAG 通用知识库 + 历史案例自学习** |
-| 评测体系 | 无/手动 | **自动化 Harness（50+ 案例，准确率 ≥ 75%）** |
+| 诊断方式 | 人工 GDB/CDB 调试 | **LangGraph 单统一 Agent（手动 ReAct 循环）** |
+| 知识库 | 领域专有 | **code_search 用 ripgrep 精确匹配（不依赖向量检索）** |
+| 评测体系 | 无/手动 | **Langfuse 评测体系（15 案例 × 7 维度 Scoring，mean overall 0.909）** |
 | 部署 | 企业内网 | **Docker Compose 一键启动 + K8s Helm** |
 
 ---
@@ -55,22 +55,18 @@ flowchart TB
     end
 
     subgraph Core["核心层"]
-        Orchestrator["LangGraph Orchestrator<br/>主图 + 子图"]
-        StateStore[("Checkpointer<br/>SQLite")]
+        Orchestrator["LangGraph Orchestrator<br/>主图 (V3 线性)"]
+        StateStore[("Checkpointer<br/>MemorySaver")]
     end
 
-    subgraph Agents["Agent 层 (v2)"]
-        Triage["TriageAgent<br/>多标签 Bug 分类"]
+    subgraph Agents["Agent 层 (V3 — 单统一 Agent)"]
         Ingest["Ingest 证据归一化层"]
-        Specialist["Specialist Agents<br/>(backend/frontend/perf/logic)"]
-        Critic["Critic 验证回路"]
-        Synthesis["Synthesis 汇聚"]
+        DiagnosisAgent["DiagnosisAgent<br/>手动 ReAct 循环 + 5 工具"]
         Reporter["Reporter 报告生成"]
     end
 
     subgraph Knowledge["知识层"]
-        VectorDB[("Qdrant<br/>向量库")]
-        StructKB[("SQLite<br/>结构化知识")]
+        VectorDB[("Qdrant<br/>向量库 (仅知识库, 非代码检索)")]
         CaseDB[("历史案例库")]
     end
 
@@ -161,10 +157,12 @@ make setup          # 首次初始化（启动 + 迁移 + 种子数据）
 
 ---
 
-## ✅ 当前开发阶段：Sprint 1-2 完成，Sprint 3 待实现
+## ✅ 当前开发阶段：V3 基线已实现，深度化进行中
 
-> **Sprint 1-2（W1-W4）已基本完成**：基础设施 + Bug Factory + 评测雏形。
-> 详细开发状态见 `docs/architecture-diff-and-changes.md`。
+> **V3 基线 ✅ 已实现**：3 节点线性图 `ingest → diagnosis_agent → reporter`。
+> **深度化进行中**：Phase 1（手动循环 / 上下文工程 / Ingest-search 深度）已完成。
+> 详细规划见 `docs/diagdoctor-depth-directions-v2.md`，任务卡片见 `docs/diagdoctor-depth-handbook-v2.md`，
+> Harness 迭代记录见 `docs/harness-iteration-log.md`。
 
 ### Demo App（TaskFlow 任务管理）
 
@@ -191,17 +189,18 @@ make setup          # 首次初始化（启动 + 迁移 + 种子数据）
 |------|------|------|
 | **项目骨架** | FastAPI + LangGraph + Pydantic v2 | ✅ |
 | **诊断接口** | `POST /api/diagnose` 接收 Evidence → 结构化报告 | ✅ |
-| **LangGraph State** | DoctorState TypedDict + Finding/Hypothesis/DiagnosisReport | ✅ |
-| **最小 Graph** | Triage → Reporter 管道（含 SqliteSaver Checkpointer） | ✅ |
+| **LangGraph State** | DoctorState V3（NormalizedEvidence + Finding + DiagnosisReport） | ✅ |
+| **主图拓扑** | V3 线性 `ingest → diagnosis_agent → reporter`（含 MemorySaver Checkpointer） | ✅ |
 | **流式输出** | `?stream=true` astream_events v2 支持 | ✅ |
 | **结构化日志** | structlog + trace_id/session_id 自动注入 | ✅ |
 | **成本核算** | TokenAccountant 按 model 统计 | ✅ |
 | **OTel 追踪** | @traced 装饰器 + OpenTelemetry 集成 | ✅ |
 | **安全模块** | 路径沙箱、子进程参数校验、LLM 脱敏、SecretStr | ✅ |
-| **可观测性工具** | Loki 日志查询、Tempo Trace 搜索/详情 | ✅ |
-| **知识库** | Qdrant 向量库 + SQLite 结构化知识 + 混合检索 | ✅ |
-| **Embedding** | OpenAI 兼容 API / 本地 sentence-transformers (bge-m3) | ✅ |
-| **知识初始化** | YAML 种子数据 → Qdrant collection 自动创建 | ✅ |
+| **可观测性工具** | search_observability（Loki/Tempo，auto 模式异常检测 + 因果链）、code_search（ripgrep 精确匹配，不依赖向量检索） | ✅ |
+| **手动 ReAct 循环** | diagnosis_agent 包内 node.py + react_loop.py + forced_call.py，硬约束 MAX_TOOL_CALLS | ✅ |
+| **上下文工程** | context_engine.py：tool result 静态截断、历史消息降级、动态 system prompt | ✅ |
+| **Langfuse Tracing** | langfuse-langchain 集成，每次诊断 trace + score 上报 | ✅ |
+| **SQL 只读守卫** | db_query 工具强制 read-only，禁写保护 | ✅ |
 
 ### 可观测性栈
 
@@ -272,44 +271,38 @@ curl -X POST "http://localhost:8001/api/diagnose?stream=true" \
 - Docker Compose 全栈编排
 - OpenTelemetry + Loki + Tempo + Grafana 可观测性栈
 - Doctor 项目骨架 + LangGraph 最小 Graph
-- 知识库基础设施（Qdrant + SQLite + 混合检索）
 - CI/CD 流水线（GitHub Actions）
 
-### 🔜 Sprint 2：Bug Factory + Harness 评测雏形（D11-D20）
+### ✅ Sprint 2：Bug Factory + Harness 评测雏形（D11-D20）— 已完成
 
-| 任务 | 描述 |
-|------|------|
-| Bug 配方系统 | Pydantic Schema + YAML 配方定义（≥ 15 个配方） |
-| Bug Injector | AI 代码改写 + Git 分支管理 + Diff 应用 |
-| Trigger Runner | E2E 操作执行器（Playwright + aiohttp） |
-| Evidence Collector | Loki/Tempo 自动采集证据 |
-| Case Generator | 配方 → 评测案例自动生成 |
-| Harness Runner | 批量评测 + 并行执行 |
-| Evaluators | Exact Match / Keyword / LLM Judge 评分器 |
-| Report Generators | Markdown + HTML Dashboard |
+- Bug 配方系统（15 个 YAML 配方，跨 8 类别）
+- Bug Injector / Trigger Runner / Evidence Collector / Case Generator
+- Harness Runner + Evaluators（已迁移至 Langfuse）
 
-### 🔜 Sprint 3：核心 Agent 系统（D21-D30）
+### ✅ V3 重构 — 已完成
 
-| Agent | 职责 |
-|-------|------|
-| TriageAgent | Bug 分类（6 个类别） |
-| BackendLogAgent | 后端日志分析 ReAct Agent |
-| FrontendLogAgent | 前端崩溃 / console 分析 |
-| TraceAgent | 分布式调用链分析 |
-| PerfAgent | 性能瓶颈定位（N+1、慢 SQL、缓存） |
-| LogicAgent | 业务逻辑错误分析 |
-| ReporterAgent | 综合诊断报告生成 |
+- 从多 Agent（Triage / Specialist / Critic / Synthesis）收敛为单统一 Agent
+- 线性图 `ingest → diagnosis_agent → reporter`，MemorySaver checkpointer
+- DoctorState V3：移除 iterations / critic_feedback / verdict / draft_report
 
-### 🔜 Sprint 4：代码定位 + 部署 + 演示（D31-D40）
+### 🔄 深度化方向（进行中，详见 `docs/diagdoctor-depth-directions-v2.md`）
 
-| 任务 | 描述 |
-|------|------|
-| 代码索引 | tree-sitter 解析 → Qdrant 向量化 |
-| CodeFixAgent | 代码级定位 + 修复建议 |
-| K8s 部署 | Helm Chart + Ingress + HPA |
-| 评测调优 | 准确率 ≥ 75%，评测集 ≥ 50 case |
-| 完整文档 | 架构/开发/部署/API/安全 7+ 份文档 |
-| 演示物料 | 视频 + PPT + 技术分享 |
+| 方向 | 状态 | 说明 |
+|------|------|------|
+| 0 手动 Agent 循环 | ✅ | diagnosis_agent 包内手动 ReAct，硬约束 + forced final JSON |
+| 1 Ingest 证据归一化深度化 | ✅ | auto-prefetch + 9 步标准化管线 |
+| 2 search_observability auto 模式 | ✅ | 异常检测 + 因果链分析 |
+| 3 code_search ripgrep 混合检索 | ✅ | 精确匹配替代向量检索 |
+| 4 上下文工程（压缩/预算/动态策略） | ✅ | context_engine.py |
+| 5 Langfuse 评测体系迁移 | ✅ | 15 案例 × 7 维度 Scoring |
+| 6 System Prompt 策略化 | ⏸ 已暂缓 | 复盘：非瓶颈环节，待 ablation 数据支持 |
+| 7 诊断计划 TodoWrite | 🔜 | 先规划再执行，防止漂移 |
+| 8 Bug Factory 变异生成 | ❌ 已决策不做 | 扩展已决策不做，详见 handbook 附录 E |
+| 9 安全沙箱纵深防御 | 🔜 | P2 |
+| 10 Agent 自省与纠错 | 🔜 | P2 |
+| 11 成本优化与模型路由 | 🔜 | P2 |
+| 12 Hook 系统 | 🔜 | P2 |
+| 13 Subagent 上下文隔离 | 🔜 | P2 |
 
 ---
 
@@ -381,20 +374,26 @@ DiagDoctor/
 │   ├── src/
 │   │   ├── main.py
 │   │   ├── config.py
+│   │   ├── llm_factory.py     # 分层模型（diagnosis / judge / default …）
 │   │   ├── api/               # diagnose, health
 │   │   ├── graph/             # LangGraph 定义
-│   │   │   ├── main_graph.py
-│   │   │   ├── state.py
+│   │   │   ├── main_graph.py  # V3 线性图 ingest→diagnosis_agent→reporter
+│   │   │   ├── state.py       # DoctorState V3
+│   │   │   ├── context_engine.py  # 上下文工程（截断/降级/动态 prompt）
 │   │   │   ├── nodes/
-│   │   │   └── subgraphs/
-│   │   ├── tools/             # Agent 工具
-│   │   ├── knowledge/         # 知识库（Qdrant + SQLite）
-│   │   ├── observability/     # 日志/成本/追踪
+│   │   │   │   ├── ingest/        # 证据归一化（auto-prefetch + 9 步管线）
+│   │   │   │   ├── diagnosis_agent/  # 手动 ReAct 包
+│   │   │   │   │   ├── node.py        # diagnosis_agent_node 入口
+│   │   │   │   │   ├── react_loop.py  # 手动 ReAct 循环 + 硬约束
+│   │   │   │   │   └── forced_call.py # 强制终态 JSON
+│   │   │   │   └── reporter/      # 报告生成
+│   │   ├── tools/             # Agent 工具（search_observability / code_search / db_query / inspect_frontend_error / get_file_content）
+│   │   ├── observability/     # 日志/成本/追踪 + Langfuse
 │   │   ├── prompts/           # Jinja2 模板
 │   │   └── security/          # 安全模块
 │   ├── seed_data/             # 初始知识 YAML
 │   └── tests/
-├── benchmark/                 # 评测系统
+├── benchmark/                 # 评测系统（已迁移至 Langfuse，仅保留导入脚本）
 ├── infra/                     # 部署配置
 │   ├── docker-compose.yml
 │   ├── otel/collector.yaml
@@ -403,9 +402,14 @@ DiagDoctor/
 │   ├── grafana/               # Dashboard + 数据源
 │   └── postgres/init-db.sql
 ├── docs/                      # 设计文档
-│   ├── diagdoctor-from-scratch.md      # 架构总览
-│   ├── diagdoctor-execution-handbook.md # 逐日开发手册
-│   └── agent-dev-notes/                # 任务面试准备笔记
+│   ├── diagdoctor-depth-handbook-v2.md   # 执行手册（权威，任务卡片）
+│   ├── diagdoctor-depth-directions-v2.md # 14 个深度方向规划
+│   ├── harness-iteration-log.md          # Harness case 驱动迭代日志
+│   ├── bug-authoring-and-observability-guide.md
+│   ├── bug-case-quality-review-and-improvements.md
+│   ├── docker-network-fixes.md
+│   ├── ai-assisted-dev-tips.md
+│   └── agent-dev-notes/                  # 任务面试准备笔记
 ├── scripts/                   # 辅助脚本
 ├── Makefile                   # 开发命令
 └── pyproject.toml             # Workspace 配置
@@ -417,10 +421,16 @@ DiagDoctor/
 
 | 文档 | 路径 | 说明 |
 |------|------|------|
-| 架构总览 | `docs/diagdoctor-from-scratch.md` | 完整架构设计 + 技术决策 |
-| 执行手册 | `docs/diagdoctor-execution-handbook.md` | 8 周逐日任务卡片 |
+| **执行手册（权威）** | `docs/diagdoctor-depth-handbook-v2.md` | 逐日任务卡片、当前状态、Phase 规划 |
+| **深度方向（权威）** | `docs/diagdoctor-depth-directions-v2.md` | 14 个方向的方案细节与代码级改动 |
+| Harness 迭代日志 | `docs/harness-iteration-log.md` | ReAct 循环/forced call/结构化输出的 case 驱动迭代记录 |
+| Bug 配方规范 | `docs/bug-authoring-and-observability-guide.md` | 编写新 Bug 配方 |
+| Case 质量审查 | `docs/bug-case-quality-review-and-improvements.md` | Bug case 质量参考 |
 | Docker 排错 | `docs/docker-network-fixes.md` | Docker 网络问题排查 |
 | AI 编程技巧 | `docs/ai-assisted-dev-tips.md` | AI 辅助编程最佳实践 |
+
+> ⚠️ 以下文档已删除（过时/冲突）：`diagdoctor-from-scratch.md` / `diagdoctor-execution-handbook.md` / `architecture-diff-and-changes.md`。
+> 唯一权威来源：`depth-handbook-v2.md` + `depth-directions-v2.md` + `harness-iteration-log.md`。
 
 ---
 

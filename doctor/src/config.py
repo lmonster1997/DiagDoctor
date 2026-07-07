@@ -25,15 +25,15 @@ class Settings(BaseSettings):
     llm_api_key: SecretStr = SecretStr("")
     llm_base_url: str = "https://api.openai.com/v1"
     llm_model: str = "gpt-4o-mini"
-    llm_temperature: float = 0.1
+    llm_temperature: float = 0.0
     llm_max_tokens: int = 4096
 
     # Role-specific LLM overrides (fall back to llm_model if empty)
     llm_triage_model: str = ""
-    llm_triage_temperature: float = 0.1
+    llm_triage_temperature: float = 0.0
     llm_triage_max_tokens: int = 2048
     llm_specialist_model: str = ""
-    llm_specialist_temperature: float = 0.1
+    llm_specialist_temperature: float = 0.0
     llm_specialist_max_tokens: int = 4096
 
     # LLM-as-Judge（评测专用，建议用最强模型如 gpt-4o）

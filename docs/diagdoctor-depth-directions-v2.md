@@ -5,6 +5,14 @@
 >
 > **核心原则**：深度 ≠ 复杂。深度的标志是「在相同输入下，诊断准确率更高、
 > 证据链更完整、修复建议更可执行」。
+>
+> ⚠️ **时点说明**：本文撰写于 V3 基线确立、Phase 0 完成之后、Phase 1 启动之前。
+> 各方向下文「现状」段落描述的是**彼时（pre-Phase-1）状态**，用作"差距分析"
+> 的基准，并非当前实时状态。Phase 1 已落地的项（方向 0 手动 ReAct 循环、
+> 方向 1 Ingest 归一化、方向 2 search_observability auto 模式、方向 3 code_search
+> ripgrep、方向 4 上下文工程压缩/预算/动态策略、方向 5 Langfuse 评测迁移）
+> 请以 `docs/diagdoctor-depth-handbook-v2.md` 的任务卡勾选状态和
+> `docs/harness-iteration-log.md` 的迭代记录为准。
 
 ---
 

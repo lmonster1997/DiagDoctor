@@ -17,15 +17,15 @@ V3 基线架构**已完整实现**，本手册不重复 V3 重构工作，而是
 | 图拓扑 | `graph/main_graph.py` | ✅ 3 节点（ingest → diagnosis_agent → reporter） |
 | Ingest（采集+标准化） | `graph/nodes/ingest.py` + `ingest/normalizer.py` | ✅ 两阶段：① auto-prefetch 并行采集 Loki/Tempo（后端+前端）→ ② 9 步标准化管线 |
 | 前端错误采集 | `main.tsx` + `error-reporter.ts` + `otel-logs.ts` | ✅ 双通道：`console.error` → Loki（OTLP 日志）、`window.onerror` → Tempo（client_error span） |
-| DiagnosisAgent | `graph/subgraphs/diagnosis_agent.py` + `graph/nodes/diagnosis_agent.py` | ✅ 手动 ReAct 循环 + 5 工具 + 证据格式化（不负责数据获取） |
+| DiagnosisAgent | `graph/nodes/diagnosis_agent/`（node.py + react_loop.py + forced_call.py） | ✅ 手动 ReAct 循环 + 5 工具 + 证据格式化（不负责数据获取） |
 | 5 个工具 | `tools/__init__.py` | ✅ search_observability（含 include_frontend）/ code_search（ripgrep）/ db_query / inspect_frontend_error / get_file_content |
 | 信号提取 | `ingest/signal_extractor.py` | ✅ 黄金信号分类（error_log / error_span / slow_span / repeated_query / browser_error）+ Span 级 N+1 检测 |
 | 安全层 | `security/` | ✅ sql_guard（SELECT-only）+ sanitizer（路径沙箱）+ secrets（脱敏） |
 | System Prompt | `prompts/templates/diagnosis_agent.j2` | ✅ 静态 3 步策略 + 工具选择表 |
 | 评测器 | `benchmark/evaluators/` | ✅ 自研 exact_match / keyword_match / llm_judge / efficiency → **迁移至 Langfuse** |
-| Bug 配方 | `bug-factory/recipes/gold/` | ✅ 15 个 YAML（7 类别） |
+| Bug 配方 | `bug-factory/recipes/gold/` | ✅ 15 个 YAML（8 类别：BE/FE/PERF/LOGIC/DATA/RACE/CONFIG/CASCADE） |
 | API | `api/diagnose.py` | ✅ POST /api/diagnose + SSE 流式 |
-| LLM 工厂 | `llm_factory.py` | ✅ 分层模型（triage / specialist / default） |
+| LLM 工厂 | `llm_factory.py` | ✅ 分层模型（triage / specialist / diagnosis / default / judge；V3 实际只用 diagnosis + judge） |
 
 ### ❌ 待深度化（本手册覆盖）
 
@@ -267,7 +267,7 @@ trace 验证（`dump_session_scores.py` + 拉 trace output）确认翻盘机制�
 - `early_stopped=True` 时报告含完整 root_cause / affected_file / evidence_chain（非半句话、非空字段）
 - smoke 4 case 中其余 3 个（BE/LOGIC/PERF）不退化
 
-**实现笔记**（`doctor/src/graph/nodes/diagnosis_agent.py`，🚧 实现完成待验证）：
+**实现笔记**（`doctor/src/graph/nodes/diagnosis_agent/`，🚧 实现完成待验证）：
 
 三个新增组件，全部在 `diagnosis_agent_node` 内，无新依赖：
 
@@ -322,7 +322,7 @@ v1→v2 的两个改进立竿见影：
 > 3. **没有 flailing 检测**：agent 用不同 args 反复 `code_search` 同一意图，dedup 只抓完全相同的，抓不住「换说法重搜」。
 > 4. **没有总时间帽**：`asyncio.wait_for(300s)` 是单次 LLM 调用超时，不是整次诊断。12 iter 理论上能跑 60 分钟。
 
-**三个修复**（`doctor/src/graph/context_engine.py` + `doctor/src/graph/nodes/diagnosis_agent.py`）：
+**三个修复**（`doctor/src/graph/context_engine.py` + `doctor/src/graph/nodes/diagnosis_agent/`）：
 
 1. **ContextBudget.phase 改为四维度取最严**（token / iteration / tool_calls / time）：
    - 加 `iteration` / `max_iterations` / `tool_calls` / `max_tool_calls` / `started_at_monotonic` / `max_time_seconds` 字段。
@@ -1072,7 +1072,7 @@ mkdir -p output/baselines
 
 **AI 提示词**：
 
-> 重写 `doctor/src/graph/nodes/diagnosis_agent.py` 的 `diagnosis_agent_node` 函数，从 `agent.ainvoke()` 改为手动驱动 Agent 循环。
+> 重写 `doctor/src/graph/nodes/diagnosis_agent/` 的 `diagnosis_agent_node` 函数，从 `agent.ainvoke()` 改为手动驱动 Agent 循环。
 >
 > 核心结构：
 > ```python

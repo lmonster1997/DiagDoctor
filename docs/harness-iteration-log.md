@@ -4,6 +4,13 @@
 > 起始日期：2026-07-05
 > 目的：把 DiagDoctor 诊断 Agent 的 harness 从「过度设计的多层防御」重做成「case 驱动的增量机制」。
 > 用途：作为面试叙事材料——展示如何用证据驱动的方法做 harness 工程，而不是理论先行。
+>
+> 📌 **文件路径说明（2026-07 更新）**：本日志早期章节中引用的
+> `doctor/src/graph/nodes/unified_agent.py` 已在 V3 重构中拆分为
+> `doctor/src/graph/nodes/diagnosis_agent/` 包（入口 `node.py` 的
+> `diagnosis_agent_node`，循环逻辑在 `react_loop.py`，强制终态在
+> `forced_call.py`）。后续 Iteration 2 章节已直接引用新路径；早期章节保留
+> 旧路径名以保留迭代历史的原貌，阅读时请按上述映射理解。
 
 ---
 
