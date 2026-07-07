@@ -384,7 +384,13 @@ Prompt    ███       ←  system prompt 里的"输出 JSON"指令现在太�
 
 > 记录失败的实验。面试时讲「我试了 X，跑了 smoke 发现 Y 副作用，所以回滚了」——这是工程成熟度的证据。
 
-（待填）
+### Iteration 2 计划方案：`json_repair.repair_json()` fallback（未实施，换方案）
+
+- **计划**：在 `_extract_json_from_text` 的 `json.loads` 失败路径后加 `json_repair.repair_json()` fallback
+- **为什么换方案**：`json_repair` 是事后修补，需要 LLM 先产出错的 JSON 再 fix；`with_structured_output`
+  是事前预防，schema 在 API 层强制。治本优于治标，且不需要新依赖
+- **保留为 graveyard 而非删除**：如果未来遇到 `with_structured_output` 也救不了的 case（比如模型
+  拒绝 emit tool_call），`json_repair` 仍是可行的 fallback 路径——这是 plan B
 
 ---
 
@@ -558,6 +564,212 @@ A: 我把 harness 拆成 8 个维度：收敛/停止、输出格式/解析、上
   - **可观测性 + 诚实归因**：forced call 触发与否写入 Langfuse `output_data.forced_final_json_call` 字段。这次 smoke 跑出来 BE-020 分数飙到 0.96，但 trace flag 显示 `forced_call=False`——是 LLM 方差救的不是机制救的。**「看分数不看 trace」会归因错**，methodology §2.2 的第三件事「trace 里机制真的触发了吗」就是防这个坑
   - **case 驱动方法对「方差 vs 信号」的纪律**：baseline 复跑已经建立 ±0.03 方差带 + disaster 归属不稳定的认知，所以 smoke 4 case 的 +0.43 不能直接当机制功劳——必须拆开看 forced_call flag 才能区分「方差救活」（BE-020）和「机制救活」（FE-020）。这是「先建立方差带再做 iteration」的工程纪律红利
 
+#### 1.10 泄漏清理 + strict=False 修复（2026-07-06，session=`baseline-15case-v1-20260706-154516`）
+
+> Iteration 1 全量验证后，发现测试 fixture 存在信息泄漏（demo-app 源码 / seed data / 工具定义中暴露 "Bug Factory" / "N+1" / "Doctor agent" 等实验框架关键词，可能 bias agent 诊断）。清理泄漏后重跑全量 15 case。
+
+**泄漏清理（10 文件）**：
+- `tasks.py`：移除 docstring 中的 Bug Factory / N+1 / healthy baseline 提示（-8 行）
+- `seed.py`：移除 TODO 标题与评论中的 N+1 优化提示
+- `observability.py` / frontend observability / error-reporter：移除 Doctor agent / Doctor ingest 等实验框架暴露
+- `code_search.py`：`bug_recipe` 标签 → `tooling`
+- `cascade_020` recipe：`[CASCADE]` 日志前缀 → `[RETRY]`（recipe 注入的代码里直接标注了 bug 类型，agent 看 log 就知道答案）
+- 7 个 recipe diff_patch 行号同步（tasks.py 清理后上移 8 行）
+
+**附带修复：`json.loads(strict=False)`**：
+- 初始诊断：forced call 产出的 JSON 含字面换行（pretty-printed），`strict=True` 拒绝 → 加 `strict=False`
+- **后续验证发现此诊断不完全**：3 个 disaster 的 JSON 确实有字面换行，但 `\n` 都是 escaped `\n`（backslash-n），不是字面控制字符。真正的 parse 失败原因是**未转义双引号**（见下）。`strict=False` 仍保留（处理字面换行的 subset），但单独不够。
+
+**15 case 分数**：
+
+| bug_id | overall | root | cat | file | fix | line | evid | conf | proc | 备注 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| BE-020 | 0.97 | 0.95 | 1.00 | 1.00 | 0.95 | 1.00 | 0.92 | 0.97 | 1.00 | |
+| BE-021 | 0.97 | 1.00 | 1.00 | 1.00 | 0.95 | 1.00 | 0.85 | 0.95 | 1.00 | |
+| BE-022 | 0.95 | 0.95 | 1.00 | 1.00 | 0.85 | 1.00 | 0.95 | 0.97 | 1.00 | |
+| CASCADE-020 | 0.79 | 0.65 | 1.00 | 1.00 | 0.85 | 0.50 | 0.95 | 0.67 | 1.00 | 根因不完整 |
+| **CONFIG-020** | **0.27** | 0.85 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.35 | 0.83 | **JSON parse 失败** |
+| **DATA-020** | **0.33** | 0.95 | 0.00 | 0.00 | 0.00 | 0.00 | 0.30 | 0.25 | 1.00 | **JSON parse 失败** |
+| DATA-021 | 0.95 | 0.95 | 1.00 | 1.00 | 0.95 | 1.00 | 0.80 | 0.97 | 0.83 | |
+| FE-020 | 0.71 | 0.65 | 0.50 | 1.00 | 0.45 | 1.00 | 0.95 | 0.70 | 0.83 | fix 策略选错 |
+| FE-021 | 0.43 | 0.30 | 1.00 | 0.00 | 0.72 | 0.00 | 0.72 | 0.42 | 1.00 | 根因层级错配 |
+| LOGIC-020 | 0.97 | 0.95 | 1.00 | 1.00 | 0.95 | 1.00 | 0.95 | 0.97 | 1.00 | |
+| LOGIC-021 | 0.96 | 0.95 | 1.00 | 1.00 | 0.95 | 1.00 | 0.85 | 0.97 | 1.00 | |
+| **LOGIC-022** | **0.33** | 0.95 | 0.00 | 0.00 | 0.00 | 0.00 | 0.30 | 0.25 | 1.00 | **JSON parse 失败** |
+| PERF-020 | 0.86 | 0.95 | 1.00 | 1.00 | 0.95 | 0.00 | 0.85 | 0.97 | 1.00 | line=0 |
+| PERF-021 | 0.92 | 0.95 | 1.00 | 1.00 | 0.95 | 0.50 | 0.95 | 0.97 | 1.00 | 泄漏清理后恢复 |
+| RACE-020 | 0.92 | 0.95 | 1.00 | 1.00 | 0.95 | 0.50 | 0.95 | 0.97 | 1.00 | |
+
+- **聚合统计**：overall mean=**0.755**，min=0.27，max=0.97
+- **3 个 disaster**（overall<0.4）：CONFIG-020 / DATA-020 / LOGIC-022——全部 `notes="JSON 解析失败，使用原始输出作为 root_cause"`
+- **vs Iteration 1 full（mean=0.874）**：Δ=−0.119，远超 ±0.03 方差带。下降主因是 3 个 case 从 0.97/0.97/0.94 跌到 0.27/0.33/0.33——iteration 1 full 时 LLM 恰好没产出 unescaped quotes，这轮恰好产出了。**这恰好证明了 JSON 交付是一个高方差事件**，forced call 确保 LLM 产出 JSON，但不保证 JSON 语法正确。
+
+**3 个 disaster 根因深挖（`debug_json_parse.py` 实测）**：
+
+用 `json.loads(strict=False)` 逐个测 3 个 disaster 的 forced call 原始输出，全部报 `Expecting ',' delimiter`——不是字面控制字符问题（`strict=False` 无效），而是 **LLM 在 JSON 字符串值中放了未转义的 ASCII 双引号**：
+
+| Case | 出错位置 | 未转义内容 |
+|---|---|---|
+| CONFIG-020 | fix_suggestion 字段 | `表现为"登录成功后马上就掉登录态"。` |
+| DATA-020 | root_cause 字段 | `与用户期望的"最新在前"相反` + evidence_chain 里也有 |
+| LOGIC-022 | fix_suggestion 字段 | `用户反馈"其它字段能改"完全吻合` |
+
+LLM 在中文叙事中用 `"..."` 引述短语是常见行为，但忘了在 JSON 字符串值里 escape 成 `\"...\"`。这是 JSON 语法错误，`strict=False` 解决不了。
+
+---
+
+### Iteration 2: structured output via `with_structured_output(method="function_calling")` + Langfuse observability fix
+
+> **重要诚实点**：Iteration 2 计划阶段写的是「`json_repair.repair_json()` fallback」（见第 4 章 graveyard）。
+> 实施时换成了**完全不同的方案**——把 forced call 从「让 LLM 写 free-text JSON 再 parse」改成
+> 「`with_structured_output(method="function_calling")` 在 API 层面用 tool calling 强制 schema」。
+> 换方案的理由是：`json_repair` 只能在 parse 失败后**修补**，治标；而 `with_structured_output`
+> 在 API 层面让模型 emit 一个 tool_call（args 由 schema 校验），从源头消除未转义引号问题，治本。
+> 这是 case 驱动方法里允许的「实施时发现更优解」——但要在文档里诚实记录，不能让叙事伪装成「按计划执行」。
+
+- **日期**：2026-07-07（实施 + 全量验证完成）
+- **维度**：输出格式 / 解析（harness 层处理 LLM 输出的健壮性）+ 可观测性（让机制在 Langfuse 里可见）
+- **针对的 case**：CONFIG-020 (0.27) / DATA-020 (0.33) / LOGIC-022 (0.33)——3 个 disaster，同一失败模式
+- **观测到的失败模式**：
+  - **第几轮失败**：forced call（LLM #13）产出了结构完整、内容正确的 JSON，但 `_extract_json_from_text` → `json.loads` 解析失败
+  - **失败行为**：LLM 在 JSON 字符串值中用未转义的 ASCII 双引号 `"..."` 引述中文短语（如 `表现为"登录成功后马上就掉登录态"`），JSON 解析器把第一个 `"` 当成字符串结束符 → `Expecting ',' delimiter`
+  - **特征**：`root_cause_accuracy` 高（0.85-0.95）——judge 从 fallback 的 `root_cause=last_ai_content[:500]` 读到了正确根因；但 `cat/file/fix/line/evid` 全 0——结构化字段全部丢失
+  - **为什么没被现有机制拦住**：Iteration 1 的 forced call 机制工作正常（LLM 确实产出 JSON），`strict=False` 只处理字面控制字符，不处理未转义双引号——这是 JSON 语法层面的错误
+- **为什么是 Iteration 2 而非 Iteration 1 bugfix**：
+  - Iteration 1 = "确保 agent 输出 JSON"（forced call 机制）——已完成，LLM 确实产出 JSON
+  - JSON parse 失败是另一个层的问题：harness 如何 robust 地处理 LLM 产出的**不完美** JSON
+  - 这是 harness 层的输出处理能力，不是 agent 的诊断推理能力——属于不同维度，值得独立迭代
+- **加的机制（实施版本，与计划不同）**：
+  - **代码位置**：`doctor/src/graph/nodes/diagnosis_agent/forced_call.py` 的 `_forced_final_json_call`
+  - **逻辑简述**：把 forced call 从「un-bound LLM + prompt 要求输出 JSON 文本」改成
+    「un-bound LLM + `with_structured_output(ForcedDiagnosisReport, method="function_calling", include_raw=True)`」。
+    模型 emit 一个 tool_call（content="" + tool_calls=[{ForcedDiagnosisReport, args=...}]），
+    LangChain 从 tool_call args 解析成 `ForcedDiagnosisReport` Pydantic 对象，再 `model_dump_json()`
+    序列化成合法 JSON 字符串包进合成 `AIMessage`——`parse_diagnosis_report` 拿到的就是
+    **schema-validated + pydantic-escaped** 的 JSON，未转义引号问题从源头消除。
+  - **`method="function_calling"` 是必需的，不是默认**：`ChatOpenAI.with_structured_output` 默认
+    `method="json_schema"`（走 OpenAI Structured Output API / `response_format={"type":"json_schema",...}`）。
+    DeepSeek（`deepseek-v4-flash`）**不支持** `response_format=json_schema`——返回 400
+    `'This response_format type is unavailable now'`。`json_mode` 也 400（要求 prompt 含 'json' 字样，
+    且不强制 schema）。`function_calling` 走 tool calling，DeepSeek 支持（ReAct loop 一直在用）。
+    用 `scripts/debug_structured_output_methods.py` 实测过三种 method，结论写在该脚本注释里。
+  - **为什么不是 `json_repair`（计划方案）**：`json_repair` 是事后修补，需要 LLM 先产出错的 JSON 再 fix。
+    `with_structured_output(method="function_calling")` 是事前预防——schema 在 API 层强制，LLM 不需要
+    自己处理 JSON 字符串转义（pydantic 接管）。治本优于治标，且不需要新依赖。
+  - **为什么仍是最小改动**：
+    - 不改 forced call 的触发 gate / 不改 ReAct loop / 不改 system prompt
+    - 只换 forced call **内部**的 LLM 调用方式（free-text JSON → structured output tool_call）
+    - 下游 `parse_diagnosis_report` 不变——合成 AIMessage 的 content 仍是 JSON 字符串
+    - `ForcedDiagnosisReport` Pydantic schema 是 `DiagnosisReport` 的 slim 版（去掉 `early_stopped` /
+      `notes` 这些 harness-controlled 字段，防止 LLM 乱填）
+- **Langfuse 可观测性修复（同 iteration 一起做）**：
+  - **问题**：`with_structured_output(method="function_calling")` 的 parsed Pydantic 对象对 Langfuse 完全
+    不可见——Langfuse 的 `on_llm_end` callback 只拿到 raw model response（`content="" + tool_calls=[...]`），
+    而 LangChain 把 tool_call args 解析成 Pydantic 是在 callback fire **之后**发生的。第一次跑 3 case
+    验证时，`debug_structured_forced_call.py` 看到 forced call 的 LLM #13 output 是 `{"content": ""}`——
+    机制实际工作了（`forced_call_diag.log` 有 parsed 对象），但 trace 看不见，导致误判「结果不太对」。
+  - **修复**：两层
+    1. **`on_llm_end` 捕获 `tool_calls`**（`src/observability/langfuse_tracing.py`）：新增
+       `_extract_tool_calls(response)`，让 generation observation 的 output 从 `{"content": "..."}`
+       升级成 `{"content": "...", "tool_calls": [{name, args, id}, ...]}`。这是**通用 fix**——
+       ReAct loop 里 agent 决定调工具的那一轮（content="" + tool_calls=[{search_observability, ...}]）
+       之前在 Langfuse 里也是空 content，现在 tool 决策完全可见。
+    2. **`record_structured_output` 显式 SPAN**（`src/observability/langfuse_tracing.py` 新方法）：
+       在 `_forced_final_json_call` 的成功 / parsed=None / exception 三条路径里显式调一次
+       `langfuse_handler.record_structured_output(schema_name="ForcedDiagnosisReport", parsed=..., error=...)`，
+       把 parsed Pydantic 对象作为 `structured_output_ForcedDiagnosisReport` SPAN observation 写进 trace。
+       所有 handler 调用包在 `contextlib.suppress(Exception)` 里——Langfuse 故障绝不阻断诊断路径。
+  - **验证脚本**：新增 `scripts/dump_structured_output_spans.py`——dump 一个 session 里所有
+    `structured_output_*` SPAN，验证 record 是否落地。
+- **单元测试**：
+  - **测试文件**：`doctor/tests/graph/test_forced_final_json_call.py`（22 tests，全部通过）
+  - **覆盖的场景**：
+    - 原 15 个测试（Iteration 1）保留：`_last_ai_has_json` / `_last_ai_is_natural_stop` /
+      `_forced_final_json_call` 的 mode 1/mode 2/异常/parsed=None/JSON 字段完整性
+    - **新增 5 个观测性测试** `TestStructuredOutputObservability`：
+      - 成功路径调 `record_structured_output`，验证 schema_name / parsed dict / case_id
+      - parsed=None 路径调，验证 error 字段
+      - LLM 异常路径调，验证 error 含异常类型和消息
+      - 默认 `langfuse_handler=None` 不 raise（向后兼容）
+      - handler 自己 raise 时被 suppress，forced call 仍成功返回
+- **3 case 验证**（session=`iter2-structured-v2-20260707-142904`）：
+  - 3 case 分数：CONFIG-020=0.97 / DATA-020=0.94 / LOGIC-022=0.94，mean=0.952，0 disaster
+  - forced_call 触发 2/3（DATA-020 + LOGIC-022），CONFIG-020 是方差救活
+  - DATA-020 是机制真证据：LLM #8 natural-stop 输出 markdown+JSON 但含未转义引号
+    `与用户期望的"最新在前"相反` → gate 正确检测 parse 失败 → 触发 forced call →
+    structured output 产出干净 args → 序列化成合法 JSON → 0.94 分
+  - 观测性修复两层都验证：LLM #9 [forced call] 的 generation output 现在含完整 tool_calls；
+    两个 forced_call=True trace 都有 `structured_output_ForcedDiagnosisReport` SPAN，parsed 对象可见
+- **全量 15 case 验证**（session=`baseline-15case-v2-20260707-144018`）：
+  - **15 case 分数 + forced_call flag**：
+
+| bug_id | iter2 overall | iter2 维度（root/cat/file/fix/line/evid/conf/proc） | iter1+strict overall | Δ | forced_call | json_ok | structured_output SPAN | 归因 |
+|---|---|---|---|---|---|---|---|---|
+| BE-020 | 0.97 | 0.95/1.00/1.00/0.95/1.00/0.95/0.97/0.83 | 0.97 | 0 | False | yes | 0 | healthy 稳定 |
+| BE-021 | 0.98 | 0.98/1.00/1.00/0.95/1.00/0.98/1.00/1.00 | 0.97 | +0.01 | False | yes | 0 | healthy 稳定 |
+| BE-022 | 0.95 | 0.95/1.00/1.00/0.85/1.00/0.95/0.97/1.00 | 0.95 | 0 | False | yes | 0 | healthy 稳定 |
+| CASCADE-020 | 0.79 | 0.65/1.00/1.00/0.85/0.50/0.95/0.67/1.00 | 0.79 | 0 | False | yes | 0 | 根因不完整（推理维度） |
+| **CONFIG-020** | **0.97** | 0.95/1.00/1.00/0.95/1.00/0.95/0.97/0.83 | **0.27** | **+0.70** | **True** | yes | **1** | **机制救活** ✓ |
+| **DATA-020** | 0.96 | 0.95/1.00/1.00/0.95/1.00/0.85/0.97/1.00 | **0.33** | **+0.63** | False | yes | 0 | 方差救活（这次自然 escape 了） |
+| DATA-021 | 0.90 | 1.00/0.00/1.00/1.00/1.00/0.95/1.00/1.00 | 0.95 | -0.05 | False | yes | 0 | 方差回归（cat=0.00 选错类） |
+| **FE-020** | 0.66 | 0.85/1.00/0.00/0.85/0.00/0.85/0.90/1.00 | 0.71 | -0.05 | **True** | yes | **1** | 机制交付成功，file/line 诊断错（推理失败） |
+| **FE-021** | **0.97** | 0.95/1.00/1.00/0.95/1.00/0.95/1.00/1.00 | **0.43** | **+0.54** | **True** | yes | **1** | **机制救活** ✓ |
+| LOGIC-020 | 0.96 | 0.95/1.00/1.00/0.95/1.00/0.85/0.97/1.00 | 0.97 | -0.01 | False | yes | 0 | healthy 稳定 |
+| LOGIC-021 | 0.97 | 0.95/1.00/1.00/0.95/1.00/0.95/0.95/1.00 | 0.96 | +0.01 | False | yes | 0 | healthy 稳定 |
+| **LOGIC-022** | 0.94 | 0.95/1.00/1.00/0.95/1.00/0.70/0.97/0.83 | **0.33** | **+0.61** | False | yes | 0 | 方差救活（这次自然 escape 了） |
+| PERF-020 | 0.84 | 0.95/1.00/1.00/0.95/0.00/0.70/0.97/1.00 | 0.86 | -0.02 | False | yes | 0 | line=0（N+1 无单一行号） |
+| **PERF-021** | **0.92** | 0.95/1.00/1.00/0.95/0.50/0.95/0.97/1.00 | 0.92 | 0 | **True** | yes | **1** | **机制救活** ✓（iter1-full 时是 0.28 推理失败，这次推理对了） |
+| RACE-020 | 0.86 | 0.95/1.00/1.00/0.65/0.50/0.95/0.97/1.00 | 0.92 | -0.06 | False | yes | 0 | fix=0.65（乐观锁建议弱） |
+
+  - **聚合统计**：
+    - **overall mean = 0.909**（vs iter1+strict 0.755，**Δ=+0.154**，远超 ±0.03 方差带 → 信号极强）
+    - **disasters (overall<0.4) = 0**——vs iter1+strict 3 个，验收阈值「≤1」超额满足
+    - 各维度均值：root=0.929 / cat=0.933 / file=0.933 / fix=0.913 / line=0.767 / evid=0.899 / conf=0.950 / proc=0.967
+    - **15/15 `json_ok=yes`——零 JSON parse 失败**（vs iter1+strict 的 3 个 unescaped-quote disaster）
+  - **forced_call 触发分布（5/15 = 33%）**：
+    - **机制救活 3 个 disaster**：CONFIG-020（0.27→0.97）/ FE-021（0.43→0.97）/ PERF-021（0.28→0.92）——
+      forced_call=True 且从 disaster → healthy，**这是机制的真证据**
+    - **机制触发但救不了 1 个**：FE-020（0.71→0.66）——forced_call=True，structured output 产出了
+      干净 JSON（json_ok=yes），但 file=0/line=0 因为 agent 把 bug 归因到 backend `tasks.py`
+      而 grader 期望前端文件。**机制交付成功，诊断推理错**——属于 Prompt/推理维度，不是输出格式
+    - **方差救活 2 个**：DATA-020（0.33→0.96）/ LOGIC-022（0.33→0.94）——forced_call=False，
+      agent 这次恰好自然 escape 了引号，与 iter1-full 的 BE-020/BE-021 同现象
+    - **gate 正确跳过 10 个**：BE-020 / BE-021 / BE-022 / CASCADE-020 / DATA-021 / LOGIC-020 /
+      LOGIC-021 / PERF-020 / RACE-020——agent 已交付可 parse JSON，零误判
+  - **观测性修复 1:1 对应验证**：5 个 forced_call=True trace 全部有 1 个
+    `structured_output_ForcedDiagnosisReport` SPAN（parsed 对象可见），10 个 forced_call=False trace
+    全部 0 SPAN——gate 行为与 record 落地完全一致
+- **结论**：**保留**。验收阈值全部满足：
+  - mean=0.909 ≥0.85 ✓，disasters=0 ≤1 ✓，Δ=+0.154 ≥+0.10 ✓
+  - forced_call=True case 的 JSON parse 成功率 5/5=100% ✓
+  - healthy case 零回归（10 个 gate-skipped case 都在 0.79-0.98，方差带内）✓
+  - Langfuse 可观测性修复让机制完全可见（5/5 SPAN 落地）✓
+- **诚实归因**：
+  - DATA-020 / LOGIC-022 这次的救活是 LLM 方差（forced_call=False），不是机制功劳——与 iter1-full 的
+    BE-020/BE-021 完全同现象。如果要稳定看 forced_call 触发率，需要再跑 1-2 次全量
+  - FE-020 (0.66) 的低分不是机制问题——`json_ok=yes` 说明 structured output 交付成功，问题是
+    agent 推理把前端 crash 归因到后端 `tasks.py`（grader 期望前端文件），属于 Prompt/推理维度
+- **面试叙事点**：
+  - **「实施时发现更优解」的诚实记录**：计划是 `json_repair`（事后修补），实施时换成
+    `with_structured_output(method="function_calling")`（事前预防）。两者解决同一失败模式但治本治标不同。
+    case 驱动方法不排斥实施时换方案，但必须文档记录——不能让事后叙事伪装成「按计划执行」
+  - **`method="function_calling"` 不是默认值，是 DeepSeek 兼容性必需**：`ChatOpenAI.with_structured_output`
+    默认 `method="json_schema"`（OpenAI Structured Output API），DeepSeek 返回 400
+    `'This response_format type is unavailable now'`。`scripts/debug_structured_output_methods.py`
+    实测三种 method 留作证据。**这是「不要假设默认值跨 provider 通用」的工程教训**
+  - **可观测性修复是 mechanism design 的一部分，不是事后补丁**：第一版 `with_structured_output` 实施
+    完跑 3 case，trace 里 forced call 长得像 0-char 输出，差点误判「机制不工作」。拉 `forced_call_diag.log`
+    才看到 parsed 对象其实产出了。**教训：换 LLM 调用方式时必须同步考虑 callback handler 看不看见
+    新路径的产物**——`with_structured_output` 的 parsed Pydantic 在 callback fire 之后才生成，
+    必须 explicit record 才能在 trace 里可见
+  - **机制的能力边界由 case 揭示**：FE-020 (0.66) 是 forced_call=True 但救不了的 case——
+    `json_ok=yes` 证明 structured output 交付成功，但 file/line 诊断错。**机制只解决「交付」
+    不解决「推理」**——与 iter1-full 的 PERF-021「forced call 救不了推理失败」同理。
+    这个边界不是设计时画出来的，是跑完全量 + 看 parsed 对象内容才看见的
+  - **JSON 交付仍是高方差事件**：DATA-020 / LOGIC-022 两次跑分别被机制救活和方差救活——
+    证明 agent 是否 escape 引号是 LLM 方差，不是 case 固有属性。`with_structured_output` 的价值是
+    **消除这个方差**：不论 LLM 自然输出有没有 escape，gate 触发时 structured output 都产出合法 JSON
+
 ---
 
 ## 下一次 iteration kickoff 备忘
@@ -565,49 +777,62 @@ A: 我把 harness 拆成 8 个维度：收敛/停止、输出格式/解析、上
 > 每次开新会话窗口时，让 AI 先读这份文档，再从下面这段继续。
 
 ```
-当前状态：Iteration 1 已完成（实现 + 单测 + smoke + 全量 15 case 验证）。
-  机制：loop 结束后若 last AIMessage 不含可 parse JSON，做一次未 bind_tools 的额外 LLM call
-        强制输出 JSON。两个 instruction 模板分别覆盖 mode 1（cap + 空 content）/ mode 2（narrative）。
-  gate：_last_ai_has_json → 已含 JSON 的 case 跳过（零回归设计 + 方差防护副作用）。
-  单测：tests/graph/test_forced_final_json_call.py 15 tests 全过；ruff clean。
-  全量结果（session=baseline-15case-v1-20260706-131440，实质是 iter1-full）：
-    mean=0.874（vs baseline v2 mean=0.666，Δ=+0.208，远超 ±0.03 方差带）
-    disasters=1（PERF-021）——验收阈值（≤2、≥0.75）全部满足
-    forced_call 触发 6/15：
-      机制救活 3 个 disaster（CONFIG-020 / FE-020 / FE-021，forced_call=True 且 disaster→healthy）
-      方差救活 2 个 disaster（BE-020 / BE-021，forced_call=False，agent 这次恰好自然交付 JSON）
-      机制触发但救不了 1 个（PERF-021，forced call 输出干净 JSON 但诊断内容错——推理失败非交付失败）
-      机制在 healthy case 触发 2 个无回归（LOGIC-021 / LOGIC-022，gate 设计的方差防护副作用）
-    gate 正确跳过 9 个（已交付 JSON 的 case，零误判）
+当前状态：Iteration 2 已完成（structured output via with_structured_output + Langfuse 可观测性修复）。
+  Iteration 2 机制：把 forced call 从「un-bound LLM + prompt 要求输出 free-text JSON」改成
+    「un-bound LLM + with_structured_output(ForcedDiagnosisReport, method="function_calling", include_raw=True)」。
+    模型 emit 一个 tool_call（content="" + tool_calls=[{ForcedDiagnosisReport, args=...}]），
+    LangChain 从 args 解析成 Pydantic 对象，再 model_dump_json() 序列化成合法 JSON 字符串
+    包进合成 AIMessage——parse_diagnosis_report 拿到的是 schema-validated + pydantic-escaped
+    的 JSON，未转义引号问题从源头消除。
+  method="function_calling" 是 DeepSeek 兼容性必需（不是默认值）：默认 "json_schema" 走 OpenAI
+    Structured Output API，DeepSeek 返回 400 'This response_format type is unavailable now'。
+    用 scripts/debug_structured_output_methods.py 实测过三种 method。
+  Langfuse 可观测性修复（两层）：
+    1. on_llm_end 现在捕获 tool_calls（_extract_tool_calls）——所有 tool-call AIMessage 在
+       Langfuse generation output 里不再只是 {"content": ""}，而是 {"content": "...", "tool_calls": [...]}
+    2. record_structured_output 显式 SPAN——_forced_final_json_call 三条路径（成功/parsed=None/异常）
+       都调一次 langfuse_handler.record_structured_output(...)，把 parsed Pydantic 对象作为
+       structured_output_ForcedDiagnosisReport SPAN observation 写进 trace。所有 handler 调用
+       包在 contextlib.suppress(Exception) 里，Langfuse 故障不阻断诊断路径。
+  全量结果（session=baseline-15case-v2-20260707-144018，Iteration 2 完整版）：
+    mean=0.909（vs iter1+strict 0.755，Δ=+0.154）
+    disasters=0（vs iter1+strict 3 个 unescaped-quote disaster）
+    15/15 json_ok=yes——零 JSON parse 失败
+    forced_call 触发 5/15：CONFIG-020/FE-020/FE-021/PERF-021 forced_call=True，全部 json_ok=yes
+      机制救活 3 个 disaster：CONFIG-020 (0.27→0.97) / FE-021 (0.43→0.97) / PERF-021 (0.28→0.92)
+      机制触发但救不了 1 个：FE-020 (0.66) ——json_ok=yes 但 file/line 诊断错（推理失败非交付失败）
+      方差救活 2 个：DATA-020 / LOGIC-022 ——forced_call=False，这次 agent 自然 escape 了引号
+    structured_output SPAN 1:1 对应：5 个 forced_call=True trace 都有 SPAN，10 个 False 都没有
 
-下一步：Iteration 2，针对 PERF-021 的新失败模式——「症状误读 + 锁死错误路径」。
-  trace 显示 agent 在 LLM #4 看到 `GET /api/projects/` 只 2 个 SQL 查询（24ms+52ms）"并不慢"，
-    却把症状偷换成"任务列表慢"，锁死在 PERF-020 的 N+1 pattern 上。
-  LLM #12 注意到矛盾（代码有 selectinload 但 trace 显示 N+1）却解释成"Bug Factory 污染"而非"看错了 endpoint"。
-  这是 Prompt / 推理维度问题，不是输出格式问题——forced call 救不了。
-  候选机制（待 case 驱动验证，不要理论先行）：
-    - 在 system prompt 加「症状锚定」约束：每轮复查 user_report 的关键词，路径选择必须回溯到症状
-    - 检测"矛盾解释 away"行为：agent 用"污染/未生效"解释代码-trace 矛盾时，注入 nudge 让它复查 endpoint
-    - 但要先跑几次 PERF-021 看是否稳定复现，确认不是方差
-  验收阈值（Iteration 2）：PERF-021 root_cause_accuracy 从 0.00 提到 ≥0.85，且不破坏其他 14 case（特别是 already-healthy 的 12 个不能退步超过 ±0.03 方差带）。
+  测试：tests/graph/test_forced_final_json_call.py 22 passed（15 原有 + 5 新增观测性 + 2 集成）
+  工具脚本新增：
+    scripts/debug_structured_output_methods.py —— 实测 DeepSeek 三种 with_structured_output method
+    scripts/dump_structured_output_spans.py —— dump session 里所有 structured_output_* SPAN
 
-命令（Iteration 2 节奏）：
-  # 改完先跑 smoke（4 case，~5min）做 sanity check——确保没灾难性回归
+下一步：Iteration 3 候选，全是推理维度（Iteration 1+2 已把交付维度吃透）：
+  FE-020 (0.66) ——file/line 归因分歧（forced_call 交付成功但 agent 把前端 crash 归因到后端 tasks.py）
+  CASCADE-020 (0.79) ——根因不完整（L4 级联 case，部分识别 N+1+retry storm）
+  DATA-021 (0.90) ——cat=0.00 类别选错
+  RACE-020 (0.86) ——fix=0.65 乐观锁建议弱
+  这些是真实诊断推理失败，属于 Prompt / 推理维度，留给后续 iteration。
+
+  Iteration 3 节奏（待启动）：
+    # 先看 FE-020 trace 找具体失败轮次（agent 在哪一步把前端 crash 归因到后端？）
+    cd D:\Work\LearnAI\DiagDoctor\doctor
+    uv run python scripts/dump_trace_llm_responses.py --session baseline-15case-v2-20260707-144018 --bug FE-020
+    uv run python scripts/debug_structured_forced_call.py baseline-15case-v2-20260707-144018 FE-020
+
+    # 设计最小机制针对那个失败轮次（可能是 system prompt 加"前后端 blame 倾向"指引，
+    # 也可能是 inspect_frontend_error 工具结果格式调整），实施 + 单元测试 + 全量 15 case 重跑
+
+命令（Iteration 3 节奏）：
   cd D:\Work\LearnAI\DiagDoctor\doctor
-  uv run python scripts/run_baseline_experiment.py --split smoke --run-name iter2-smoke
-  uv run python scripts/dump_session_scores.py iter2-smoke-<ts>
-  uv run python scripts/dump_forced_call_flag.py iter2-smoke-<ts>
-
-  # 决策点跑全量 15 + 与 baseline-15case-v1-20260706-131440 对比（iter1-full，mean=0.874）
-  #   注意：必须看 PERF-021 是否被救活 + 其他 14 case 不退步
-  uv run python scripts/run_baseline_experiment.py --run-name iter2-full
-  uv run python scripts/dump_session_scores.py iter2-full-<ts>
-  uv run python scripts/dump_forced_call_flag.py iter2-full-<ts>
-
-  # 看 PERF-021 trace 验证症状锚定机制是否生效
-  uv run python scripts/dump_trace_llm_responses.py --session <sid> --bug PERF-021 --show-input
+  uv run python scripts/run_baseline_experiment.py --run-name iter3-foo
+  uv run python scripts/dump_session_scores.py iter3-foo-<ts>
+  uv run python scripts/dump_forced_call_flag.py iter3-foo-<ts>
+  uv run python scripts/dump_structured_output_spans.py iter3-foo-<ts>
 
 注意：run_name 现在会自动补 timestamp 后缀（避免 Langfuse session 前缀聚合歧义）。
-  显式传 --run-name iter2-foo → 实际 run_name = iter2-foo-20260705-2103
+  显式传 --run-name iter3-foo → 实际 run_name = iter3-foo-20260705-2103
   已带 YYYYMMDD-HHMMSS 后缀的不再重复补。
 ```

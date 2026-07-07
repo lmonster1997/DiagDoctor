@@ -43,6 +43,7 @@ from src.graph.nodes.diagnosis_agent.constants import (
 from src.graph.nodes.diagnosis_agent.evidence import format_evidence_for_agent
 from src.graph.nodes.diagnosis_agent.failure import handle_agent_failure
 from src.graph.nodes.diagnosis_agent.forced_call import (
+    ForcedDiagnosisReport,
     _forced_final_json_call,
     _last_ai_has_json,
     _last_ai_is_natural_stop,
@@ -79,6 +80,7 @@ __all__ = [
     "_maybe_forced_final_json_call",
     "_last_ai_has_json",
     "_last_ai_is_natural_stop",
+    "ForcedDiagnosisReport",
     # Constants
     "MAX_TOOL_CALLS",
     "MAX_TOKENS_BUDGET",

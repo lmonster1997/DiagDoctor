@@ -244,6 +244,7 @@ async def diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
         invoke_config=invoke_config,
         case_id=state.case_id,
         budget_exhausted=budget_exhausted,
+        langfuse_handler=langfuse_handler,
     )
 
     report, findings, budget_state, early_stopped = _finalize_report(

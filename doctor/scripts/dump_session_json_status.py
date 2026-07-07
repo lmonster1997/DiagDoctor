@@ -42,10 +42,13 @@ for t in sorted(traces, key=lambda x: str(_bug_id(x))):
         tc = out.get("tool_calls", "?")
         es = out.get("early_stopped", "?")
         rep = out.get("diagnosis_report") or {}
-        rc = rep.get("root_cause", "") or ""
-        parsed = _extract_json_from_text(rc)
-        json_ok = "yes" if parsed is not None else "no"
         notes = rep.get("notes", "") or ""
+        primary = rep.get("primary_category", "") or ""
+        # json_ok: True if the report has a non-empty primary_category AND
+        # notes doesn't indicate a parse failure. (Earlier version tried to
+        # _extract_json_from_text on root_cause, which is a plain-text root
+        # cause string — that always returned None and false-reported no.)
+        json_ok = "yes" if (primary and "JSON" not in notes) else "no"
     else:
         tc = es = json_ok = "?"
         notes = str(out)[:60]

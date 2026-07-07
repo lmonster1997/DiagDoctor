@@ -259,6 +259,69 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
             },
         )
 
+    def record_structured_output(
+        self,
+        *,
+        schema_name: str,
+        parsed: dict[str, Any] | None,
+        raw_content: str | None = None,
+        raw_tool_calls: list[dict[str, Any]] | None = None,
+        error: str | None = None,
+        case_id: str | None = None,
+    ) -> None:
+        """Record a ``with_structured_output`` result as a Langfuse SPAN.
+
+        ``with_structured_output``'s parsed Pydantic object is invisible to
+        the callback path: the callback fires on the raw model response
+        (an AIMessage with ``content="" + tool_calls=[{schema, args}]`` for
+        ``method="function_calling"``), and LangChain materializes the
+        parsed Pydantic object from the tool_call args AFTER the callback
+        fires. So ``on_llm_end`` can capture the raw tool_call (via
+        ``_extract_tool_calls``) but never the parsed result.
+
+        This method lets the forced-call wrapper explicitly record the
+        parsed structured output + the JSON-serialized form that actually
+        flows into the final report — making the Iteration 2 forced call
+        mechanism visible end-to-end in Langfuse.
+
+        Args:
+            schema_name: Name of the structured output schema (e.g.
+                ``"ForcedDiagnosisReport"``). Used as the span name suffix.
+            parsed: The parsed object as a dict (e.g.
+                ``pydantic_model.model_dump()``), or None if parsing failed.
+            raw_content: Optional raw ``content`` string of the model
+                response (usually "" for function_calling method).
+            raw_tool_calls: Optional raw ``tool_calls`` list from the model
+                response — the unparsed precursor of ``parsed``.
+            error: Optional error string if the structured-output call
+                failed (API error / model emitted no matching tool_call).
+            case_id: Optional case_id for metadata tagging.
+        """
+        if self._trace_id is None:
+            return
+
+        output: dict[str, Any] = {}
+        if parsed is not None:
+            output["parsed"] = parsed
+        if raw_content is not None:
+            output["raw_content"] = raw_content[:20000]
+        if raw_tool_calls is not None:
+            output["raw_tool_calls"] = raw_tool_calls
+
+        metadata: dict[str, Any] = {"schema_name": schema_name}
+        if error is not None:
+            metadata["error"] = error
+        if case_id is not None:
+            metadata["case_id"] = case_id
+
+        self._client.span(
+            trace_id=self._trace_id,
+            name=f"structured_output_{schema_name}",
+            input=None,
+            output=output or None,
+            metadata=metadata,
+        )
+
     # ── Trace lifecycle (callback-based) ────────────────────────
 
     def on_chain_start(
@@ -425,6 +488,16 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         # Extract token usage from response
         usage = self._extract_usage(response)
         output_text = self._extract_output_text(response)
+        # Extract tool_calls from the response AIMessage (if any). Without this,
+        # any tool-call AIMessage (ReAct loop's tool decisions AND the Iteration 2
+        # forced final JSON call's with_structured_output emission) shows up in
+        # Langfuse as a 0-char content generation — the model's actual
+        # tool_call decision (which tool, which args) is invisible.
+        tool_calls = self._extract_tool_calls(response)
+
+        output: dict[str, Any] = {"content": output_text[:20000]}
+        if tool_calls:
+            output["tool_calls"] = tool_calls
 
         if self._trace_id:
             self._client.generation(
@@ -432,7 +505,7 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
                 name=f"llm_call_{self._llm_call_idx}",
                 model=model_name,
                 input=self._llm_input,
-                output={"content": output_text[:20000]},
+                output=output,
                 usage=usage,
                 usage_details=usage,
                 metadata={
@@ -672,6 +745,45 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
                 elif hasattr(g, "text"):
                     texts.append(str(g.text))
         return "\n".join(texts)
+
+    @staticmethod
+    def _extract_tool_calls(response: LLMResult) -> list[dict[str, Any]]:
+        """Extract tool_calls from the first AIMessage in the response.
+
+        Captures the LLM's tool-call decisions (which tool, which args) so
+        they're visible in the Langfuse generation output. Without this,
+        any tool-call AIMessage shows up as ``{"content": ""}`` — the
+        model's actual decision is invisible. Critical for two paths:
+
+        1. ReAct loop iterations where the agent decides which tool to
+           call next (content="" + tool_calls=[{search_observability, ...}]).
+           Without this, the trace shows empty content with no link to the
+           subsequent tool span.
+        2. Iteration 2 forced final JSON call via
+           ``with_structured_output(method="function_calling")``: the model
+           emits an AIMessage with content="" + tool_calls=[{ForcedDiagnosisReport,
+           args={...}}]. Without this, the forced call looks like a 0-char
+           output — no evidence of what was produced. (The parsed Pydantic
+           object is recorded separately via ``record_structured_output``
+           because LangChain materializes it AFTER this callback fires.)
+        """
+        calls: list[dict[str, Any]] = []
+        for gen in response.generations:
+            for g in gen:
+                msg = getattr(g, "message", None)
+                if msg is None:
+                    continue
+                tcs = getattr(msg, "tool_calls", None) or []
+                for tc in tcs:
+                    if isinstance(tc, dict):
+                        calls.append(
+                            {
+                                "name": tc.get("name", "?"),
+                                "args": tc.get("args", {}),
+                                "id": tc.get("id", ""),
+                            }
+                        )
+        return calls
 
 
 # ═════════════════════════════════════════════════════════════════════
