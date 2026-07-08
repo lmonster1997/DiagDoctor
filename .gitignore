@@ -28,6 +28,9 @@ data/
 infra/tempo/data/
 infra/loki/data/
 
+# Temp diagnostic logs
+forced_call_diag.log
+
 # Agent development learning notes (personal use, not for repo)
 docs/agent-dev-notes/
 .github/skills/

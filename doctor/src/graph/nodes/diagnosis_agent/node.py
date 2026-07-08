@@ -255,7 +255,7 @@ async def diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
         # + the 13th before_model jump ≈ 52; 80 leaves margin so model_call_count
         # is always the binding constraint, and recursion_limit only fires if the
         # middleware counter itself fails.
-        result = await agent.ainvoke(
+        result = await agent.ainvoke(  # type: ignore[call-overload]
             {"messages": initial_messages},
             config=invoke_config,
         )

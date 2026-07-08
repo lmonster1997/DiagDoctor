@@ -185,28 +185,36 @@ async def ingest_node(state: DoctorState) -> dict[str, Any]:
             trace_ids=trigger_trace_ids,
             count=len(trigger_trace_ids),
         )
-        results = await _asyncio.gather(
+        trace_results = await _asyncio.gather(
             _prefetch_by_trace_ids(trigger_trace_ids, start, end),
             return_exceptions=True,
         )
-        merged = results[0] if not isinstance(results[0], BaseException) else _empty_prefetch()
-        if isinstance(results[0], BaseException):
-            logger.warning("ingest_prefetch_by_trace_ids_failed", error=str(results[0]))
+        merged = (
+            trace_results[0]
+            if not isinstance(trace_results[0], BaseException)
+            else _empty_prefetch()
+        )
+        if isinstance(trace_results[0], BaseException):
+            logger.warning("ingest_prefetch_by_trace_ids_failed", error=str(trace_results[0]))
         backend = merged
         frontend = _empty_prefetch()
     else:
         # Fallback: broad service-wide window (trigger_time ± 5min)
-        results = await _asyncio.gather(
+        svc_results = await _asyncio.gather(
             _prefetch_service(_PREFETCH_SERVICES["backend"], start, end),
             _prefetch_service(_PREFETCH_SERVICES["frontend"], start, end),
             return_exceptions=True,
         )
-        backend = results[0] if not isinstance(results[0], BaseException) else _empty_prefetch()
-        frontend = results[1] if not isinstance(results[1], BaseException) else _empty_prefetch()
-        if isinstance(results[0], BaseException):
-            logger.warning("ingest_prefetch_backend_failed", error=str(results[0]))
-        if isinstance(results[1], BaseException):
-            logger.warning("ingest_prefetch_frontend_failed", error=str(results[1]))
+        backend = (
+            svc_results[0] if not isinstance(svc_results[0], BaseException) else _empty_prefetch()
+        )
+        frontend = (
+            svc_results[1] if not isinstance(svc_results[1], BaseException) else _empty_prefetch()
+        )
+        if isinstance(svc_results[0], BaseException):
+            logger.warning("ingest_prefetch_backend_failed", error=str(svc_results[0]))
+        if isinstance(svc_results[1], BaseException):
+            logger.warning("ingest_prefetch_frontend_failed", error=str(svc_results[1]))
 
     b_logs = backend["log_count"]
     b_traces = backend["trace_count"]
