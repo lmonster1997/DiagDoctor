@@ -49,6 +49,14 @@ from src.graph.nodes.diagnosis_agent.forced_call import (
     _last_ai_is_natural_stop,
     _maybe_forced_final_json_call,
 )
+from src.graph.nodes.diagnosis_agent.middleware import (
+    BudgetGuardMiddleware,
+    DiagnosisRunContext,
+    ForcedFinalCallMiddleware,
+    LangfuseTracingMiddleware,
+    ToolDedupMiddleware,
+    ToolTruncationMiddleware,
+)
 from src.graph.nodes.diagnosis_agent.node import diagnosis_agent_node
 from src.graph.nodes.diagnosis_agent.parsing import (
     _ensure_str_list,
@@ -75,12 +83,19 @@ __all__ = [
     "estimate_tokens",
     # Failure
     "handle_agent_failure",
-    # Iteration 1 forced final JSON call
+    # Iteration 1+2 forced final JSON call (schema + helpers, reused by middleware)
     "_forced_final_json_call",
     "_maybe_forced_final_json_call",
     "_last_ai_has_json",
     "_last_ai_is_natural_stop",
     "ForcedDiagnosisReport",
+    # V4 middlewares (create_agent harness)
+    "LangfuseTracingMiddleware",
+    "BudgetGuardMiddleware",
+    "ToolDedupMiddleware",
+    "ToolTruncationMiddleware",
+    "ForcedFinalCallMiddleware",
+    "DiagnosisRunContext",
     # Constants
     "MAX_TOOL_CALLS",
     "MAX_TOKENS_BUDGET",

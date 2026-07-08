@@ -27,27 +27,17 @@ expected_diagnosis:
 injection:
   strategy: code_replace
   target_file: demo-app/backend/app/api/comments.py
-  ai_instruction: '删除 create_comment 中“校验任务存在”的四行（查询 Task + 不存在则抛 404），
+  ai_instruction: '删除 create_comment 中"校验任务存在"的四行（查询 Task + 不存在则抛 404），
 
-    使得对不存在 task 的评论插入会触发外键约束错误。
-
-    diff_patch: |
-
+    使得对不存在 task 的评论插入会触发外键约束错误。'
+  diff_patch: |
     --- a/demo-app/backend/app/api/comments.py
-
     +++ b/demo-app/backend/app/api/comments.py
-
     @@ -31,4 +31,1 @@
-
     -    # Verify the task exists
-
     -    task_result = await db.execute(select(Task).where(Task.id == task_id))
-
     -    if task_result.scalar_one_or_none() is None:
-
     -        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
-
-    '
 trigger:
   type: e2e_action
   steps:

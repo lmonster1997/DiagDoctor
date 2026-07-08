@@ -557,6 +557,29 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
 
     # ── Tool call tracking ──────────────────────────────────────
 
+    # ── Tool callback hooks — INTENTIONALLY NO-OP ───────────────
+    #
+    # Tool observations are recorded by a SINGLE source of truth:
+    # ``record_tool_span`` (and ``record_tool_skipped``), called explicitly by
+    # ``LangfuseTracingMiddleware.awrap_tool_call`` / ``ToolDedupMiddleware``.
+    #
+    # Why these callbacks are no-ops:
+    #   In the hand-written ReAct loop, tools were invoked with NO callback
+    #   config (``await tool.ainvoke(args)``), so ``on_tool_start`` / ``on_tool_end``
+    #   never fired — ``record_tool_span`` was already the sole recorder there.
+    #   In the ``create_agent`` framework, the Langfuse handler is attached to the
+    #   model via ``awrap_model_call`` (``model.with_config({"callbacks": [h]})``).
+    #   LangGraph's Runnable-config contextvar propagates that callback config to
+    #   the ToolNode too, so ``on_tool_start`` / ``on_tool_end`` WOULD fire here
+    #   and double-record every tool call (callback span + ``record_tool_span``),
+    #   which tanked ``process_quality`` (framework-smoke 0.806 vs baseline 0.958).
+    #   Neutering the callback path makes ``record_tool_span`` the single source
+    #   in BOTH implementations, so observability is identical and the
+    #   ``_tool_call_idx`` counter is owned solely by ``record_tool_span``.
+    #
+    # Baseline safety: these never fired in the hand-written loop (no callback
+    # config on tools), so no-op'ing them does not change baseline traces.
+
     def on_tool_start(
         self,
         serialized: dict[str, Any],
@@ -567,20 +590,9 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         tags: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
         **kwargs: Any,
-    ) -> None:
-        """Record start of a tool invocation."""
-        self._tool_call_idx += 1
-        self._tool_start_ts = time.monotonic()
-        self._tool_name = serialized.get("name", "unknown_tool")
-
-        logger.debug(
-            "langfuse_tool_start",
-            extra={
-                "trace_id": self._trace_id,
-                "tool": self._tool_name,
-                "call_idx": self._tool_call_idx,
-            },
-        )
+        ) -> None:
+        """No-op — see class-level note on tool callback hooks."""
+        return
 
     def on_tool_end(
         self,
@@ -590,30 +602,8 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         parent_run_id: uuid.UUID | None = None,
         **kwargs: Any,
     ) -> None:
-        """Record end of a tool invocation."""
-        latency_ms = (time.monotonic() - getattr(self, "_tool_start_ts", 0.0)) * 1000
-
-        if self._trace_id:
-            self._client.span(
-                trace_id=self._trace_id,
-                name=f"tool_{self._tool_name}_{self._tool_call_idx}",
-                input={"args": self._last_tool_input or {}},
-                output={"result": str(output)[:20000]},
-                metadata={
-                    "latency_ms": round(latency_ms, 1),
-                    "tool_name": self._tool_name,
-                    "run_id": str(run_id),
-                },
-            )
-
-        logger.debug(
-            "langfuse_tool_end",
-            extra={
-                "trace_id": self._trace_id,
-                "tool": self._tool_name,
-                "latency_ms": round(latency_ms, 1),
-            },
-        )
+        """No-op — see class-level note on tool callback hooks."""
+        return
 
     def on_tool_error(
         self,
@@ -623,17 +613,8 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         parent_run_id: uuid.UUID | None = None,
         **kwargs: Any,
     ) -> None:
-        """Record tool invocation error."""
-        if self._trace_id:
-            self._client.span(
-                trace_id=self._trace_id,
-                name=f"tool_{self._tool_name}_{self._tool_call_idx}",
-                metadata={
-                    "error": str(error),
-                    "tool_name": self._tool_name,
-                    "run_id": str(run_id),
-                },
-            )
+        """No-op — see class-level note on tool callback hooks."""
+        return
 
     # ── Agent action (tool call decisions) ──────────────────────
 
@@ -645,11 +626,11 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         parent_run_id: uuid.UUID | None = None,
         **kwargs: Any,
     ) -> None:
-        """Capture the tool arguments before execution."""
-        self._last_tool_input = {
-            "tool": getattr(action, "tool", "unknown"),
-            "tool_input": str(getattr(action, "tool_input", "")),
-        }
+        """No-op — tool args are captured by ``record_tool_span`` via the
+        middleware ``awrap_tool_call`` path, not via this callback. See the
+        class-level note on tool callback hooks for why callback-based tool
+        recording is disabled."""
+        return
 
     # ── Helpers ─────────────────────────────────────────────────
 

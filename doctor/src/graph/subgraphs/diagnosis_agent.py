@@ -100,9 +100,21 @@ def build_diagnosis_agent() -> Any:  # CompiledStateGraph (relaxed per B2 policy
       inspect_frontend_error, get_file_content)
     - System prompt from diagnosis_agent.j2 template
     - LLM configured via ``get_llm_for_role("diagnosis")``
+    - 5 harness middlewares (replaces the hand-written ReAct loop in
+      ``nodes/diagnosis_agent/react_loop.py``):
+
+      Registration order matters — verified via
+      ``scripts/verify_middleware_assumptions.py``:
+      - ``wrap_tool_call`` runs outer→inner (first registered wraps outermost)
+        → [ToolDedup, LangfuseTracing, ToolTruncation] gives dedup short-circuit
+        outermost, Langfuse span recording middle (sees truncated result),
+        truncation innermost.
+      - ``after_agent`` runs in reverse registration order → ForcedFinalCall
+        (registered last) runs first, then LangfuseTracing's end_trace — so
+        end_trace captures ``forced_call_triggered=True``.
 
     Returns:
-        A compiled LangGraph state graph (ReAct agent).
+        A compiled LangGraph state graph (ReAct agent with middleware).
     """
     llm = _get_llm()
     tools = _get_tools()
@@ -115,10 +127,34 @@ def build_diagnosis_agent() -> Any:  # CompiledStateGraph (relaxed per B2 policy
         tool_names=[t.name for t in tools],
     )
 
+    # Lazy import to avoid a circular import at module load time:
+    # src.graph.nodes.diagnosis_agent.middleware lives under the
+    # src.graph.nodes package, whose __init__ eagerly imports
+    # diagnosis_agent_node, which imports _build_system_prompt from this
+    # module. Importing middleware at top of this module would re-enter this
+    # module before _build_system_prompt is defined. Deferring to build time
+    # (called from get_diagnosis_agent / tests) breaks the cycle cleanly.
+    from src.graph.nodes.diagnosis_agent.middleware import (
+        BudgetGuardMiddleware,
+        ForcedFinalCallMiddleware,
+        LangfuseTracingMiddleware,
+        ToolDedupMiddleware,
+        ToolTruncationMiddleware,
+    )
+
+    middleware = [
+        ToolDedupMiddleware(),
+        LangfuseTracingMiddleware(),
+        ToolTruncationMiddleware(),
+        BudgetGuardMiddleware(),
+        ForcedFinalCallMiddleware(),
+    ]
+
     agent = create_agent(
         model=llm,
         tools=tools,
         system_prompt=system_prompt,
+        middleware=middleware,
     )
 
     return agent

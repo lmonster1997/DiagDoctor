@@ -1,0 +1,54 @@
+[
+  {
+    "recipe_id": "BE-020",
+    "trace_id": "3a340c8f-a100-49e2-9144-4e2aa39c8266",
+    "overall": 0.9685,
+    "root_cause_accuracy": 0.95,
+    "fix_suggestion_quality": 0.95,
+    "affected_file_accuracy": 1,
+    "affected_line_accuracy": 1,
+    "category_accuracy": 1,
+    "evidence_chain_completeness": 0.95,
+    "confidence_calibration": 0.97,
+    "process_quality": 0.8928571428571428
+  },
+  {
+    "recipe_id": "FE-020",
+    "trace_id": "7cf560eb-1b75-47e1-9afe-801e95b0e4cc",
+    "overall": 0.829,
+    "root_cause_accuracy": 0.85,
+    "fix_suggestion_quality": 0.72,
+    "affected_file_accuracy": 1,
+    "affected_line_accuracy": 1,
+    "category_accuracy": 0.5,
+    "evidence_chain_completeness": 0.85,
+    "confidence_calibration": 0.9,
+    "process_quality": 0.6274509803921569
+  },
+  {
+    "recipe_id": "LOGIC-020",
+    "trace_id": "a44ef5e0-30c0-476c-9649-2fdc65224db2",
+    "overall": 0.9435,
+    "root_cause_accuracy": 0.95,
+    "fix_suggestion_quality": 0.95,
+    "affected_file_accuracy": 1,
+    "affected_line_accuracy": 1,
+    "category_accuracy": 1,
+    "evidence_chain_completeness": 0.7,
+    "confidence_calibration": 0.97,
+    "process_quality": 0.8928571428571428
+  },
+  {
+    "recipe_id": "PERF-020",
+    "trace_id": "b0967a79-8f10-42b7-a2de-037151adabb8",
+    "overall": 0.8585,
+    "root_cause_accuracy": 0.95,
+    "fix_suggestion_quality": 0.95,
+    "affected_file_accuracy": 1,
+    "affected_line_accuracy": 0,
+    "category_accuracy": 1,
+    "evidence_chain_completeness": 0.85,
+    "confidence_calibration": 0.97,
+    "process_quality": 0.8125
+  }
+]

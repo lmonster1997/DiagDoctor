@@ -27,6 +27,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
+from pydantic import PrivateAttr
 
 from src.graph.nodes.diagnosis_agent import (
     ForcedDiagnosisReport,
@@ -453,30 +455,134 @@ def be020_state() -> DoctorState:
     )
 
 
+class _ScriptedChatModel(BaseChatModel):
+    """Fake chat model that returns scripted AIMessages for create_agent tests.
+
+    Implements the full Runnable interface (via BaseChatModel) so create_agent's
+    internal model node can drive the real ReAct loop without real API calls.
+    ``bind_tools`` returns self (the loop doesn't actually need tools bound for
+    the scripted responses). ``with_structured_output`` returns a
+    ``_StructuredScriptedLLM`` whose ``ainvoke`` returns the forced-call shaped
+    dict ``{"parsed": ..., "raw": ...}`` that ``_forced_final_json_call`` expects.
+    """
+
+    responses: list[AIMessage]
+    forced_result: dict[str, Any] | None = None
+    _idx: int = PrivateAttr(default=0)
+    with_structured_output_call_count: int = 0
+
+    def bind_tools(self, tools: list[Any], **kwargs: Any) -> "_ScriptedChatModel":  # type: ignore[override]
+        return self
+
+    def with_structured_output(self, schema: Any, **kwargs: Any) -> "_StructuredScriptedLLM":
+        self.with_structured_output_call_count += 1
+        return _StructuredScriptedLLM(forced_result=self.forced_result)
+
+    def _generate(self, messages: list[Any], stop: list[str] | None = None, run_manager: Any = None, **kwargs: Any) -> ChatResult:  # type: ignore[override]
+        if self._idx >= len(self.responses):
+            # Run out of scripted responses — return a natural stop with JSON
+            # so the loop terminates cleanly rather than raising.
+            resp = AIMessage(content='{"primary_category":"performance","confidence":0.5}')
+        else:
+            resp = self.responses[self._idx]
+            self._idx += 1
+        return ChatResult(generations=[ChatGeneration(message=resp)])
+
+    async def _agenerate(self, messages: list[Any], stop: list[str] | None = None, run_manager: Any = None, **kwargs: Any) -> ChatResult:  # type: ignore[override]
+        return self._generate(messages, stop, run_manager, **kwargs)
+
+    @property
+    def _llm_type(self) -> str:
+        return "scripted-test"
+
+
+class _StructuredScriptedLLM:
+    """Stand-in for the Runnable returned by with_structured_output."""
+
+    def __init__(self, forced_result: dict[str, Any] | None) -> None:
+        self.forced_result = forced_result
+        self.await_count = 0
+
+    async def ainvoke(self, messages: Any, config: Any = None, **kwargs: Any) -> dict[str, Any]:  # type: ignore[override]
+        self.await_count += 1
+        return self.forced_result or {"parsed": None, "raw": AIMessage(content="")}
+
+
+@pytest.fixture
+def _fake_echo_tool(monkeypatch: pytest.MonkeyPatch) -> Any:
+    """Replace get_all_tools with a single instant fake tool for tests.
+
+    Avoids real search_observability/code_search network calls during the
+    end-to-end node test. The fake tool returns instantly so the create_agent
+    ToolNode doesn't hang.
+    """
+    from langchain_core.tools import tool
+
+    @tool
+    def echo_tool(text: str) -> str:
+        """Echo text back (test stand-in for diagnostic tools)."""
+        return f"echoed: {text}"
+
+    import src.graph.subgraphs.diagnosis_agent as subgraph_mod
+
+    monkeypatch.setattr(subgraph_mod, "get_all_tools", lambda: [echo_tool])
+    return echo_tool
+
+
+@pytest.fixture
+def _clear_agent_cache() -> Any:
+    """Clear the cached create_agent so it rebuilds with the mocked LLM/tools."""
+    from src.graph.subgraphs.diagnosis_agent import clear_diagnosis_agent_cache
+
+    clear_diagnosis_agent_cache()
+    yield
+    clear_diagnosis_agent_cache()
+
+
 class TestForcedCallWiredIntoNode:
     """End-to-end: verify the forced call is triggered / skipped correctly.
 
-    Mocks the LLM (not the agent subgraph) so the actual ReAct loop in
-    diagnosis_agent_node runs and the forced-call branch is exercised.
+    Drives the REAL create_agent + 5 middlewares with a _ScriptedChatModel
+    (BaseChatModel subclass) so the actual ReAct loop runs and the
+    ForcedFinalCallMiddleware.aafter_agent branch is exercised. A fake echo
+    tool replaces the real diagnostic tools to avoid network calls.
     """
 
     async def test_forced_call_triggers_on_cap_with_empty_content(
-        self, be020_state: DoctorState, monkeypatch: pytest.MonkeyPatch
+        self,
+        be020_state: DoctorState,
+        monkeypatch: pytest.MonkeyPatch,
+        _fake_echo_tool: Any,
+        _clear_agent_cache: Any,
     ) -> None:
-        """Mode 1: every loop iteration returns tool_calls, last one has empty content.
-
-        After the loop, the forced call should be invoked via
-        with_structured_output and its parsed ForcedDiagnosisReport should
-        be serialized into a JSON AIMessage that parse_diagnosis_report picks up.
+        """Mode 1: every loop iteration returns tool_calls → BudgetGuard caps at
+        MAX_TOOL_CALLS → ForcedFinalCallMiddleware.aafter_agent runs
+        with_structured_output and its parsed ForcedDiagnosisReport is appended
+        as a JSON AIMessage that parse_diagnosis_report picks up.
         """
-        from src.graph.nodes import diagnosis_agent as ua_module
+        from src.graph.nodes.diagnosis_agent import node as node_module
 
-        # Mock LLM: first N calls return tool_calls (driving the loop to cap),
-        # the final forced call returns a parsed ForcedDiagnosisReport.
-        tool_call_msg = AIMessage(content="")
-        tool_call_msg.tool_calls = [  # type: ignore[attr-defined]
-            {"name": "search_observability", "args": {"source": "loki", "query": "x"}, "id": "t1"},
-        ]
+        # Scripted loop responses: every call returns a tool_call so the loop
+        # runs until BudgetGuard caps at MAX_TOOL_CALLS. Each response gets a
+        # unique tool_call id so the model_to_tools edge routes to the tools
+        # node every iteration (matching the hand-written loop's range(12)
+        # semantics); ToolDedupMiddleware still short-circuits the actual tool
+        # execution after the 1st (same name+args), so only 1 real echo runs.
+        # ``type: "tool_call"`` is required by ToolNode._parse_input to take the
+        # "tool_calls" input branch (create_agent normalizes real model output
+        # to include it; the scripted bypass needs it explicitly).
+        def _tc_msg(i: int) -> AIMessage:
+            msg = AIMessage(content="")
+            msg.tool_calls = [  # type: ignore[attr-defined]
+                {
+                    "name": "echo_tool",
+                    "args": {"text": "x"},
+                    "id": f"t{i}",
+                    "type": "tool_call",
+                },
+            ]
+            return msg
+
         parsed_report = ForcedDiagnosisReport(
             primary_category="performance",
             categories=["performance"],
@@ -489,46 +595,48 @@ class TestForcedCallWiredIntoNode:
             evidence_chain=["sig-be020-slow"],
             confidence=0.85,
         )
-
-        mock_llm = MagicMock()
-        # bind_tools returns a separate bound object whose ainvoke drives the loop.
-        # We make the bound object return tool_call_msg repeatedly until cap.
-        bound_llm = MagicMock()
-        bound_llm.ainvoke = AsyncMock(return_value=tool_call_msg)
-        mock_llm.bind_tools = MagicMock(return_value=bound_llm)
-        # with_structured_output returns a structured_llm whose ainvoke returns
-        # {"parsed": ForcedDiagnosisReport, "raw": ...} — the forced call path.
-        structured_llm = MagicMock()
-        structured_llm.ainvoke = AsyncMock(
-            return_value={"parsed": parsed_report, "raw": AIMessage(content="raw")}
+        # MAX_TOOL_CALLS=12 loop responses (all tool_calls → cap), then forced
+        structured = {"parsed": parsed_report, "raw": AIMessage(content="raw")}
+        mock_llm = _ScriptedChatModel(
+            responses=[_tc_msg(i) for i in range(15)],  # extra in case recursion differs
+            forced_result=structured,
         )
-        mock_llm.with_structured_output = MagicMock(return_value=structured_llm)
 
-        monkeypatch.setattr(ua_module, "get_llm_for_role", lambda _role: mock_llm, raising=False)
-        # Patch where it's looked up inside the node function.
         import src.llm_factory as llm_factory_mod
+        import src.graph.subgraphs.diagnosis_agent as subgraph_mod
 
         monkeypatch.setattr(llm_factory_mod, "get_llm_for_role", lambda _role: mock_llm)
-
-        # Disable real Langfuse to avoid network calls.
+        # The subgraph bound `get_llm_for_role` at module import time
+        # (`from src.llm_factory import get_llm_for_role`), so _get_llm() calls
+        # the subgraph's own reference — patch THAT too, or the loop LLM stays
+        # real while only the ForcedFinalCall middleware (which imports
+        # `src.llm_factory as _llm_factory`) gets the mock.
+        monkeypatch.setattr(subgraph_mod, "get_llm_for_role", lambda _role: mock_llm)
+        # Disable real Langfuse.
         import src.observability.langfuse_tracing as lf_mod
 
         monkeypatch.setattr(lf_mod, "get_langfuse_handler", MagicMock(side_effect=ImportError("off")))
 
-        result = await ua_module.diagnosis_agent_node(be020_state)
+        result = await node_module.diagnosis_agent_node(be020_state)
 
         report = result["report"]
         assert report.primary_category == "performance"
         assert report.affected_file == "app/services/task_service.py"
         # Forced call path (with_structured_output) must have been invoked.
-        mock_llm.with_structured_output.assert_called_once()
-        assert structured_llm.ainvoke.await_count >= 1
+        assert mock_llm.with_structured_output_call_count >= 1
 
     async def test_forced_call_skipped_when_last_ai_already_has_json(
-        self, be020_state: DoctorState, monkeypatch: pytest.MonkeyPatch
+        self,
+        be020_state: DoctorState,
+        monkeypatch: pytest.MonkeyPatch,
+        _fake_echo_tool: Any,
+        _clear_agent_cache: Any,
     ) -> None:
-        """Healthy case: agent natural-stops with a JSON report → no forced call."""
-        from src.graph.nodes import diagnosis_agent as ua_module
+        """Healthy case: agent natural-stops with a JSON report on the first
+        call → ForcedFinalCallMiddleware gate (``_last_ai_has_json``) skips →
+        with_structured_output is NEVER called.
+        """
+        from src.graph.nodes.diagnosis_agent import node as node_module
 
         json_msg = AIMessage(
             content=(
@@ -539,30 +647,24 @@ class TestForcedCallWiredIntoNode:
                 '"evidence_chain":["sig-be020-slow"],"confidence":0.92}'
             )
         )
-
-        mock_llm = MagicMock()
-        bound_llm = MagicMock()
-        bound_llm.ainvoke = AsyncMock(return_value=json_msg)  # natural stop, JSON
-        mock_llm.bind_tools = MagicMock(return_value=bound_llm)
-        # Structured output path should NOT be invoked — wire a sentinel that
-        # would fail the test if it ever gets called.
-        sentinel_structured = MagicMock()
-        sentinel_structured.ainvoke = AsyncMock(
-            side_effect=AssertionError("forced call should be skipped when last AI has JSON")
+        mock_llm = _ScriptedChatModel(
+            responses=[json_msg],  # natural stop with JSON on first call
+            forced_result={"parsed": None, "raw": AIMessage(content="")},
         )
-        mock_llm.with_structured_output = MagicMock(return_value=sentinel_structured)
 
         import src.llm_factory as llm_factory_mod
+        import src.graph.subgraphs.diagnosis_agent as subgraph_mod
 
         monkeypatch.setattr(llm_factory_mod, "get_llm_for_role", lambda _role: mock_llm)
+        monkeypatch.setattr(subgraph_mod, "get_llm_for_role", lambda _role: mock_llm)
         import src.observability.langfuse_tracing as lf_mod
 
         monkeypatch.setattr(lf_mod, "get_langfuse_handler", MagicMock(side_effect=ImportError("off")))
 
-        result = await ua_module.diagnosis_agent_node(be020_state)
+        result = await node_module.diagnosis_agent_node(be020_state)
 
         report = result["report"]
         assert report.primary_category == "performance"
         assert report.confidence == 0.92
         # Forced call (with_structured_output) must NOT have been called.
-        mock_llm.with_structured_output.assert_not_called()
+        assert mock_llm.with_structured_output_call_count == 0

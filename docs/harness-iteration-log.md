@@ -843,3 +843,137 @@ LLM 在中文叙事中用 `"..."` 引述短语是常见行为，但忘了在 JSO
   显式传 --run-name iter3-foo → 实际 run_name = iter3-foo-20260705-2103
   已带 YYYYMMDD-HHMMSS 后缀的不再重复补。
 ```
+
+---
+
+### Iteration 3: Framework migration（`langchain.create_agent` + 5 middleware，替换手写 ReAct loop）
+
+> **叙事定位**：这不是一个"涨分"迭代，是一个**工程重构迭代**——把 Iteration 0–2 在手写 `while` 循环里积累的 5 个机制（forced final JSON call / tool 去重 / tool 结果截断 / budget guard / Langfuse tracing）迁移到 `langchain.create_agent` + middleware 框架。验收标准是 **parity（与 Iteration 2 全量 baseline 持平）**，不是涨分。parity 的意义：证明"手写循环能做的精确控制，框架的 6 个钩子也能做到"，从而把项目叙事从"我手写了一个 agent loop"升级为"我先手写探明机制，再用框架产品化"——后者更适合带前端 + 人机协同的下一阶段。
+
+- **日期**：2026-07-08（迁移 + smoke 验证 + 全量 15 case 验证完成）
+- **维度**：工程结构 / 可维护性（非诊断质量维度）
+- **针对的 case**：全部 15 case（parity 验证需要全量，不能只看 smoke 4）
+- **迁移前**：`doctor/src/graph/nodes/diagnosis_agent/react_loop.py`（175 行手写 ReAct `while` 循环），5 个机制内联在循环体里
+- **迁移后**：`react_loop.py` 删除；新增 `doctor/src/graph/nodes/diagnosis_agent/middleware/` 包（7 文件 573 行）：
+
+  | 文件 | 行数 | 对应的手写循环机制 | 用的钩子 |
+  |---|---|---|---|
+  | `run_context.py` | 70 | （新）`DiagnosisRunContext` + `ContextVar`——middleware 实例跨调用复用，per-invocation 状态走 ContextVar | — |
+  | `langfuse_tracing.py` | 146 | start_trace / record_tool_span / tool token 记账 | `abefore_agent` + `awrap_model_call` + `awrap_tool_call` |
+  | `budget_guard.py` | 75 | ContextBudget 计时/计 token/计 model call，超限 `jump_to: end` | `abefore_model` + `aafter_model` |
+  | `tool_dedup.py` | 55 | 重复 tool call 跳过 + `record_tool_skipped` | `awrap_tool_call` |
+  | `tool_truncation.py` | 88 | 长 tool 结果截断 + tool 异常兜底 | `awrap_tool_call` |
+  | `forced_call.py` | 94 | agent 未自然交付结构化输出时强制 `with_structured_output` 收尾 | `aafter_agent` |
+  | `__init__.py` | 45 | 包导出 | — |
+
+  `node.py`（+203/-）改走 `agent.ainvoke` + ContextVar set/clear；`subgraphs/diagnosis_agent.py`（+38）把 5 个 middleware 接进 `create_agent`；`langfuse_tracing.py`（observability 层，+89/-）的 `on_tool_*` callback 改 no-op（见下方踩坑）。
+
+- **为什么 5 个机制都能用 middleware 复刻**：迁移前的关键顾虑是"框架的 6 个钩子能不能做到手写循环的精确控制"。逐个核对后发现全都可以，映射关系如下：
+
+  | 手写循环里的控制点 | 框架钩子 | 怎么做到 |
+  |---|---|---|
+  | 循环开始前 init budget / start_trace | `abefore_agent` | 在这里建 `ContextBudget`、`call_history`、调 `start_trace` |
+  | 每次 LLM 调用前检查预算、超限 break | `abefore_model` | `model_call_count++` + tick，超限返回 `{"goto": "end"}`（middleware 的 `jump_to` 机制） |
+  | 每次 LLM 调用后记 reasoning token | `aafter_model` | 从 `response` 取 usage 喂 `ContextBudget` |
+  | 每个 tool call 前查重 / 截断 / 记 span | `awrap_tool_call` | 三层 middleware 嵌套 wrap（Dedup 外、Truncation 中、Langfuse 内），各管各的 |
+  | 循环结束后如果没 JSON 就强制收尾 | `aafter_agent` | 检查 `final_messages` 末尾是不是 structured output，不是就触发 forced call |
+  | 每个 LLM call 单独附 Langfuse callback | `awrap_model_call` | `request.model.with_config({"callbacks": [handler]})` 只给 model 附 callback |
+
+  唯一手写循环有、middleware 没直接对应的，是"per-invocation 可变状态（budget / call_history / model_call_count）"——因为 middleware 实例是跨调用复用的单例。解法是 `DiagnosisRunContext` dataclass + `ContextVar`：`node.py` 在 `ainvoke` 前 `set_run_context(ctx)`，middleware 里 `get_run_context()` 读，`finally` 里 `clear_run_context()`。这是框架组件复用模式下的标准技巧，不是框架缺陷。
+
+- **踩坑：Langfuse tool observation 双记录（process_quality 0.958 → 0.806）**
+
+  这是本次迁移最值得记的坑，也是"框架不是免费午餐"的硬证据。
+
+  - **现象**：第一轮 framework smoke（`framework-smoke-20260708-141807`，旧代码）`process_quality` 从 baseline 0.958 掉到 **0.806**。dump trace 发现每个 tool call 被记成 **2 个 span**（一个有 args、一个空 args），`score_process_quality` 把 phantom span 算进 tool 调用数，efficiency 分被拉垮。
+  - **根因**：`create_agent` 的 `agent.ainvoke(config={"callbacks": [handler]})` 会把顶层 config 通过 **`RunnableConfig` contextvar** 透传给**所有**子节点——包括 model node **和** ToolNode。于是 Langfuse callback handler 的 `on_tool_start`/`on_tool_end` 对每个 tool fire 一次（empty-args span，因为 create_agent 不走 `on_agent_action`，`_last_tool_input` 没被设置），**同时** `LangfuseTracingMiddleware.awrap_tool_call` 又显式调 `record_tool_span`（有 args span）→ 每个 tool call 被双记录。
+  - **第一次修复（部分生效）**：`node.py` 顶层 config 只传 `{"recursion_limit": 80}`，不再传 callbacks；改由 `LangfuseTracingMiddleware.awrap_model_call` 用 `model.with_config({"callbacks": [handler]})` 只给 model 附 callback。意图是让 ToolNode 继承一个 callback-less config。**但这没完全生效**——LangGraph 的 config contextvar 透传比预期广，model 上绑的 callback 仍会传播到 ToolNode，`on_tool_*` 仍在 fire。
+  - **第二次修复（最终版）**：承认"追查 callback 为什么还能到 tool 没意义"，直接让 **callback 路径的 tool 记录全部 no-op**——`on_tool_start` / `on_tool_end` / `on_tool_error` / `on_agent_action` 全部 `return`，`record_tool_span`（middleware 显式调）成为 tool observation 的**唯一来源**，`_tool_call_idx` 计数器也由它独占。
+  - **为什么对 baseline 安全**：hand-written loop 里 tool 是 `await tool.ainvoke(args)` **无 callback config** 调用的，`on_tool_*` 本来就 never fire（`record_tool_span` 的 docstring 白纸黑字写了"on_tool_start / on_tool_end callbacks never fire"）——所以 no-op 这 4 个方法对 baseline trace **零影响**，baseline 的 tool span 本来就全来自 `record_tool_span`。no-op 只是把"framework 下 callback 会额外 fire"这个差异抹平。
+  - **验证**：`framework-smoke-v3`（`framework-smoke-20260708-145130`）`process_quality` 回到 **0.958**，逐 case 比特和 baseline 一致（BE-020 0.83 / FE-020 1.00 / LOGIC-020 1.00 / PERF-020 1.00）。dump FE-021 trace 确认每个 tool call 恰好 1 个 span、idx 连续无重复（v2 是 56 observations 双记录，v3 是 24 observations 单记录）。
+  - **方法论启示**：框架的"自动透传"是把双刃剑——手写循环里"tool 不带 callback"是**显式的**（你不传就没有），框架里"tool 不带 callback"是**隐式的**（你得拦住透传），后者更容易踩坑。这个坑写成 iteration log 的一部分，比只展示"迁移成功"更诚实。
+
+- **另一个已知 gap（诚实记录，未修）**：`awrap_model_call` 只给**第一次** model call 成功附上 callback，后续 model call 的 LLM generation observation 没被记录（dump 显示每个 case 只有 1 个 `llm_call_*` generation，baseline 是 N 个）。**不影响 `process_quality` 评分**（scorer 只看 tool span），但 Langfuse UI 里 LLM 调用链不完整。初判是 `request.model.with_config(...)` 的 mutation 不跨 iteration 持久 / create_agent 后续 iteration 走了原 model 引用。留作 follow-up——优先级低，因为评分维度不受影响，且修复方向明确（要么改回顶层 config + 靠 no-op 防 tool 双记录，要么在 `awrap_model_call` 里每次都重新 bind）。
+
+- **全量 15 case 结果**（session=`framework-15case-v1-20260708-145926`，vs baseline-15case-v2=`baseline-15case-v2-20260707-144018`）：
+
+  | recipe | framework overall | baseline overall | Δ | framework proc | baseline proc | 备注 |
+  |---|---|---|---|---|---|---|
+  | BE-020 | 0.97 | 0.97 | 0 | 1.00 | 0.83 | proc 升（这次自然 stop 更干净） |
+  | BE-021 | 0.97 | 0.98 | -0.01 | 1.00 | 1.00 | parity |
+  | BE-022 | 0.94 | 0.95 | -0.01 | 1.00 | 1.00 | parity |
+  | CASCADE-020 | 0.72 | 0.79 | -0.07 | 1.00 | 1.00 | root 0.65→0.40，推理方差（L4 级联） |
+  | CONFIG-020 | 0.97 | 0.97 | 0 | 0.83 | 0.83 | parity（forced_call 救活仍有效） |
+  | DATA-020 | 0.96 | 0.96 | 0 | 1.00 | 1.00 | parity |
+  | DATA-021 | 0.86 | 0.90 | -0.04 | 0.83 | 1.00 | cat=0.00 选错类（方差，同 baseline 历史） |
+  | FE-020 | 0.70 | 0.73 | -0.03 | 1.00 | 1.00 | parity（fix=0.45 推理分歧，同 baseline） |
+  | FE-021 | 0.62 | 0.97 | **-0.35** | 1.00 | 1.00 | **回归**：root 0.95→0.30，forced_call 触发了但推理走偏（见下） |
+  | LOGIC-020 | 0.97 | 0.96 | +0.01 | 1.00 | 1.00 | parity |
+  | LOGIC-021 | 0.97 | 0.97 | 0 | 1.00 | 1.00 | parity |
+  | LOGIC-022 | 0.94 | 0.94 | 0 | 1.00 | 0.83 | proc 升 |
+  | PERF-020 | 0.87 | 0.84 | +0.03 | 1.00 | 1.00 | parity |
+  | PERF-021 | 0.92 | 0.92 | 0 | 1.00 | 1.00 | parity（forced_call 救活仍有效） |
+  | RACE-020 | 0.92 | 0.86 | +0.06 | 1.00 | 1.00 | 升 |
+
+  **聚合对照**（framework vs baseline，9 维度，Δ = framework − baseline）：
+
+  | 维度 | framework | baseline | Δ | 判定 |
+  |---|---|---|---|---|
+  | overall | 0.887 | 0.914 | -0.027 | **parity**（在 ±0.03 方差带内） |
+  | root_cause_accuracy | 0.843 | 0.929 | -0.086 | 回归（被 FE-021/CASCADE 单点拉低） |
+  | fix_suggestion_quality | 0.911 | 0.913 | -0.002 | parity |
+  | affected_file_accuracy | 1.000 | 0.933 | +0.067 | 升 |
+  | affected_line_accuracy | 0.800 | 0.767 | +0.033 | 升 |
+  | category_accuracy | 0.900 | 0.933 | -0.033 | parity（带内） |
+  | evidence_chain_completeness | 0.880 | 0.899 | -0.019 | parity |
+  | confidence_calibration | 0.869 | 0.950 | -0.081 | 回归（同 root，被单点拉低） |
+  | **process_quality** | **0.978** | **0.967** | **+0.011** | **parity（略升）** |
+
+- **回归归因（不是框架缺陷，是 LLM 推理方差）**：
+
+  唯一超方差带的回归是 **FE-021（0.97→0.62）**。dump 它的 trace（17 observations）：`structured_output_ForcedDiagnosisReport` SPAN 存在 → **forced_call 触发了**，`root_cause_accuracy=0.30` → 不是交付失败（JSON 交付成功），是**这一轮推理本身走偏了**（agent 把根因归错了）。这正是 baseline 里 FE-021 自己的历史方差模式：iter0=0.04 / iter1-full=0.04 / iter2=0.97——它在 0.04 和 0.97 之间反复横跳，0.62 落在它的历史包络内。CASCADE-020（-0.07）同理，是 L4 级联 case 的推理不完整，baseline 历史也波动（0.68/0.79）。
+
+  **关键判据**：root_cause / confidence 两个维度的均值回归，**完全由 FE-021 + CASCADE-020 两个单点贡献**；其余 13 个 case 全部在 parity。而 process_quality（衡量"怎么查"的维度，最不受 LLM 推理方差影响、最能反映框架迁移是否破坏了 agent 的查证方法）**持平且略升**。这说明框架迁移**没有破坏 agent 的查证流程**，overall 的 -0.027 落在方差带内、且方向上被两个已知高方差 case 拉低——不是系统性回归。
+
+- **验收结论：parity 达成 ✓**
+
+  - `process_quality` 0.978 vs 0.967（+0.011）——可观测性模型等价，tool observation 单源记录修复后比特一致
+  - `overall` 0.887 vs 0.914（-0.027，在 ±0.03 方差带内）——非系统性回归
+  - 5 个机制全部在框架里复刻且生效：forced_call 仍在救 disaster（CONFIG-020/PERF-021 维持 0.97/0.92）、tool 去重/截断/budget guard 通过 `awrap_tool_call` + `abefore_model` 工作、Langfuse trace 结构与 baseline 等价
+  - 已知 gap：LLM generation observation 只记第 1 次（不影响评分，留 follow-up）
+
+- **代码量对比（诚实记录：迁移不是"更少代码"，是"更结构化"）**：
+
+  | | 手写循环 | 框架迁移后 |
+  |---|---|---|
+  | 核心 loop / middleware | `react_loop.py` 175 行（单文件，5 机制内联） | `middleware/` 7 文件 573 行（每机制独立文件，最大 146 最小 55） |
+  | 新增测试 | — | `test_middleware.py` 454 行（含 `awrap_model_call` 单测） |
+  | `node.py` | 调手写 loop | +203/- 改走 `ainvoke` + ContextVar |
+  | **净效果** | 175 行单文件 | 573 行多文件 + 454 行测试 |
+
+  **叙事要点**：框架迁移让代码**变多了**，不是变少了——这要诚实承认。但换来了：(1) 每个机制是独立可测的 middleware 类（单测隔离），(2) ReAct 循环本身交给框架维护（未来 LangChain 升级 loop 逻辑不用我们改），(3) 为下一阶段"前端 + 人机协同"提供了标准扩展点（人机协同可以做成第 6 个 middleware，挂 `before_agent` / `aafter_agent`，而不是再改 loop 本体）。**"先手写探明机制、再用框架产品化"是比"我手写了一个 agent loop"更高级的工程叙事**——前者证明你既懂底层又懂工程权衡，后者只证明你会手写。
+
+- **测试**：`tests/graph/` 62 passed（含 5 个 middleware 各自单测 + `awrap_model_call` 单测 + 2 个 `TestForcedCallWiredIntoNode` 端到端用 `ScriptedChatModel` 验 forced_call 触发/cap 场景）。`TestForcedCallWiredIntoNode` 重写踩了两个 create_agent 行为坑：(1) `recursion_limit=30` 太低（create_agent 每个 middleware hook 是独立 graph step，一次 ReAct ≈ 4 步，12 次 LLM 调用需 ~52 步）→ 调到 80 让 BudgetGuard 的 `model_call_count` cap 成为实际约束；(2) scripted `ToolCall` dict 缺 `type: "tool_call"` 字段导致 ToolNode `_parse_input` 找不到 AIMessage → 补上 + tool_call_id 每轮唯一。
+
+- **工具脚本新增**：
+  - `scripts/fetch_experiment_scores.py`——按 session_id 分页拉 trace + 逐 trace 拉 score，输出 9 维度表 + 均值 + JSON 落盘
+  - `scripts/dump_trace_observations.py`——dump 单个 trace（session_id + recipe_id）的所有 observation（name + type + args 预览），用于双记录诊断
+  - `scripts/verify_middleware_assumptions.py`（throwaway，已删）——迁移前验证 3 个风险假设：`wrap_tool_call` 执行顺序、`after_agent` 能否追加 messages、Langfuse callback 透传范围
+
+- **下一步**：parity 已达，迁移收尾。后续可选方向：
+  1. 修 LLM generation observation 只记第 1 次的 gap（低优先级，不影响评分）
+  2. 进入"前端 + 人机协同"阶段——第 6 个 middleware 挂 `aafter_agent`，agent 给出 DiagnosisReport 后暂停等人确认/补充，再 resume
+  3. Iteration 3 推理维度优化（FE-020 file/line 归因分歧、CASCADE-020 根因不完整）——这些和框架无关，是 prompt / 推理维度，可独立于迁移推进
+
+命令（复跑 / 复现）：
+```
+cd D:\Work\LearnAI\DiagDoctor\doctor
+# 全量 15 case
+uv run python scripts/run_baseline_experiment.py --run-name framework-15case-v1
+# 取分
+uv run python scripts/fetch_experiment_scores.py framework-15case-v1-<ts>
+# dump 单 trace 确认 tool observation 单记录
+uv run python scripts/dump_trace_observations.py framework-15case-v1-<ts> FE-021
+# 测试
+uv run pytest tests/graph/ -q
+```

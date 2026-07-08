@@ -103,7 +103,7 @@ def run_cmd(cmd: list[str], cwd: Path | None = None) -> str:
     return result.stdout
 
 
-BASE_BRANCH = "dev-harness-redesign"
+BASE_BRANCH = "dev-create-agent"
 
 
 def git_checkout_base() -> None:

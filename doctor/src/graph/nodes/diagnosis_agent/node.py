@@ -1,23 +1,35 @@
-"""DiagnosisAgent LangGraph node — the V3 ReAct agent wrapped as a graph node.
+"""DiagnosisAgent LangGraph node — wraps the create_agent + middleware graph.
 
-This module owns only the node spine + 4 node-private helpers:
-- ``_setup_trigger_time`` — expose trigger_time to search_observability via ContextVar
-- ``_setup_langfuse_tracing`` — start Langfuse trace (graceful degradation)
-- ``_finalize_report`` — parse messages → DiagnosisReport + findings + budget_state
-- ``_finalize_langfuse_trace`` — end_trace with report + flags
+V4 (this version) replaces the hand-written ReAct loop (V3, ``react_loop.py``)
+with langchain ``create_agent`` + 5 middlewares (see
+``subgraphs/diagnosis_agent.py:build_diagnosis_agent`` for the middleware
+registration order rationale). This node is the DoctorState ↔ AgentState
+adapter:
 
-The heavy lifting lives in sibling modules (``react_loop``, ``forced_call``,
-``evidence``, ``parsing``, ``budget``, ``failure``). This file is intentionally
-~45 lines of spine so the orchestration is readable end-to-end.
+1. Format NormalizedEvidence → HumanMessage + SystemMessage (AgentState input)
+2. Set ``DiagnosisRunContext`` into a ContextVar (per-invocation state shared
+   with middlewares — case_id, langfuse_handler, system/evidence texts for
+   initial token accounting)
+3. ``agent.ainvoke({"messages": [...]}, config={callbacks, recursion_limit})``
+4. Parse returned messages → DiagnosisReport + findings + budget_state
+   (reuses V3's ``_finalize_report`` / ``parse_diagnosis_report`` unchanged)
+5. ``end_trace`` with the parsed report (owned here, not in middleware —
+   middleware's aafter_agent runs inside ainvoke before the report is parsed)
+
+The 5 middlewares own the loop mechanics: Langfuse start_trace + tool spans,
+BudgetGuard caps, ToolDedup/Truncation, ForcedFinalCall. See
+``middleware/`` package docstrings for the case-driven rationale per middleware.
 
 Import layout (matters for test monkeypatch):
-- ``_llm_factory.get_llm_for_role`` is looked up via module attribute so
-  ``monkeypatch.setattr(src.llm_factory, "get_llm_for_role", ...)`` takes effect.
-- ``_build_system_prompt`` / ``get_all_tools`` are non-defensive imports at top.
-- ``get_langfuse_handler`` / ``set_trigger_time`` stay as inline imports inside
-  their helpers (defensive try/except) so the test's inline monkeypatch on
-  ``src.observability.langfuse_tracing.get_langfuse_handler`` is picked up at
-  call time and Langfuse-unavailable environments degrade gracefully.
+- ``_llm_factory.get_llm_for_role`` looked up via module attribute so
+  ``monkeypatch.setattr(src.llm_factory, "get_llm_for_role", ...)`` takes effect
+  (ForcedFinalCallMiddleware imports ``src.llm_factory`` the same way).
+- ``get_diagnosis_agent`` imported lazily inside the node to avoid a circular
+  import at module load (subgraphs/diagnosis_agent → middleware → nodes pkg
+  → this module → subgraphs/diagnosis_agent).
+- ``get_langfuse_handler`` / ``set_trigger_time`` stay inline imports inside
+  their helpers (defensive try/except) so Langfuse-unavailable environments
+  degrade gracefully.
 """
 
 from __future__ import annotations
@@ -28,18 +40,18 @@ from typing import Any
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
 import src.llm_factory as _llm_factory
-from src.graph.context_engine import ContextBudget
 from src.graph.nodes.diagnosis_agent.budget import is_budget_exceeded, update_budget
 from src.graph.nodes.diagnosis_agent.evidence import format_evidence_for_agent
 from src.graph.nodes.diagnosis_agent.failure import handle_agent_failure
-from src.graph.nodes.diagnosis_agent.forced_call import _maybe_forced_final_json_call
+from src.graph.nodes.diagnosis_agent.middleware.run_context import (
+    DiagnosisRunContext,
+    clear_run_context,
+    set_run_context,
+)
 from src.graph.nodes.diagnosis_agent.parsing import extract_findings, parse_diagnosis_report
-from src.graph.nodes.diagnosis_agent.react_loop import _run_react_loop
 from src.graph.state import DiagnosisReport, DoctorState, NormalizedEvidence
-from src.graph.subgraphs.diagnosis_agent import _build_system_prompt
 from src.observability.logger import get_logger
 from src.observability.tracing import traced
-from src.tools import get_all_tools
 
 logger = get_logger(__name__)
 
@@ -60,39 +72,37 @@ def _setup_trigger_time(evidence: NormalizedEvidence) -> None:
         pass
 
 
-def _setup_langfuse_tracing(
-    state: DoctorState, evidence_text: str
-) -> tuple[Any | None, dict[str, Any]]:
-    """Start a Langfuse trace for this diagnosis run.
+def _get_langfuse_handler(state: DoctorState, evidence_text: str) -> Any | None:
+    """Get the Langfuse callback handler (does NOT start_trace, does NOT build invoke_config).
 
-    Returns ``(handler, invoke_config)``. On any Langfuse-unavailable
-    failure (ImportError / ValueError) returns ``(None, {})`` so the rest of
-    the node runs without tracing — graceful degradation. Inline import so
-    test monkeypatch on ``src.observability.langfuse_tracing`` is honored.
+    ``start_trace`` is owned by ``LangfuseTracingMiddleware.abefore_agent`` (it
+    runs at invocation start inside ``agent.ainvoke`` and also initializes the
+    ContextBudget there). The handler is attached to each LLM call alone by
+    ``LangfuseTracingMiddleware.awrap_model_call`` (via ``model.with_config``)
+    — NOT via top-level ``config={"callbacks": [...]}``, which would propagate
+    to the ToolNode and double-record tool calls (see awrap_model_call docstring).
+
+    Returns the handler, or ``None`` on Langfuse-unavailable failure
+    (ImportError / ValueError) — graceful degradation, middlewares read
+    ``ctx.langfuse_handler is None`` and skip record_* calls.
     """
-    invoke_config: dict[str, Any] = {}
     try:
         from src.observability.langfuse_tracing import get_langfuse_handler
 
         handler = get_langfuse_handler()
-        invoke_config["callbacks"] = [handler]
-        handler.start_trace(
-            input_data={"evidence": evidence_text[:500]},
-            trace_id=state.langfuse_trace_id,
-        )
         logger.debug(
-            "langfuse_tracing_enabled",
+            "langfuse_handler_acquired",
             case_id=state.case_id,
             reused_trace_id=state.langfuse_trace_id is not None,
         )
-        return handler, invoke_config
+        return handler
     except (ValueError, ImportError) as lf_exc:
         logger.debug(
             "langfuse_tracing_disabled",
             case_id=state.case_id,
             reason=str(lf_exc),
         )
-        return None, invoke_config
+        return None
 
 
 def _finalize_report(
@@ -104,7 +114,7 @@ def _finalize_report(
 
     baseline: 不兜底，parse 失败就给空报告。``early_stopped`` is True if
     either ``is_budget_exceeded`` (hard cap crossed) or ``budget_exhausted``
-    (loop ran to MAX_TOOL_CALLS).
+    (loop ran to MAX_TOOL_CALLS / token / time cap via BudgetGuard jump_to).
     """
     agent_result: dict[str, Any] = {"messages": messages}
     report = parse_diagnosis_report(agent_result)
@@ -171,20 +181,16 @@ def _finalize_langfuse_trace(
 
 @traced()
 async def diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
-    """
-    LangGraph node: unified diagnosis — ingest 后的唯一步骤.
+    """LangGraph node: unified diagnosis via create_agent + 5 middlewares.
 
-    BASELINE + Iteration 1（dev-harness-redesign 分支）：
-    - 硬约束：MAX_TOOL_CALLS 迭代上限 / MAX_TOKENS_BUDGET / MAX_TIME_SECONDS
-    - 不做收敛检测、不做 phase 推进、不做兜底合成
-    - agent 自然 stop（无 tool_calls）→ 解析最后一条 AIMessage 为 JSON
-    - agent 跑满迭代 / 触发硬约束 → 同样解析最后一条 AIMessage
-    - **Iteration 1 新增**：loop 结束后若最后一条 AIMessage 不含可 parse 的 JSON，
-      做一次额外 LLM call（**不 bind_tools**），prompt 强制「基于已收集证据输出
-      DiagnosisReport JSON，不要再调任何工具」。覆盖两种已观测 failure mode：
-        mode 1（cap + 末轮空 content）：给 agent 一次「只能输出 content」的机会
-        mode 2（natural stop + narrative）：给 agent 一次「把叙事格式化成 JSON」的机会
-      已含 JSON 的 healthy case 跳过此 call——不影响 baseline 11 个 healthy case。
+    DoctorState adapter around the create_agent subgraph:
+    - Formats evidence + system prompt → AgentState messages
+    - Sets DiagnosisRunContext (ContextVar) for middlewares to read/write
+    - Invokes the create_agent graph (which runs the ReAct loop + middlewares:
+      Langfuse start_trace, BudgetGuard caps, ToolDedup/Truncation,
+      ForcedFinalCall post-loop JSON)
+    - Parses returned messages → DiagnosisReport (reuses V3 parsing logic)
+    - Ends the Langfuse trace with the parsed report
 
     Args:
         state: Current DoctorState (after Ingest).
@@ -202,53 +208,78 @@ async def diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
         correlation_count=len(evidence.correlations),
     )
 
+    # Lazy import to avoid circular import at module load (subgraphs module
+    # imports middleware which lives under the nodes package that imports this
+    # node). get_diagnosis_agent caches the built agent at module level.
+    from src.graph.subgraphs.diagnosis_agent import _build_system_prompt, get_diagnosis_agent
+
     base_prompt = _build_system_prompt()
-    messages: list[BaseMessage] = [
+    initial_messages: list[BaseMessage] = [
         SystemMessage(content=base_prompt),
         HumanMessage(content=evidence_text),
     ]
 
-    llm = _llm_factory.get_llm_for_role("diagnosis")
-    tools = get_all_tools()
-    tool_map = {t.name: t for t in tools}
-    llm_with_tools = llm.bind_tools(tools)
+    langfuse_handler = _get_langfuse_handler(state, evidence_text)
+    # NOTE: the handler is NOT put in any top-level config callbacks. create_agent
+    # propagates top-level config callbacks to BOTH the model node AND the ToolNode
+    # (via the Runnable config contextvar), which double-records tool calls
+    # (callback on_tool_start/end + middleware record_tool_span) and breaks
+    # score_process_quality efficiency. Instead, LangfuseTracingMiddleware.
+    # awrap_model_call attaches the handler to each LLM call alone via
+    # model.with_config, so tools are recorded only by record_tool_span (single
+    # source) — matching the hand-written loop's observability model.
+    # langfuse_handler still goes into the run context for: middleware
+    # start_trace / record_tool_span / record_tool_skipped, and
+    # ForcedFinalCallMiddleware's forced-call invoke_config.
+    invoke_config = {"recursion_limit": 80}
 
-    ctx_budget = ContextBudget()
-    ctx_budget.add_system_prompt(base_prompt)
-    ctx_budget.add_evidence(evidence_text)
-    ctx_budget.start_timer()
-
-    langfuse_handler, invoke_config = _setup_langfuse_tracing(state, evidence_text)
+    # Per-invocation run context shared with middlewares via ContextVar.
+    # Middlewares read case_id / langfuse_handler / langfuse_trace_id and
+    # initialize ctx_budget + call_history in LangfuseTracingMiddleware.abefore_agent.
+    run_ctx = DiagnosisRunContext(
+        case_id=state.case_id or "",
+        langfuse_handler=langfuse_handler,
+        langfuse_trace_id=state.langfuse_trace_id,
+        system_prompt_text=base_prompt,
+        evidence_text=evidence_text,
+    )
+    set_run_context(run_ctx)
 
     try:
-        budget_exhausted = await _run_react_loop(
-            messages=messages,
-            llm_with_tools=llm_with_tools,
-            tool_map=tool_map,
-            ctx_budget=ctx_budget,
-            langfuse_handler=langfuse_handler,
-            invoke_config=invoke_config,
-            case_id=state.case_id,
+        agent = get_diagnosis_agent()
+        # invoke_config = {"recursion_limit": 80} (set above, no callbacks — see
+        # note on LangfuseTracingMiddleware.awrap_model_call for why).
+        # recursion_limit is a hard backstop ONLY — BudgetGuardMiddleware's
+        # model_call_count > MAX_TOOL_CALLS(12) is the primary LLM-call cap
+        # (matches range(12) semantics: 12 LLM calls allowed, 13th jumps to end).
+        # create_agent implements each middleware hook (before_model / after_model)
+        # as a separate graph step, so one ReAct iteration ≈ 4 graph steps
+        # (before_model + model + after_model + tools). 12 iterations ≈ 48 steps
+        # + the 13th before_model jump ≈ 52; 80 leaves margin so model_call_count
+        # is always the binding constraint, and recursion_limit only fires if the
+        # middleware counter itself fails.
+        result = await agent.ainvoke(
+            {"messages": initial_messages},
+            config=invoke_config,
         )
+        final_messages: list[BaseMessage] = result.get("messages", [])
     except Exception as exc:
         logger.error("diagnosis_agent_exception", error=str(exc), case_id=state.case_id)
         if langfuse_handler is not None:
             with contextlib.suppress(Exception):
                 langfuse_handler.end_trace(output_data={"error": str(exc)})
+        clear_run_context()
         return handle_agent_failure(state, exc)
+    finally:
+        # Always clear the ContextVar so a leaked context can't poison the
+        # next invocation (middleware instances are reused across invocations).
+        clear_run_context()
 
-    forced_call_triggered = await _maybe_forced_final_json_call(
-        messages=messages,
-        llm=llm,
-        ctx_budget=ctx_budget,
-        invoke_config=invoke_config,
-        case_id=state.case_id,
-        budget_exhausted=budget_exhausted,
-        langfuse_handler=langfuse_handler,
-    )
+    budget_exhausted = run_ctx.budget_exhausted
+    forced_call_triggered = run_ctx.forced_call_triggered
 
     report, findings, budget_state, early_stopped = _finalize_report(
-        state=state, messages=messages, budget_exhausted=budget_exhausted
+        state=state, messages=final_messages, budget_exhausted=budget_exhausted
     )
 
     _finalize_langfuse_trace(
@@ -257,7 +288,7 @@ async def diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
         early_stopped=early_stopped,
         budget_state=budget_state,
         forced_call_triggered=forced_call_triggered,
-        case_id=state.case_id,
+        case_id=state.case_id or "",
     )
 
     logger.info(
