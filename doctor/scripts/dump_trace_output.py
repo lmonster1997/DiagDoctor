@@ -1,6 +1,9 @@
 """Fetch trace-level input/output for a single trace."""
+
 import sys
+
 from langfuse import Langfuse
+
 from src.config import settings
 
 lf = Langfuse(
@@ -18,9 +21,11 @@ if out is None:
     print("<none>")
 elif isinstance(out, dict):
     import json
+
     print(json.dumps(out, ensure_ascii=False, indent=2)[:8000])
 else:
     print(str(out)[:8000])
 print("\n=== TRACE METADATA ===")
 import json
+
 print(json.dumps(trace.metadata or {}, ensure_ascii=False, indent=2)[:2000])

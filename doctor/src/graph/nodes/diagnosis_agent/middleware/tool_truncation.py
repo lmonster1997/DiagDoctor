@@ -94,7 +94,9 @@ class ToolTruncationMiddleware(AgentMiddleware):
                     new_msgs.append(m)
             if changed:
                 try:
-                    return result.__class__(**{**vars(result), "update": {**update, "messages": new_msgs}})
+                    return result.__class__(
+                        **{**vars(result), "update": {**update, "messages": new_msgs}}
+                    )
                 except Exception:
                     # If rebuilding the Command fails, fall through and return
                     # the original (un-truncated) — better than crashing the loop.

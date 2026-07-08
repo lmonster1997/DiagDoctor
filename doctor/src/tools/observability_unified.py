@@ -228,9 +228,7 @@ def _normalize_error_message(msg: str) -> str:
     # Remove hex strings (32-char)
     normalized = _re.sub(r"\b[0-9a-f]{32}\b", "<hex32>", normalized)
     # Remove ISO timestamps
-    normalized = _re.sub(
-        r"\d{4}-\d{2}-\d{2}t\d{2}:\d{2}:\d{2}[^\s]*", "<ts>", normalized
-    )
+    normalized = _re.sub(r"\d{4}-\d{2}-\d{2}t\d{2}:\d{2}:\d{2}[^\s]*", "<ts>", normalized)
     # Remove line numbers like :123 or line 42
     normalized = _re.sub(r":\d{2,5}(?:\b|\))", ":<line>", normalized)
     normalized = _re.sub(r"line \d+", "line <n>", normalized)
@@ -345,12 +343,8 @@ def _detect_error_bursts(
             if sorted_counts[0] > sorted_counts[1] * 2:
                 # Mark only the top bucket as anomalous
                 max_bucket = max(buckets, key=lambda k: buckets[k])
-                window_start = datetime.fromtimestamp(
-                    max_bucket * bucket_seconds, tz=UTC
-                )
-                window_end = datetime.fromtimestamp(
-                    (max_bucket + 1) * bucket_seconds, tz=UTC
-                )
+                window_start = datetime.fromtimestamp(max_bucket * bucket_seconds, tz=UTC)
+                window_end = datetime.fromtimestamp((max_bucket + 1) * bucket_seconds, tz=UTC)
                 anomalies.append(
                     {
                         "type": "error_burst",
@@ -362,9 +356,7 @@ def _detect_error_bursts(
                             "mean_count": round(mean, 1),
                             "stddev": round(stddev, 1),
                             "threshold": round(threshold, 1),
-                            "excess_pct": round(
-                                (sorted_counts[0] - mean) / max(mean, 1) * 100
-                            ),
+                            "excess_pct": round((sorted_counts[0] - mean) / max(mean, 1) * 100),
                         },
                     }
                 )
@@ -374,12 +366,8 @@ def _detect_error_bursts(
             # relative to the time window size
             if counts[0] >= 8:
                 max_bucket = max(buckets, key=lambda k: buckets[k])
-                window_start = datetime.fromtimestamp(
-                    max_bucket * bucket_seconds, tz=UTC
-                )
-                window_end = datetime.fromtimestamp(
-                    (max_bucket + 1) * bucket_seconds, tz=UTC
-                )
+                window_start = datetime.fromtimestamp(max_bucket * bucket_seconds, tz=UTC)
+                window_end = datetime.fromtimestamp((max_bucket + 1) * bucket_seconds, tz=UTC)
                 anomalies.append(
                     {
                         "type": "error_burst",
@@ -392,7 +380,7 @@ def _detect_error_bursts(
                             "stddev": round(stddev, 1),
                             "threshold": "absolute_minimum(≥8)",
                             "excess_pct": 0,
-                            "note": "Single-bucket burst; insufficient baseline for σ-based threshold.",
+                            "note": "Single-bucket burst; insufficient baseline for σ.",
                         },
                     }
                 )
@@ -400,12 +388,8 @@ def _detect_error_bursts(
 
     for bucket_id, count in buckets.items():
         if count > threshold:
-            window_start = datetime.fromtimestamp(
-                bucket_id * bucket_seconds, tz=UTC
-            )
-            window_end = datetime.fromtimestamp(
-                (bucket_id + 1) * bucket_seconds, tz=UTC
-            )
+            window_start = datetime.fromtimestamp(bucket_id * bucket_seconds, tz=UTC)
+            window_end = datetime.fromtimestamp((bucket_id + 1) * bucket_seconds, tz=UTC)
             anomalies.append(
                 {
                     "type": "error_burst",
@@ -446,9 +430,7 @@ def _detect_latency_spikes(
         if len(spans) < 3:
             continue  # Not enough for statistical comparison
 
-        durations = [
-            float(s.get("duration_ms", s.get("duration", 0))) for s in spans
-        ]
+        durations = [float(s.get("duration_ms", s.get("duration", 0))) for s in spans]
         avg = sum(durations) / len(durations)
         if avg < 10:
             continue  # Too fast to care
@@ -503,8 +485,8 @@ def _detect_error_clusters(
     error_entries.sort(key=lambda x: x[0])
 
     # Sliding window: group by fingerprint within 2-minute windows
-    CLUSTER_WINDOW_SECONDS = 120
-    CLUSTER_MIN_COUNT = 5
+    cluster_window_seconds = 120
+    cluster_min_count = 5
 
     # Use a simple sliding-window approach: for each fingerprint,
     # count occurrences in the next 2 minutes
@@ -518,14 +500,14 @@ def _detect_error_clusters(
         count = 1
         samples: list[str] = [original]
         for j in range(i + 1, len(error_entries)):
-            if (error_entries[j][0] - ts).total_seconds() > CLUSTER_WINDOW_SECONDS:
+            if (error_entries[j][0] - ts).total_seconds() > cluster_window_seconds:
                 break
             if error_entries[j][1] == fingerprint:
                 count += 1
                 if len(samples) < 3:
                     samples.append(error_entries[j][2])
 
-        if count >= CLUSTER_MIN_COUNT:
+        if count >= cluster_min_count:
             fingerprinted.append(
                 {
                     "fingerprint": fingerprint[:80],
@@ -588,8 +570,7 @@ def _detect_cascading_failures(
                         "total_spans": len(spans),
                         "error_span_count": len(error_spans),
                         "error_span_names": [
-                            s.get("name", s.get("operation_name", "?"))
-                            for s in error_spans[:5]
+                            s.get("name", s.get("operation_name", "?")) for s in error_spans[:5]
                         ],
                         "error_messages": [
                             str(
@@ -639,16 +620,11 @@ def _detect_timeout_chains(
                         "type": "timeout_chain",
                         "severity": "medium",
                         "details": {
-                            "chain": " → ".join(
-                                f"{n.name}({n.duration_ms:.0f}ms)"
-                                for n in chain
-                            ),
+                            "chain": " → ".join(f"{n.name}({n.duration_ms:.0f}ms)" for n in chain),
                             "total_duration_ms": chain_duration,
                             "last_span_name": chain[-1].name,
                             "last_span_duration_ms": chain[-1].duration_ms,
-                            "last_span_ratio_pct": round(
-                                last_duration / chain_duration * 100, 1
-                            ),
+                            "last_span_ratio_pct": round(last_duration / chain_duration * 100, 1),
                             "span_count": len(chain),
                         },
                     }
@@ -726,9 +702,7 @@ def _build_causal_chains(roots: list[SpanNode]) -> list[str]:
         line = f"{padding}{prefix}{tier} {name} ({annotation})"
 
         # Collect problem children
-        problem_children = [
-            c for c in node.children if _has_problems(c)
-        ]
+        problem_children = [c for c in node.children if _has_problems(c)]
 
         if not problem_children:
             return line
@@ -774,8 +748,7 @@ def _generate_insights(analysis_result: dict[str, Any]) -> str:
         pattern = top.get("fingerprint", "unknown")
         window = top.get("window_start", "?")
         parts.append(
-            f"1. **错误模式**：检测到 {n} 个相同错误 "
-            f'"{pattern[:60]}"，集中在 {window[:19]}'
+            f'1. **错误模式**：检测到 {n} 个相同错误 "{pattern[:60]}"，集中在 {window[:19]}'
         )
 
     # ── 2. Performance bottlenecks ──────────────────────────────
@@ -823,20 +796,13 @@ def _generate_insights(analysis_result: dict[str, Any]) -> str:
         if a.get("type") == "cascading_failure"
     ]
     if cascades:
-        suggestions.append(
-            "用 db_query 验证数据库状态（检测到级联失败，"
-            "可能涉及数据完整性问题）"
-        )
+        suggestions.append("用 db_query 验证数据库状态（检测到级联失败，可能涉及数据完整性问题）")
 
     # General fallback suggestion
     if not suggestions:
-        suggestions.append(
-            "用 search_observability 缩小时间窗口，获取更精确的线索"
-        )
+        suggestions.append("用 search_observability 缩小时间窗口，获取更精确的线索")
 
-    parts.append(
-        f"4. **建议下一步**：\n   - " + "\n   - ".join(suggestions)
-    )
+    parts.append("4. **建议下一步**：\n   - " + "\n   - ".join(suggestions))
 
     if not parts:
         return ""
@@ -921,7 +887,8 @@ async def search_observability(
         query: 查询字符串。source="loki" 时为 LogQL；
                source="tempo" 时为 trace_id 或服务名；
                source="auto" 时为 LogQL
-        start: ISO 起始时间。**建议省略**——默认取 trigger_time ± 5min（只看本次触发附近，避免混入其他 case 的信号）。
+        start: ISO 起始时间。**建议省略**——默认取 trigger_time ± 5min
+            （只看本次触发附近，避免混入其他 case 的信号）。
             显式传入且整体早于当前 1 小时的窗口会被自动纠正为默认窗口。
         end: ISO 结束时间。**建议省略**——同 start。
         analysis: 分析深度（仅在使用 trace 数据时生效）
@@ -1099,9 +1066,7 @@ async def search_observability(
                     types=[a["type"] for a in anomalies],
                 )
         except Exception as exc:
-            logger.warning(
-                "search_observability_anomaly_detection_failed", error=str(exc)
-            )
+            logger.warning("search_observability_anomaly_detection_failed", error=str(exc))
 
     # ── Include frontend errors (optional) ────────────────────────
     frontend_errors: list[dict[str, Any]] = []
@@ -1166,9 +1131,7 @@ async def search_observability(
             if insights_text:
                 logger.info("search_observability_insights_generated")
         except Exception as exc:
-            logger.warning(
-                "search_observability_insights_failed", error=str(exc)
-            )
+            logger.warning("search_observability_insights_failed", error=str(exc))
 
     # ── Assemble response ──
     response = {

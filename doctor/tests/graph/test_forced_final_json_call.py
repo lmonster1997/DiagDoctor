@@ -54,7 +54,7 @@ class TestLastAiHasJson:
 
     def test_returns_true_when_json_in_markdown_fence(self) -> None:
         messages = [
-            AIMessage(content="Analysis...\n```json\n{\"primary_category\":\"logic\"}\n```"),
+            AIMessage(content='Analysis...\n```json\n{"primary_category":"logic"}\n```'),
         ]
         assert _last_ai_has_json(messages) is True
 
@@ -136,18 +136,18 @@ def _make_mock_llm(parsed_report: ForcedDiagnosisReport | None) -> tuple[MagicMo
 
 def _sample_report(**overrides: Any) -> ForcedDiagnosisReport:
     """Build a populated ForcedDiagnosisReport for tests."""
-    defaults = dict(
-        primary_category="backend_error",
-        categories=["backend_error"],
-        symptom_tier="backend",
-        root_cause_tier="backend",
-        root_cause="N+1 查询",
-        affected_file="app/services/task_service.py",
-        affected_line=42,
-        fix_suggestion="用 selectinload",
-        evidence_chain=["sig-be020-slow"],
-        confidence=0.8,
-    )
+    defaults: dict[str, Any] = {
+        "primary_category": "backend_error",
+        "categories": ["backend_error"],
+        "symptom_tier": "backend",
+        "root_cause_tier": "backend",
+        "root_cause": "N+1 查询",
+        "affected_file": "app/services/task_service.py",
+        "affected_line": 42,
+        "fix_suggestion": "用 selectinload",
+        "evidence_chain": ["sig-be020-slow"],
+        "confidence": 0.8,
+    }
     defaults.update(overrides)
     return ForcedDiagnosisReport(**defaults)
 
@@ -471,14 +471,20 @@ class _ScriptedChatModel(BaseChatModel):
     _idx: int = PrivateAttr(default=0)
     with_structured_output_call_count: int = 0
 
-    def bind_tools(self, tools: list[Any], **kwargs: Any) -> "_ScriptedChatModel":  # type: ignore[override]
+    def bind_tools(self, tools: list[Any], **kwargs: Any) -> _ScriptedChatModel:  # type: ignore[override]
         return self
 
-    def with_structured_output(self, schema: Any, **kwargs: Any) -> "_StructuredScriptedLLM":
+    def with_structured_output(self, schema: Any, **kwargs: Any) -> _StructuredScriptedLLM:
         self.with_structured_output_call_count += 1
         return _StructuredScriptedLLM(forced_result=self.forced_result)
 
-    def _generate(self, messages: list[Any], stop: list[str] | None = None, run_manager: Any = None, **kwargs: Any) -> ChatResult:  # type: ignore[override]
+    def _generate(
+        self,
+        messages: list[Any],
+        stop: list[str] | None = None,
+        run_manager: Any = None,
+        **kwargs: Any,
+    ) -> ChatResult:  # type: ignore[override]
         if self._idx >= len(self.responses):
             # Run out of scripted responses — return a natural stop with JSON
             # so the loop terminates cleanly rather than raising.
@@ -488,7 +494,13 @@ class _ScriptedChatModel(BaseChatModel):
             self._idx += 1
         return ChatResult(generations=[ChatGeneration(message=resp)])
 
-    async def _agenerate(self, messages: list[Any], stop: list[str] | None = None, run_manager: Any = None, **kwargs: Any) -> ChatResult:  # type: ignore[override]
+    async def _agenerate(
+        self,
+        messages: list[Any],
+        stop: list[str] | None = None,
+        run_manager: Any = None,
+        **kwargs: Any,
+    ) -> ChatResult:  # type: ignore[override]
         return self._generate(messages, stop, run_manager, **kwargs)
 
     @property
@@ -602,8 +614,8 @@ class TestForcedCallWiredIntoNode:
             forced_result=structured,
         )
 
-        import src.llm_factory as llm_factory_mod
         import src.graph.subgraphs.diagnosis_agent as subgraph_mod
+        import src.llm_factory as llm_factory_mod
 
         monkeypatch.setattr(llm_factory_mod, "get_llm_for_role", lambda _role: mock_llm)
         # The subgraph bound `get_llm_for_role` at module import time
@@ -615,7 +627,9 @@ class TestForcedCallWiredIntoNode:
         # Disable real Langfuse.
         import src.observability.langfuse_tracing as lf_mod
 
-        monkeypatch.setattr(lf_mod, "get_langfuse_handler", MagicMock(side_effect=ImportError("off")))
+        monkeypatch.setattr(
+            lf_mod, "get_langfuse_handler", MagicMock(side_effect=ImportError("off"))
+        )
 
         result = await node_module.diagnosis_agent_node(be020_state)
 
@@ -652,14 +666,16 @@ class TestForcedCallWiredIntoNode:
             forced_result={"parsed": None, "raw": AIMessage(content="")},
         )
 
-        import src.llm_factory as llm_factory_mod
         import src.graph.subgraphs.diagnosis_agent as subgraph_mod
+        import src.llm_factory as llm_factory_mod
 
         monkeypatch.setattr(llm_factory_mod, "get_llm_for_role", lambda _role: mock_llm)
         monkeypatch.setattr(subgraph_mod, "get_llm_for_role", lambda _role: mock_llm)
         import src.observability.langfuse_tracing as lf_mod
 
-        monkeypatch.setattr(lf_mod, "get_langfuse_handler", MagicMock(side_effect=ImportError("off")))
+        monkeypatch.setattr(
+            lf_mod, "get_langfuse_handler", MagicMock(side_effect=ImportError("off"))
+        )
 
         result = await node_module.diagnosis_agent_node(be020_state)
 

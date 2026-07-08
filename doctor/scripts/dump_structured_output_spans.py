@@ -7,6 +7,7 @@ Pydantic object visible in `output.parsed`.
 Usage:
     uv run python scripts/dump_structured_output_spans.py <session_id> [bug_id]
 """
+
 from __future__ import annotations
 
 import json
@@ -64,15 +65,19 @@ def main() -> int:
 
         obs = getattr(full, "observations", None) or []
         flat = []
+
         def walk(o, d=0):
             for x in o:
                 flat.append((d, x))
                 walk(getattr(x, "children", None) or [], d + 1)
+
         walk(obs)
 
         # List all SPAN observations (focus on structured_output_*)
         spans = [(d, o) for d, o in flat if (getattr(o, "type", "?") or "?") == "SPAN"]
-        structured = [(d, o) for d, o in spans if "structured_output" in (getattr(o, "name", "") or "")]
+        structured = [
+            (d, o) for d, o in spans if "structured_output" in (getattr(o, "name", "") or "")
+        ]
 
         print(f"  total SPAN observations: {len(spans)}")
         print(f"  structured_output SPANs: {len(structured)}")
@@ -90,9 +95,11 @@ def main() -> int:
                     print(f"    parsed.primary_category = {parsed.get('primary_category')!r}")
                     print(f"    parsed.confidence = {parsed.get('confidence')!r}")
                     print(f"    parsed.affected_file = {parsed.get('affected_file')!r}")
-                    print(f"    parsed.root_cause (first 200 chars) = {str(parsed.get('root_cause', ''))[:200]!r}")
+                    print(
+                        f"    parsed.root_cause (first 200 chars) = {str(parsed.get('root_cause', ''))[:200]!r}"
+                    )
                 elif parsed is None:
-                    print(f"    parsed = None  (failure path)")
+                    print("    parsed = None  (failure path)")
                 else:
                     print(f"    parsed type = {type(parsed).__name__}")
                 rc = outp.get("raw_content")
@@ -100,7 +107,9 @@ def main() -> int:
                     print(f"    raw_content_len = {len(str(rc))}")
                 rtc = outp.get("raw_tool_calls")
                 if rtc is not None:
-                    print(f"    raw_tool_calls count = {len(rtc) if isinstance(rtc, list) else '?'}")
+                    print(
+                        f"    raw_tool_calls count = {len(rtc) if isinstance(rtc, list) else '?'}"
+                    )
             else:
                 print(f"    output type: {type(outp).__name__}")
             print(f"    metadata: {json.dumps(meta, ensure_ascii=False)}")

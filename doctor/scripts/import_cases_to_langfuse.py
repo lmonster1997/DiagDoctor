@@ -40,14 +40,14 @@ SMOKE_CASES: set[str] = {"BE-020", "FE-020", "PERF-020", "LOGIC-020"}
 #   - 含 smokeless（测「observability 拿不到证据时」的推理上限）
 #   - 含 pair 关系（同模式不同层 / 同模式不同接口，验证机制是「学到模式」而非「记住 case」）
 TRAIN_CASES: set[str] = {
-    "BE-022",      # L3 backend_error,  red-herring + null-deref
-    "FE-021",      # L2 frontend_crash, red-herring + null-deref (与 BE-022 配对，同模式不同层)
-    "PERF-021",    # L2 performance,    N+1 projects (与 PERF-020 配对，验证同模式泛化)
-    "LOGIC-021",   # L3 logic,          red-herring + data-leak
-    "LOGIC-022",   # L2 logic,          silent-drop (无 error log)
-    "DATA-021",    # L2 data,           data-loss (无 error log)
+    "BE-022",  # L3 backend_error,  red-herring + null-deref
+    "FE-021",  # L2 frontend_crash, red-herring + null-deref (与 BE-022 配对，同模式不同层)
+    "PERF-021",  # L2 performance,    N+1 projects (与 PERF-020 配对，验证同模式泛化)
+    "LOGIC-021",  # L3 logic,          red-herring + data-leak
+    "LOGIC-022",  # L2 logic,          silent-drop (无 error log)
+    "DATA-021",  # L2 data,           data-loss (无 error log)
     "CONFIG-020",  # L3 config,         misleading-default (根因不在业务代码层)
-    "RACE-020",    # L4 logic,          smokeless (无 observability 证据，需推理)
+    "RACE-020",  # L4 logic,          smokeless (无 observability 证据，需推理)
 }
 
 # 其余 3 个 (BE-021 / DATA-020 / CASCADE-020) 标记为 blind，

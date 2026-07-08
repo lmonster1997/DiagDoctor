@@ -1,9 +1,16 @@
 """Check whether code_search returned real results in the iter0 baseline."""
+
 import sys
+
 from langfuse import Langfuse
+
 from src.config import settings
 
-lf = Langfuse(secret_key=settings.langfuse_secret_key, public_key=settings.langfuse_public_key, host=settings.langfuse_host)
+lf = Langfuse(
+    secret_key=settings.langfuse_secret_key,
+    public_key=settings.langfuse_public_key,
+    host=settings.langfuse_host,
+)
 
 session_id = sys.argv[1] if len(sys.argv) > 1 else "baseline-15case"
 bug_filter = sys.argv[2] if len(sys.argv) > 2 else None
@@ -31,7 +38,7 @@ def _walk(obs_list, out=None):
         out = []
     for obs in obs_list:
         out.append(obs)
-        for c in (getattr(obs, "children", None) or []):
+        for c in getattr(obs, "children", None) or []:
             out.append(c)
     return out
 

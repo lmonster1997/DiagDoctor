@@ -191,9 +191,7 @@ def _detect_span_n_plus_one(
                 severity="warning",
                 summary=summary,
                 evidence_ref=parent_id,
-                timestamp=sample_span.get(
-                    "start", sample_span.get("start_time", "")
-                ),
+                timestamp=sample_span.get("start", sample_span.get("start_time", "")),
                 metadata={
                     "n_plus_one": True,
                     "detection_method": "span_level",

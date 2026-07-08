@@ -52,9 +52,7 @@ def main() -> None:
 
     print(f"\nSession: {session_id}")
     print(f"Total traces: {len(all_traces)}\n")
-    print(
-        f"{'name':<40} {'obs':<5} {'input':<6} {'output':<7} {'scores':<25}"
-    )
+    print(f"{'name':<40} {'obs':<5} {'input':<6} {'output':<7} {'scores':<25}")
     print("-" * 90)
 
     pairs_by_recipe: dict[str, list] = {}
@@ -89,7 +87,7 @@ def main() -> None:
                 )
                 break
 
-    print(f"\n=== 按 recipe 归组（看是否每个 case 出现 2 个 trace）===")
+    print("\n=== 按 recipe 归组（看是否每个 case 出现 2 个 trace）===")
     for recipe, lst in sorted(pairs_by_recipe.items()):
         marker = "  ← 双 trace!" if len(lst) > 1 else ""
         print(f"  {recipe}: {len(lst)} trace(s){marker}")

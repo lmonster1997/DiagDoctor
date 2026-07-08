@@ -7,6 +7,7 @@ Usage:
     uv run python scripts/dump_trace_llm_responses.py --session <session_id> --bug <bug_id>
     uv run python scripts/dump_trace_llm_responses.py --session smoke-after-SimplifiedConvergenceStrategy --bug FE-020
 """
+
 from __future__ import annotations
 
 import argparse
@@ -150,6 +151,7 @@ def main() -> int:
         # 复用 diagnosis_agent 的 JSON 提取器
         try:
             from src.graph.nodes.diagnosis_agent import _extract_json_from_text
+
             data = _extract_json_from_text(last_out)
             if data is None:
                 print("  ❌ _extract_json_from_text returned None")

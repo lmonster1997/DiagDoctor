@@ -22,7 +22,6 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import ToolMessage
 
 from src.graph.nodes.diagnosis_agent.middleware.run_context import (
-    get_run_context,
     get_run_context_or_none,
 )
 from src.observability.logger import get_logger
@@ -38,7 +37,11 @@ class ToolDedupMiddleware(AgentMiddleware):
         tool = request.tool
         tool_call = request.tool_call
         tool_name = tool.name if tool is not None else tool_call.get("name", "unknown")
-        tool_args = tool_call.get("args", {}) if isinstance(tool_call, dict) else getattr(tool_call, "args", {})
+        tool_args = (
+            tool_call.get("args", {})
+            if isinstance(tool_call, dict)
+            else getattr(tool_call, "args", {})
+        )
         tool_call_id = (
             tool_call.get("id", "") if isinstance(tool_call, dict) else getattr(tool_call, "id", "")
         )

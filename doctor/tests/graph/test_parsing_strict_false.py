@@ -29,20 +29,19 @@ from src.graph.nodes.diagnosis_agent.parsing import (
     parse_diagnosis_report,
 )
 
-
 # ═════════════════════════════════════════════════════════════════════
 # Reproduces the CONFIG-020 failure: pretty-printed JSON with literal
 # newlines inside string values (root_cause, fix_suggestion).
 # ═════════════════════════════════════════════════════════════════════
 
 _PRETTY_JSON_WITH_LITERAL_NEWLINES = (
-    '{\n'
+    "{\n"
     '  "primary_category": "config_error",\n'
     '  "categories": ["config_error"],\n'
     '  "symptom_tier": "backend",\n'
     '  "root_cause_tier": "backend",\n'
     '  "root_cause": "配置加载器在环境变量缺失时\n'
-    '抛出 KeyError 而非降级到默认值,\n'
+    "抛出 KeyError 而非降级到默认值,\n"
     '导致服务启动失败",\n'
     '  "affected_file": "app/config.py",\n'
     '  "affected_line": 28,\n'
@@ -50,7 +49,7 @@ _PRETTY_JSON_WITH_LITERAL_NEWLINES = (
     '并提供合理的 fallback 值",\n'
     '  "evidence_chain": ["sig-cfg-020"],\n'
     '  "confidence": 0.88\n'
-    '}'
+    "}"
 )
 
 
@@ -112,8 +111,7 @@ class TestParseDiagnosisReportWithLiteralNewlines:
         """LLM often emits reasoning text BEFORE the JSON block."""
         text = (
             "经过调查，配置加载器的根因已定位。\n"
-            "以下是结构化报告：\n\n"
-            + _PRETTY_JSON_WITH_LITERAL_NEWLINES
+            "以下是结构化报告：\n\n" + _PRETTY_JSON_WITH_LITERAL_NEWLINES
         )
         agent_result = {"messages": [AIMessage(content=text)]}
         report = parse_diagnosis_report(agent_result)
@@ -139,9 +137,7 @@ class TestRegressionNormalJson:
 
     def test_escaped_newlines_still_parse(self) -> None:
         """JSON with properly-escaped \\n inside strings works in both modes."""
-        text = (
-            '{"root_cause":"line1\\nline2","primary_category":"x","confidence":0.5}'
-        )
+        text = '{"root_cause":"line1\\nline2","primary_category":"x","confidence":0.5}'
         data = _extract_json_from_text(text)
         assert data is not None
         assert data["root_cause"] == "line1\nline2"

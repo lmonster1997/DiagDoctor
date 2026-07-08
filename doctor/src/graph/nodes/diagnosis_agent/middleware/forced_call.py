@@ -45,7 +45,6 @@ from src.graph.nodes.diagnosis_agent.forced_call import (
 )
 from src.graph.nodes.diagnosis_agent.middleware.run_context import (
     get_run_context,
-    get_run_context_or_none,
 )
 from src.observability.logger import get_logger
 

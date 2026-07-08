@@ -7,10 +7,10 @@ directly. Prints exactly what comes back (or the exception).
 Usage:
     uv run python scripts/debug_structured_output_minimal.py
 """
+
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import sys
 import traceback

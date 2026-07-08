@@ -582,8 +582,8 @@ class TestBuildDynamicSystemPrompt:
         budget = ContextBudget()
         budget.system_prompt_tokens = int(124_000 * 0.85)
         prompt = build_dynamic_system_prompt(self.BASE, budget)
-        assert "强制收束" in prompt
-        assert "不要再调用任何工具" in prompt
+        assert "给出最终结论" in prompt
+        assert "不应再发起新工具调用" in prompt
         assert "confidence" in prompt.lower()
         assert "0.6" in prompt
 

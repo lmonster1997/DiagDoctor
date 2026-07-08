@@ -68,9 +68,7 @@ class DeepSeekChatOpenAI(ChatOpenAI):
                 existing_extra = json.loads(existing_extra)
             except json.JSONDecodeError:
                 existing_extra = {}
-        existing_extra["thinking"] = {
-            "type": "enabled" if self.deepseek_thinking else "disabled"
-        }
+        existing_extra["thinking"] = {"type": "enabled" if self.deepseek_thinking else "disabled"}
         payload["extra_body"] = existing_extra
         return payload
 
@@ -85,8 +83,7 @@ def get_llm_for_role(role: NodeRole) -> BaseChatModel:
     """Get a configured LLM instance for a role."""
     if role == "judge":
         api_key = (
-            settings.llm_judge_api_key.get_secret_value()
-            or settings.llm_api_key.get_secret_value()
+            settings.llm_judge_api_key.get_secret_value() or settings.llm_api_key.get_secret_value()
         )
         base_url = settings.llm_judge_base_url or settings.llm_base_url
         model = settings.llm_judge_model or settings.llm_specialist_model or settings.llm_model
@@ -121,9 +118,7 @@ def get_llm_for_role(role: NodeRole) -> BaseChatModel:
             max_completion_tokens=max_tok,
             timeout=120,
             max_retries=2,
-            deepseek_thinking=bool(
-                getattr(settings, "llm_deepseek_thinking", False)
-            ),
+            deepseek_thinking=bool(getattr(settings, "llm_deepseek_thinking", False)),
         )
 
     return ChatOpenAI(

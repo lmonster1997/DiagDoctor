@@ -30,16 +30,14 @@ def format_evidence_for_agent(evidence: NormalizedEvidence) -> str:
         parts.append(
             "【本次触发的 trace_id】\n"
             f"  {tids}\n"
-            "  💡 用 search_observability(source=\"tempo\", query=\"<某个 trace_id>\") "
+            '  💡 用 search_observability(source="tempo", query="<某个 trace_id>") '
             "可精准拿到本次请求的完整 Trace；查日志可用 "
-            "search_observability(source=\"loki\", query='{trace_id=\"<某个 trace_id>\"}')。"
+            'search_observability(source="loki", query=\'{trace_id="<某个 trace_id>"}\')。'
         )
 
     # ── Golden signals ──
     has_signals = bool(evidence.golden_signals)
-    has_trace_spans = (
-        evidence.frontend_span_count > 0 or evidence.backend_span_count > 0
-    )
+    has_trace_spans = evidence.frontend_span_count > 0 or evidence.backend_span_count > 0
 
     if has_signals:
         parts.append("【实时查询信号】")
@@ -106,8 +104,7 @@ def _format_signals(signals: list[Signal]) -> str:
         sev_label = {"error": "❌", "warning": "⚠️", "info": "ℹ️"}.get(sig.severity, "•")
         ref = f" [{sig.signal_id}]" if sig.signal_id else ""
         lines.append(
-            f"  {sev_label} [{tier_label}] "
-            f"[{sig.source}/{sig.signal_type}] {sig.summary}{ref}"
+            f"  {sev_label} [{tier_label}] [{sig.source}/{sig.signal_type}] {sig.summary}{ref}"
         )
     if not lines:
         return "  （无信号）"

@@ -4,9 +4,9 @@ Usage:
     cd doctor && uv run python scripts/fetch_experiment_scores.py <run_name>
     cd doctor && uv run python scripts/fetch_experiment_scores.py framework-smoke-20260708-141807
 """
+
 from __future__ import annotations
 
-import base64
 import json
 import os
 import sys
@@ -110,7 +110,7 @@ def main() -> None:
     for d in dims:
         vals = [r[d] for r in rows if isinstance(r[d], (int, float))]
         if vals:
-            print(f"  {d:<32} {sum(vals)/len(vals):.3f}  (n={len(vals)})")
+            print(f"  {d:<32} {sum(vals) / len(vals):.3f}  (n={len(vals)})")
         else:
             print(f"  {d:<32} (no scores)")
 

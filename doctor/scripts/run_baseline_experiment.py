@@ -37,11 +37,12 @@ BUG_FACTORY_DIR = PROJECT_ROOT.parent / "bug-factory"
 
 # 添加 doctor 到 path 以便 import settings
 sys.path.insert(0, str(PROJECT_ROOT))
-from src.config import settings  # noqa: E402
-
 # Langfuse 多维度 Scorer（D13 任务 2.1）
-from scripts.langfuse_scorers import score_all_dimensions  # noqa: E402
-from scripts.langfuse_scorers import score_process_quality  # noqa: E402
+from scripts.langfuse_scorers import (
+    score_all_dimensions,  # noqa: E402
+    score_process_quality,  # noqa: E402
+)
+from src.config import settings  # noqa: E402
 
 # ── 可配置参数 ─────────────────────────────────────────────────────────
 DEMO_BACKEND_URL = "http://localhost:8000"
@@ -149,7 +150,7 @@ def trigger_bug(recipe_id: str) -> tuple[datetime, list[str]]:
         line = line.strip()
         if line.startswith("TRACE_IDS_JSON="):
             try:
-                payload = json.loads(line[len("TRACE_IDS_JSON="):])
+                payload = json.loads(line[len("TRACE_IDS_JSON=") :])
                 trace_ids = list(payload.get("trace_ids", []))
             except (ValueError, TypeError):
                 pass

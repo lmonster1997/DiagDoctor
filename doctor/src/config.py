@@ -65,9 +65,7 @@ class Settings(BaseSettings):
     # Doctor 诊断时只做 SELECT 验证数据状态，使用只读连接。
     # 默认连接 docker-compose 中的 postgres 容器（taskflow 数据库）。
     # 正式环境应使用独立的只读账号。
-    demo_db_ro_url: str = (
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/taskflow"
-    )
+    demo_db_ro_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/taskflow"
 
     # --- Target Services ---
     # Service names as they appear in OpenTelemetry instrumentation.
@@ -94,7 +92,7 @@ class Settings(BaseSettings):
     # 影响两处：
     #   1. context_engine.truncate_tool_result —— 入 context 前的字符上限
     #   2. observability_unified.search_observability —— 8000 字符 JSON 截断
-    tool_result_truncation_enabled: bool = False
+    tool_result_truncation_enabled: bool = True
 
     # --- OpenTelemetry ---
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"

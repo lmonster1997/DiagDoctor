@@ -244,8 +244,7 @@ def _run_judge(template: str, **render_vars: Any) -> float:
         content = resp.content if hasattr(resp, "content") else str(resp)
         if isinstance(content, list):
             content = "".join(
-                blk.get("text", "") if isinstance(blk, dict) else str(blk)
-                for blk in content
+                blk.get("text", "") if isinstance(blk, dict) else str(blk) for blk in content
             )
         return _parse_judge_score(str(content))
     except Exception:
@@ -350,9 +349,7 @@ async def score_all_dimensions(
         judge_scores = {
             "root_cause_accuracy": score_root_cause_accuracy(expected, diagnosis),
             "fix_suggestion_quality": score_fix_suggestion_quality(expected, diagnosis),
-            "evidence_chain_completeness": score_evidence_chain_completeness(
-                expected, diagnosis
-            ),
+            "evidence_chain_completeness": score_evidence_chain_completeness(expected, diagnosis),
         }
 
     # ── confidence_calibration：依赖 judge 的 root_cause_accuracy 作正确性代理 ──
@@ -492,9 +489,7 @@ def score_process_quality(langfuse: Langfuse, trace_id: str) -> float:
         cat = _TOOL_CATEGORY.get(tn)
         if cat:
             used_categories.add(cat)
-    evidence_coverage = len(used_categories & set(_EVIDENCE_CATEGORIES)) / len(
-        _EVIDENCE_CATEGORIES
-    )
+    evidence_coverage = len(used_categories & set(_EVIDENCE_CATEGORIES)) / len(_EVIDENCE_CATEGORIES)
 
     # ── efficiency：真重复调用占比（同工具名 + 同参数）──
     seen: set[tuple[str, str]] = set()

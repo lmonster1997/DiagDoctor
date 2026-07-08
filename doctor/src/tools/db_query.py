@@ -18,10 +18,12 @@ Connection strategy (resilient across Docker Desktop / WSL / Linux):
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import re
 import subprocess
 import sys
+from typing import Any
 
 from langchain_core.tools import StructuredTool
 
@@ -34,10 +36,8 @@ logger = get_logger(__name__)
 
 # ── Windows event loop fix (psycopg 3 requires SelectorEventLoop) ────
 if sys.platform == "win32":
-    try:
+    with contextlib.suppress(Exception):
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    except Exception:
-        pass  # Already set by caller
 
 
 def _get_db_url() -> str:
@@ -48,7 +48,7 @@ def _get_db_url() -> str:
     return "postgresql://postgres:postgres@localhost:5432/taskflow"
 
 
-async def _query_via_psycopg(sql: str) -> dict:
+async def _query_via_psycopg(sql: str) -> dict[str, Any]:
     """Execute SQL via psycopg 3 async connection. Returns result dict or raises."""
     import psycopg
 
@@ -74,14 +74,14 @@ async def _query_via_psycopg(sql: str) -> dict:
         return {
             "columns": columns,
             "row_count": len(rows),
-            "rows": [_serialize_row(zip(columns, row)) for row in rows],
+            "rows": [_serialize_row(zip(columns, row, strict=False)) for row in rows],
             "status": "ok",
         }
     finally:
         await conn.close()
 
 
-def _query_via_docker_exec(sql: str) -> dict:
+def _query_via_docker_exec(sql: str) -> dict[str, Any]:
     """Execute SQL via ``docker exec postgres psql`` subprocess.
 
     Fallback for Docker Desktop on Windows where port forwarding of
@@ -93,13 +93,21 @@ def _query_via_docker_exec(sql: str) -> dict:
 
     # Pipe SQL via stdin to avoid shell escaping issues
     cmd = [
-        "docker", "exec", "-i", container,
-        "psql", "-U", user, "-d", db_name,
-        "-X",           # No .psqlrc
-        "-q",           # Quiet
-        "-t",           # Tuples only (no headers)
-        "-A",           # Unaligned output
-        "-F", "|",      # Field separator
+        "docker",
+        "exec",
+        "-i",
+        container,
+        "psql",
+        "-U",
+        user,
+        "-d",
+        db_name,
+        "-X",  # No .psqlrc
+        "-q",  # Quiet
+        "-t",  # Tuples only (no headers)
+        "-A",  # Unaligned output
+        "-F",
+        "|",  # Field separator
     ]
 
     result = subprocess.run(
@@ -135,7 +143,7 @@ def _query_via_docker_exec(sql: str) -> dict:
     return {
         "columns": columns,
         "row_count": len(rows),
-        "rows": [_serialize_docker_row(row, columns) for row in rows],
+        "rows": [_serialize_row(zip(columns, row, strict=False)) for row in rows],
         "status": "ok",
     }
 
@@ -166,17 +174,17 @@ def _infer_columns(sql: str) -> list[str]:
     return columns
 
 
-def _serialize_row(row_items) -> dict:
+def _serialize_row(row_items: Any) -> dict[str, Any]:
     """Serialize a psycopg result row to JSON-safe dict."""
-    result = {}
+    result: dict[str, Any] = {}
     for col, val in row_items:
         result[str(col)] = _serialize_value(val)
     return result
 
 
-def _serialize_docker_row(row: list[str], columns: list[str]) -> dict:
+def _serialize_docker_row(row: list[str], columns: list[str]) -> dict[str, Any]:
     """Serialize a docker exec psql result row to dict."""
-    result = {}
+    result: dict[str, Any] = {}
     for i, col in enumerate(columns):
         if i < len(row):
             result[col] = row[i].strip()
@@ -234,13 +242,15 @@ async def db_query(sql: str) -> str:
         safe_sql += " LIMIT 100"
 
     # ── 3. Execute (psycopg → docker exec fallback) ──────────────
+    psycopg_err_msg: str = ""
     try:
         result = await _query_via_psycopg(safe_sql)
         return json.dumps(result, ensure_ascii=False, default=str)
     except Exception as psycopg_err:
+        psycopg_err_msg = str(psycopg_err)
         logger.debug(
             "db_query_psycopg_failed",
-            error=str(psycopg_err),
+            error=psycopg_err_msg,
             hint="Falling back to docker exec",
         )
 
@@ -250,7 +260,7 @@ async def db_query(sql: str) -> str:
     except Exception as docker_err:
         logger.error(
             "db_query_all_methods_failed",
-            psycopg_error=str(psycopg_err) if "psycopg_err" in dir() else "",
+            psycopg_error=psycopg_err_msg,
             docker_error=str(docker_err),
         )
         return json.dumps(

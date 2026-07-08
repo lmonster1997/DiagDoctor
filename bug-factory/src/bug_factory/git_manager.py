@@ -79,7 +79,7 @@ class GitManager:
         except (AttributeError, IndexError) as exc:
             raise GitOperationError(
                 "init",
-                f"Repository does not have a '{base_branch}' branch. Bug branches must be created from {base_branch}.",
+                f"Repo has no '{base_branch}' branch.",
             ) from exc
 
         # Cache the initial branch so reset_to_base can return to it
@@ -163,7 +163,9 @@ class GitManager:
                 self._repo.remotes.origin.pull(self._base_branch_name, ff_only=True)
                 logger.debug(f"Pulled latest {self._base_branch_name}")
             except GitCommandError:
-                logger.warning(f"Could not pull {self._base_branch_name} (no remote or network issue)")
+                logger.warning(
+                    f"Could not pull {self._base_branch_name} (no remote or network issue)"
+                )
 
             # 2. Delete existing bug branch if present
             if branch_name in self._repo.heads:
@@ -243,7 +245,11 @@ class GitManager:
         initially on a different branch, that original branch is NOT
         restored — always goes to base branch.
         """
-        logger.info("Resetting to base branch", previous_branch=self.get_current_branch(), base=self._base_branch_name)
+        logger.info(
+            "Resetting to base branch",
+            previous_branch=self.get_current_branch(),
+            base=self._base_branch_name,
+        )
 
         try:
             self._force_checkout(self._base_branch_name)

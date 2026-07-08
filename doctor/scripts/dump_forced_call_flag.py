@@ -1,4 +1,5 @@
 """Quick check: dump forced_final_json_call flag for each trace in a session."""
+
 import sys
 
 from langfuse import Langfuse

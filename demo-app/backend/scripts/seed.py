@@ -213,9 +213,7 @@ SEED_COMMENTS_BY_TASK: dict[str, list[dict]] = {
         },
         {
             "author_idx": 1,
-            "content": (
-                "Agreed. We can start with a read-through cache and measure the hit rate."
-            ),
+            "content": ("Agreed. We can start with a read-through cache and measure the hit rate."),
         },
     ],
     "Add drag-and-drop sorting to task board": [

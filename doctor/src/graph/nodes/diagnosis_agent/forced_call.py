@@ -126,7 +126,7 @@ _FORCED_FINAL_JSON_SCHEMA_HINT = (
     '  "root_cause": "一句话根因（中文）",\n'
     '  "affected_file": "path/to/file.py",\n'
     '  "affected_line": 42,\n'
-    "  \"fix_suggestion\": \"【文件】...\\n【位置】第 N 行\\n【改前】...\\n"
+    '  "fix_suggestion": "【文件】...\\n【位置】第 N 行\\n【改前】...\\n'
     '【改后】...\\n【原因】...",\n'
     '  "evidence_chain": ["sig-xxx"],\n'
     '  "confidence": 0.85\n'
@@ -218,9 +218,7 @@ async def _forced_final_json_call(
         existing ``parse_diagnosis_report`` fallback path in that case.
     """
     instruction = (
-        _FORCED_FINAL_INSTRUCTION_NARRATIVE
-        if natural_stop
-        else _FORCED_FINAL_INSTRUCTION_CAP
+        _FORCED_FINAL_INSTRUCTION_NARRATIVE if natural_stop else _FORCED_FINAL_INSTRUCTION_CAP
     )
     forced_messages = list(messages) + [HumanMessage(content=instruction)]
 
@@ -250,6 +248,7 @@ async def _forced_final_json_call(
         # TEMP DIAGNOSTIC: write to a local file so it's visible regardless of
         # structlog / subprocess stdout redirection. Remove once Iteration 2 stabilizes.
         import traceback as _tb
+
         try:
             with open("forced_call_diag.log", "a", encoding="utf-8") as _f:
                 _f.write(f"[EXC] case={case_id} type={type(exc).__name__}: {exc}\n")
@@ -274,7 +273,9 @@ async def _forced_final_json_call(
                 )
         return None
 
-    parsed: ForcedDiagnosisReport | None = result.get("parsed") if isinstance(result, dict) else None
+    parsed: ForcedDiagnosisReport | None = (
+        result.get("parsed") if isinstance(result, dict) else None
+    )
     raw = result.get("raw") if isinstance(result, dict) else None
     if parsed is None:
         raw_content_str = str(getattr(raw, "content", "")) if raw is not None else None
@@ -283,7 +284,9 @@ async def _forced_final_json_call(
         try:
             with open("forced_call_diag.log", "a", encoding="utf-8") as _f:
                 _f.write(f"[PARSED_NONE] case={case_id} result_type={type(result).__name__}\n")
-                _f.write(f"  result_keys={list(result.keys()) if isinstance(result, dict) else 'N/A'}\n")
+                _f.write(
+                    f"  result_keys={list(result.keys()) if isinstance(result, dict) else 'N/A'}\n"
+                )
                 _f.write(f"  raw_type={type(raw).__name__}\n")
                 _f.write(f"  raw_content_len={len(str(getattr(raw, 'content', '')))}\n")
                 _f.write(f"  raw_content_preview={str(getattr(raw, 'content', ''))[:400]!r}\n")
@@ -318,7 +321,9 @@ async def _forced_final_json_call(
     # TEMP DIAGNOSTIC: confirm success path actually runs + content is valid JSON
     try:
         with open("forced_call_diag.log", "a", encoding="utf-8") as _f:
-            _f.write(f"[SUCCESS] case={case_id} parsed.primary_category={parsed.primary_category!r}\n")
+            _f.write(
+                f"[SUCCESS] case={case_id} parsed.primary_category={parsed.primary_category!r}\n"
+            )
             _f.write(f"  json_str_len={len(json_str)} json_str_preview={json_str[:300]!r}\n")
     except Exception:
         pass
@@ -415,11 +420,13 @@ async def _maybe_forced_final_json_call(
         # TEMP DIAGNOSTIC: confirm append behavior
         try:
             with open("forced_call_diag.log", "a", encoding="utf-8") as _f:
-                _f.write(f"[MAYBE] case={case_id} forced_response_is_none={forced_response is None}\n")
+                _f.write(
+                    f"[MAYBE] case={case_id} forced_response_is_none={forced_response is None}\n"
+                )
                 _f.write(f"  messages_len_before_append={len(messages)}\n")
                 if forced_response is not None:
                     _f.write(f"  forced_response.content_len={len(str(forced_response.content))}\n")
-                    _f.write(f"  forced_response.content_preview={str(forced_response.content)[:300]!r}\n")
+                    _f.write(f"  forced_response.preview={str(forced_response.content)[:300]!r}\n")
         except Exception:
             pass
         if forced_response is not None:
@@ -427,10 +434,14 @@ async def _maybe_forced_final_json_call(
             ctx_budget.add_agent_reasoning(str(forced_response.content))
             try:
                 with open("forced_call_diag.log", "a", encoding="utf-8") as _f:
-                    _f.write(f"[MAYBE] case={case_id} APPENDED messages_len_after={len(messages)}\n")
+                    _f.write(
+                        f"[MAYBE] case={case_id} APPENDED messages_len_after={len(messages)}\n"
+                    )
                     # show last 2 AIMessages
                     ai_msgs = [m for m in messages if isinstance(m, AIMessage)]
-                    _f.write(f"  last_2_ai_content_lens={[len(str(m.content)) for m in ai_msgs[-2:]]}\n")
+                    _f.write(
+                        f"  last_2_ai_content_lens={[len(str(m.content)) for m in ai_msgs[-2:]]}\n"
+                    )
             except Exception:
                 pass
         return True

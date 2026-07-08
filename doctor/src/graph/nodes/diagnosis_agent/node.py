@@ -39,7 +39,6 @@ from typing import Any
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-import src.llm_factory as _llm_factory
 from src.graph.nodes.diagnosis_agent.budget import is_budget_exceeded, update_budget
 from src.graph.nodes.diagnosis_agent.evidence import format_evidence_for_agent
 from src.graph.nodes.diagnosis_agent.failure import handle_agent_failure
@@ -153,9 +152,7 @@ def _finalize_langfuse_trace(
     if langfuse_handler is None:
         return
     try:
-        report_dict = (
-            report.model_dump(mode="json") if hasattr(report, "model_dump") else {}
-        )
+        report_dict = report.model_dump(mode="json") if hasattr(report, "model_dump") else {}
         langfuse_handler.end_trace(
             output_data={
                 "diagnosis_report": report_dict,

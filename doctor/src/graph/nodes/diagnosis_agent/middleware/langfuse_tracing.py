@@ -1,8 +1,10 @@
-"""LangfuseTracingMiddleware — owns the Langfuse trace lifecycle + tool span recording.
+"""LangfuseTracingMiddleware — Langfuse trace lifecycle + tool span recording.
 
 Maps to the hand-written loop's Langfuse integration:
-- ``abefore_agent`` ← ``node.py:79-82`` (start_trace) + ``react_loop.py:88`` (ContextBudget init)
-- ``awrap_tool_call`` ← ``react_loop.py:139-188`` (tool latency / record_tool_span / add_tool_call / add_tool_result)
+- ``abefore_agent`` ← ``node.py:79-82`` (start_trace)
+  + ``react_loop.py:88`` (ContextBudget init)
+- ``awrap_tool_call`` ← ``react_loop.py:139-188``
+  (tool latency / record_tool_span / add_tool_call / add_tool_result)
 - ``aafter_agent`` ← ``node.py:149-156`` (end_trace)
 
 Registered SECOND in the middleware list (after ToolDedup, before ToolTruncation)
@@ -30,7 +32,6 @@ from langchain_core.messages import ToolMessage
 
 from src.graph.context_engine import ContextBudget
 from src.graph.nodes.diagnosis_agent.middleware.run_context import (
-    DiagnosisRunContext,
     get_run_context,
     get_run_context_or_none,
 )
@@ -121,15 +122,8 @@ class LangfuseTracingMiddleware(AgentMiddleware):
         """
         ctx = get_run_context_or_none()
         if ctx is not None and ctx.langfuse_handler is not None:
-            try:
-                request.model = request.model.with_config(
-                    {"callbacks": [ctx.langfuse_handler]}
-                )
-            except Exception:
-                # If with_config fails, fall back to no callbacks on this call —
-                # graceful degradation (LLM generation observation lost for this
-                # call, but the loop continues).
-                pass
+            with contextlib.suppress(Exception):
+                request.model = request.model.with_config({"callbacks": [ctx.langfuse_handler]})
         return await handler(request)
 
     async def awrap_tool_call(self, request: Any, handler: Any) -> Any:
@@ -137,7 +131,11 @@ class LangfuseTracingMiddleware(AgentMiddleware):
         tool = request.tool
         tool_name = tool.name if tool is not None else "unknown"
         tool_call = request.tool_call
-        tool_args = tool_call.get("args", {}) if isinstance(tool_call, dict) else getattr(tool_call, "args", {})
+        tool_args = (
+            tool_call.get("args", {})
+            if isinstance(tool_call, dict)
+            else getattr(tool_call, "args", {})
+        )
         iteration = ctx.model_call_count if ctx else 0
 
         tool_t0 = time.monotonic()

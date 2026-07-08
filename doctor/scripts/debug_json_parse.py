@@ -3,6 +3,7 @@
 Fetches the raw last LLM output from Langfuse and tries multiple parsing
 strategies, printing detailed error messages for each.
 """
+
 from __future__ import annotations
 
 import json
@@ -10,7 +11,6 @@ import os
 import re
 import sys
 
-from langchain_core.messages import AIMessage
 from langfuse import Langfuse
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -175,7 +175,7 @@ def main() -> int:
     if control_chars:
         print(f"  Other control chars: { {hex(k): len(v) for k, v in control_chars.items()} }")
     else:
-        print(f"  Other control chars: none")
+        print("  Other control chars: none")
 
     return 0
 

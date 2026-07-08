@@ -249,7 +249,9 @@ def ingest(raw_evidence: dict[str, Any]) -> NormalizedEvidence:
 
     # Step 6: Golden signal extraction (includes span-level N+1 detection)
     signals = extract_golden_signals(
-        folded_logs, traces, browser_errs,
+        folded_logs,
+        traces,
+        browser_errs,
         slow_threshold_ms=settings.ingest_slow_span_threshold_ms,
     )
 
