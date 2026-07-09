@@ -178,13 +178,17 @@ _ALL_TOOLS_CACHE: list[StructuredTool] | None = None
 
 
 def _build_all_tools() -> list[StructuredTool]:
-    """Build the V3 ALL_TOOLS list."""
+    """Build the V3 ALL_TOOLS list (6 tools including ingest)."""
+    # Lazy import to avoid circular: tools/__init__ → ingest_tool → ingest/normalizer → tools/__init__
+    from src.tools.ingest_tool import INGEST_TOOL as _ingest
+
     return [
-        SEARCH_OBSERVABILITY_TOOL,  # 新：统一可观测性查询
-        CODE_SEARCH_TOOL,  # 保留：语义代码搜索
-        DB_QUERY_TOOL,  # 保留：只读数据库查询
-        INSPECT_FRONTEND_ERROR_TOOL,  # 新：一站式前端分析
-        GET_FILE_CONTENT_TOOL,  # 新：文件读取
+        _ingest,  # ⭐ 新增：诊断前采集可观测性数据
+        SEARCH_OBSERVABILITY_TOOL,  # 统一可观测性查询
+        CODE_SEARCH_TOOL,  # 语义代码搜索
+        DB_QUERY_TOOL,  # 只读数据库查询
+        INSPECT_FRONTEND_ERROR_TOOL,  # 一站式前端分析
+        GET_FILE_CONTENT_TOOL,  # 文件读取
     ]
 
 

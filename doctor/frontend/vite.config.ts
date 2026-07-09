@@ -18,11 +18,24 @@ export default defineConfig({
     historyApiFallback: true,
     proxy: {
       '/api/copilotkit': {
-        target: 'http://127.0.0.1:8001',
+        target: 'http://127.0.0.1:8003',
         changeOrigin: true,
+        // Fix: FastAPI redirects /api/copilotkit → /api/copilotkit/
+        // Without this, the browser follows the redirect directly to 127.0.0.1:8001
+        // bypassing the proxy → CORS error.
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            if (proxyRes.statusCode && proxyRes.statusCode >= 300 && proxyRes.statusCode < 400) {
+              const location = proxyRes.headers['location'];
+              if (location && typeof location === 'string' && location.includes('127.0.0.1:8003')) {
+                proxyRes.headers['location'] = location.replace('http://127.0.0.1:8003', '');
+              }
+            }
+          });
+        },
       },
       '/api': {
-        target: 'http://127.0.0.1:8001',
+        target: 'http://127.0.0.1:8003',
         changeOrigin: true,
       },
     },

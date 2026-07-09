@@ -1,10 +1,36 @@
 ## 工具速查
 
-> DiagDoctor V3 统一工具集。共 5 个工具，覆盖日志/ Trace/代码搜索/前端分析/文件读取。
+> DiagDoctor V3 统一工具集。共 6 个工具，覆盖数据采集/日志/Trace/代码搜索/前端分析/文件读取。
 
 ---
 
-### search_observability — 统一可观测性查询 ⭐ 优先使用
+### run_ingest — 采集并标准化可观测性数据 ⭐ 第一步必调
+
+**诊断前必须第一个调用！** 自动从 Loki/Tempo 采集日志和 Trace，运行标准化管线。
+
+```
+# 基础用法（用当前时间 ±5min 窗口）
+run_ingest(user_report="用户对Bug的完整描述")
+
+# 有 Trace ID 时的精确查询
+run_ingest(user_report="...", trace_id="abc123def456...")
+
+# 指定触发时间
+run_ingest(user_report="...", trigger_time="2026-07-09T10:30:00")
+```
+
+| 参数 | 说明 |
+|------|------|
+| `user_report` | **(必需)** 用户对 Bug 的完整描述 |
+| `trace_id` | (可选) 32 位 hex Trace ID，精确查询 |
+| `trigger_time` | (可选) ISO 时间戳，默认用当前时间 |
+
+返回 JSON：`{summary, signal_count, correlation_count, timeline_event_count}`。
+调用后根据 summary 中的关键信号继续诊断。
+
+---
+
+### search_observability — 统一可观测性查询 ⭐
 
 统一查询入口，合并了日志查询和 Trace 查询。**首选工具**。
 

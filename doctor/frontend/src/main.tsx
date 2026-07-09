@@ -6,6 +6,7 @@ import { CopilotKit } from "@copilotkit/react-core";
 import "@copilotkit/react-ui/styles.css";
 import "./index.css";
 import App from "./App.tsx";
+import { toolCallRenderers } from "@/features/diagnosis/ToolCallCard";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,7 +23,8 @@ createRoot(document.getElementById("root")!).render(
       <QueryClientProvider client={queryClient}>
         <CopilotKit
           runtimeUrl="/api/copilotkit"
-          agent="diagnosis"
+          useSingleEndpoint={false}
+          renderToolCalls={toolCallRenderers}
           showDevConsole={import.meta.env.DEV}
         >
           <App />

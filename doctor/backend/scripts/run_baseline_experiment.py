@@ -9,7 +9,7 @@
   - demo-app backend 运行在 http://localhost:8000（uvicorn --reload）
   - Doctor API 运行在 http://localhost:8001
   - Loki/Tempo 可访问
-  - 当前在 git {BASE_BRANCH} 分支且工作区干净
+  - 工作区干净（不切换 git 分支，直接在当前分支改文件，结束后还原）
 
 用法：
     cd doctor && uv run python scripts/run_baseline_experiment.py
@@ -21,8 +21,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
-import json
-import subprocess
 import sys
 import time
 from datetime import UTC, datetime
@@ -33,16 +31,24 @@ from langfuse import Langfuse
 
 # ── 路径常量 ──────────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_WORKSPACE = PROJECT_ROOT.parent
 BUG_FACTORY_DIR = PROJECT_ROOT.parent / "bug-factory"
+RECIPES_DIR = BUG_FACTORY_DIR / "recipes" / "gold"
 
 # 添加 doctor 到 path 以便 import settings
 sys.path.insert(0, str(PROJECT_ROOT))
+# 添加 bug-factory 以便 import DiffPatchApplier / TriggerRunner
+sys.path.insert(0, str(BUG_FACTORY_DIR / "src"))
 # Langfuse 多维度 Scorer（D13 任务 2.1）
-from scripts.langfuse_scorers import (
-    score_all_dimensions,  # noqa: E402
-    score_process_quality,  # noqa: E402
+from scripts.langfuse_scorers import (  # noqa: E402
+    score_all_dimensions,
+    score_process_quality,
 )
 from src.config import settings  # noqa: E402
+
+from bug_factory.schema import load_recipe  # noqa: E402
+from bug_factory.ai_rewriter import DiffPatchApplier  # noqa: E402
+from bug_factory.trigger import TriggerRunner  # noqa: E402
 
 # ── 可配置参数 ─────────────────────────────────────────────────────────
 DEMO_BACKEND_URL = "http://localhost:8000"
@@ -51,13 +57,66 @@ RELOAD_WAIT = 5  # uvicorn reload 等待秒数
 DIAGNOSE_TIMEOUT = 12000  # 单次诊断超时秒数
 LOKI_INDEX_DELAY = 3  # Loki/Tempo 索引延迟
 
-# ── 评测子集（见 handbook「评测节奏」）──────────────────────────────
-# smoke: 4 个代表性 case，覆盖主要类别 + 1 个 smokeless 类。
-#   用途 = 改动后快速 catch 灾难性回归 / 验证机制生效，~5min。
-#   注意：4 case 无法检测小幅提升，只回答"有没有崩"。
-# train / all: 走 Langfuse Dataset 的 metadata.split 字段过滤，
-#   无该字段时回退为全量。用于决策点 ablation。
+# ── 评测子集 ──────────────────────────────────────────────────
 SMOKE_CASES: set[str] = {"BE-020", "FE-020", "PERF-020", "LOGIC-020"}
+
+# ── Recipe cache ───────────────────────────────────────────────
+_recipe_cache: dict[str, object] = {}
+
+def _load_recipe(recipe_id: str):
+    """Load recipe YAML by ID, cached."""
+    if recipe_id not in _recipe_cache:
+        prefix = recipe_id.lower().replace("-", "_")
+        candidates = sorted(p for p in RECIPES_DIR.rglob(f"{prefix}*.yaml"))
+        if not candidates:
+            raise FileNotFoundError(f"找不到配方: {recipe_id}")
+        _recipe_cache[recipe_id] = load_recipe(candidates[0])
+    return _recipe_cache[recipe_id]
+
+
+def inject_bug(recipe_id: str) -> tuple[Path, str]:
+    """直接在当前分支应用 diff_patch，不切换 git 分支。
+    返回 (目标文件路径, 原始内容) 供后续恢复。"""
+    recipe = _load_recipe(recipe_id)
+    target = _WORKSPACE / recipe.injection.target_file
+    original = target.read_text(encoding="utf-8")
+    if recipe.injection.diff_patch:
+        patched = DiffPatchApplier.apply(original, recipe.injection.diff_patch)
+        target.write_text(patched, encoding="utf-8")
+        print(f"  [OK] 已注入: {recipe.injection.target_file}")
+    return target, original
+
+
+def restore_file(target: Path, original: str) -> None:
+    """还原单个文件。"""
+    target.write_text(original, encoding="utf-8")
+    print(f"  [OK] 已还原: {target.relative_to(_WORKSPACE)}")
+
+
+def _safe_restore(target: Path | None, original: str) -> None:
+    """容错还原：忽略 None target 和异常。"""
+    if target is None or not original:
+        return
+    with contextlib.suppress(Exception):
+        restore_file(target, original)
+
+
+async def trigger_bug_async(recipe_id: str) -> tuple[datetime, list[str]]:
+    """用 TriggerRunner 直接触发 Bug，不经过 CLI 子进程。
+    返回 (触发开始时间 UTC, trace_id 列表)。"""
+    recipe = _load_recipe(recipe_id)
+    trigger_start = datetime.now(UTC)
+    runner = TriggerRunner(demo_app_base_url=DEMO_BACKEND_URL)
+    result = await runner.run(recipe.trigger)
+    if not result.success:
+        raise RuntimeError(f"触发失败: {result.error}")
+    trace_ids: list[str] = []
+    if hasattr(result, "trace_ids") and result.trace_ids:
+        trace_ids = list(result.trace_ids)
+    for err in (result.browser_errors or []):
+        if err.trace_id and err.trace_id not in trace_ids:
+            trace_ids.append(err.trace_id)
+    return trigger_start, trace_ids
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -69,93 +128,6 @@ langfuse = Langfuse(
     public_key=settings.langfuse_public_key,
     host=settings.langfuse_host,
 )
-
-
-# ═══════════════════════════════════════════════════════════════════════
-# 工具函数
-# ═══════════════════════════════════════════════════════════════════════
-
-
-def run_cmd(cmd: list[str], cwd: Path | None = None) -> str:
-    """运行命令，失败时抛出异常。返回完整 stdout 供调用方解析。"""
-    print(f"  > {' '.join(cmd)}")
-    result = subprocess.run(
-        cmd,
-        cwd=str(cwd) if cwd else None,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        env={
-            **__import__("os").environ,
-            "PYTHONIOENCODING": "utf-8",
-            "NO_COLOR": "1",  # 抑制 Rich 颜色输出（避免 Windows GBK 问题）
-            "TERM": "dumb",  # 禁用 Rich 终端特性
-            "FORCE_COLOR": "0",
-        },
-    )
-    if result.returncode != 0:
-        stderr = result.stderr[-500:] if result.stderr else ""
-        raise RuntimeError(f"命令失败 (exit={result.returncode}): {stderr}")
-    if result.stdout.strip():
-        lines = result.stdout.strip().split("\n")
-        for line in lines[-5:]:
-            print(f"    {line}")
-    return result.stdout
-
-
-BASE_BRANCH = "dev-create-agent"
-
-
-def git_checkout_base() -> None:
-    """切换到 base 分支，确保干净起点。"""
-    run_cmd(["git", "checkout", BASE_BRANCH], cwd=PROJECT_ROOT.parent)
-    print(f"  [OK] 已切换到 {BASE_BRANCH} 分支")
-
-
-def inject_bug(recipe_id: str) -> None:
-    """注入 Bug：修改源码。"""
-    run_cmd(
-        ["uv", "run", "python", "-m", "bug_factory.cli", "inject", recipe_id],
-        cwd=BUG_FACTORY_DIR,
-    )
-
-
-def trigger_bug(recipe_id: str) -> tuple[datetime, list[str]]:
-    """触发 Bug：对 demo-app 发起请求，产生日志和 Trace。
-
-    返回 (触发开始时间 UTC, 本次触发关联的 trace_id 列表)。
-    trace_id 列表来自 bug-factory CLI 输出的 `TRACE_IDS_JSON=` 行，
-    包含注入的 aiohttp trace_id 与 UI 捕获的前端 trace_id，
-    供 Doctor 按 trace_id 精准查 Loki/Tempo（取代宽时间窗，避免跨 case 污染）。
-    不加 --no-ui，保持真实用户操作路径。
-    """
-    trigger_start = datetime.now(UTC)
-    stdout = run_cmd(
-        [
-            "uv",
-            "run",
-            "python",
-            "-m",
-            "bug_factory.cli",
-            "trigger",
-            recipe_id,
-            "--base-url",
-            DEMO_BACKEND_URL,
-        ],
-        cwd=BUG_FACTORY_DIR,
-    )
-    trace_ids: list[str] = []
-    for line in stdout.splitlines():
-        line = line.strip()
-        if line.startswith("TRACE_IDS_JSON="):
-            try:
-                payload = json.loads(line[len("TRACE_IDS_JSON=") :])
-                trace_ids = list(payload.get("trace_ids", []))
-            except (ValueError, TypeError):
-                pass
-            break
-    return trigger_start, trace_ids
 
 
 async def wait_for_backend(url: str, max_wait: int = 30) -> bool:
@@ -223,7 +195,7 @@ async def call_doctor(
 
 
 async def diagnose_task(item, trace_id: str) -> dict:
-    """完整的"布置考场 → 诊断 → 清理"流水线。"""
+    """完整的"布置考场 → 诊断 → 清理"流水线（不切换 git 分支）。"""
     recipe_id = item.metadata.get("recipe_id", "unknown")
     user_report = item.input.get("user_report", "")
 
@@ -232,30 +204,30 @@ async def diagnose_task(item, trace_id: str) -> dict:
     print(f"  User Report: {user_report[:80]}...")
     print(f"{'=' * 60}")
 
-    # ── Step 1: 恢复干净起点 ───────────────────────────────────────
-    print("[1/4] 恢复 git base 分支...")
-    git_checkout_base()
+    target: Path | None = None
+    original: str = ""
 
-    # ── Step 2: 注入 Bug ──────────────────────────────────────────
-    print(f"[2/4] 注入 Bug: {recipe_id}...")
-    inject_bug(recipe_id)
+    # ── Step 1: 注入 Bug（直接改文件）───────────────────────────
+    print(f"[1/4] 注入 Bug: {recipe_id}...")
+    target, original = inject_bug(recipe_id)
     print(f"  等待 uvicorn reload ({RELOAD_WAIT}s)...")
     time.sleep(RELOAD_WAIT)
 
     if not await wait_for_backend(DEMO_BACKEND_URL):
+        _safe_restore(target, original)
         raise RuntimeError(f"Demo backend 未在 {RELOAD_WAIT + 30}s 内就绪")
     print("  [OK] Demo backend 已就绪")
 
-    # ── Step 3: 触发 Bug + 记录时间 ───────────────────────────────
-    print(f"[3/4] 触发 Bug: {recipe_id}...")
-    trigger_time, trace_ids = trigger_bug(recipe_id)
+    # ── Step 2: 触发 Bug + 记录时间 ─────────────────────────────
+    print(f"[2/4] 触发 Bug: {recipe_id}...")
+    trigger_time, trace_ids = await trigger_bug_async(recipe_id)
     print(f"  触发时间: {trigger_time.isoformat()}")
     print(f"  关联 trace_ids: {trace_ids or '(无)'}")
     print(f"  等待 Loki/Tempo 索引 ({LOKI_INDEX_DELAY}s)...")
     await asyncio.sleep(LOKI_INDEX_DELAY)
 
-    # ── Step 4: 调用 Doctor（证据由 Doctor 自己实时查询） ─────────
-    print("[4/4] 调用 Doctor API 诊断...")
+    # ── Step 3: 调用 Doctor（证据由 Doctor 自己实时查询） ───────
+    print("[3/4] 调用 Doctor API 诊断...")
     try:
         diagnosis = await call_doctor(
             user_report,
@@ -278,10 +250,9 @@ async def diagnose_task(item, trace_id: str) -> dict:
     )
     print(f"  [OK] 诊断完成（categories={categories}, confidence={confidence}）")
 
-    # ── 恢复现场 ──────────────────────────────────────────────────
-    print("  恢复 git base 分支...")
-    git_checkout_base()
-    time.sleep(2)
+    # ── Step 4: 还原代码 ────────────────────────────────────────
+    print("[4/4] 还原代码...")
+    _safe_restore(target, original)
 
     return diagnosis
 
@@ -314,9 +285,6 @@ async def main(
             except Exception:
                 print(f"  [FAIL] {name} 不可达: {url}")
                 sys.exit(1)
-
-    # 确保在 base 分支
-    git_checkout_base()
 
     # 获取 Dataset
     dataset = langfuse.get_dataset("diagdoctor-benchmark")
@@ -404,10 +372,6 @@ async def main(
             trace.score(name="overall", value=0.0)
             trace.score(name="process_quality", value=0.0)
             results.append({"recipe_id": recipe_id, "success": False, "error": str(exc)})
-
-        # 确保恢复 base 分支
-        with contextlib.suppress(Exception):
-            git_checkout_base()
 
     # ── 汇总 ──
     print(f"\n{'=' * 60}")

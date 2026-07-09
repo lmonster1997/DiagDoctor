@@ -15,7 +15,7 @@ export default function DiagnosePage() {
     budget: BudgetState;
     budget_ticks: Record<string, unknown>[];
     report: DiagnosisReport | null;
-  }>({ name: "diagnosis" });
+  }>({ name: "default" });
 
   const latestTick = state.budget_ticks?.at(-1);
   const budget = state.budget;
