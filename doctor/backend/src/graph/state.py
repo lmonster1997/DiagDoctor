@@ -348,6 +348,13 @@ class DoctorState(BaseModel):
     total_cost: Annotated[float, add] = 0.0
     budget: BudgetState = Field(default_factory=BudgetState)
 
+    # ── Budget ticks for real-time frontend sync ──
+    # The BudgetGuardMiddleware appends a snapshot of the running budget
+    # before each LLM call.  CopilotKit's useCoAgent syncs this list to
+    # the frontend BudgetPanel so the user sees live token/cost/tool_call
+    # counters (Phase 1).
+    budget_ticks: Annotated[list[dict[str, Any]], add] = Field(default_factory=list)
+
     # ── Retrieval trace (for RAG evaluation) ──
     retrieval_trace: Annotated[list[RetrievalRecord], add] = Field(default_factory=list)
 

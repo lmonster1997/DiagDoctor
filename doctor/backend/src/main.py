@@ -51,3 +51,25 @@ from src.api.health import router as health_router  # noqa: E402
 
 app.include_router(health_router)
 app.include_router(diagnose_router)
+
+# --- CopilotKit Runtime (Phase 0: scaffold) ---
+# Mounts the diagnosis LangGraph agent at /api/copilotkit
+# so the CopilotKit React frontend can stream chat, tool calls,
+# and HITL interrupts via the AG-UI protocol.
+try:
+    from copilotkit import CopilotKit
+    from src.graph.subgraphs.diagnosis_agent import get_diagnosis_agent
+
+    sdk = CopilotKit(
+        agents={
+            "diagnosis": get_diagnosis_agent(),
+        },
+    )
+    app.mount("/api/copilotkit", sdk.app)
+    import structlog
+    _log = structlog.get_logger(__name__)
+    _log.info("copilotkit_runtime_mounted", agent="diagnosis")
+except ImportError:
+    import structlog
+    _log = structlog.get_logger(__name__)
+    _log.warning("copilotkit_not_installed_skipping_runtime")

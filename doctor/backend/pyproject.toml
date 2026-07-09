@@ -1,0 +1,82 @@
+[project]
+name = "diagdoctor"
+version = "0.1.0"
+description = "DiagDoctor — AI-powered Web application bug diagnosis agent"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "langchain>=0.3.0",
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langchain-community>=0.3.0",
+    "qdrant-client>=1.11.0",
+    "langchain-qdrant>=0.1.0",
+    "sentence-transformers>=3.0.0",
+    "structlog>=24.4.0",
+    "tenacity>=9.0.0",
+    "aiocache>=0.12.0",
+    "aiohttp>=3.9.0",
+    "jinja2>=3.1.0",
+    "opentelemetry-api>=1.25.0",
+    "opentelemetry-sdk>=1.25.0",
+    "opentelemetry-instrumentation-fastapi>=0.46b0",
+    "opentelemetry-exporter-otlp>=1.25.0",
+    "langgraph-checkpoint-sqlite>=3.1.0",
+    "sqlparse>=0.5.5",
+    "langfuse>=2.60.10,<3.0.0",
+    "tiktoken>=0.13.0",
+    "psycopg>=3.3.4",
+    "copilotkit>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+# B008: FastAPI Depends in function argument defaults is the idiomatic pattern.
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["E501"]
+"scripts/**/*.py" = ["E501", "E402", "SIM105", "B007", "B023", "SIM108"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.1.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: integration tests that require running services (Docker Compose)",
+    "smoke: smoke tests that validate the basic pipeline is functional",
+    "unit: fast unit tests (default)",
+]
