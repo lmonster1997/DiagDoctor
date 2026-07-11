@@ -114,6 +114,8 @@ class LangfuseTracingMiddleware(AgentMiddleware):
         """
         ctx = get_run_context_or_none()
         handler_ok = ctx is not None and ctx.langfuse_handler is not None
+        if not handler_ok:
+            logger.debug("awrap_model_call_no_handler", has_ctx=ctx is not None)
 
         if handler_ok:
             try:
@@ -130,9 +132,9 @@ class LangfuseTracingMiddleware(AgentMiddleware):
         result = await handler(request)
         latency_ms = (time.monotonic() - t0) * 1000
 
-        # Explicit fallback: record generation when callback didn't fire
+        # Explicit fallback: record generation
         if handler_ok and ctx is not None:
-            with contextlib.suppress(Exception):
+            try:
                 ctx.langfuse_handler.record_llm_generation(
                     name=f"llm_call_{idx}",
                     model=getattr(request.model, "model_name", "unknown"),
@@ -140,6 +142,8 @@ class LangfuseTracingMiddleware(AgentMiddleware):
                     output_data={"content_preview": str(getattr(result, "content", ""))[:2000]},
                     latency_ms=latency_ms,
                 )
+            except Exception as exc:
+                logger.warning("record_llm_generation_failed", idx=idx, error=str(exc))
 
         return result
 
