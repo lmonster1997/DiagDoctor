@@ -1,126 +1,109 @@
-"""生成 CopilotKit 前端可用的 Bug 聊天消息。
+﻿"""CopilotKit path test: generate chat message + optional auto-score.
 
-注入 Bug → 触发 → 生成自然语言消息（含触发时间 + Trace ID）→ 复制到前端聊天框。
-
-用法:
-    # 全流程：注入 + 触发 + 生成消息
+Usage:
+    # Generate message only (copy to frontend)
     & ".venv\Scripts\python.exe" scripts/test_copilotkit.py BE-020
 
-    # 跳过注入（Bug 已在代码中）
-    & ".venv\Scripts\python.exe" scripts/test_copilotkit.py BE-020 --skip-inject
-
-    # 跳过所有，直接给消息文本
-    & ".venv\Scripts\python.exe" scripts/test_copilotkit.py --msg "刚才给任务发评论报了500"
+    # Generate + auto-diagnose + Langfuse score
+    & ".venv\Scripts\python.exe" scripts/test_copilotkit.py BE-020 --score
 """
 
 from __future__ import annotations
 
-import argparse
-import json
-import subprocess
-import sys
-import time
+import argparse, asyncio, json, subprocess, sys, time
 from pathlib import Path
 
-# ── 路径 ──────────────────────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = SCRIPT_DIR.parent  # DiagDoctor/
+PROJECT_ROOT = SCRIPT_DIR.parent
+DOCTOR_BACKEND = PROJECT_ROOT / "doctor" / "backend"
 BUG_FACTORY_DIR = PROJECT_ROOT / "bug-factory"
+sys.path.insert(0, str(DOCTOR_BACKEND))
 
 PYTHON = sys.executable
 DEMO_URL = "http://localhost:8000"
 RELOAD_WAIT = 5
 
 
-def run_cmd(cmd: list[str]) -> None:
-    print(f"  > {' '.join(cmd)}")
-    subprocess.run(cmd, check=True)
+def inject(rid: str) -> None:
+    subprocess.run([PYTHON, "-m", "bug_factory.cli", "inject", rid, "--in-place"], check=True)
 
-
-def inject_bug(recipe_id: str) -> None:
-    run_cmd([PYTHON, "-m", "bug_factory.cli", "inject", recipe_id, "--in-place"])
-
-
-def trigger_bug(recipe_id: str) -> tuple[str, list[str]]:
-    """返回 (trigger_time_iso, trace_ids)."""
-    result = subprocess.run(
-        [PYTHON, "-m", "bug_factory.cli", "trigger", recipe_id, "--base-url", DEMO_URL],
-        cwd=str(BUG_FACTORY_DIR),
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-    )
-    trace_ids: list[str] = []
-    for line in result.stdout.splitlines():
-        line = line.strip()
-        if line.startswith("TRACE_IDS_JSON="):
-            payload = json.loads(line[len("TRACE_IDS_JSON="):])
-            trace_ids = list(payload.get("trace_ids", []))
+def trigger(rid: str) -> tuple[str, list[str]]:
+    r = subprocess.run([PYTHON, "-m", "bug_factory.cli", "trigger", rid, "--base-url", DEMO_URL],
+        cwd=str(BUG_FACTORY_DIR), capture_output=True, text=True, encoding="utf-8", errors="replace")
+    tids = []
+    for line in r.stdout.splitlines():
+        if line.strip().startswith("TRACE_IDS_JSON="):
+            tids = list(json.loads(line.strip()[len("TRACE_IDS_JSON="):]).get("trace_ids", []))
     from datetime import datetime, timezone
-    trigger_time = datetime.now(timezone.utc).isoformat()
-    return trigger_time, trace_ids
+    return datetime.now(timezone.utc).isoformat(), tids
+
+def load_report(rid: str, fb: str = "") -> str:
+    import yaml
+    p = BUG_FACTORY_DIR / "output" / rid / "case.yaml"
+    return yaml.safe_load(p.read_text(encoding="utf-8")).get("input", {}).get("user_report", "") or fb if p.exists() else fb
+
+def make_msg(ur: str, tt: str = "") -> str:
+    return f"{ur}\n\n(trigger_time: {tt})" if tt else ur
 
 
-def generate_chat_message(
-    user_report: str,
-    trigger_time: str = "",
-) -> str:
-    """生成前端聊天消息：配方原始描述 + 触发时间。"""
-    if trigger_time:
-        return f"{user_report}\n\n（触发时间：{trigger_time}）"
-    return user_report
+async def do_score(rid: str, ur: str, tt: str) -> None:
+    from langfuse import Langfuse
+    from src.config import settings
+    from src.graph.copilotkit_graph import get_copilotkit_graph
+    from langfuse_scorers import score_all_dimensions, score_process_quality
+
+    lf = Langfuse(secret_key=settings.langfuse_secret_key, public_key=settings.langfuse_public_key, host=settings.langfuse_host)
+    msg = make_msg(ur, tt)
+    tid = f"cktest-{__import__('uuid').uuid4().hex[:8]}"
+    trace = lf.trace(name=f"cktest_{rid}", tags=["copilotkit"], metadata={"recipe_id": rid})
+
+    print("\n  Diagnosing via CopilotKit (free-text -> bug_info -> diag_agent) ...")
+    graph = get_copilotkit_graph()
+    result = await graph.ainvoke({"messages": [{"role": "user", "content": msg}]}, {"configurable": {"thread_id": tid}})
+    lf.flush()
+
+    report = result.get("report")
+    r = report.model_dump() if report and hasattr(report, "model_dump") else {}
+    print(f"  categories={r.get('categories')}, file={r.get('affected_file')}, conf={r.get('confidence',0):.0%}")
+
+    import yaml
+    exp = {}
+    cp = BUG_FACTORY_DIR / "output" / rid / "case.yaml"
+    if cp.exists():
+        exp = yaml.safe_load(cp.read_text(encoding="utf-8")).get("expected", {})
+
+    diag = {"report": r, "categories": r.get("categories", []), "confidence": r.get("confidence", 0)}
+    scores = await score_all_dimensions(lf, trace.id, exp, diag, skip_llm_judge=False)
+    await asyncio.sleep(1)
+    pq = score_process_quality(lf, trace.id)
+
+    print(f"  overall={scores.get('overall',0):.2f} (rc={scores.get('root_cause_accuracy',0):.2f} cat={scores.get('category_accuracy',0):.2f} file={scores.get('affected_file_accuracy',0):.2f} fix={scores.get('fix_suggestion_quality',0):.2f}) pq={pq:.2f}")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate CopilotKit chat message for bug diagnosis")
-    parser.add_argument("recipe_id", nargs="?", help="Bug recipe ID (e.g. BE-020)")
-    parser.add_argument("--skip-inject", action="store_true", help="Skip bug injection")
-    parser.add_argument("--skip-trigger", action="store_true", help="Skip trigger")
-    parser.add_argument("--msg", type=str, default="", help="Direct message text (skip recipe lookup)")
-    args = parser.parse_args()
+    p = argparse.ArgumentParser()
+    p.add_argument("rid", nargs="?")
+    p.add_argument("--skip-inject", action="store_true")
+    p.add_argument("--skip-trigger", action="store_true")
+    p.add_argument("--msg", type=str, default="")
+    p.add_argument("--score", action="store_true")
+    args = p.parse_args()
 
-    # ── 获取 user_report ──
-    user_report = args.msg
-    if not user_report and args.recipe_id:
-        import yaml
-        recipe_path = BUG_FACTORY_DIR / "output" / args.recipe_id / "case.yaml"
-        if recipe_path.exists():
-            recipe = yaml.safe_load(recipe_path.read_text(encoding="utf-8"))
-            user_report = recipe.get("input", {}).get("user_report", "")
-    if not user_report:
-        user_report = input("Enter bug description: ").strip()
-        if not user_report:
-            print("No input. Exiting.")
-            return
+    ur = args.msg or (load_report(args.rid) if args.rid else "")
+    ur = ur or input("Bug description: ").strip()
+    if not ur: print("No input."); return
 
-    # ── 注入 ──
-    if args.recipe_id and not args.skip_inject:
-        print(f"[1/2] Injecting bug: {args.recipe_id} ...")
-        inject_bug(args.recipe_id)
-        print(f"  Waiting for uvicorn reload ({RELOAD_WAIT}s)...")
-        time.sleep(RELOAD_WAIT)
+    tt = ""
+    if args.rid and not args.skip_inject:
+        print(f"[inject] {args.rid}"); inject(args.rid); time.sleep(RELOAD_WAIT)
+    if args.rid and not args.skip_trigger:
+        print(f"[trigger] {args.rid}"); tt, _ = trigger(args.rid); time.sleep(3)
 
-    # ── 触发 ──
-    trigger_time = ""
-    trace_ids: list[str] = []
-    if args.recipe_id and not args.skip_trigger:
-        print(f"[2/2] Triggering bug: {args.recipe_id} ...")
-        trigger_time, trace_ids = trigger_bug(args.recipe_id)
-        print(f"  Trigger time: {trigger_time}")
-        print(f"  Trace IDs:    {trace_ids}")
-        await_loki = 3
-        print(f"  Waiting for Loki/Tempo indexing ({await_loki}s)...")
-        time.sleep(await_loki)
-
-    # ── 生成消息：配方描述 + 触发时间 ──
-    chat_message = generate_chat_message(user_report, trigger_time)
-
-    print(f"\n{'=' * 60}")
-    print(f"  📋  Copy this to the CopilotKit frontend chat:")
-    print(f"{'=' * 60}")
-    print(chat_message)
-    print(f"{'=' * 60}")
-
+    if args.score:
+        asyncio.run(do_score(args.rid or "manual", ur, tt))
+    else:
+        msg = make_msg(ur, tt)
+        print(f"\n{'='*60}\n  Copy to CopilotKit frontend:\n{'='*60}\n{msg}\n{'='*60}")
 
 if __name__ == "__main__":
     main()
-
-
