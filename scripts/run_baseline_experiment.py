@@ -336,9 +336,14 @@ async def diagnose_task(item, trace_id: str) -> dict:
         # ── 恢复工作区（git checkout . 丢弃注入改动，再 stash pop）─
         if did_stash:
             print("  恢复工作区...")
-            # 先丢弃注入产生的所有改动（让工作区回到干净状态）
+            # 丢弃注入产生的所有改动（tracked + untracked）
             subprocess.run(
                 ["git", "checkout", "--", "."],
+                cwd=str(WORKSPACE_ROOT),
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "clean", "-fd"],
                 cwd=str(WORKSPACE_ROOT),
                 capture_output=True,
             )
