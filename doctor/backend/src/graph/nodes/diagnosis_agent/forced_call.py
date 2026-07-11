@@ -269,7 +269,9 @@ async def _forced_final_json_call(
     raw = result.get("raw") if isinstance(result, dict) else None
     if parsed is None:
         raw_content_str = str(getattr(raw, "content", "")) if raw is not None else None
-        raw_tool_calls = getattr(raw, "tool_calls", None) if raw is not None else None        logger.warning(
+        raw_tool_calls = getattr(raw, "tool_calls", None) if raw is not None else None
+
+        logger.warning(
             "forced_final_json_call_no_tool_call",
             case_id=case_id,
             natural_stop=natural_stop,
@@ -292,7 +294,8 @@ async def _forced_final_json_call(
     # parse_diagnosis_report (which expects content to be a JSON string) can
     # pick it up unchanged. model_dump_json produces properly-escaped JSON
     # by construction — no unescaped-quote risk.
-    json_str = parsed.model_dump_json(indent=2)    logger.info(
+    json_str = parsed.model_dump_json(indent=2)
+    logger.info(
         "forced_final_json_call_completed",
         case_id=case_id,
         natural_stop=natural_stop,
@@ -382,16 +385,11 @@ async def _maybe_forced_final_json_call(
             natural_stop=natural_stop,
             case_id=case_id,
             langfuse_handler=langfuse_handler,
-        )        if forced_response is not None:
+        )
+       
+        if forced_response is not None:
             messages.append(forced_response)
             ctx_budget.add_agent_reasoning(str(forced_response.content))
-            try:
-                with open("forced_call_diag.log", "a", encoding="utf-8") as _f:
-                    _f.write(f"[MAYBE] case={case_id} APPENDED messages_len_after={len(messages)}\n")
-                    # show last 2 AIMessages
-                    ai_msgs = [m for m in messages if isinstance(m, AIMessage)]
-                    _f.write(f"  last_2_ai_content_lens={[len(str(m.content)) for m in ai_msgs[-2:]]}\n")
-            except Exception:
-                pass
+
         return True
     return False
