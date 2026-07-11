@@ -168,9 +168,9 @@ def git_stash_pop() -> None:
 
 
 def inject_bug(recipe_id: str) -> None:
-    """注入 Bug：修改源码。"""
+    """注入 Bug：直接修改当前分支文件（--in-place 模式，不创建分支）。"""
     run_cmd(
-        [sys.executable, "-m", "bug_factory.cli", "inject", recipe_id],
+        [sys.executable, "-m", "bug_factory.cli", "inject", recipe_id, "--in-place"],
         cwd=BUG_FACTORY_DIR,
     )
 
@@ -275,7 +275,7 @@ async def call_doctor(
 
 
 async def diagnose_task(item, trace_id: str) -> dict:
-    """完整的"布置考场 → 诊断 → 清理"流水线（不切换用户分支）。"""
+    """诊断流水线：stash 保存 → 原地注入 → 触发 → 诊断 → stash 恢复。不切换分支。"""
     recipe_id = item.metadata.get("recipe_id", "unknown")
     user_report = item.input.get("user_report", "")
 
@@ -284,18 +284,14 @@ async def diagnose_task(item, trace_id: str) -> dict:
     print(f"  User Report: {user_report[:80]}...")
     print(f"{'=' * 60}")
 
-    # 记录原始分支（inject 会切到 bug/xxx，之后需要切回来）
-    original_branch = _detect_current_branch()
-    bug_branch = f"bug/{recipe_id}"
     did_stash = False
-
     try:
         # ── Step 1: 保存当前工作区 ────────────────────────────────
         print("[1/4] 保存当前工作区...")
         did_stash = git_stash_save(f"experiment: auto-save before {recipe_id}")
 
-        # ── Step 2: 注入 Bug（会创建 bug 分支并切换过去）──────────
-        print(f"[2/4] 注入 Bug: {recipe_id} (当前分支: {original_branch})...")
+        # ── Step 2: 原地注入 Bug（不创建分支）────────────────────
+        print(f"[2/4] 原地注入 Bug: {recipe_id}...")
         inject_bug(recipe_id)
         print(f"  等待 uvicorn reload ({RELOAD_WAIT}s)...")
         time.sleep(RELOAD_WAIT)
@@ -337,20 +333,16 @@ async def diagnose_task(item, trace_id: str) -> dict:
         print(f"  [OK] 诊断完成（categories={categories}, confidence={confidence}）")
 
     finally:
-        # ── 恢复原始分支 + 工作区 ─────────────────────────────────
-        print(f"  切回原始分支: {original_branch}...")
-        subprocess.run(
-            ["git", "checkout", original_branch],
-            cwd=str(WORKSPACE_ROOT),
-            capture_output=True,
-        )
-        # 删除临时的 bug 分支
-        subprocess.run(
-            ["git", "branch", "-D", bug_branch],
-            cwd=str(WORKSPACE_ROOT),
-            capture_output=True,
-        )
+        # ── 恢复工作区（git checkout . 丢弃注入改动，再 stash pop）─
         if did_stash:
+            print("  恢复工作区...")
+            # 先丢弃注入产生的所有改动（让工作区回到干净状态）
+            subprocess.run(
+                ["git", "checkout", "--", "."],
+                cwd=str(WORKSPACE_ROOT),
+                capture_output=True,
+            )
+            # 再恢复之前 stash 的内容
             git_stash_pop()
             time.sleep(2)
 

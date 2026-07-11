@@ -260,7 +260,13 @@ def validate(recipes_dir: Path | None) -> None:
     type=click.Path(exists=True, file_okay=False, path_type=Path),
     help="Path to the target git repository (default: workspace root)",
 )
-def inject(recipe_id: str, recipe_path: Path | None, repo_path: Path | None) -> None:
+@click.option(
+    "--in-place",
+    is_flag=True,
+    default=False,
+    help="Modify files directly on current branch (no bug branch created). Use for quick diagnostics.",
+)
+def inject(recipe_id: str, recipe_path: Path | None, repo_path: Path | None, in_place: bool) -> None:
     """Inject a bug recipe into the target repository.
 
     RECIPE_ID: The bug recipe identifier (e.g. BE-001, FE-001).
@@ -284,7 +290,7 @@ def inject(recipe_id: str, recipe_path: Path | None, repo_path: Path | None) -> 
     injector = BugInjector(repo_path=repo, llm=llm)
 
     async def _run() -> InjectionResult:
-        return await injector.inject(recipe)
+        return await injector.inject(recipe, in_place=in_place)
 
     try:
         result = asyncio.run(_run())
