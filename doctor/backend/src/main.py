@@ -52,25 +52,27 @@ from src.api.health import router as health_router  # noqa: E402
 app.include_router(health_router)
 app.include_router(diagnose_router)
 
-# --- CopilotKit Runtime (Phase 0: scaffold) ---
+# --- CopilotKit Runtime ---
 # Mounts the diagnosis LangGraph agent at /api/copilotkit
 # so the CopilotKit React frontend can stream chat, tool calls,
 # and HITL interrupts via the AG-UI protocol.
+#
+# Graph: bug_info → diagnosis_agent (2 nodes)
+#   - bug_info: parses user message → extracts trigger_time/trace_ids
+#     → auto-prefetches Loki/Tempo → normalizes into NormalizedEvidence
+#   - diagnosis_agent: consumes NormalizedEvidence → ReAct loop → report
 try:
     import uuid as _uuid
 
     from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent
     from copilotkit.integrations.fastapi import add_fastapi_endpoint
-    from src.graph.subgraphs.diagnosis_agent import get_diagnosis_agent
+    from src.graph.copilotkit_graph import get_copilotkit_graph
 
     # ── Compat: LangGraphAGUIAgent has run() but SDK expects execute() ──
-    # The copilotkit SDK 0.1.94 Agent ABC requires execute(), but
-    # LangGraphAGUIAgent extends ag_ui_langgraph.LangGraphAgent which uses
-    # run(RunAgentInput).  This thin adapter bridges the two interfaces.
     from ag_ui.core import RunAgentInput
 
     class _DiagDoctorAgent(LangGraphAGUIAgent):
-        def execute(  # type: ignore[override]
+        async def execute(  # type: ignore[override]
             self,
             *,
             state: dict,
@@ -81,20 +83,18 @@ try:
             meta_events: list | None = None,
             **kwargs,
         ):
+            import asyncio
+
+            from ag_ui.encoder import EventEncoder
+
             node_name = kwargs.get("node_name")
             forwarded_props: dict = {}
             if node_name:
                 forwarded_props["node_name"] = node_name
 
-            # Set minimal DiagnosisRunContext so middlewares don't crash.
-            # CopilotKit invokes the agent directly (bypassing diagnosis_agent_node),
-            # so we must initialise the ContextVar here.
-            from src.graph.nodes.diagnosis_agent.middleware.run_context import (
-                DiagnosisRunContext,
-                set_run_context,
-            )
-
-            set_run_context(DiagnosisRunContext())
+            # Evidence collection + Langfuse tracing are handled
+            # inside the graph nodes (bug_info + diagnosis_agent).
+            # execute() only needs to bridge CopilotKit ↔ LangGraph.
 
             run_input = RunAgentInput(
                 thread_id=thread_id,
@@ -105,26 +105,10 @@ try:
                 context=[],
                 forwarded_props=forwarded_props,
             )
-            return self._serialize_events(self.run(run_input))
-
-        @staticmethod
-        async def _serialize_events(agen):
-            """Serialize AG-UI events to SSE for streaming.
-
-            Uses EventEncoder from ag-ui to produce ``data: {...}\\n\\n`` SSE format.
-            Each event is yielded with ``asyncio.sleep(0)`` to prevent TCP batching
-            of rapid-fire events (TOOL_CALL_START→END, STEP_STARTED→FINISHED) which
-            can cause the CopilotKit frontend state machine to process them out of
-            order.
-            """
-            import asyncio
-
-            from ag_ui.encoder import EventEncoder
 
             encoder = EventEncoder()
-            async for event in agen:
+            async for event in self.run(run_input):
                 yield encoder.encode(event).encode("utf-8")
-                # Yield control so each SSE frame is flushed independently.
                 await asyncio.sleep(0)
 
     async def _agent_get_state(self, *, thread_id: str):
@@ -144,7 +128,7 @@ try:
     _diag_agent = _DiagDoctorAgent(
         name="default",
         description="DiagDoctor — AI Bug 诊断助手",
-        graph=get_diagnosis_agent(),
+        graph=get_copilotkit_graph(),
         config={"recursion_limit": 80},
     )
 

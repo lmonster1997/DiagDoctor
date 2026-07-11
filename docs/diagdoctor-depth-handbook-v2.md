@@ -141,8 +141,7 @@ V3 基线架构**已完整实现**，本手册不重复 V3 重构工作，而是
 **做法**：
 
 ```bash
-cd doctor
-uv run python scripts/run_baseline_experiment.py --split all --run-name baseline-15case-pre-fix
+uv run python scripts/eval_agent.py --split all --run-name baseline-15case-pre-fix
 ```
 
 #### S0.1 发现的 3 个 Scorer bug（先修评测器再信数字）
@@ -700,7 +699,7 @@ cd doctor && uv run python scripts/import_cases_to_langfuse.py
 > 触发完成后，把**触发时间窗口**告诉 Doctor，Doctor 自己调 `search_observability` 去 Loki/Tempo 实时查。
 > 这更贴近真实场景——用户报告问题后，Doctor 现场去查日志和 Trace。
 
-**创建 Experiment 脚本**：`scripts/run_baseline_experiment.py`
+**创建 Experiment 脚本**：`scripts/eval_agent.py`
 
 ```python
 """Langfuse 基线 Experiment：注入 Bug → 触发 → 诊断 → 打分 → 恢复。
@@ -1002,7 +1001,7 @@ if __name__ == "__main__":
 **运行**：
 
 ```bash
-cd doctor && uv run python scripts/run_baseline_experiment.py
+uv run python scripts/eval_agent.py
 ```
 
 > **注意**：由于 Experiment 需要逐个注入/触发 bug，15 个 case 预计耗时 20-30 分钟。
@@ -1759,7 +1758,7 @@ uv run python scripts/run_experiment.py \
 
 ```bash
 # 运行 Langfuse Experiment（15 case）
-uv run python scripts/run_baseline_experiment.py \
+uv run python scripts/eval_agent.py \
     --split all --run-name "phase2_final"
 
 # 在 Langfuse Dashboard 中对比基线

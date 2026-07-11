@@ -178,12 +178,16 @@ _ALL_TOOLS_CACHE: list[StructuredTool] | None = None
 
 
 def _build_all_tools() -> list[StructuredTool]:
-    """Build the V3 ALL_TOOLS list (6 tools including ingest)."""
-    # Lazy import to avoid circular: tools/__init__ → ingest_tool → ingest/normalizer → tools/__init__
-    from src.tools.ingest_tool import INGEST_TOOL as _ingest
+    """Build the V3 ALL_TOOLS list (5 tools).
 
+    .. note::
+
+        ``INGEST_TOOL`` has been removed — evidence collection is now
+        handled by the graph's pre-fetch nodes (``ingest_node`` for REST,
+        ``bug_info_node`` for CopilotKit) before the agent runs.
+        ``search_observability`` covers any additional on-demand queries.
+    """
     return [
-        _ingest,  # ⭐ 新增：诊断前采集可观测性数据
         SEARCH_OBSERVABILITY_TOOL,  # 统一可观测性查询
         CODE_SEARCH_TOOL,  # 语义代码搜索
         DB_QUERY_TOOL,  # 只读数据库查询

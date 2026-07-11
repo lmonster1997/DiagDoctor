@@ -1,6 +1,6 @@
 """Langfuse 多维度 Scorer（D13 任务 2.1 + D14 任务 2.2）。
 
-提供两个入口（被 ``scripts/run_baseline_experiment.py`` 调用）：
+提供两个入口（被 ``scripts/eval_agent.py`` 调用）：
 
 - ``score_all_dimensions(langfuse, trace_id, expected_output, diagnosis, skip_llm_judge=False)``
   计算 7 个维度分数并写入 Langfuse，返回 ``{dim: score, ..., "overall": weighted}``。
@@ -22,7 +22,7 @@
 注：``expected_output`` schema 由 ``scripts/import_cases_to_langfuse.py`` 决定：
 ``{primary_category, category: list, root_cause, affected_file, fix_suggestion, fix_keywords}``。
 ``diagnosis`` 是 ``DiagnoseResponse`` 与其内嵌 ``report`` 字段合并后的 dict
-（见 ``run_baseline_experiment.py`` 中的 ``diagnosis_for_scorer`` 构造）。
+（见 ``eval_agent.py`` 中的 ``diagnosis_for_scorer`` 构造）。
 """
 
 from __future__ import annotations

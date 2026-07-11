@@ -355,7 +355,7 @@ flowchart LR
 - Middleware：`doctor/src/graph/nodes/diagnosis_agent/middleware/`（run_context、tool_dedup、langfuse_tracing、tool_truncation、budget_guard、forced_call、新增 hitl_approval）
 - 上下文预算：`doctor/src/graph/context_engine.py`
 - 成本：`doctor/src/observability/cost.py`、`pricing.py`（新建）、`langfuse_tracing.py`
-- 评测脚本：`doctor/scripts/run_baseline_experiment.py`、`fetch_experiment_scores.py`、`langfuse_scorers.py`
+- 评测脚本：`scripts/eval_agent.py`、`fetch_experiment_scores.py`、`langfuse_scorers.py`
 - Gold cases：`bug-factory/recipes/gold/*.yaml`
 
 **前端（待建）**

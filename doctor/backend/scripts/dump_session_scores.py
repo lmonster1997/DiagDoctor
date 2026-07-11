@@ -7,7 +7,7 @@ Usage:
     uv run python scripts/dump_session_scores.py baseline-15case-pres1
 
 说明：
-- session_id 即 run_baseline_experiment.py 的 --run-name（同时作为 Langfuse session_id）。
+- session_id 即 eval_agent.py 的 --run-name（同时作为 Langfuse session_id）。
 - 同名 score 可能有历史多条（rescore 后），按 timestamp 取最新一条。
 - 维度列：root=root_cause_accuracy, cat=category_accuracy, file=affected_file_accuracy,
   fix=fix_suggestion_quality, line=affected_line_accuracy, evid=evidence_chain_completeness,

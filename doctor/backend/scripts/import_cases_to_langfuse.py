@@ -26,7 +26,7 @@ RECIPES_DIR = PROJECT_ROOT.parent / "bug-factory" / "recipes" / "gold"
 DATASET_NAME = "diagdoctor-benchmark"
 
 # smoke 子集：4 个代表性 case，覆盖主要类别 + 1 个 smokeless 类。
-# 与 run_baseline_experiment.py 的 SMOKE_CASES 保持一致。
+# 与 eval_agent.py 的 SMOKE_CASES 保持一致。
 # 用途：大改后第一次 sanity check（~5min），只回答「有没有彻底崩」。
 SMOKE_CASES: set[str] = {"BE-020", "FE-020", "PERF-020", "LOGIC-020"}
 

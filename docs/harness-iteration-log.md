@@ -444,7 +444,7 @@ A: 我把 harness 拆成 8 个维度：收敛/停止、输出格式/解析、上
 
 | 脚本 | 用途 |
 |---|---|
-| `scripts/run_baseline_experiment.py --session <sid>` | 跑 4 个 smoke case 的端到端评估，写入 Langfuse session |
+| `scripts/eval_agent.py --session <sid>` | 跑 4 个 smoke case 的端到端评估，写入 Langfuse session |
 | `scripts/dump_session_scores.py <session_id>` | 拉一个 session 的 4 case 分数表 |
 | `scripts/dump_trace_observations.py --session <sid> --bug <id>` | 看一个 trace 的 observation 列表 |
 | `scripts/dump_trace_llm_responses.py --session <sid> --bug <id>` | 看一个 trace 的所有 LLM call 输入输出（最有用——能看 agent 每一轮在想什么） |
@@ -833,8 +833,8 @@ LLM 在中文叙事中用 `"..."` 引述短语是常见行为，但忘了在 JSO
     # 也可能是 inspect_frontend_error 工具结果格式调整），实施 + 单元测试 + 全量 15 case 重跑
 
 命令（Iteration 3 节奏）：
-  cd D:\Work\LearnAI\DiagDoctor\doctor
-  uv run python scripts/run_baseline_experiment.py --run-name iter3-foo
+  cd D:\Work\LearnAI\DiagDoctor
+  uv run python scripts/eval_agent.py --run-name iter3-foo
   uv run python scripts/dump_session_scores.py iter3-foo-<ts>
   uv run python scripts/dump_forced_call_flag.py iter3-foo-<ts>
   uv run python scripts/dump_structured_output_spans.py iter3-foo-<ts>
@@ -969,7 +969,7 @@ LLM 在中文叙事中用 `"..."` 引述短语是常见行为，但忘了在 JSO
 ```
 cd D:\Work\LearnAI\DiagDoctor\doctor
 # 全量 15 case
-uv run python scripts/run_baseline_experiment.py --run-name framework-15case-v1
+uv run python scripts/eval_agent.py --run-name framework-15case-v1
 # 取分
 uv run python scripts/fetch_experiment_scores.py framework-15case-v1-<ts>
 # dump 单 trace 确认 tool observation 单记录

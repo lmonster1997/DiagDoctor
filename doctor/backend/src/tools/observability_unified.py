@@ -244,6 +244,19 @@ def _parse_log_time(entry: dict[str, Any]) -> datetime | None:
     return _parse_time(str(ts))
 
 
+def _is_error_log(entry: dict[str, Any]) -> bool:
+    """Check if a log entry is error-level (should be kept during truncation)."""
+    labels = entry.get("labels", {})
+    level = str(labels.get("detected_level", labels.get("level", ""))).lower()
+    if level in ("error", "critical", "fatal"):
+        return True
+    # Also check the log line content for error indicators
+    line = str(entry.get("line", ""))
+    if "unhandled_exception" in line or "IntegrityError" in line or "Traceback" in line:
+        return True
+    return False
+
+
 def _detect_anomalies(
     logs: list[dict[str, Any]],
     traces: list[dict[str, Any]],
@@ -1150,14 +1163,22 @@ async def search_observability(
     }
 
     # Truncate large payloads for LLM context
+    # Strategy: keep analysis intact (it's the most valuable), trim raw
+    # logs/traces only when necessary.  Prioritise error-level logs over
+    # info-level since error logs carry diagnostic signal.
     result_json = json.dumps(response, ensure_ascii=False, indent=2, default=str)
-    original_json = result_json  # keep reference for accurate comparison
+    original_json = result_json
 
-    if settings.tool_result_truncation_enabled and len(result_json) > 8000:
-        # Truncate logs and traces arrays, keep analysis (including anomalies)
+    if settings.tool_result_truncation_enabled and len(result_json) > 24000:
+        # Sort logs: errors first, then rest — so truncation drops info
+        # logs (health checks etc.) before diagnostic errors.
+        error_logs = [l for l in logs if _is_error_log(l)]
+        info_logs = [l for l in logs if not _is_error_log(l)]
+        sorted_logs = error_logs + info_logs
+
         truncated: dict[str, Any] = dict(response)
-        truncated["logs"] = logs[:5]
-        truncated["traces"] = traces[:5]
+        truncated["logs"] = sorted_logs[:20]
+        truncated["traces"] = traces[:10]
         truncated["_truncated"] = True
         truncated["_original_counts"] = {
             "logs": len(logs),
@@ -1170,6 +1191,8 @@ async def search_observability(
             original_size=len(original_json),
             truncated_size=len(result_json),
             reduction_pct=round((1 - len(result_json) / len(original_json)) * 100, 1),
+            error_logs_kept=len(error_logs),
+            info_logs_kept=min(len(info_logs), max(0, 20 - len(error_logs))),
         )
 
     return result_json
