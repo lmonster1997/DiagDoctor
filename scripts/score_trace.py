@@ -9,33 +9,13 @@
 
 from __future__ import annotations
 
-import asyncio, sys, yaml
+import asyncio, sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 DOCTOR_BACKEND = PROJECT_ROOT / "doctor" / "backend"
-BUG_FACTORY_DIR = PROJECT_ROOT / "bug-factory"
 sys.path.insert(0, str(DOCTOR_BACKEND))
-
-
-def load_expected(recipe_id: str) -> dict:
-    """从 case.yaml 加载 expected_output，映射字段名以匹配 scorer。"""
-    cp = BUG_FACTORY_DIR / "output" / recipe_id / "case.yaml"
-    if not cp.exists():
-        print(f"[WARN] case.yaml not found: {cp}")
-        return {}
-    raw = yaml.safe_load(cp.read_text(encoding="utf-8")).get("expected", {})
-    exp = dict(raw)
-    # case.yaml 用 affected_files (list)，scorer 用 affected_file (str)
-    if "affected_files" in exp and "affected_file" not in exp:
-        files = exp["affected_files"]
-        exp["affected_file"] = files[0] if isinstance(files, list) and files else str(files)
-    if "category" in exp and "categories" not in exp:
-        exp["categories"] = [exp["category"]] if isinstance(exp["category"], str) else exp["category"]
-    if "primary_category" not in exp and "category" in exp:
-        exp["primary_category"] = exp["category"] if isinstance(exp["category"], str) else (exp["category"][0] if exp["category"] else "")
-    return exp
 
 
 async def main() -> None:
@@ -61,11 +41,21 @@ async def main() -> None:
         print(f"[FAIL] Trace not found: {trace_id}")
         return
 
+    # 从 Langfuse dataset 拿 expected（比 case.yaml 更完整，含 affected_line）
+    try:
+        item = lf.get_dataset_item("diagdoctor-benchmark", recipe_id)
+        exp = item.expected_output or {}
+    except Exception:
+        print(f"[WARN] Dataset item not found: {recipe_id}, falling back to case.yaml")
+        import yaml
+        cp = PROJECT_ROOT / "bug-factory" / "output" / recipe_id / "case.yaml"
+        exp = yaml.safe_load(cp.read_text(encoding="utf-8")).get("expected", {}) if cp.exists() else {}
+
     # 从 trace output 提取诊断
     output = trace.output or {}
     r = output.get("diagnosis_report", output.get("report", {}))
     if isinstance(r, dict):
-        pass  # already a dict
+        pass
     elif hasattr(r, "model_dump"):
         r = r.model_dump()
     else:
@@ -73,11 +63,10 @@ async def main() -> None:
 
     diag = {**r, "report": r, "categories": r.get("categories", []), "confidence": r.get("confidence", 0)}
 
-    print(f"Trace: {trace_id}")
+    print(f"Trace:  {trace_id}")
     print(f"Recipe: {recipe_id}")
-    print(f"categories={diag.get('categories')}, file={diag.get('affected_file')}, conf={diag.get('confidence', 0):.0%}")
-
-    exp = load_expected(recipe_id)
+    print(f"categories={diag.get('categories')}, file={diag.get('affected_file')}, line={diag.get('affected_line')}, conf={diag.get('confidence', 0):.0%}")
+    print(f"expected_line={exp.get('affected_line')}, expected_file={exp.get('affected_file')}")
 
     scores = await score_all_dimensions(lf, trace_id, exp, diag, skip_llm_judge=False)
     await asyncio.sleep(1)
@@ -87,6 +76,7 @@ async def main() -> None:
           f"(rc={scores.get('root_cause_accuracy', 0):.2f} "
           f"cat={scores.get('category_accuracy', 0):.2f} "
           f"file={scores.get('affected_file_accuracy', 0):.2f} "
+          f"line={scores.get('affected_line_accuracy', 0):.2f} "
           f"fix={scores.get('fix_suggestion_quality', 0):.2f})  "
           f"pq={pq:.2f}")
 
