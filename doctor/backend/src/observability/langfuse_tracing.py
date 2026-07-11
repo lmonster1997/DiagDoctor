@@ -163,17 +163,19 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         self._tool_call_idx = 0
         if trace_id and not name:
             # Reusing an existing trace created by an external caller (e.g. the
-            # Experiment runner).  DO NOT call self._client.trace() — the
-            # Langfuse SDK always sends sessionId in the trace-create event
-            # body (defaulting to null when not passed), which would clear the
-            # original creator's session_id.  Instead, just set _trace_id so
-            # subsequent record_tool_span / record_llm_generation attach
-            # observations to the correct trace without touching its metadata.
+            # Experiment runner).  Now that set_external_session_id() has
+            # overridden _session_id to the experiment's run_name, we CAN
+            # safely pass session_id — it matches the original creator's.
             self._reuse_external_trace = True
             self._trace_id = trace_id
+            self._client.trace(
+                id=self._trace_id,
+                input=input_data,
+                session_id=self._session_id,
+            )
             logger.warning(
                 "langfuse_trace_REUSED",
-                extra={"trace_id": self._trace_id, "handler_session_id": self._session_id},
+                extra={"trace_id": self._trace_id, "session_id": self._session_id},
             )
         else:
             self._reuse_external_trace = False
@@ -214,20 +216,22 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         if self._trace_id is None:
             return
 
-        if not self._reuse_external_trace:
-            self._client.trace(
-                id=self._trace_id,
-                output=output_data,
-                session_id=self._session_id,
-            )
-            # Record accumulated usage for providers where callbacks don't fire
-            if any(self._accumulated_usage.values()):
-                with contextlib.suppress(Exception):
-                    self._client.trace(
-                        id=self._trace_id,
-                        usage=self._accumulated_usage,
-                        session_id=self._session_id,
-                    )
+        # Always update output with session_id — _session_id is now
+        # correctly set to either the handler's UUID (standalone) or the
+        # experiment's run_name (reuse via set_external_session_id).
+        self._client.trace(
+            id=self._trace_id,
+            output=output_data,
+            session_id=self._session_id,
+        )
+        # Record accumulated usage for providers where callbacks don't fire
+        if any(self._accumulated_usage.values()):
+            with contextlib.suppress(Exception):
+                self._client.trace(
+                    id=self._trace_id,
+                    usage=self._accumulated_usage,
+                    session_id=self._session_id,
+                )
 
         self._client.flush()
         logger.debug("langfuse_trace_ended", extra={"trace_id": self._trace_id})
@@ -479,10 +483,6 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
     ) -> None:
         """Update the Langfuse trace with final output."""
         if parent_run_id is not None or self._trace_id is None:
-            return
-        # Skip when reusing an external trace — the SDK always sends sessionId
-        # in the trace-create body, which would clear the original session.
-        if self._reuse_external_trace:
             return
 
         self._client.trace(
