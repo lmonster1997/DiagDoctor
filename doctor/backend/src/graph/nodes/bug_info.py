@@ -216,44 +216,56 @@ def _attach_error_log_excerpts(
 
 
 async def bug_info_node(state: dict[str, Any]) -> dict[str, Any]:
-    """BugInfo node: parse chat message → auto-prefetch → normalize.
+    """BugInfo node: ingest → auto-prefetch → normalize.
 
-    Reads the last user message from ``state["messages"]``, extracts
-    structured bug info (description, trigger_time, trace_ids), queries
-    Loki/Tempo for relevant logs+traces, and runs the deterministic
-    ingest normalization pipeline.
+    Supports two input paths:
+    - **REST API**: state has ``raw_evidence`` (user_report, trigger_time, trace_ids).
+      Skips LLM extraction, uses evidence directly.
+    - **CopilotKit**: state has ``messages`` (free-text chat).
+      Uses LLM to extract bug info from last user message.
 
-    Args:
-        state: CopilotKit state dict with ``messages`` (list of chat messages).
-
-    Returns:
-        Dict with ``evidence`` (NormalizedEvidence) and ``bug_info`` metadata
-        for downstream nodes.
+    Both paths auto-prefetch Loki/Tempo and run the deterministic ingest
+    normalization pipeline, producing ``NormalizedEvidence`` for downstream.
     """
-    # ── Step 1: Extract structured info from user message ─────────
+    # ── Step 0: Detect input path ────────────────────────────────
+    raw_evidence: Any = state.get("raw_evidence")
     messages: list = state.get("messages", [])
-    user_message = ""
-    if messages:
-        last_msg = messages[-1]
-        if isinstance(last_msg, dict):
-            user_message = str(last_msg.get("content", ""))
-        elif hasattr(last_msg, "content"):
-            user_message = str(last_msg.content)
 
-    if not user_message.strip():
-        logger.warning("buginfo_empty_user_message")
-        return {"evidence": NormalizedEvidence(), "bug_info": {}}
+    if raw_evidence is not None:
+        # ── REST API path: structured evidence already provided ──
+        user_report = getattr(raw_evidence, "user_report", "") or ""
+        trigger_time = getattr(raw_evidence, "trigger_time", None) or None
+        trace_ids: list[str] = list(getattr(raw_evidence, "trigger_trace_ids", []) or [])
+        logger.info(
+            "buginfo_rest_api_path",
+            trigger_time=trigger_time,
+            trace_count=len(trace_ids),
+        )
+    else:
+        # ── CopilotKit path: extract from chat messages ──────────
+        user_message = ""
+        if messages:
+            last_msg = messages[-1]
+            if isinstance(last_msg, dict):
+                user_message = str(last_msg.get("content", ""))
+            elif hasattr(last_msg, "content"):
+                user_message = str(last_msg.content)
 
-    bug_info = await _extract_bug_info(user_message)
-    trigger_time = bug_info.get("trigger_time")
-    trace_ids: list[str] = bug_info.get("trace_ids", []) or []
+        if not user_message.strip():
+            logger.warning("buginfo_empty_user_message")
+            return {"evidence": NormalizedEvidence(), "bug_info": {}}
 
-    logger.info(
-        "buginfo_parsed",
-        trigger_time=trigger_time,
-        trace_count=len(trace_ids),
-        desc_preview=bug_info.get("bug_description", "")[:100],
-    )
+        bug_info = await _extract_bug_info(user_message)
+        user_report = bug_info.get("bug_description", user_message)
+        trigger_time = bug_info.get("trigger_time")
+        trace_ids = bug_info.get("trace_ids", []) or []
+
+        logger.info(
+            "buginfo_copilotkit_path",
+            trigger_time=trigger_time,
+            trace_count=len(trace_ids),
+            desc_preview=user_report[:100],
+        )
 
     # ── Narrow search_observability default window ───────────────
     # Match what diagnosis_agent_node does: set trigger_time via
@@ -325,7 +337,7 @@ async def bug_info_node(state: dict[str, Any]) -> dict[str, Any]:
 
     # ── Step 3: Normalize collected data ─────────────────────────
     raw_dict: dict[str, Any] = {
-        "user_report": bug_info.get("bug_description", user_message),
+        "user_report": user_report,
         "logs": backend["logs"] + frontend["logs"],
         "traces": backend["traces"] + frontend["traces"],
         "browser_errors": [],  # CopilotKit path has no browser_errors upload
@@ -337,9 +349,7 @@ async def bug_info_node(state: dict[str, Any]) -> dict[str, Any]:
     # Attach frontend error spans as metadata
     normalized.metadata["frontend_error_spans"] = frontend.get("error_spans", [])
 
-    # ── Enrich: attach error log excerpts so the agent sees
-    #     exception types (IntegrityError, etc.) directly, without
-    #     needing an extra search_observability round-trip.
+    # ── Enrich: attach error log excerpts ──
     all_logs = backend["logs"] + frontend["logs"]
     _attach_error_log_excerpts(normalized, all_logs)
 
@@ -352,5 +362,5 @@ async def bug_info_node(state: dict[str, Any]) -> dict[str, Any]:
     return {
         "messages": messages,
         "evidence": normalized,
-        "bug_info": bug_info,
+        "bug_info": {"bug_description": user_report, "trigger_time": trigger_time, "trace_ids": trace_ids},
     }

@@ -16,7 +16,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from src.graph.main_graph import generate_thread_id, get_graph
+from src.graph.copilotkit_graph import get_copilotkit_graph
+from src.graph.main_graph import generate_thread_id  # still needed for thread IDs
 from src.graph.state import (
     BudgetState,
     Correlation,
@@ -121,8 +122,8 @@ def _build_initial_state(request: DiagnoseRequest, thread_id: str) -> dict[str, 
 
 
 async def _run_graph(thread_id: str, state: dict[str, Any]) -> Any:
-    """Run the graph and return the final state dict."""
-    graph = get_graph()
+    """Run the unified bug_info → diagnosis_agent graph."""
+    graph = get_copilotkit_graph()
     config = {"configurable": {"thread_id": thread_id}}
     result: Any = await graph.ainvoke(state, config)
     return result
@@ -165,7 +166,7 @@ async def _stream_graph(thread_id: str, state: dict[str, Any]) -> AsyncIterator[
     frontend can render the evidence chain graph and complete report
     without a second request.
     """
-    graph = get_graph()
+    graph = get_copilotkit_graph()
     config = {"configurable": {"thread_id": thread_id}}
 
     try:
