@@ -6,3 +6,7 @@
   json_str_len=1301 json_str_preview='{\n  "primary_category": "backend_error",\n  "categories": [\n    "backend_error",\n    "logic"\n  ],\n  "symptom_tier": "backend",\n  "root_cause_tier": "backend",\n  "root_cause": "POST /api/tasks/{task_id}/comments 接口在创建评论前未校验 task_id 是否存在，当 task_id 为不存在的 UUID（如全零 UUID 00000000-0000-0000-0000-00000000000'
 [SUCCESS] case= parsed.primary_category='backend_error'
   json_str_len=1650 json_str_preview='{\n  "primary_category": "backend_error",\n  "categories": [\n    "backend_error",\n    "logic"\n  ],\n  "symptom_tier": "frontend",\n  "root_cause_tier": "backend",\n  "root_cause": "create_comment 接口在 task_id 为无效 UUID（全零）时未做前置校验，直接尝试插入数据库导致外键约束违反（ForeignKeyViolationError），且异常未被捕获为 4xx 而是抛出了 500 未处理异常，前端因此'
+[SUCCESS] case= parsed.primary_category='backend_error'
+  json_str_len=2287 json_str_preview='{\n  "primary_category": "backend_error",\n  "categories": [\n    "backend_error",\n    "logic"\n  ],\n  "symptom_tier": "frontend",\n  "root_cause_tier": "backend",\n  "root_cause": "后端 create_comment 接口未校验 task_id 是否存在，当 task_id 为全零 UUID（00000000-0000-0000-0000-000000000000）时，数据库插入因外键约束失败抛出 IntegrityError'
+[SUCCESS] case= parsed.primary_category='backend_error'
+  json_str_len=2203 json_str_preview='{\n  "primary_category": "backend_error",\n  "categories": [\n    "backend_error",\n    "logic"\n  ],\n  "symptom_tier": "frontend",\n  "root_cause_tier": "backend",\n  "root_cause": "create_comment 接口未校验 task_id 是否存在，当用户提交评论时传入无效/不存在的 task_id（如 00000000-0000-0000-0000-000000000000），数据库抛出 ForeignKeyViolatio'

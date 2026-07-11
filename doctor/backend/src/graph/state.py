@@ -286,6 +286,7 @@ class DiagnosisReport(BaseModel):
     root_cause_tier: Literal["frontend", "backend", "data"] = "backend"
     root_cause: str = ""
     affected_file: str | None = None
+    affected_function: str | None = None
     affected_line: int | None = None
     fix_suggestion: str = ""
     evidence_chain: list[str] = Field(default_factory=list)  # evidence_refs chain

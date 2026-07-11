@@ -68,8 +68,8 @@ async def main() -> None:
 
     print(f"Trace:  {trace_id}")
     print(f"Recipe: {recipe_id}")
-    print(f"categories={diag.get('categories')}, file={diag.get('affected_file')}, line={diag.get('affected_line')}, conf={diag.get('confidence', 0):.0%}")
-    print(f"expected_line={exp.get('affected_line')}, expected_file={exp.get('affected_file')}")
+    print(f"categories={diag.get('categories')}, file={diag.get('affected_file')}, func={diag.get('affected_function')}, conf={diag.get('confidence', 0):.0%}")
+    print(f"expected_func={exp.get('affected_function')}, expected_file={exp.get('affected_file')}")
 
     scores = await score_all_dimensions(lf, trace_id, exp, diag, skip_llm_judge=False)
     await asyncio.sleep(1)
@@ -79,7 +79,7 @@ async def main() -> None:
           f"(rc={scores.get('root_cause_accuracy', 0):.2f} "
           f"cat={scores.get('category_accuracy', 0):.2f} "
           f"file={scores.get('affected_file_accuracy', 0):.2f} "
-          f"line={scores.get('affected_line_accuracy', 0):.2f} "
+          f"func={scores.get('affected_function_accuracy', 0):.2f} "
           f"fix={scores.get('fix_suggestion_quality', 0):.2f})  "
           f"pq={pq:.2f}")
 

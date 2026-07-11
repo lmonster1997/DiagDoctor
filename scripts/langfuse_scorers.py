@@ -14,7 +14,7 @@
 | root_cause_accuracy       | LLM-as-Judge | 0.30 |
 | fix_suggestion_quality    | LLM-as-Judge | 0.20 |
 | affected_file_accuracy    | Python 精确匹配 | 0.15 |
-| affected_line_accuracy    | Python 范围匹配 | 0.10 |
+| affected_function_accuracy | Python 子串匹配 | 0.10 |
 | category_accuracy         | Python 多标签 F1 | 0.10 |
 | evidence_chain_completeness | LLM-as-Judge | 0.10 |
 | confidence_calibration    | Python | 0.05 |
@@ -47,7 +47,7 @@ WEIGHTS: dict[str, float] = {
     "root_cause_accuracy": 0.30,
     "fix_suggestion_quality": 0.20,
     "affected_file_accuracy": 0.15,
-    "affected_line_accuracy": 0.10,
+    "affected_function_accuracy": 0.10,
     "category_accuracy": 0.10,
     "evidence_chain_completeness": 0.10,
     "confidence_calibration": 0.05,
@@ -55,8 +55,6 @@ WEIGHTS: dict[str, float] = {
 
 # ── 过程质量 ─────────────────────────────────────────────────────────
 _PROCESS_MAX_CALLS = 12
-_LINE_TOLERANCE_TIGHT = 5  # ±5 行 → 满分
-_LINE_TOLERANCE_LOOSE = 20  # ±20 行 → 半分
 
 # 匹配 LLM judge 输出中的 "Score: 0.XX"
 _SCORE_RE = re.compile(r"score\s*[:：]\s*([0-9]*\.?[0-9]+)", re.IGNORECASE)
@@ -125,24 +123,18 @@ def score_affected_file_accuracy(expected: dict, diagnosis: dict) -> float:
     return 0.0
 
 
-def score_affected_line_accuracy(expected: dict, diagnosis: dict) -> float:
-    """行号范围匹配。
-
-    expected_output 通常不含 affected_line（import 脚本未写入），
-    此时返回 0.0（权重 0.10，对 overall 影响有限）。
-    """
-    expected_line = expected.get("affected_line")
-    actual_line = diagnosis.get("affected_line")
-    if expected_line is None or actual_line is None:
+def score_affected_function_accuracy(expected: dict, diagnosis: dict) -> float:
+    """函数名精确匹配（大小写不敏感，子串匹配容错）。"""
+    expected_func = (expected.get("affected_function") or "").strip().lower()
+    actual_func = (diagnosis.get("affected_function") or "").strip().lower()
+    if not expected_func or not actual_func:
         return 0.0
-    try:
-        diff = abs(int(actual_line) - int(expected_line))
-    except (TypeError, ValueError):
-        return 0.0
-    if diff <= _LINE_TOLERANCE_TIGHT:
+    # 精确匹配
+    if expected_func == actual_func:
         return 1.0
-    if diff <= _LINE_TOLERANCE_LOOSE:
-        return 0.5
+    # 子串包含（如 expected="create_comment" 包含在 actual="create_comment"）
+    if expected_func in actual_func or actual_func in expected_func:
+        return 1.0
     return 0.0
 
 
@@ -342,7 +334,7 @@ async def score_all_dimensions(
     py_scores: dict[str, float] = {
         "category_accuracy": score_category_accuracy(expected, diagnosis),
         "affected_file_accuracy": score_affected_file_accuracy(expected, diagnosis),
-        "affected_line_accuracy": score_affected_line_accuracy(expected, diagnosis),
+        "affected_function_accuracy": score_affected_function_accuracy(expected, diagnosis),
     }
 
     # ── LLM-as-Judge 维度 ──
