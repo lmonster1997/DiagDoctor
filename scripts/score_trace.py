@@ -41,12 +41,15 @@ async def main() -> None:
         print(f"[FAIL] Trace not found: {trace_id}")
         return
 
-    # 从 Langfuse dataset 拿 expected（比 case.yaml 更完整，含 affected_line）
+    # 从 Langfuse dataset 拿 expected
     try:
-        item = lf.get_dataset_item("diagdoctor-benchmark", recipe_id)
+        item = lf.get_dataset_item(recipe_id)
         exp = item.expected_output or {}
-    except Exception:
-        print(f"[WARN] Dataset item not found: {recipe_id}, falling back to case.yaml")
+    except Exception as e:
+        print(f"[WARN] Dataset item not found: {recipe_id}, falling back to case.yaml ({e})")
+        import yaml
+        cp = PROJECT_ROOT / "bug-factory" / "output" / recipe_id / "case.yaml"
+        exp = yaml.safe_load(cp.read_text(encoding="utf-8")).get("expected", {}) if cp.exists() else {}
         import yaml
         cp = PROJECT_ROOT / "bug-factory" / "output" / recipe_id / "case.yaml"
         exp = yaml.safe_load(cp.read_text(encoding="utf-8")).get("expected", {}) if cp.exists() else {}
