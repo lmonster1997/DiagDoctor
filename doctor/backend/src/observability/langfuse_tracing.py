@@ -77,6 +77,7 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         self._trace_id: str | None = None
         self._trace_name: str = "doctor-diagnosis"
         self._reuse_external_trace: bool = False
+        self._prevent_auto_trace: bool = False
         self._llm_call_idx: int = 0
         self._tool_call_idx: int = 0
 
@@ -96,6 +97,35 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
     @property
     def trace_id(self) -> str | None:
         return self._trace_id
+
+    def prepare_for_managed_trace(self) -> None:
+        """Signal that trace lifecycle is managed by middleware (not callbacks).
+
+        Call this BEFORE the agent is invoked (i.e. before ``agent.ainvoke``)
+        to prevent ``on_chain_start`` from auto-creating a trace.  In managed
+        mode, ``start_trace`` / ``end_trace`` are called explicitly by
+        ``LangfuseTracingMiddleware`` / ``diagnosis_agent_node``, and
+        ``on_chain_start`` must not compete.
+
+        This is safe to call multiple times; subsequent calls are no-ops.
+        """
+        self._prevent_auto_trace = True
+
+    def set_external_session_id(self, session_id: str) -> None:
+        """Set the session_id from an external caller (e.g. Experiment runner).
+
+        When the experiment runner provides a session_id (run_name), this
+        overrides the handler's internal random-UUID session.  Any trace that
+        the handler creates — whether via ``start_trace`` non-reuse path,
+        ``on_chain_start`` callback fallback, or any internal path — will
+        use this session_id, ensuring ALL traces/observations land in the
+        same Langfuse Sessions view as the experiment runner's traces.
+        """
+        self._session_id = session_id
+        logger.debug(
+            "langfuse_external_session_id_set",
+            extra={"session_id": session_id},
+        )
 
     # ── Manual trace lifecycle (for LangGraph contexts where
     #    on_chain_start/on_chain_end don't fire) ─────────────────
@@ -141,9 +171,9 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
             # observations to the correct trace without touching its metadata.
             self._reuse_external_trace = True
             self._trace_id = trace_id
-            logger.debug(
-                "langfuse_trace_reused",
-                extra={"trace_id": self._trace_id, "reused": True},
+            logger.warning(
+                "langfuse_trace_REUSED",
+                extra={"trace_id": self._trace_id, "handler_session_id": self._session_id},
             )
         else:
             self._reuse_external_trace = False
@@ -154,12 +184,11 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
                 input=input_data,
                 tags=self._tags,
             )
-            logger.debug(
-                "langfuse_trace_created",
+            logger.warning(
+                "langfuse_trace_CREATED_NEW",
                 extra={
                     "trace_id": self._trace_id,
                     "session_id": self._session_id,
-                    "reused": False,
                 },
             )
         return self._trace_id
@@ -204,6 +233,7 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         logger.debug("langfuse_trace_ended", extra={"trace_id": self._trace_id})
         self._trace_id = None
         self._reuse_external_trace = False
+        self._prevent_auto_trace = False
         self._llm_call_idx = 0
         self._tool_call_idx = 0
         self._current_llm_run_id = None
@@ -400,7 +430,18 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         trace_id，导致后续 LLM/tool observation 全部落到孤儿 trace 上，被评分
         的目标 trace 反而空着。早期版本因这里无条件 ``str(uuid.uuid4())`` 触发过
         大量 0-observation 孤儿 trace（session 视图里同名 trace 重复 9+ 次）。
+
+        ``_prevent_auto_trace`` is the outermost guard — set by
+        ``prepare_for_managed_trace()`` before the agent is invoked, ensuring
+        that even if this callback fires before ``start_trace`` (due to
+        LangGraph/LangChain callback timing), no orphan trace is created.
         """
+        if self._prevent_auto_trace:
+            logger.debug(
+                "langfuse_on_chain_start_blocked_by_prevent_auto_trace",
+                extra={"trace_id": self._trace_id},
+            )
+            return
         if parent_run_id is not None:
             return  # Only create trace at top-level chain
         if self._trace_id is not None:
@@ -412,6 +453,10 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
             return
 
         self._trace_id = str(uuid.uuid4())
+        logger.warning(
+            "langfuse_on_chain_start_CREATING_NEW_TRACE",
+            extra={"trace_id": self._trace_id, "session_id": self._session_id},
+        )
         self._client.trace(
             id=self._trace_id,
             name=self._trace_name,

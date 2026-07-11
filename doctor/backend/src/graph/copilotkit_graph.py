@@ -109,15 +109,28 @@ async def _diagnosis_agent_node(state: dict[str, Any]) -> dict[str, Any]:
     langfuse_handler = None
     try:
         langfuse_handler = _get_langfuse_handler_for_dict_state(case_id, evidence_text)
+        if langfuse_handler is not None:
+            langfuse_handler.prepare_for_managed_trace()
     except Exception:
         pass
+
+    _lf_trace_id = state.get("langfuse_trace_id")
+    _lf_session_id = state.get("langfuse_session_id")
+    logger.info(
+        "copilotkit_diag_langfuse_trace_id",
+        case_id=case_id,
+        langfuse_trace_id=_lf_trace_id,
+        langfuse_session_id=_lf_session_id,
+        has_handler=langfuse_handler is not None,
+    )
 
     invoke_config: dict[str, Any] = {"recursion_limit": 80}
 
     run_ctx = DiagnosisRunContext(
         case_id=case_id or "",
         langfuse_handler=langfuse_handler,
-        langfuse_trace_id=state.get("langfuse_trace_id"),
+        langfuse_trace_id=_lf_trace_id,
+        langfuse_session_id=_lf_session_id,
         system_prompt_text=base_prompt,
         evidence_text=evidence_text,
     )

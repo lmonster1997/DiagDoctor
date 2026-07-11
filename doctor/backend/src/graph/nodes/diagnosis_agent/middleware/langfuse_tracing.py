@@ -91,14 +91,21 @@ class LangfuseTracingMiddleware(AgentMiddleware):
         ctx.forced_call_triggered = False
 
         if ctx.langfuse_handler is not None:
+            # When an external session_id is provided (experiment runner),
+            # inform the handler so any trace it creates uses that session.
+            if ctx.langfuse_session_id:
+                ctx.langfuse_handler.set_external_session_id(ctx.langfuse_session_id)
             with contextlib.suppress(Exception):
                 ctx.langfuse_handler.start_trace(
                     input_data={"evidence": ctx.evidence_text[:500]},
                     trace_id=ctx.langfuse_trace_id,
                 )
-        logger.debug(
+        logger.info(
             "langfuse_tracing_before_agent",
             case_id=ctx.case_id,
+            langfuse_trace_id=ctx.langfuse_trace_id,
+            langfuse_session_id=ctx.langfuse_session_id,
+            handler_trace_id=ctx.langfuse_handler.trace_id if ctx.langfuse_handler else None,
             budget_tokens=ctx.ctx_budget.total_used,
         )
         return None

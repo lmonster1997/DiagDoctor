@@ -42,6 +42,7 @@ class DiagnosisRunContext:
     case_id: str = ""
     langfuse_handler: Any | None = None
     langfuse_trace_id: str | None = None
+    langfuse_session_id: str | None = None
 
     # ── Initial tokens (node computes these from the system prompt + evidence) ──
     system_prompt_text: str = ""

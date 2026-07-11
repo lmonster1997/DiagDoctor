@@ -220,6 +220,18 @@ async def diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
     ]
 
     langfuse_handler = _get_langfuse_handler(state, evidence_text)
+    # Signal that trace lifecycle is managed by middleware (start_trace /
+    # end_trace), NOT by LangChain callbacks (on_chain_start / on_chain_end).
+    # This prevents on_chain_start from auto-creating orphan traces with the
+    # handler's internal UUID session_id — a race condition where the callback
+    # fires before abefore_agent→start_trace sets _trace_id.
+    if langfuse_handler is not None:
+        langfuse_handler.prepare_for_managed_trace()
+        # When an external session_id is provided (experiment runner),
+        # override the handler's random-UUID session so any trace it
+        # creates lands in the same Langfuse Sessions view.
+        if state.langfuse_session_id:
+            langfuse_handler.set_external_session_id(state.langfuse_session_id)
     # NOTE: the handler is NOT put in any top-level config callbacks. create_agent
     # propagates top-level config callbacks to BOTH the model node AND the ToolNode
     # (via the Runnable config contextvar), which double-records tool calls
@@ -240,6 +252,7 @@ async def diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
         case_id=state.case_id or "",
         langfuse_handler=langfuse_handler,
         langfuse_trace_id=state.langfuse_trace_id,
+        langfuse_session_id=state.langfuse_session_id,
         system_prompt_text=base_prompt,
         evidence_text=evidence_text,
     )

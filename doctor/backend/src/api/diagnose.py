@@ -75,6 +75,15 @@ class DiagnoseRequest(BaseModel):
             "on the same trace that is being scored. None → agent creates a new trace."
         ),
     )
+    langfuse_session_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional Langfuse session ID. When provided alongside langfuse_trace_id, "
+            "the Doctor agent attaches ALL observations (and any auto-created traces) "
+            "to this session, ensuring they appear in the same Langfuse Sessions view "
+            "as the experiment runner's traces. Critical for batch experiment runs."
+        ),
+    )
 
 
 class DiagnoseResponse(BaseModel):
@@ -118,6 +127,7 @@ def _build_initial_state(request: DiagnoseRequest, thread_id: str) -> dict[str, 
         "trace_id": thread_id,
         "session_id": thread_id,
         "langfuse_trace_id": request.langfuse_trace_id,
+        "langfuse_session_id": request.langfuse_session_id,
     }
 
 

@@ -232,6 +232,7 @@ async def call_doctor(
     trigger_time: datetime,
     trace_ids: list[str] | None = None,
     langfuse_trace_id: str | None = None,
+    langfuse_session_id: str | None = None,
 ) -> dict:
     """调用 Doctor API 执行诊断。
 
@@ -245,6 +246,10 @@ async def call_doctor(
     传入 langfuse_trace_id 时，Doctor agent 会把 LLM/tool observation
     记录到该 trace 上，使过程质量评分（score_process_quality）能读到
     完整调用过程。
+
+    传入 langfuse_session_id 时，Doctor agent 所有 trace/observation
+    都归入该 session，确保与实验脚本创建的 trace 在同一 Langfuse
+    Sessions 视图中。
     """
     payload: dict = {
         "evidence": {"user_report": user_report},
@@ -254,6 +259,8 @@ async def call_doctor(
         payload["trigger_trace_ids"] = trace_ids
     if langfuse_trace_id:
         payload["langfuse_trace_id"] = langfuse_trace_id
+    if langfuse_session_id:
+        payload["langfuse_session_id"] = langfuse_session_id
 
     async with (
         aiohttp.ClientSession() as session,
@@ -274,7 +281,7 @@ async def call_doctor(
 # ═══════════════════════════════════════════════════════════════════════
 
 
-async def diagnose_task(item, trace_id: str) -> dict:
+async def diagnose_task(item, trace_id: str, session_id: str) -> dict:
     """诊断流水线：stash 保存 → 原地注入 → 触发 → 诊断 → stash 恢复。不切换分支。"""
     recipe_id = item.metadata.get("recipe_id", "unknown")
     user_report = item.input.get("user_report", "")
@@ -316,6 +323,7 @@ async def diagnose_task(item, trace_id: str) -> dict:
                 trigger_time,
                 trace_ids=trace_ids,
                 langfuse_trace_id=trace_id,
+                langfuse_session_id=session_id,
             )
         except Exception as exc:
             print(f"  [FAIL] 诊断失败: {exc}")
@@ -421,9 +429,16 @@ async def main(
         # 立即 flush，确保 trace（含 session_id）在 Doctor 开始写
         # observation 之前已到达 Langfuse 服务端，避免时序竞态。
         langfuse.flush()
+        # 验证 trace 已成功创建（fetch_trace 若不存在会抛异常）
+        try:
+            fetched = langfuse.get_trace(trace.id)
+            print(f"  [OK] Langfuse trace 已确认: id={trace.id}, "
+                  f"session_id={getattr(fetched, 'session_id', 'N/A')}")
+        except Exception as fetch_err:
+            print(f"  [WARN] Langfuse trace 验证失败: {fetch_err}")
 
         try:
-            result = await diagnose_task(item, trace_id=trace.id)
+            result = await diagnose_task(item, trace_id=trace.id, session_id=run_name)
 
             # ── 7 维度 Scorer（D13 任务 2.1）──────────────────
             expected_output = item.expected_output or {}

@@ -366,3 +366,7 @@ class DoctorState(BaseModel):
     # 由 Experiment 传入，Agent 节点用它把 LLM/tool observation 记录到
     # 与评分同一个 trace 上。None 时 Agent 自动生成新 trace。
     langfuse_trace_id: str | None = None
+    # ── Langfuse session ID（由 Experiment 传入）──
+    # 当 Experiment runner 提供时，覆盖 handler 内部的随机 UUID session，
+    # 确保所有 trace/observation 归入正确的 Langfuse Sessions 视图。
+    langfuse_session_id: str | None = None
