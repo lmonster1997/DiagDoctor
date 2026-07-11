@@ -6,18 +6,7 @@
  */
 
 import { Activity, Coins, Wrench, Clock, AlertTriangle } from "lucide-react";
-import type { BudgetState } from "@/api/types";
-
-interface BudgetTick {
-  iteration?: number;
-  tool_calls?: number;
-  total_tokens?: number;
-  total_cost_usd?: number;
-  phase?: string;
-  elapsed_seconds?: number;
-  model_call_count?: number;
-  budget_exhausted?: boolean;
-}
+import type { BudgetState, BudgetTick } from "@/api/types";
 
 interface BudgetPanelProps {
   tick: BudgetTick | null;
@@ -25,14 +14,14 @@ interface BudgetPanelProps {
 }
 
 export function BudgetPanel({ tick, budget }: BudgetPanelProps) {
-  const iteration = tick?.model_call_count ?? budget?.iteration ?? 0;
-  const maxIter = budget?.max_iterations ?? 12;
+  const iteration = tick?.model_call_count ?? 0;
+  const maxIter = 12;
   const toolCalls = tick?.tool_calls ?? budget?.tool_calls ?? 0;
   const totalTokens = tick?.total_tokens ?? budget?.total_tokens ?? 0;
-  const maxTokens = budget?.max_tokens ?? 100_000;
+  const maxTokens = 100_000;
   const cost = tick?.total_cost_usd ?? budget?.total_cost_usd ?? 0;
   const elapsed = tick?.elapsed_seconds ?? budget?.elapsed_seconds ?? 0;
-  const exhausted = tick?.budget_exhausted ?? budget?.early_stopped ?? false;
+  const exhausted = tick?.budget_exhausted ?? false;
 
   const tokenPct = maxTokens > 0 ? Math.min((totalTokens / maxTokens) * 100, 100) : 0;
   const iterPct = maxIter > 0 ? Math.min((iteration / maxIter) * 100, 100) : 0;
@@ -116,11 +105,7 @@ export function BudgetPanel({ tick, budget }: BudgetPanelProps) {
             用量
           </div>
           <div className="mt-0.5 font-mono text-foreground tabular-nums">
-            {budget?.usage_ratio != null
-              ? `${(budget.usage_ratio * 100).toFixed(0)}%`
-              : tokenPct > 0
-                ? `${tokenPct.toFixed(0)}%`
-                : "—"}
+            {tokenPct > 0 ? `${tokenPct.toFixed(0)}%` : "—"}
           </div>
         </div>
       </div>
