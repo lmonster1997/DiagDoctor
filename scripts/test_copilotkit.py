@@ -74,6 +74,8 @@ async def do_score(rid: str, ur: str, tt: str) -> None:
 
     # 对齐 scorer 期望：顶层字段 + report 嵌套
     diag = {**r, "report": r, "categories": r.get("categories", []), "confidence": r.get("confidence", 0)}
+    # Debug: check what scorer sees
+    print(f"  [debug] diag.affected_file={diag.get('affected_file')}, expected.affected_file={exp.get('affected_file')}")
     scores = await score_all_dimensions(lf, trace.id, exp, diag, skip_llm_judge=False)
     await asyncio.sleep(1)
     pq = score_process_quality(lf, trace.id)
