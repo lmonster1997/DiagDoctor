@@ -184,7 +184,7 @@ async def main() -> None:
     user_report = args.msg
     if not user_report and args.recipe_id:
         import yaml
-        recipe_path = BUG_FACTORY_DIR / "recipes" / "gold" / f"{args.recipe_id}.yaml"
+        recipe_path = BUG_FACTORY_DIR / "output" / args.recipe_id / "case.yaml"
         if recipe_path.exists():
             recipe = yaml.safe_load(recipe_path.read_text(encoding="utf-8"))
             user_report = recipe.get("input", {}).get("user_report", "")
