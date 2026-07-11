@@ -82,12 +82,15 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         # Per-LLM-call timing
         self._llm_start_ts: float = 0.0
         self._llm_input: dict[str, Any] | None = None
-        self._current_llm_run_id: uuid.UUID | None = None  # 去重：防 on_chat_model_start + on_llm_start 双 fire
+        self._current_llm_run_id: uuid.UUID | None = None
 
         # Per-tool-call tracking
         self._tool_name: str = "unknown_tool"
         self._tool_start_ts: float = 0.0
         self._last_tool_input: dict[str, Any] | None = None
+
+        # Accumulated usage (for providers where callbacks don't fire)
+        self._accumulated_usage: dict[str, int] = {"input": 0, "output": 0, "total": 0}
 
     @property
     def trace_id(self) -> str | None:
@@ -173,6 +176,13 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
             id=self._trace_id,
             output=output_data,
         )
+        # Record accumulated usage for providers where callbacks don't fire
+        if any(self._accumulated_usage.values()):
+            with contextlib.suppress(Exception):
+                self._client.trace(
+                    id=self._trace_id,
+                    usage=self._accumulated_usage,
+                )
         self._client.flush()
         logger.debug("langfuse_trace_ended", extra={"trace_id": self._trace_id})
         self._trace_id = None
@@ -180,6 +190,7 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         self._tool_call_idx = 0
         self._current_llm_run_id = None
         self._llm_input = None
+        self._accumulated_usage = {"input": 0, "output": 0, "total": 0}
 
     # ── Manual observation helpers (for manual agent loops where
     #    tool callbacks don't fire) ────────────────────────────────
@@ -269,10 +280,16 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         output_data: dict[str, Any] | None = None,
         latency_ms: float = 0.0,
     ) -> None:
-        """Record an LLM generation as a Langfuse observation."""
+        """Record an LLM generation as a Langfuse observation + accumulate usage."""
         if not self._trace_id:
             return
         with contextlib.suppress(Exception):
+            # Estimate tokens: ~4 chars per token
+            in_tokens = len(str(input_data)) // 4 if input_data else 0
+            out_tokens = len(str(output_data)) // 4 if output_data else 0
+            self._accumulated_usage["input"] += in_tokens
+            self._accumulated_usage["output"] += out_tokens
+            self._accumulated_usage["total"] += in_tokens + out_tokens
             self._client.generation(
                 trace_id=self._trace_id,
                 name=name,
