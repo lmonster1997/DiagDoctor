@@ -40,30 +40,24 @@ class GitManager:
 
     All mutations are performed against a single repository identified
     by ``repo_path``.  The manager always operates from a configurable
-    base branch (default ``dev-harness-redesign``) — bug branches are
+    base branch (auto-detected from current branch) — bug branches are
     created from it and can be reset back to it.
     """
 
-    def __init__(self, repo_path: Path, base_branch: str = "dev-harness-redesign") -> None:
+    def __init__(self, repo_path: Path, base_branch: str | None = None) -> None:
         """Initialise the manager and validate the target repository.
 
         Args:
             repo_path: Absolute or relative path to a git repository
                 root (the directory containing ``.git``).
             base_branch: The branch to create bug branches from and reset
-                back to. Defaults to ``dev-harness-redesign``.
+                back to. Defaults to the currently checked-out branch.
 
         Raises:
             GitOperationError: If ``repo_path`` is not a valid git
                 repository or does not have the specified base branch.
         """
         self.repo_path = repo_path.resolve()
-        self._base_branch_name = base_branch
-        logger.info(
-            "Initialising GitManager",
-            repo_path=str(self.repo_path),
-            base_branch=base_branch,
-        )
 
         try:
             self._repo = Repo(self.repo_path)
@@ -72,6 +66,21 @@ class GitManager:
                 "init",
                 f"Not a valid git repository: {self.repo_path}",
             ) from exc
+
+        # Auto-detect current branch if not explicitly specified
+        if base_branch is None:
+            try:
+                base_branch = self._repo.active_branch.name
+            except TypeError:
+                # Detached HEAD — fall back to "main"
+                base_branch = "main"
+
+        self._base_branch_name = base_branch
+        logger.info(
+            "Initialising GitManager",
+            repo_path=str(self.repo_path),
+            base_branch=base_branch,
+        )
 
         # Ensure base branch exists
         try:
