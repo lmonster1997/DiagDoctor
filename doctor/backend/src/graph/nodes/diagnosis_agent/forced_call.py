@@ -44,7 +44,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from pydantic import BaseModel, Field
 
-from src.graph.nodes.diagnosis_agent.constants import MAX_TIME_SECONDS, MAX_TOKENS_BUDGET
+from src.graph.nodes.diagnosis_agent.constants import MAX_TIME_SECONDS
 from src.graph.nodes.diagnosis_agent.parsing import _extract_json_from_text
 from src.observability.logger import get_logger
 
@@ -363,8 +363,11 @@ async def _maybe_forced_final_json_call(
 
     Skips when:
     - last AIMessage already has extractable JSON (healthy case, no regression)
-    - token budget already blown (forced call would fail anyway)
     - messages is empty (loop never produced a message)
+
+    Budget exhaustion does NOT skip this call — the forced final JSON is
+    exactly the harness measure needed when the agent runs out of budget
+    before producing a structured report.
 
     When triggered, appends the forced response to ``messages`` (in place)
     and updates ``ctx_budget`` token accounting.
@@ -389,7 +392,6 @@ async def _maybe_forced_final_json_call(
     """
     if (
         not _last_ai_has_json(messages)
-        and ctx_budget.total_used < MAX_TOKENS_BUDGET
         and messages  # nothing to feed the LLM if loop never produced a message
     ):
         natural_stop = _last_ai_is_natural_stop(messages)
