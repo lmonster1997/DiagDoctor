@@ -31,7 +31,11 @@ dependencies = [
     "tiktoken>=0.13.0",
     "psycopg>=3.3.4",
     "copilotkit>=0.1.0",
+    "bug-factory",
 ]
+
+[tool.uv.sources]
+bug-factory = { workspace = true }
 
 [project.optional-dependencies]
 dev = [

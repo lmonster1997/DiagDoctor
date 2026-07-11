@@ -976,6 +976,7 @@ source = { editable = "doctor/backend" }
 dependencies = [
     { name = "aiocache" },
     { name = "aiohttp" },
+    { name = "bug-factory" },
     { name = "copilotkit" },
     { name = "fastapi" },
     { name = "jinja2" },
@@ -1021,6 +1022,7 @@ dev = [
 requires-dist = [
     { name = "aiocache", specifier = ">=0.12.0" },
     { name = "aiohttp", specifier = ">=3.9.0" },
+    { name = "bug-factory", editable = "bug-factory" },
     { name = "copilotkit", specifier = ">=0.1.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },
