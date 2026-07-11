@@ -96,7 +96,7 @@ class ForcedDiagnosisReport(BaseModel):
     )
     affected_line: int | None = Field(
         default=None,
-        description="根因所在行号（整数）；无法定位填 null",
+        description="根因所在初始行号（Bug 注入前的原始代码行号，整数）；无法定位填 null",
     )
     fix_suggestion: str = Field(
         default="",
