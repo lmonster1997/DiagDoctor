@@ -111,37 +111,19 @@ class LangfuseTracingMiddleware(AgentMiddleware):
         return None
 
     async def awrap_model_call(self, request: Any, handler: Any) -> Any:
-        """Attach the Langfuse handler to THIS LLM call only (not tool calls).
+        """Record model call latency (Langfuse callbacks fire via agent.ainvoke config).
 
         LLM generation recording is handled by the callback path
-        (on_chat_model_start → on_llm_end), which properly serializes the
-        full messages list and captures tool_calls in the output.
-        The handler is attached via model.with_config({"callbacks": [h]})
-        so callbacks fire reliably for all supported providers.
+        (on_chat_model_start → on_llm_end) registered at agent.ainvoke
+        config level — NOT via model.with_config, which does not reliably
+        propagate callbacks inside LangGraph's create_agent model node.
+        Tool callbacks are no-ops, so no double-recording risk.
         """
         self._local_llm_count += 1
-        ctx = get_run_context_or_none()
-
-        if ctx is not None and ctx.langfuse_handler is not None:
-            try:
-                request.model = request.model.with_config(
-                    {"callbacks": [ctx.langfuse_handler]}
-                )
-            except Exception:
-                pass
 
         t0 = time.monotonic()
         result = await handler(request)
         latency_ms = (time.monotonic() - t0) * 1000
-
-        # NOTE: NO record_llm_generation here.  The callback path
-        # (on_chat_model_start → on_llm_end) is the single source of
-        # truth for LLM call recording.  Duplicate recording via
-        # record_llm_generation was producing low-quality generations
-        # (str(messages)[:2000] always truncating to the same prefix,
-        # str(content)[:2000] always "" for tool-calling calls) that
-        # polluted the Langfuse trace and made every iteration look
-        # identical.
 
         logger.debug(
             "langfuse_model_call_completed",

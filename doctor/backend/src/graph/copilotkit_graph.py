@@ -124,7 +124,11 @@ async def _diagnosis_agent_node(state: dict[str, Any]) -> dict[str, Any]:
         has_handler=langfuse_handler is not None,
     )
 
+    # Attach Langfuse handler at agent.ainvoke level (NOT model.with_config).
+    # Tool callbacks (on_tool_start/end) are no-ops, so no double-recording.
     invoke_config: dict[str, Any] = {"recursion_limit": 80}
+    if langfuse_handler is not None:
+        invoke_config["callbacks"] = [langfuse_handler]
 
     run_ctx = DiagnosisRunContext(
         case_id=case_id or "",

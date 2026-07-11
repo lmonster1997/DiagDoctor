@@ -232,18 +232,13 @@ async def diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
         # creates lands in the same Langfuse Sessions view.
         if state.langfuse_session_id:
             langfuse_handler.set_external_session_id(state.langfuse_session_id)
-    # NOTE: the handler is NOT put in any top-level config callbacks. create_agent
-    # propagates top-level config callbacks to BOTH the model node AND the ToolNode
-    # (via the Runnable config contextvar), which double-records tool calls
-    # (callback on_tool_start/end + middleware record_tool_span) and breaks
-    # score_process_quality efficiency. Instead, LangfuseTracingMiddleware.
-    # awrap_model_call attaches the handler to each LLM call alone via
-    # model.with_config, so tools are recorded only by record_tool_span (single
-    # source) — matching the hand-written loop's observability model.
-    # langfuse_handler still goes into the run context for: middleware
-    # start_trace / record_tool_span / record_tool_skipped, and
-    # ForcedFinalCallMiddleware's forced-call invoke_config.
-    invoke_config = {"recursion_limit": 80}
+    # Attach Langfuse handler at agent.ainvoke config level.
+    # Tool callbacks (on_tool_start/end) are now no-ops, so no double-recording.
+    # model.with_config approach does NOT reliably fire callbacks inside
+    # LangGraph's create_agent model node.
+    invoke_config: dict[str, Any] = {"recursion_limit": 80}
+    if langfuse_handler is not None:
+        invoke_config["callbacks"] = [langfuse_handler]
 
     # Per-invocation run context shared with middlewares via ContextVar.
     # Middlewares read case_id / langfuse_handler / langfuse_trace_id and
