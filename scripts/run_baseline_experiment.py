@@ -138,10 +138,33 @@ def _has_dirty_worktree() -> bool:
 BASE_BRANCH: str = ""
 
 
-def git_checkout_base() -> None:
-    """切换到 base 分支，丢弃所有本地改动以恢复干净起点。"""
-    run_cmd(["git", "checkout", BASE_BRANCH], cwd=str(WORKSPACE_ROOT))
-    print(f"  [OK] 已切换到 {BASE_BRANCH} 分支")
+def git_stash_save(label: str) -> bool:
+    """保存当前工作区（git stash push --include-untracked）。返回是否保存了内容。"""
+    proc = subprocess.run(
+        ["git", "stash", "push", "--include-untracked", "-m", label],
+        cwd=str(WORKSPACE_ROOT),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if proc.returncode != 0:
+        print(f"  [WARN] git stash failed: {proc.stderr.strip()}")
+        return False
+    if "No local changes" in proc.stdout:
+        return False
+    print(f"  [OK] 已保存工作区: {label}")
+    return True
+
+
+def git_stash_pop() -> None:
+    """恢复最近一次 stash。"""
+    subprocess.run(
+        ["git", "stash", "pop"],
+        cwd=str(WORKSPACE_ROOT),
+        capture_output=True,
+    )
+    print("  [OK] 已恢复工作区")
 
 
 def inject_bug(recipe_id: str) -> None:
@@ -252,7 +275,7 @@ async def call_doctor(
 
 
 async def diagnose_task(item, trace_id: str) -> dict:
-    """完整的"布置考场 → 诊断 → 清理"流水线。"""
+    """完整的"布置考场 → 诊断 → 清理"流水线（stash 模式：不改分支）。"""
     recipe_id = item.metadata.get("recipe_id", "unknown")
     user_report = item.input.get("user_report", "")
 
@@ -261,56 +284,60 @@ async def diagnose_task(item, trace_id: str) -> dict:
     print(f"  User Report: {user_report[:80]}...")
     print(f"{'=' * 60}")
 
-    # ── Step 1: 恢复干净起点 ───────────────────────────────────────
-    print("[1/4] 恢复 git base 分支...")
-    git_checkout_base()
-
-    # ── Step 2: 注入 Bug ──────────────────────────────────────────
-    print(f"[2/4] 注入 Bug: {recipe_id}...")
-    inject_bug(recipe_id)
-    print(f"  等待 uvicorn reload ({RELOAD_WAIT}s)...")
-    time.sleep(RELOAD_WAIT)
-
-    if not await wait_for_backend(DEMO_BACKEND_URL):
-        raise RuntimeError(f"Demo backend 未在 {RELOAD_WAIT + 30}s 内就绪")
-    print("  [OK] Demo backend 已就绪")
-
-    # ── Step 3: 触发 Bug + 记录时间 ───────────────────────────────
-    print(f"[3/4] 触发 Bug: {recipe_id}...")
-    trigger_time, trace_ids = trigger_bug(recipe_id)
-    print(f"  触发时间: {trigger_time.isoformat()}")
-    print(f"  关联 trace_ids: {trace_ids or '(无)'}")
-    print(f"  等待 Loki/Tempo 索引 ({LOKI_INDEX_DELAY}s)...")
-    await asyncio.sleep(LOKI_INDEX_DELAY)
-
-    # ── Step 4: 调用 Doctor（证据由 Doctor 自己实时查询） ─────────
-    print("[4/4] 调用 Doctor API 诊断...")
+    did_stash = False
     try:
-        diagnosis = await call_doctor(
-            user_report,
-            trigger_time,
-            trace_ids=trace_ids,
-            langfuse_trace_id=trace_id,
+        # ── Step 1: 保存当前工作区 ────────────────────────────────
+        print("[1/4] 保存当前工作区...")
+        did_stash = git_stash_save(f"experiment: auto-save before {recipe_id}")
+
+        # ── Step 2: 注入 Bug ──────────────────────────────────────
+        print(f"[2/4] 注入 Bug: {recipe_id}...")
+        inject_bug(recipe_id)
+        print(f"  等待 uvicorn reload ({RELOAD_WAIT}s)...")
+        time.sleep(RELOAD_WAIT)
+
+        if not await wait_for_backend(DEMO_BACKEND_URL):
+            raise RuntimeError(f"Demo backend 未在 {RELOAD_WAIT + 30}s 内就绪")
+        print("  [OK] Demo backend 已就绪")
+
+        # ── Step 3: 触发 Bug + 记录时间 ───────────────────────────
+        print(f"[3/4] 触发 Bug: {recipe_id}...")
+        trigger_time, trace_ids = trigger_bug(recipe_id)
+        print(f"  触发时间: {trigger_time.isoformat()}")
+        print(f"  关联 trace_ids: {trace_ids or '(无)'}")
+        print(f"  等待 Loki/Tempo 索引 ({LOKI_INDEX_DELAY}s)...")
+        await asyncio.sleep(LOKI_INDEX_DELAY)
+
+        # ── Step 4: 调用 Doctor ───────────────────────────────────
+        print("[4/4] 调用 Doctor API 诊断...")
+        try:
+            diagnosis = await call_doctor(
+                user_report,
+                trigger_time,
+                trace_ids=trace_ids,
+                langfuse_trace_id=trace_id,
+            )
+        except Exception as exc:
+            print(f"  [FAIL] 诊断失败: {exc}")
+            diagnosis = {"error": str(exc), "report": None, "categories": [], "confidence": 0.0}
+
+        report = diagnosis.get("report") or {}
+        categories = (
+            report.get("categories", [])
+            if isinstance(report, dict)
+            else diagnosis.get("categories", [])
         )
-    except Exception as exc:
-        print(f"  [FAIL] 诊断失败: {exc}")
-        diagnosis = {"error": str(exc), "report": None, "categories": [], "confidence": 0.0}
+        confidence = (
+            report.get("confidence", 0) if isinstance(report, dict) else diagnosis.get("confidence", 0)
+        )
+        print(f"  [OK] 诊断完成（categories={categories}, confidence={confidence}）")
 
-    report = diagnosis.get("report") or {}
-    categories = (
-        report.get("categories", [])
-        if isinstance(report, dict)
-        else diagnosis.get("categories", [])
-    )
-    confidence = (
-        report.get("confidence", 0) if isinstance(report, dict) else diagnosis.get("confidence", 0)
-    )
-    print(f"  [OK] 诊断完成（categories={categories}, confidence={confidence}）")
-
-    # ── 恢复现场 ──────────────────────────────────────────────────
-    print("  恢复 git base 分支...")
-    git_checkout_base()
-    time.sleep(2)
+    finally:
+        # ── 恢复工作区（无论成功或失败）────────────────────────────
+        if did_stash:
+            print("  恢复工作区...")
+            git_stash_pop()
+            time.sleep(2)
 
     return diagnosis
 
@@ -344,8 +371,8 @@ async def main(
                 print(f"  [FAIL] {name} 不可达: {url}")
                 sys.exit(1)
 
-    # 确保在 base 分支
-    git_checkout_base()
+    # 当前分支即为 base（stash 模式，不切换分支）
+    print(f"  [INFO] 当前分支: {_detect_current_branch()} (stash 模式，不切换)")
 
     # 获取 Dataset
     dataset = langfuse.get_dataset("diagdoctor-benchmark")
@@ -434,9 +461,8 @@ async def main(
             trace.score(name="process_quality", value=0.0)
             results.append({"recipe_id": recipe_id, "success": False, "error": str(exc)})
 
-        # 确保恢复 base 分支
-        with contextlib.suppress(Exception):
-            git_checkout_base()
+        # stash pop 已在 diagnose_task 的 finally 中执行，无需额外恢复
+        pass
 
     # ── 汇总 ──
     print(f"\n{'=' * 60}")
