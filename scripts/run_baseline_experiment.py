@@ -275,7 +275,7 @@ async def call_doctor(
 
 
 async def diagnose_task(item, trace_id: str) -> dict:
-    """完整的"布置考场 → 诊断 → 清理"流水线（stash 模式：不改分支）。"""
+    """完整的"布置考场 → 诊断 → 清理"流水线（不切换用户分支）。"""
     recipe_id = item.metadata.get("recipe_id", "unknown")
     user_report = item.input.get("user_report", "")
 
@@ -284,14 +284,18 @@ async def diagnose_task(item, trace_id: str) -> dict:
     print(f"  User Report: {user_report[:80]}...")
     print(f"{'=' * 60}")
 
+    # 记录原始分支（inject 会切到 bug/xxx，之后需要切回来）
+    original_branch = _detect_current_branch()
+    bug_branch = f"bug/{recipe_id}"
     did_stash = False
+
     try:
         # ── Step 1: 保存当前工作区 ────────────────────────────────
         print("[1/4] 保存当前工作区...")
         did_stash = git_stash_save(f"experiment: auto-save before {recipe_id}")
 
-        # ── Step 2: 注入 Bug ──────────────────────────────────────
-        print(f"[2/4] 注入 Bug: {recipe_id}...")
+        # ── Step 2: 注入 Bug（会创建 bug 分支并切换过去）──────────
+        print(f"[2/4] 注入 Bug: {recipe_id} (当前分支: {original_branch})...")
         inject_bug(recipe_id)
         print(f"  等待 uvicorn reload ({RELOAD_WAIT}s)...")
         time.sleep(RELOAD_WAIT)
@@ -300,7 +304,7 @@ async def diagnose_task(item, trace_id: str) -> dict:
             raise RuntimeError(f"Demo backend 未在 {RELOAD_WAIT + 30}s 内就绪")
         print("  [OK] Demo backend 已就绪")
 
-        # ── Step 3: 触发 Bug + 记录时间 ───────────────────────────
+        # ── Step 3: 触发 Bug ──────────────────────────────────────
         print(f"[3/4] 触发 Bug: {recipe_id}...")
         trigger_time, trace_ids = trigger_bug(recipe_id)
         print(f"  触发时间: {trigger_time.isoformat()}")
@@ -333,9 +337,20 @@ async def diagnose_task(item, trace_id: str) -> dict:
         print(f"  [OK] 诊断完成（categories={categories}, confidence={confidence}）")
 
     finally:
-        # ── 恢复工作区（无论成功或失败）────────────────────────────
+        # ── 恢复原始分支 + 工作区 ─────────────────────────────────
+        print(f"  切回原始分支: {original_branch}...")
+        subprocess.run(
+            ["git", "checkout", original_branch],
+            cwd=str(WORKSPACE_ROOT),
+            capture_output=True,
+        )
+        # 删除临时的 bug 分支
+        subprocess.run(
+            ["git", "branch", "-D", bug_branch],
+            cwd=str(WORKSPACE_ROOT),
+            capture_output=True,
+        )
         if did_stash:
-            print("  恢复工作区...")
             git_stash_pop()
             time.sleep(2)
 
