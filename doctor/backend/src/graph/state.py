@@ -287,7 +287,6 @@ class DiagnosisReport(BaseModel):
     root_cause: str = ""
     affected_file: str | None = None
     affected_function: str | None = None
-    affected_line: int | None = None
     fix_suggestion: str = ""
     evidence_chain: list[str] = Field(default_factory=list)  # evidence_refs chain
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)

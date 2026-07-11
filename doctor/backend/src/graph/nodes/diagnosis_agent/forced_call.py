@@ -98,10 +98,6 @@ class ForcedDiagnosisReport(BaseModel):
         default=None,
         description="根因所在函数/方法名，如 create_comment、get_task_by_id；无法定位填 null",
     )
-    affected_line: int | None = Field(
-        default=None,
-        description="根因所在行号（整数，参考值）；无法定位填 null",
-    )
     fix_suggestion: str = Field(
         default="",
         description=(
@@ -130,7 +126,7 @@ _FORCED_FINAL_JSON_SCHEMA_HINT = (
     '  "root_cause": "一句话根因（中文）",\n'
     '  "affected_file": "path/to/file.py",\n'
     '  "affected_function": "function_name",\n'
-    '  "affected_line": 42,\n'
+
     "  \"fix_suggestion\": \"【文件】...\\n【位置】第 N 行\\n【改前】...\\n"
     '【改后】...\\n【原因】...",\n'
     '  "evidence_chain": ["sig-xxx"],\n'
