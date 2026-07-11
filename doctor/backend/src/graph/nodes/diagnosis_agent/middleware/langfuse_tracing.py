@@ -71,7 +71,15 @@ class LangfuseTracingMiddleware(AgentMiddleware):
     same policy as the hand-written loop).
     """
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._local_llm_count = 0  # per-invocation LLM call counter
+
     async def abefore_agent(self, state: Any, runtime: Any) -> dict[str, Any] | None:
+        self._local_llm_count = 0  # reset per invocation
+
+    async def abefore_agent(self, state: Any, runtime: Any) -> dict[str, Any] | None:
+        self._local_llm_count = 0  # reset per invocation
         ctx = get_run_context()
         # Fresh per-invocation budget + dedup cache
         ctx.ctx_budget = ContextBudget()
@@ -115,8 +123,9 @@ class LangfuseTracingMiddleware(AgentMiddleware):
             except Exception:
                 pass
 
-        # Invoke model
-        idx = (ctx.model_call_count + 1) if ctx else 0
+        # Invoke model — use local counter (ctx.model_call_count is stale)
+        self._local_llm_count += 1
+        idx = self._local_llm_count
         t0 = time.monotonic()
         result = await handler(request)
         latency_ms = (time.monotonic() - t0) * 1000
