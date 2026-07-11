@@ -103,11 +103,40 @@ def run_cmd(cmd: list[str], cwd: Path | None = None) -> str:
     return result.stdout
 
 
-BASE_BRANCH = "dev-create-agent"
+def _detect_current_branch() -> str:
+    """检测当前 git 分支名。"""
+    result = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=str(PROJECT_ROOT.parent),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"无法检测当前分支: {result.stderr.strip()}")
+    return result.stdout.strip()
+
+
+def _has_dirty_worktree() -> bool:
+    """检查工作区是否有未提交的改动。"""
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=str(PROJECT_ROOT.parent),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return bool(result.stdout.strip())
+
+
+# 默认使用当前分支作为 base（可通过 --base-branch 覆盖）
+BASE_BRANCH: str = ""
 
 
 def git_checkout_base() -> None:
-    """切换到 base 分支，确保干净起点。"""
+    """切换到 base 分支，丢弃所有本地改动以恢复干净起点。"""
     run_cmd(["git", "checkout", BASE_BRANCH], cwd=PROJECT_ROOT.parent)
     print(f"  [OK] 已切换到 {BASE_BRANCH} 分支")
 
@@ -437,7 +466,28 @@ if __name__ == "__main__":
         help="Langfuse run 名（同时作为 session_id 归组本轮 trace）；"
         "不填则自动生成 {split}-YYYYMMDD-HHMMSS",
     )
+    parser.add_argument(
+        "--base-branch",
+        type=str,
+        default=None,
+        help="基准分支名（默认自动检测当前分支）。注入前 checkout 到此分支以恢复干净起点。",
+    )
     args = parser.parse_args()
+
+    # ── 设置 BASE_BRANCH ──────────────────────────────────────────
+    if args.base_branch:
+        BASE_BRANCH = args.base_branch
+    else:
+        BASE_BRANCH = _detect_current_branch()
+    print(f"[base-branch] {BASE_BRANCH}  (注入前后均 checkout 此分支)")
+
+    # ── 检查工作区 ────────────────────────────────────────────────
+    if _has_dirty_worktree():
+        print(
+            "⚠️  工作区有未提交的改动！"
+            " git checkout 会丢弃这些改动。请先 commit 或 stash。"
+        )
+        # 不强制退出，给用户一个机会 Ctrl+C
 
     # 自动生成 run_name（同时用作 session_id，便于在 Langfuse Sessions 里归组）
     # 注意：Langfuse session_id 字段做前缀匹配，所以 run_name 共享前缀会
