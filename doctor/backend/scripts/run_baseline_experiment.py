@@ -32,10 +32,11 @@ import aiohttp
 from langfuse import Langfuse
 
 # ── 路径常量 ──────────────────────────────────────────────────────────
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BUG_FACTORY_DIR = PROJECT_ROOT.parent / "bug-factory"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent  # doctor/backend/
+WORKSPACE_ROOT = PROJECT_ROOT.parent.parent  # DiagDoctor/
+BUG_FACTORY_DIR = WORKSPACE_ROOT / "bug-factory"
 
-# 添加 doctor 到 path 以便 import settings
+# 添加 doctor/backend 到 path 以便 import settings
 sys.path.insert(0, str(PROJECT_ROOT))
 from src.config import settings  # noqa: E402
 
@@ -107,7 +108,7 @@ def _detect_current_branch() -> str:
     """检测当前 git 分支名。"""
     result = subprocess.run(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        cwd=str(PROJECT_ROOT.parent),
+        cwd=str(WORKSPACE_ROOT),
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -122,7 +123,7 @@ def _has_dirty_worktree() -> bool:
     """检查工作区是否有未提交的改动。"""
     result = subprocess.run(
         ["git", "status", "--porcelain"],
-        cwd=str(PROJECT_ROOT.parent),
+        cwd=str(WORKSPACE_ROOT),
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -137,14 +138,14 @@ BASE_BRANCH: str = ""
 
 def git_checkout_base() -> None:
     """切换到 base 分支，丢弃所有本地改动以恢复干净起点。"""
-    run_cmd(["git", "checkout", BASE_BRANCH], cwd=PROJECT_ROOT.parent)
+    run_cmd(["git", "checkout", BASE_BRANCH], cwd=str(WORKSPACE_ROOT))
     print(f"  [OK] 已切换到 {BASE_BRANCH} 分支")
 
 
 def inject_bug(recipe_id: str) -> None:
     """注入 Bug：修改源码。"""
     run_cmd(
-        ["uv", "run", "python", "-m", "bug_factory.cli", "inject", recipe_id],
+        [sys.executable, "-m", "bug_factory.cli", "inject", recipe_id],
         cwd=BUG_FACTORY_DIR,
     )
 
@@ -161,9 +162,7 @@ def trigger_bug(recipe_id: str) -> tuple[datetime, list[str]]:
     trigger_start = datetime.now(UTC)
     stdout = run_cmd(
         [
-            "uv",
-            "run",
-            "python",
+            sys.executable,
             "-m",
             "bug_factory.cli",
             "trigger",
