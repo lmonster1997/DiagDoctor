@@ -112,16 +112,8 @@ try:
                 await asyncio.sleep(0)
 
     async def _agent_get_state(self, *, thread_id: str):
-        """Required by Agent ABC — delegate to LangGraph state inspection."""
-        try:
-            state = await self.graph.aget_state({"configurable": {"thread_id": thread_id}})
-            return {
-                "threadId": thread_id,
-                "threadExists": state.values != {},
-                "state": state.values,
-            }
-        except Exception:
-            return {"threadId": thread_id, "threadExists": False, "state": {}}
+        """Always start fresh — diagnoses are independent, not conversational."""
+        return {"threadId": thread_id, "threadExists": False, "state": {}}
 
     _DiagDoctorAgent.get_state = _agent_get_state  # type: ignore[attr-defined]
 

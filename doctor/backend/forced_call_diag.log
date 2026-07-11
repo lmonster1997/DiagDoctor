@@ -22,3 +22,5 @@
   json_str_len=2075 json_str_preview='{\n  "primary_category": "backend_error",\n  "categories": [\n    "backend_error",\n    "logic"\n  ],\n  "symptom_tier": "frontend",\n  "root_cause_tier": "backend",\n  "root_cause": "create_comment 接口未校验 task_id 对应的任务是否存在，当传入不存在的 task_id（如全零 UUID）时，数据库抛出 ForeignKeyViolationError 未被捕获，返回 500 导致前端卡住无反馈",\n  "'
 [SUCCESS] case= parsed.primary_category='backend_error'
   json_str_len=2101 json_str_preview='{\n  "primary_category": "backend_error",\n  "categories": [\n    "backend_error",\n    "logic"\n  ],\n  "symptom_tier": "frontend",\n  "root_cause_tier": "backend",\n  "root_cause": "创建评论接口 create_comment 未校验 task_id 是否存在，当传入不存在的 task_id（如全零 UUID）时，数据库外键约束抛出 IntegrityError，后端未捕获处理直接返回 500，前端无错误提示导致用户感觉页面卡住'
+[SUCCESS] case= parsed.primary_category='backend_error'
+  json_str_len=1475 json_str_preview='{\n  "primary_category": "backend_error",\n  "categories": [\n    "backend_error",\n    "logic"\n  ],\n  "symptom_tier": "frontend",\n  "root_cause_tier": "backend",\n  "root_cause": "create_comment 接口未校验 task_id 是否存在，当用户传入不存在的 task_id 时，数据库抛出 ForeignKeyViolationError 未被捕获，导致后端返回 500 而非 404；前端 catch 块虽捕获了错误'
