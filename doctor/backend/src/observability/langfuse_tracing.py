@@ -76,6 +76,7 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         self._tags = tags or []
         self._trace_id: str | None = None
         self._trace_name: str = "doctor-diagnosis"
+        self._reuse_external_trace: bool = False
         self._llm_call_idx: int = 0
         self._tool_call_idx: int = 0
 
@@ -132,15 +133,20 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         self._tool_call_idx = 0
         if trace_id and not name:
             # Reusing an existing trace created by an external caller (e.g. the
-            # Experiment runner). Upsert with id (+input) ONLY — do NOT pass
-            # session_id/tags/name/metadata, otherwise Langfuse upsert would
-            # overwrite the original creator's session_id (the runner groups
-            # traces by session_id=run_name; overriding it breaks Sessions view).
-            self._client.trace(
-                id=self._trace_id,
-                input=input_data,
+            # Experiment runner).  DO NOT call self._client.trace() — the
+            # Langfuse SDK always sends sessionId in the trace-create event
+            # body (defaulting to null when not passed), which would clear the
+            # original creator's session_id.  Instead, just set _trace_id so
+            # subsequent record_tool_span / record_llm_generation attach
+            # observations to the correct trace without touching its metadata.
+            self._reuse_external_trace = True
+            self._trace_id = trace_id
+            logger.debug(
+                "langfuse_trace_reused",
+                extra={"trace_id": self._trace_id, "reused": True},
             )
         else:
+            self._reuse_external_trace = False
             self._client.trace(
                 id=self._trace_id,
                 name=self._trace_name,
@@ -148,14 +154,14 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
                 input=input_data,
                 tags=self._tags,
             )
-        logger.debug(
-            "langfuse_trace_created",
-            extra={
-                "trace_id": self._trace_id,
-                "session_id": self._session_id,
-                "reused": trace_id is not None,
-            },
-        )
+            logger.debug(
+                "langfuse_trace_created",
+                extra={
+                    "trace_id": self._trace_id,
+                    "session_id": self._session_id,
+                    "reused": False,
+                },
+            )
         return self._trace_id
 
     def end_trace(
@@ -168,24 +174,36 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         handler is stateless between cases——避免下一次 ``on_chain_start``
         复用上一次的 trace_id（在外部 caller 忘了调 ``start_trace`` 的退化
         场景下尤其重要）。
+
+        When reusing an external trace (``_reuse_external_trace=True``),
+        skips ``self._client.trace()`` entirely — the Langfuse SDK always
+        sends ``sessionId`` in the trace-create body (null when not passed),
+        which would clear the original creator's session_id.  Observations
+        (spans/generations) are still flushed because they use their own
+        creation events and only reference ``trace_id``.
         """
         if self._trace_id is None:
             return
 
-        self._client.trace(
-            id=self._trace_id,
-            output=output_data,
-        )
-        # Record accumulated usage for providers where callbacks don't fire
-        if any(self._accumulated_usage.values()):
-            with contextlib.suppress(Exception):
-                self._client.trace(
-                    id=self._trace_id,
-                    usage=self._accumulated_usage,
-                )
+        if not self._reuse_external_trace:
+            self._client.trace(
+                id=self._trace_id,
+                output=output_data,
+                session_id=self._session_id,
+            )
+            # Record accumulated usage for providers where callbacks don't fire
+            if any(self._accumulated_usage.values()):
+                with contextlib.suppress(Exception):
+                    self._client.trace(
+                        id=self._trace_id,
+                        usage=self._accumulated_usage,
+                        session_id=self._session_id,
+                    )
+
         self._client.flush()
         logger.debug("langfuse_trace_ended", extra={"trace_id": self._trace_id})
         self._trace_id = None
+        self._reuse_external_trace = False
         self._llm_call_idx = 0
         self._tool_call_idx = 0
         self._current_llm_run_id = None
@@ -417,10 +435,15 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         """Update the Langfuse trace with final output."""
         if parent_run_id is not None or self._trace_id is None:
             return
+        # Skip when reusing an external trace — the SDK always sends sessionId
+        # in the trace-create body, which would clear the original session.
+        if self._reuse_external_trace:
+            return
 
         self._client.trace(
             id=self._trace_id,
             output=outputs,
+            session_id=self._session_id,
         )
         # Flush to ensure data is sent
         self._client.flush()

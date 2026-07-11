@@ -418,6 +418,9 @@ async def main(
                 "split": split,
             },
         )
+        # 立即 flush，确保 trace（含 session_id）在 Doctor 开始写
+        # observation 之前已到达 Langfuse 服务端，避免时序竞态。
+        langfuse.flush()
 
         try:
             result = await diagnose_task(item, trace_id=trace.id)
