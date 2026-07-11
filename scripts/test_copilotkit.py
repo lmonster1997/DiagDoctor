@@ -72,7 +72,8 @@ async def do_score(rid: str, ur: str, tt: str) -> None:
     if cp.exists():
         exp = yaml.safe_load(cp.read_text(encoding="utf-8")).get("expected", {})
 
-    diag = {"report": r, "categories": r.get("categories", []), "confidence": r.get("confidence", 0)}
+    # 对齐 scorer 期望：顶层字段 + report 嵌套
+    diag = {**r, "report": r, "categories": r.get("categories", []), "confidence": r.get("confidence", 0)}
     scores = await score_all_dimensions(lf, trace.id, exp, diag, skip_llm_judge=False)
     await asyncio.sleep(1)
     pq = score_process_quality(lf, trace.id)

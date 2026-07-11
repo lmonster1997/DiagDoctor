@@ -210,7 +210,7 @@ async def _ripgrep_search(query: str, k: int = 10) -> list[dict[str, Any]]:
 
 def _resolve_search_roots() -> list[str]:
     """Return the list of directories to search, checking existence."""
-    base = settings.base_dir.parent  # doctor/..  = project root
+    base = settings.base_dir.parent.parent  # doctor/backend/ → workspace root
     roots: list[str] = []
     for rel in SEARCH_ROOTS:
         candidate = base / rel

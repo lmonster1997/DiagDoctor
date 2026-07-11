@@ -34,10 +34,10 @@ def _resolve_demo_app_root() -> Path:
     """Resolve the absolute path to the demo-app repository root.
 
     Computed relative to the doctor project's base_dir:
-        <project_root>/demo-app/
+        <workspace_root>/demo-app/
     """
-    base = settings.base_dir  # doctor/
-    demo_root = (base.parent / "demo-app").resolve()
+    base = settings.base_dir  # doctor/backend/
+    demo_root = (base.parent.parent / "demo-app").resolve()
     return demo_root
 
 
