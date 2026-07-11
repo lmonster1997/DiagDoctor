@@ -62,22 +62,11 @@ def trigger_bug(recipe_id: str) -> tuple[str, list[str]]:
 def generate_chat_message(
     user_report: str,
     trigger_time: str = "",
-    trace_ids: list[str] | None = None,
 ) -> str:
-    """生成模拟前端聊天输入的自然语言消息。
-
-    把 trigger_time 和 trace_ids 以自然语言嵌入，bug_info 的 LLM 可从中提取。
-    """
-    parts = [user_report]
-
+    """生成前端聊天消息：配方原始描述 + 触发时间。"""
     if trigger_time:
-        parts.append(f"触发时间大约是 {trigger_time}。")
-
-    if trace_ids:
-        ids_str = "、".join(trace_ids[:3])
-        parts.append(f"相关的 trace id 有：{ids_str}。")
-
-    return " ".join(parts)
+        return f"{user_report}\n\n（触发时间：{trigger_time}）"
+    return user_report
 
 
 def main() -> None:
@@ -121,8 +110,8 @@ def main() -> None:
         print(f"  Waiting for Loki/Tempo indexing ({await_loki}s)...")
         time.sleep(await_loki)
 
-    # ── 生成消息 ──
-    chat_message = generate_chat_message(user_report, trigger_time, trace_ids)
+    # ── 生成消息：配方描述 + 触发时间 ──
+    chat_message = generate_chat_message(user_report, trigger_time)
 
     print(f"\n{'=' * 60}")
     print(f"  📋  Copy this to the CopilotKit frontend chat:")
