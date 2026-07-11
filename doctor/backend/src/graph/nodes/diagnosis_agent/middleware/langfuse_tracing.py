@@ -111,12 +111,18 @@ class LangfuseTracingMiddleware(AgentMiddleware):
         return None
 
     async def awrap_model_call(self, request: Any, handler: Any) -> Any:
-        """Attach the Langfuse handler to THIS LLM call only (not tool calls)."""
+        """Attach the Langfuse handler to THIS LLM call only (not tool calls).
+
+        LLM generation recording is handled by the callback path
+        (on_chat_model_start → on_llm_end), which properly serializes the
+        full messages list and captures tool_calls in the output.
+        The handler is attached via model.with_config({"callbacks": [h]})
+        so callbacks fire reliably for all supported providers.
+        """
         self._local_llm_count += 1
         ctx = get_run_context_or_none()
-        handler_ok = ctx is not None and ctx.langfuse_handler is not None
 
-        if handler_ok:
+        if ctx is not None and ctx.langfuse_handler is not None:
             try:
                 request.model = request.model.with_config(
                     {"callbacks": [ctx.langfuse_handler]}
@@ -124,25 +130,24 @@ class LangfuseTracingMiddleware(AgentMiddleware):
             except Exception:
                 pass
 
-        # Invoke model — use local counter (ctx.model_call_count is stale)
-        idx = self._local_llm_count
         t0 = time.monotonic()
         result = await handler(request)
         latency_ms = (time.monotonic() - t0) * 1000
 
-        # Explicit fallback: record generation
-        if handler_ok and ctx is not None:
-            try:
-                ctx.langfuse_handler.record_llm_generation(
-                    name=f"llm_call_{idx}",
-                    model=getattr(request.model, "model_name", "unknown"),
-                    input_data={"messages_preview": str(getattr(request, "messages", ""))[:2000]},
-                    output_data={"content_preview": str(getattr(result, "content", ""))[:2000]},
-                    latency_ms=latency_ms,
-                )
-            except Exception as exc:
-                logger.warning("record_llm_generation_failed", idx=idx, error=str(exc))
+        # NOTE: NO record_llm_generation here.  The callback path
+        # (on_chat_model_start → on_llm_end) is the single source of
+        # truth for LLM call recording.  Duplicate recording via
+        # record_llm_generation was producing low-quality generations
+        # (str(messages)[:2000] always truncating to the same prefix,
+        # str(content)[:2000] always "" for tool-calling calls) that
+        # polluted the Langfuse trace and made every iteration look
+        # identical.
 
+        logger.debug(
+            "langfuse_model_call_completed",
+            idx=self._local_llm_count,
+            latency_ms=round(latency_ms, 1),
+        )
         return result
 
     async def awrap_tool_call(self, request: Any, handler: Any) -> Any:
