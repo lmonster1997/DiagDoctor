@@ -101,36 +101,38 @@ class LangfuseTracingMiddleware(AgentMiddleware):
     async def awrap_model_call(self, request: Any, handler: Any) -> Any:
         """Attach the Langfuse handler to THIS LLM call only (not tool calls).
 
-        Why this exists: create_agent invokes ``model.ainvoke(messages)`` with no
-        explicit config — callbacks are inherited from the graph's top-level
-        Runnable config context (contextvar). Passing ``config={"callbacks":
-        [handler]}`` at ``agent.ainvoke`` therefore propagates to BOTH the model
-        node AND the ToolNode, so the Langfuse callback handler records every
-        tool call as an extra SPAN (with a different input shape than
-        ``record_tool_span``) → each tool call gets double-recorded →
-        ``score_process_quality`` counts phantom calls and efficiency tanks
-        (verified: framework-smoke process_quality 0.806 vs hand-written 0.958).
-
-        Fix: do NOT put the handler in the top-level config (node passes only
-        ``recursion_limit``). Instead, attach it here to the model call alone via
-        ``model.with_config({"callbacks": [handler]})``. The ToolNode inherits a
-        callback-less config, so tools are recorded ONLY by
-        ``awrap_tool_call``'s ``record_tool_span`` (single source, with args) —
-        matching the hand-written loop's observability model exactly (LLM via
-        callbacks, tools via explicit record_tool_span).
+        Dual strategy: callback propagation (via with_config) + explicit fallback
+        recording for providers where callback propagation fails.
         """
         ctx = get_run_context_or_none()
-        if ctx is not None and ctx.langfuse_handler is not None:
+        handler_ok = ctx is not None and ctx.langfuse_handler is not None
+
+        if handler_ok:
             try:
                 request.model = request.model.with_config(
                     {"callbacks": [ctx.langfuse_handler]}
                 )
             except Exception:
-                # If with_config fails, fall back to no callbacks on this call —
-                # graceful degradation (LLM generation observation lost for this
-                # call, but the loop continues).
                 pass
-        return await handler(request)
+
+        # Invoke model
+        idx = (ctx.model_call_count + 1) if ctx else 0
+        t0 = time.monotonic()
+        result = await handler(request)
+        latency_ms = (time.monotonic() - t0) * 1000
+
+        # Explicit fallback: record generation when callback didn't fire
+        if handler_ok and ctx is not None:
+            with contextlib.suppress(Exception):
+                ctx.langfuse_handler.record_llm_generation(
+                    name=f"llm_call_{idx}",
+                    model=getattr(request.model, "model_name", "unknown"),
+                    input_data={"messages_preview": str(getattr(request, "messages", ""))[:2000]},
+                    output_data={"content_preview": str(getattr(result, "content", ""))[:2000]},
+                    latency_ms=latency_ms,
+                )
+
+        return result
 
     async def awrap_tool_call(self, request: Any, handler: Any) -> Any:
         ctx = get_run_context_or_none()

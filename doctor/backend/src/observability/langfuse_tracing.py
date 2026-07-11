@@ -29,6 +29,7 @@ Note:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
 import uuid
@@ -258,6 +259,31 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
                 "deduplicated": True,
             },
         )
+
+    def record_llm_generation(
+        self,
+        *,
+        name: str,
+        model: str,
+        input_data: dict[str, Any] | None = None,
+        output_data: dict[str, Any] | None = None,
+        latency_ms: float = 0.0,
+    ) -> None:
+        """Record an LLM generation as a Langfuse observation.
+
+        Used as explicit fallback when callback-based recording fails.
+        """
+        if not self._trace_id:
+            return
+        with contextlib.suppress(Exception):
+            self._client.generation(
+                trace_id=self._trace_id,
+                name=name,
+                model=model,
+                input=input_data,
+                output=output_data,
+                usage={"latency_ms": latency_ms} if latency_ms else None,
+            )
 
     def record_structured_output(
         self,
