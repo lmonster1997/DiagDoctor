@@ -37,7 +37,7 @@ def parse_diagnosis_report(agent_result: dict[str, Any]) -> DiagnosisReport | No
             "root_cause_tier": "backend",
             "root_cause": "...",
             "affected_file": "app/services/task_service.py",
-            "affected_line": 42,
+            "affected_function": "create_task",
             "fix_suggestion": "...",
             "evidence_chain": ["sig-xxx"],
             "confidence": 0.85
@@ -74,7 +74,7 @@ def parse_diagnosis_report(agent_result: dict[str, Any]) -> DiagnosisReport | No
                 root_cause_tier=report_data.get("root_cause_tier", "backend"),
                 root_cause=str(report_data.get("root_cause", "")),
                 affected_file=report_data.get("affected_file"),
-                affected_line=report_data.get("affected_line"),
+                affected_function=report_data.get("affected_function"),
                 fix_suggestion=str(report_data.get("fix_suggestion", "")),
                 evidence_chain=_ensure_str_list(report_data.get("evidence_chain", [])),
                 confidence=float(report_data.get("confidence", 0.5)),
