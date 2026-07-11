@@ -391,8 +391,7 @@ async def _maybe_forced_final_json_call(
         itself succeeded), False if skipped by the gate.
     """
     if (
-        not _last_ai_has_json(messages)
-        and messages  # nothing to feed the LLM if loop never produced a message
+        messages  # nothing to feed the LLM if loop never produced a message
     ):
         natural_stop = _last_ai_is_natural_stop(messages)
         logger.info(

@@ -61,11 +61,8 @@ class ForcedFinalCallMiddleware(AgentMiddleware):
         # ── Gate (matches _maybe_forced_final_json_call:389-393) ──
         if not messages:
             return None
-        if _last_ai_has_json(messages):
-            # Healthy case — agent already delivered JSON, skip (zero-regression gate)
-            return None
-        # Budget exhaustion does NOT skip this — forced final JSON is the harness
-        # measure for when agent runs out of budget before producing a report.
+        # Always trigger forced final call — ensures consistent structured output
+        # with all fields (affected_function, etc.) even on natural stop.
 
         natural_stop = _last_ai_is_natural_stop(messages)
         ctx.forced_call_triggered = True
