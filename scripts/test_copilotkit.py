@@ -70,12 +70,19 @@ async def do_score(rid: str, ur: str, tt: str) -> None:
     exp = {}
     cp = BUG_FACTORY_DIR / "output" / rid / "case.yaml"
     if cp.exists():
-        exp = yaml.safe_load(cp.read_text(encoding="utf-8")).get("expected", {})
+        raw = yaml.safe_load(cp.read_text(encoding="utf-8")).get("expected", {})
+        # 字段映射：case.yaml 用 affected_files (list)，scorer 用 affected_file (str)
+        exp = dict(raw)
+        if "affected_files" in exp and "affected_file" not in exp:
+            files = exp["affected_files"]
+            exp["affected_file"] = files[0] if isinstance(files, list) and files else str(files)
+        if "category" in exp and "categories" not in exp:
+            exp["categories"] = [exp["category"]] if isinstance(exp["category"], str) else exp["category"]
+        if "primary_category" not in exp and "category" in exp:
+            exp["primary_category"] = exp["category"] if isinstance(exp["category"], str) else (exp["category"][0] if exp["category"] else "")
 
     # 对齐 scorer 期望：顶层字段 + report 嵌套
     diag = {**r, "report": r, "categories": r.get("categories", []), "confidence": r.get("confidence", 0)}
-    # Debug: check what scorer sees
-    print(f"  [debug] diag.affected_file={diag.get('affected_file')}, expected.affected_file={exp.get('affected_file')}")
     scores = await score_all_dimensions(lf, trace.id, exp, diag, skip_llm_judge=False)
     await asyncio.sleep(1)
     pq = score_process_quality(lf, trace.id)
