@@ -37,7 +37,6 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models import BaseChatModel
 
 import src.llm_factory as _llm_factory
-from src.graph.nodes.diagnosis_agent.constants import MAX_TOKENS_BUDGET
 from src.graph.nodes.diagnosis_agent.forced_call import (
     _forced_final_json_call,
     _last_ai_has_json,
@@ -65,14 +64,8 @@ class ForcedFinalCallMiddleware(AgentMiddleware):
         if _last_ai_has_json(messages):
             # Healthy case — agent already delivered JSON, skip (zero-regression gate)
             return None
-        if ctx.ctx_budget.total_used >= MAX_TOKENS_BUDGET:
-            # Budget blown — forced call would fail anyway
-            logger.debug(
-                "forced_call_skipped_budget_blown",
-                case_id=ctx.case_id,
-                total_used=ctx.ctx_budget.total_used,
-            )
-            return None
+        # Budget exhaustion does NOT skip this — forced final JSON is the harness
+        # measure for when agent runs out of budget before producing a report.
 
         natural_stop = _last_ai_is_natural_stop(messages)
         ctx.forced_call_triggered = True
