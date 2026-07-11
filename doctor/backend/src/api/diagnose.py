@@ -17,7 +17,15 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from src.graph.main_graph import generate_thread_id, get_graph
-from src.graph.state import DiagnosisReport, Evidence
+from src.graph.state import (
+    BudgetState,
+    Correlation,
+    DiagnosisReport,
+    Evidence,
+    Finding,
+    NormalizedEvidence,
+    TimelineEvent,
+)
 from src.observability.logger import get_logger
 
 router = APIRouter(prefix="/api", tags=["diagnose"])
@@ -69,13 +77,26 @@ class DiagnoseRequest(BaseModel):
 
 
 class DiagnoseResponse(BaseModel):
-    """Standard (non-streaming) response from the diagnose endpoint (v2)."""
+    """Standard (non-streaming) response from the diagnose endpoint (v2).
+
+    Phase 2: carries the full evidence chain payload (budget, findings,
+    normalized evidence, correlations, timeline) so the frontend can render
+    the EvidenceChainGraph and a complete ReportPanel without a second
+    round-trip.
+    """
 
     thread_id: str
     report: DiagnosisReport | None = None
     primary_category: str | None = None
     categories: list[str] = Field(default_factory=list)
     findings_count: int = 0
+
+    # ── Phase 2: evidence chain payload ──
+    budget: BudgetState | None = None
+    findings: list[Finding] = Field(default_factory=list)
+    evidence: NormalizedEvidence | None = None
+    correlations: list[Correlation] = Field(default_factory=list)
+    timeline: list[TimelineEvent] = Field(default_factory=list)
 
 
 # ── Internal helpers ────────────────────────────────────────────────
@@ -107,8 +128,43 @@ async def _run_graph(thread_id: str, state: dict[str, Any]) -> Any:
     return result
 
 
+def _extract_evidence_payload(final_state: Any) -> dict[str, Any]:
+    """Pull the Phase 2 evidence-chain fields out of the final graph state.
+
+    Returns a dict with keys: budget, findings, evidence, correlations,
+    timeline — each serialisable by Pydantic.  ``correlations`` and
+    ``timeline`` are surfaced from inside ``NormalizedEvidence`` for the
+    frontend's convenience (the graph stores them nested there).
+    """
+    budget = final_state.get("budget")
+    findings = final_state.get("findings", []) or []
+    evidence = final_state.get("evidence")
+
+    correlations: list[Correlation] = []
+    timeline: list[TimelineEvent] = []
+    if evidence is not None and hasattr(evidence, "correlations"):
+        correlations = list(evidence.correlations or [])
+    if evidence is not None and hasattr(evidence, "timeline"):
+        timeline = list(evidence.timeline or [])
+
+    return {
+        "budget": budget,
+        "findings": list(findings),
+        "evidence": evidence,
+        "correlations": correlations,
+        "timeline": timeline,
+    }
+
+
 async def _stream_graph(thread_id: str, state: dict[str, Any]) -> AsyncIterator[str]:
-    """Stream graph events as SSE (Server-Sent Events)."""
+    """Stream graph events as SSE (Server-Sent Events).
+
+    Emits incremental ``on_chat_model_*`` events during the run, then a
+    final ``final`` event carrying the full Phase 2 payload (report +
+    budget + findings + evidence + correlations + timeline) so the
+    frontend can render the evidence chain graph and complete report
+    without a second request.
+    """
     graph = get_graph()
     config = {"configurable": {"thread_id": thread_id}}
 
@@ -138,6 +194,45 @@ async def _stream_graph(thread_id: str, state: dict[str, Any]) -> AsyncIterator[
                         "report": report,
                     }
                     yield f"data: {json.dumps(data, default=str)}\n\n"
+
+        # ── Final event: full evidence-chain payload ──
+        # Fetch the persisted checkpoint state to access budget/findings/
+        # evidence/correlations/timeline alongside the report.
+        snapshot = await graph.aget_state(config)
+        final_state: dict[str, Any] = snapshot.values or {}
+        payload = _extract_evidence_payload(final_state)
+
+        report = final_state.get("report")
+        report_dump = report.model_dump() if report and hasattr(report, "model_dump") else report
+
+        budget = payload["budget"]
+        budget_dump = budget.model_dump() if budget and hasattr(budget, "model_dump") else budget
+
+        evidence = payload["evidence"]
+        evidence_dump = (
+            evidence.model_dump() if evidence and hasattr(evidence, "model_dump") else evidence
+        )
+
+        findings_dump = [
+            f.model_dump() if hasattr(f, "model_dump") else f for f in payload["findings"]
+        ]
+        correlations_dump = [
+            c.model_dump() if hasattr(c, "model_dump") else c for c in payload["correlations"]
+        ]
+        timeline_dump = [
+            t.model_dump() if hasattr(t, "model_dump") else t for t in payload["timeline"]
+        ]
+
+        final_data = {
+            "event": "final",
+            "report": report_dump,
+            "budget": budget_dump,
+            "findings": findings_dump,
+            "evidence": evidence_dump,
+            "correlations": correlations_dump,
+            "timeline": timeline_dump,
+        }
+        yield f"data: {json.dumps(final_data, default=str)}\n\n"
     except Exception as exc:
         error_data = {"event": "error", "message": str(exc)}
         yield f"data: {json.dumps(error_data, default=str)}\n\n"
@@ -206,6 +301,7 @@ async def diagnose(
         if hasattr(report, "categories"):
             categories = list(report.categories) if report.categories else []
     findings = final_state.get("findings", [])
+    payload = _extract_evidence_payload(final_state)
 
     return DiagnoseResponse(
         thread_id=thread_id,
@@ -213,4 +309,9 @@ async def diagnose(
         primary_category=primary_category,
         categories=categories,
         findings_count=len(findings),
+        budget=payload["budget"],
+        findings=payload["findings"],
+        evidence=payload["evidence"],
+        correlations=payload["correlations"],
+        timeline=payload["timeline"],
     )
