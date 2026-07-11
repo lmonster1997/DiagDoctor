@@ -363,4 +363,8 @@ async def bug_info_node(state: dict[str, Any]) -> dict[str, Any]:
         "messages": messages,
         "evidence": normalized,
         "bug_info": {"bug_description": user_report, "trigger_time": trigger_time, "trace_ids": trace_ids},
+        # Explicitly pass-through Langfuse IDs so they survive the state merge
+        # (defense against LangGraph dict-state merge silently dropping unknown keys).
+        "langfuse_trace_id": state.get("langfuse_trace_id"),
+        "langfuse_session_id": state.get("langfuse_session_id"),
     }

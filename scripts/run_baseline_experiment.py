@@ -262,6 +262,9 @@ async def call_doctor(
     if langfuse_session_id:
         payload["langfuse_session_id"] = langfuse_session_id
 
+    print(f"  [DEBUG] call_doctor payload keys: {list(payload.keys())}")
+    print(f"  [DEBUG] langfuse_trace_id={langfuse_trace_id}, langfuse_session_id={langfuse_session_id}")
+
     async with (
         aiohttp.ClientSession() as session,
         session.post(
