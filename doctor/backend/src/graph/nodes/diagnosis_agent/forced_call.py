@@ -248,16 +248,6 @@ async def _forced_final_json_call(
             timeout=MAX_TIME_SECONDS,
         )
     except Exception as exc:
-        # TEMP DIAGNOSTIC: write to a local file so it's visible regardless of
-        # structlog / subprocess stdout redirection. Remove once Iteration 2 stabilizes.
-        import traceback as _tb
-        try:
-            with open("forced_call_diag.log", "a", encoding="utf-8") as _f:
-                _f.write(f"[EXC] case={case_id} type={type(exc).__name__}: {exc}\n")
-                _f.write(f"  input_msg_count={len(forced_messages)}\n")
-                _f.write(_tb.format_exc() + "\n")
-        except Exception:
-            pass
         logger.warning(
             "forced_final_json_call_failed",
             case_id=case_id,
@@ -279,20 +269,7 @@ async def _forced_final_json_call(
     raw = result.get("raw") if isinstance(result, dict) else None
     if parsed is None:
         raw_content_str = str(getattr(raw, "content", "")) if raw is not None else None
-        raw_tool_calls = getattr(raw, "tool_calls", None) if raw is not None else None
-        # TEMP DIAGNOSTIC
-        try:
-            with open("forced_call_diag.log", "a", encoding="utf-8") as _f:
-                _f.write(f"[PARSED_NONE] case={case_id} result_type={type(result).__name__}\n")
-                _f.write(f"  result_keys={list(result.keys()) if isinstance(result, dict) else 'N/A'}\n")
-                _f.write(f"  raw_type={type(raw).__name__}\n")
-                _f.write(f"  raw_content_len={len(str(getattr(raw, 'content', '')))}\n")
-                _f.write(f"  raw_content_preview={str(getattr(raw, 'content', ''))[:400]!r}\n")
-                _f.write(f"  raw_tool_calls={getattr(raw, 'tool_calls', None)!r}\n")
-                _f.write(f"  raw_additional_kwargs={getattr(raw, 'additional_kwargs', None)!r}\n")
-        except Exception:
-            pass
-        logger.warning(
+        raw_tool_calls = getattr(raw, "tool_calls", None) if raw is not None else None        logger.warning(
             "forced_final_json_call_no_tool_call",
             case_id=case_id,
             natural_stop=natural_stop,
@@ -315,15 +292,7 @@ async def _forced_final_json_call(
     # parse_diagnosis_report (which expects content to be a JSON string) can
     # pick it up unchanged. model_dump_json produces properly-escaped JSON
     # by construction — no unescaped-quote risk.
-    json_str = parsed.model_dump_json(indent=2)
-    # TEMP DIAGNOSTIC: confirm success path actually runs + content is valid JSON
-    try:
-        with open("forced_call_diag.log", "a", encoding="utf-8") as _f:
-            _f.write(f"[SUCCESS] case={case_id} parsed.primary_category={parsed.primary_category!r}\n")
-            _f.write(f"  json_str_len={len(json_str)} json_str_preview={json_str[:300]!r}\n")
-    except Exception:
-        pass
-    logger.info(
+    json_str = parsed.model_dump_json(indent=2)    logger.info(
         "forced_final_json_call_completed",
         case_id=case_id,
         natural_stop=natural_stop,
@@ -413,18 +382,7 @@ async def _maybe_forced_final_json_call(
             natural_stop=natural_stop,
             case_id=case_id,
             langfuse_handler=langfuse_handler,
-        )
-        # TEMP DIAGNOSTIC: confirm append behavior
-        try:
-            with open("forced_call_diag.log", "a", encoding="utf-8") as _f:
-                _f.write(f"[MAYBE] case={case_id} forced_response_is_none={forced_response is None}\n")
-                _f.write(f"  messages_len_before_append={len(messages)}\n")
-                if forced_response is not None:
-                    _f.write(f"  forced_response.content_len={len(str(forced_response.content))}\n")
-                    _f.write(f"  forced_response.content_preview={str(forced_response.content)[:300]!r}\n")
-        except Exception:
-            pass
-        if forced_response is not None:
+        )        if forced_response is not None:
             messages.append(forced_response)
             ctx_budget.add_agent_reasoning(str(forced_response.content))
             try:

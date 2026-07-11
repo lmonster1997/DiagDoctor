@@ -28,6 +28,10 @@ async def create_comment(
     current_user: User = Depends(get_current_user),
 ) -> Comment:
     """Add a comment to a task."""
+    # Verify the task exists
+    task_result = await db.execute(select(Task).where(Task.id == task_id))
+    if task_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
 
     comment = Comment(
         id=uuid.uuid4(),
