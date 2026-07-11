@@ -112,8 +112,22 @@ try:
                 await asyncio.sleep(0)
 
     async def _agent_get_state(self, *, thread_id: str):
-        """Always start fresh — diagnoses are independent, not conversational."""
-        return {"threadId": thread_id, "threadExists": False, "state": {}}
+        """Smart resume: fresh start if previous diagnosis completed, resume if interrupted."""
+        try:
+            state = await self.graph.aget_state({"configurable": {"thread_id": thread_id}})
+            values = state.values or {}
+            # If the previous diagnosis has a completed report, start fresh
+            has_report = bool(values.get("report"))
+            if has_report:
+                return {"threadId": thread_id, "threadExists": False, "state": {}}
+            # Otherwise, resume from checkpoint (e.g. agent waiting for user input)
+            return {
+                "threadId": thread_id,
+                "threadExists": bool(values),
+                "state": values,
+            }
+        except Exception:
+            return {"threadId": thread_id, "threadExists": False, "state": {}}
 
     _DiagDoctorAgent.get_state = _agent_get_state  # type: ignore[attr-defined]
 
