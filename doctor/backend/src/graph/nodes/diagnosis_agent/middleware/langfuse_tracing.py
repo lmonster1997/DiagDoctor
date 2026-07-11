@@ -109,8 +109,6 @@ class LangfuseTracingMiddleware(AgentMiddleware):
     async def awrap_model_call(self, request: Any, handler: Any) -> Any:
         """Attach the Langfuse handler to THIS LLM call only (not tool calls)."""
         self._local_llm_count += 1
-        logger.warning("awrap_model_call_ENTER", count=self._local_llm_count)
-
         ctx = get_run_context_or_none()
         handler_ok = ctx is not None and ctx.langfuse_handler is not None
 

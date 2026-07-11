@@ -269,10 +269,7 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         output_data: dict[str, Any] | None = None,
         latency_ms: float = 0.0,
     ) -> None:
-        """Record an LLM generation as a Langfuse observation.
-
-        Used as explicit fallback when callback-based recording fails.
-        """
+        """Record an LLM generation as a Langfuse observation."""
         if not self._trace_id:
             return
         with contextlib.suppress(Exception):
@@ -282,7 +279,7 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
                 model=model,
                 input=input_data,
                 output=output_data,
-                usage={"latency_ms": latency_ms} if latency_ms else None,
+                metadata={"latency_ms": latency_ms} if latency_ms else None,
             )
 
     def record_structured_output(
