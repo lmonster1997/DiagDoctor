@@ -1,24 +1,29 @@
-"""Budget tracking — count tool calls + estimate tokens from agent messages.
-
-Pure accounting: this module does NOT drive any phase decision in the
-baseline harness. It only computes BudgetState deltas and checks against
-the hard caps in ``constants``.
-"""
+"""Budget tracking + constants — token estimation, caps, and budget state."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Any
 
+import tiktoken
 from langchain_core.messages import AIMessage
 
-from src.graph.nodes.diagnosis_agent.constants import (
-    MAX_TIME_SECONDS,
-    MAX_TOKENS_BUDGET,
-    MAX_TOOL_CALLS,
-    estimate_tokens,
-)
 from src.graph.state import BudgetState
+
+# ── Token encoder (cl100k_base, module-level cache) ────────────────
+_encoder = tiktoken.get_encoding("cl100k_base")
+
+
+def estimate_tokens(text: str) -> int:
+    """Estimate token count using cl100k_base (OpenAI-compatible models)."""
+    return len(_encoder.encode(text))
+
+
+# ── Budget constants ─────────────────────────────────────────────────
+MAX_TOOL_CALLS = 12
+BUDGET_WARNING_THRESHOLD = 8
+MAX_TOKENS_BUDGET = 100_000
+MAX_TIME_SECONDS = 300
 
 
 def update_budget(budget: BudgetState, agent_result: dict[str, Any]) -> BudgetState:

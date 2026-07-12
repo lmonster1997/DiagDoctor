@@ -26,7 +26,7 @@ from typing import Any
 from langchain.agents.middleware import AgentMiddleware, hook_config
 from langchain_core.messages import AIMessage, BaseMessage
 
-from src.graph.nodes.diagnosis_agent.constants import (
+from src.graph.nodes.diagnosis_agent.budget import (
     MAX_TIME_SECONDS,
     MAX_TOKENS_BUDGET,
     MAX_TOOL_CALLS,

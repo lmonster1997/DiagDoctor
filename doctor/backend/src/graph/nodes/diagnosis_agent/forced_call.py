@@ -44,7 +44,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from pydantic import BaseModel, Field
 
-from src.graph.nodes.diagnosis_agent.constants import MAX_TIME_SECONDS
+from src.graph.nodes.diagnosis_agent.budget import MAX_TIME_SECONDS
 from src.graph.nodes.diagnosis_agent.parsing import _extract_json_from_text
 from src.observability.logger import get_logger
 

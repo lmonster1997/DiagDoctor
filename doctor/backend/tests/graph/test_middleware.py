@@ -17,7 +17,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from src.graph.context_engine import ContextBudget, truncate_tool_result
-from src.graph.nodes.diagnosis_agent.constants import (
+from src.graph.nodes.diagnosis_agent.budget import (
     MAX_TIME_SECONDS,
     MAX_TOKENS_BUDGET,
     MAX_TOOL_CALLS,
