@@ -287,3 +287,10 @@ def get_copilotkit_graph() -> Any:
     if _copilotkit_graph_instance is None:
         _copilotkit_graph_instance = build_copilotkit_graph()
     return _copilotkit_graph_instance
+
+
+def generate_thread_id() -> str:
+    """Generate a unique thread_id for a new diagnosis session."""
+    import uuid
+
+    return f"diag-{uuid.uuid4().hex[:12]}"

@@ -128,7 +128,7 @@ async def run_case(
     """
     from src.api.diagnose import DiagnoseRequest, _build_initial_state, _run_graph
     from src.config import settings
-    from src.graph.main_graph import generate_thread_id
+    from src.graph.copilotkit_graph import generate_thread_id
     from src.graph.state import BrowserError, Evidence, LogEntry, TraceSpan
 
     # ── 加载证据 ──────────────────────────────────────────────

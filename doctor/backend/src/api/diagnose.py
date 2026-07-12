@@ -16,8 +16,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from src.graph.copilotkit_graph import get_copilotkit_graph
-from src.graph.main_graph import generate_thread_id  # still needed for thread IDs
+from src.graph.copilotkit_graph import generate_thread_id, get_copilotkit_graph
 from src.graph.state import (
     BudgetState,
     Correlation,

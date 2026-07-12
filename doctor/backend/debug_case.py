@@ -15,8 +15,8 @@ import yaml
 
 sys.path.insert(0, "src")
 
-from src.graph.main_graph import generate_thread_id, get_graph
-from src.graph.state import BrowserError, DoctorState, Evidence, LogEntry, TraceSpan
+from src.graph.copilotkit_graph import generate_thread_id, get_copilotkit_graph
+from src.graph.state import BrowserError, Evidence, LogEntry, TraceSpan
 
 # ── 改这里切换要调试的 Bug ──────────────────────────────────────────
 CASE_ID = "BE-020"
@@ -58,35 +58,37 @@ async def main() -> None:
         browser_errors=browser_errs,
     )
 
-    # 主图已包含 ingest_node，会自动归一化 raw_evidence → evidence
-    state = DoctorState(
-        raw_evidence=raw_evidence,
-        case_id=case_id,
-    )
+    # Build state dict (same as REST API _build_initial_state)
+    thread_id = generate_thread_id()
+    state: dict[str, Any] = {
+        "raw_evidence": raw_evidence,
+        "case_id": case_id,
+        "trace_id": thread_id,
+        "session_id": thread_id,
+    }
 
     print(f"\n=== Running Graph for {case_id} ===")
-    graph = get_graph()
-    thread_id = generate_thread_id()
+    graph = get_copilotkit_graph()
     result = await graph.ainvoke(
-        state.model_dump(), config={"configurable": {"thread_id": thread_id}}
+        state, config={"configurable": {"thread_id": thread_id}}
     )
 
-    # Triage
-    print("\n=== Triage Result ===")
-    triage = result.get("triage")
-    if triage:
-        print(f"Primary: {getattr(triage, 'primary', 'N/A')}")
-        scores = getattr(triage, "scores", [])
-        for s in scores:
-            cat = getattr(s, "category", "?")
-            conf = getattr(s, "confidence", 0)
-            print(f"  {cat}: {conf:.2f}")
-        print(f"Cross-layer: {getattr(triage, 'cross_layer_suspected', False)}")
-    else:
-        print("(no triage result)")
+    # Evidence (from bug_info node)
+    print("\n=== Normalized Evidence ===")
+    evidence = result.get("evidence")
+    if evidence:
+        print(f"golden_signals: {len(evidence.golden_signals)}")
+        print(f"correlations:   {len(evidence.correlations)}")
+        print(f"noise_ratio:    {evidence.noise_ratio:.2%}")
+        for sig in evidence.golden_signals:
+            tier = getattr(sig, "service_tier", "?")
+            sev = getattr(sig, "severity", "?")
+            stype = getattr(sig, "signal_type", "?")
+            summary = getattr(sig, "summary", "?")
+            print(f"  [{tier}] [{sev}] [{stype}] {summary[:200]}")
 
     # Findings
-    print("\n=== Specialist Findings ===")
+    print("\n=== Findings ===")
     findings = result.get("findings", [])
     for f in findings:
         agent = getattr(f, "agent", "?")
@@ -110,10 +112,20 @@ async def main() -> None:
         print(f"Root cause: {getattr(report, 'root_cause', '?')[:300]}")
         print(f"Fix: {getattr(report, 'fix_suggestion', '?')[:300]}")
         print(f"Confidence: {getattr(report, 'confidence', 0):.2f}")
+        print(f"Symptom tier: {getattr(report, 'symptom_tier', '?')}")
+        print(f"Root cause tier: {getattr(report, 'root_cause_tier', '?')}")
+        print(f"Affected file: {getattr(report, 'affected_file', None)}")
         print(f"Evidence chain: {getattr(report, 'evidence_chain', [])}")
         print(f"Early stopped: {getattr(report, 'early_stopped', False)}")
     else:
         print("(no report generated)")
+
+    # Budget
+    budget = result.get("budget")
+    if budget:
+        print(f"\n[Budget] tool_calls={getattr(budget, 'tool_calls', 0)}, "
+              f"tokens={getattr(budget, 'total_tokens', 0)}, "
+              f"elapsed={getattr(budget, 'elapsed_seconds', 0):.1f}s")
 
     print("\n=== DONE ===")
 
