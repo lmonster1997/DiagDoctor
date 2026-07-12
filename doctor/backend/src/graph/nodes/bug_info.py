@@ -214,7 +214,7 @@ async def bug_info_node(state: dict[str, Any]) -> dict[str, Any]:
 
         if not user_message.strip():
             logger.warning("buginfo_empty_user_message")
-            return {"evidence": NormalizedEvidence(), "bug_info": {}}
+            return {"evidence": NormalizedEvidence()}
 
         bug_info = await _extract_bug_info(user_message)
         user_report = bug_info.get("bug_description", user_message)
@@ -318,7 +318,6 @@ async def bug_info_node(state: dict[str, Any]) -> dict[str, Any]:
     return {
         "messages": messages,
         "evidence": normalized,
-        "bug_info": {"bug_description": user_report, "trigger_time": trigger_time, "trace_ids": trace_ids},
         # Explicitly pass-through Langfuse IDs so they survive the state merge
         # (defense against LangGraph dict-state merge silently dropping unknown keys).
         "langfuse_trace_id": state.get("langfuse_trace_id"),
