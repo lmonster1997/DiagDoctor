@@ -79,7 +79,6 @@ async def main() -> None:
     if evidence:
         print(f"golden_signals: {len(evidence.golden_signals)}")
         print(f"correlations:   {len(evidence.correlations)}")
-        print(f"noise_ratio:    {evidence.noise_ratio:.2%}")
         for sig in evidence.golden_signals:
             tier = getattr(sig, "service_tier", "?")
             sev = getattr(sig, "severity", "?")

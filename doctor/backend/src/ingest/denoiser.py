@@ -88,18 +88,3 @@ def denoise_logs(
             preserved.append(log)
 
     return preserved
-
-
-def compute_noise_ratio(
-    raw_logs: list[dict[str, Any]],
-    denoised_logs: list[dict[str, Any]],
-) -> float:
-    """
-    Compute the noise ratio of the raw evidence.
-
-    Returns 0.0 if no raw logs, otherwise (raw - denoised) / raw.
-    """
-    raw_count = len(raw_logs)
-    if raw_count == 0:
-        return 0.0
-    return max(0.0, min(1.0, (raw_count - len(denoised_logs)) / raw_count))

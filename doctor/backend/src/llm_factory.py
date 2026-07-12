@@ -12,7 +12,7 @@ from pydantic import SecretStr
 
 from src.config import settings
 
-NodeRole = Literal["triage", "specialist", "diagnosis", "default", "judge"]
+NodeRole = Literal["specialist", "diagnosis", "default", "judge"]
 
 # ── Provider detection ──────────────────────────────────────────────
 _REASONING_KEYWORDS = ("o1", "o3", "qwq", "gemini-thinking")
@@ -92,12 +92,6 @@ def get_llm_for_role(role: NodeRole) -> BaseChatModel:
         model = settings.llm_judge_model or settings.llm_specialist_model or settings.llm_model
         temp = settings.llm_judge_temperature
         max_tok = settings.llm_judge_max_tokens
-    elif role == "triage":
-        model = settings.llm_triage_model or settings.llm_model
-        temp = settings.llm_triage_temperature
-        max_tok = settings.llm_triage_max_tokens
-        api_key = settings.llm_api_key.get_secret_value()
-        base_url = settings.llm_base_url
     elif role in ("specialist", "diagnosis"):
         model = settings.llm_specialist_model or settings.llm_model
         temp = settings.llm_specialist_temperature
@@ -138,9 +132,7 @@ def get_llm_for_role(role: NodeRole) -> BaseChatModel:
 
 
 def get_model_name_for_role(role: NodeRole) -> str:
-    if role == "triage":
-        return settings.llm_triage_model or settings.llm_model
-    elif role in ("specialist", "diagnosis"):
+    if role in ("specialist", "diagnosis"):
         return settings.llm_specialist_model or settings.llm_model
     return settings.llm_model
 

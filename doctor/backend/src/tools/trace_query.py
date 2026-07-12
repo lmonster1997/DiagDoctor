@@ -356,6 +356,8 @@ def get_tree_summary(roots: list[SpanNode]) -> dict[str, Any]:
     Get a high-level summary of the span tree for prompt context.
 
     Returns a compact dict suitable for feeding into LLM prompts.
+    ``n_plus_ones`` is the full list; ``n_plus_one_details`` is capped
+    at 3 for prompt brevity.
     """
     all_nodes = flatten_tree(roots)
     if not all_nodes:
@@ -383,7 +385,8 @@ def get_tree_summary(roots: list[SpanNode]) -> dict[str, Any]:
         "bottleneck_count": len(bottlenecks),
         "top_bottlenecks": bottlenecks[:5],
         "n_plus_one_patterns": len(n_plus_ones),
-        "n_plus_one_details": n_plus_ones[:3],
+        "n_plus_ones": n_plus_ones,              # full list — caller may create Signals from it
+        "n_plus_one_details": n_plus_ones[:3],    # capped for LLM prompt brevity
         "critical_path_length": len(critical),
         "critical_path_duration_ms": sum(n.duration_ms for n in critical),
     }

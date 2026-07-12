@@ -36,7 +36,6 @@ from src.graph.state import (
     DoctorState,
     NormalizedEvidence,
     Signal,
-    TriageOutput,
 )
 from src.graph.subgraphs.diagnosis_agent import clear_diagnosis_agent_cache
 
@@ -56,7 +55,6 @@ def empty_state() -> DoctorState:
     """DoctorState with empty evidence — agent should short-circuit."""
     return DoctorState(
         evidence=NormalizedEvidence(),
-        triage=TriageOutput(primary=""),
     )
 
 
@@ -99,15 +97,9 @@ def be020_state() -> DoctorState:
         ],
         frontend_span_count=3,
         backend_span_count=25,
-        noise_ratio=0.08,
     )
     return DoctorState(
         evidence=evidence,
-        triage=TriageOutput(
-            primary="performance",
-            scores=[],
-            cross_layer_suspected=False,
-        ),
         case_id="BE-020",
     )
 
@@ -152,15 +144,9 @@ def fe020_state() -> DoctorState:
         ],
         frontend_span_count=8,
         backend_span_count=5,
-        noise_ratio=0.10,
     )
     return DoctorState(
         evidence=evidence,
-        triage=TriageOutput(
-            primary="frontend_crash",
-            scores=[],
-            cross_layer_suspected=True,
-        ),
         case_id="FE-020",
     )
 
@@ -204,15 +190,9 @@ def perf020_state() -> DoctorState:
         ],
         frontend_span_count=2,
         backend_span_count=30,
-        noise_ratio=0.05,
     )
     return DoctorState(
         evidence=evidence,
-        triage=TriageOutput(
-            primary="performance",
-            scores=[],
-            cross_layer_suspected=False,
-        ),
         case_id="PERF-020",
     )
 

@@ -7,8 +7,8 @@ Key changes from v2:
 - DiagnosisReport: single bug_category → primary_category + categories(list)
 - DoctorState: added raw_evidence, triage (multi-label), total_cost, retrieval_trace
 - DoctorState (v3): removed iterations, critic_feedback, verdict, draft_report
-- New sub-models: NormalizedEvidence, Signal, TimelineEvent, Correlation, TriageOutput,
-  CategoryScore, RetrievalRecord, BrowserError
+- New sub-models: NormalizedEvidence, Signal, TimelineEvent, Correlation,
+  RetrievalRecord, BrowserError
 """
 
 from datetime import datetime
@@ -189,7 +189,6 @@ class NormalizedEvidence(BaseModel):
     timeline: list[TimelineEvent] = Field(default_factory=list)
     correlations: list[Correlation] = Field(default_factory=list)
     raw_refs: dict[str, Any] = Field(default_factory=dict)  # index to raw evidence
-    noise_ratio: float = Field(default=0.0, ge=0.0, le=1.0)
     trigger_time: str | None = Field(
         default=None,
         description="ISO 8601 UTC timestamp of bug trigger, used to narrow "
@@ -215,28 +214,6 @@ BugCategory = Literal["frontend_crash", "backend_error", "performance", "logic",
 VALID_CATEGORIES: frozenset[str] = frozenset(
     {"frontend_crash", "backend_error", "performance", "logic", "data", "config"}
 )
-
-
-class CategoryScore(BaseModel):
-    """Confidence score for a single bug category."""
-
-    category: str = ""  # BugCategory
-    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
-
-
-class TriageOutput(BaseModel):
-    """Multi-label triage output with confidence distribution.
-
-    Replaces the v1 single-category Literal output.
-    """
-
-    scores: list[CategoryScore] = Field(default_factory=list)
-    primary: str = ""
-    reasoning: str = ""
-    cross_layer_suspected: bool = False
-
-
-# ── Analysis sub-models ─────────────────────────────────────────────
 
 
 class Finding(BaseModel):
@@ -330,9 +307,6 @@ class DoctorState(BaseModel):
 
     # ── Ingest layer output ──
     evidence: NormalizedEvidence = Field(default_factory=NormalizedEvidence)
-
-    # ── Triage (multi-label) — default-empty in V3; classification from Agent output ──
-    triage: TriageOutput = Field(default_factory=TriageOutput)
 
     # ── Accumulated findings & hypotheses ──
     findings: Annotated[list[Finding], add] = Field(default_factory=list)

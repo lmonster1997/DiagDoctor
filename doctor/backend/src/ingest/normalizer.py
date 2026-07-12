@@ -26,10 +26,10 @@ from src.graph.state import (
 )
 from src.ingest.correlator import correlate_by_trace_id
 from src.ingest.deduplicator import dedup_and_fold
-from src.ingest.denoiser import compute_noise_ratio, denoise_logs
+from src.ingest.denoiser import denoise_logs
 from src.ingest.signal_extractor import extract_golden_signals
 from src.ingest.tier_aware import mark_tiers
-from src.tools.trace_query import build_cross_tier_tree, detect_n_plus_one, get_tree_summary
+from src.tools.trace_query import build_cross_tier_tree, get_tree_summary
 
 
 def _get_level(item: dict[str, Any]) -> str:
@@ -240,63 +240,22 @@ def ingest(raw_evidence: dict[str, Any]) -> NormalizedEvidence:
     # Step 4: Build cross-tier span tree
     span_tree = build_cross_tier_tree(traces)
     tree_summary = get_tree_summary(span_tree)
-
-    # Enrich signals with N+1 patterns detected from the tree
-    n_plus_ones = detect_n_plus_one(span_tree)
+    n_plus_ones: list[dict[str, Any]] = tree_summary.get("n_plus_ones", []) or []
 
     # Step 5: Merge timeline
     timeline = _merge_timeline(folded_logs, traces, browser_errs)
 
-    # Step 6: Golden signal extraction (includes span-level N+1 detection)
+    # Step 6: Golden signal extraction (all sources, including N+1)
     signals = extract_golden_signals(
         folded_logs, traces, browser_errs,
         slow_threshold_ms=settings.ingest_slow_span_threshold_ms,
+        n_plus_ones=n_plus_ones,
     )
-
-    # Append tree-based N+1 signals (deduplicate against span-level ones)
-    from src.graph.state import Signal
-
-    # Collect already-detected N+1 parent_span_ids
-    existing_n1_parents: set[str] = {
-        s.evidence_ref
-        for s in signals
-        if s.signal_type == "repeated_query" and s.metadata.get("detection_method") == "span_level"
-    }
-
-    for np1 in n_plus_ones:
-        # Skip if span-level detection already caught this pattern
-        if np1["parent_span_id"] in existing_n1_parents:
-            continue
-        signals.append(
-            Signal(
-                signal_id=np1["pattern_id"],
-                source="trace",
-                signal_type="repeated_query",
-                service_tier="backend",
-                severity="warning",
-                summary=(
-                    f"[×{np1['count']}] {np1['db_statement'][:200]} "
-                    f"(total {np1['total_duration_ms']:.1f}ms, "
-                    f"parent={np1['parent_span_name']})"
-                ),
-                evidence_ref=np1["parent_span_id"],
-                metadata={
-                    "n_plus_one": True,
-                    "detection_method": "tree_based",
-                    "count": np1["count"],
-                    "total_duration_ms": np1["total_duration_ms"],
-                    "db_statement": np1["db_statement"],
-                },
-            )
-        )
 
     # Step 7: Cross-layer correlation
     correlations = correlate_by_trace_id(folded_logs, traces, browser_errs, golden_signals=signals)
 
-    # Step 8: Noise ratio
-    noise_ratio = compute_noise_ratio(raw_logs, denoised_logs)
-
-    # Step 9: Count spans by tier
+    # Step 8: Count spans by tier
     frontend_spans = sum(1 for t in traces if str(t.get("_tier", "")) == "frontend")
     backend_spans = sum(1 for t in traces if str(t.get("_tier", "")) == "backend")
 
@@ -309,7 +268,6 @@ def ingest(raw_evidence: dict[str, Any]) -> NormalizedEvidence:
         timeline=timeline,
         correlations=correlations,
         raw_refs=raw_refs,
-        noise_ratio=noise_ratio,
         frontend_span_count=frontend_spans,
         backend_span_count=backend_spans,
         trigger_time=raw_evidence.get("trigger_time"),

@@ -29,9 +29,6 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 4096
 
     # Role-specific LLM overrides (fall back to llm_model if empty)
-    llm_triage_model: str = ""
-    llm_triage_temperature: float = 0.0
-    llm_triage_max_tokens: int = 2048
     llm_specialist_model: str = ""
     llm_specialist_temperature: float = 0.0
     llm_specialist_max_tokens: int = 4096

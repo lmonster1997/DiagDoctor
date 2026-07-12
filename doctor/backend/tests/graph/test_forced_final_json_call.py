@@ -420,7 +420,6 @@ def be020_state() -> DoctorState:
         Correlation,
         NormalizedEvidence,
         Signal,
-        TriageOutput,
     )
 
     evidence = NormalizedEvidence(
@@ -446,11 +445,9 @@ def be020_state() -> DoctorState:
         ],
         frontend_span_count=3,
         backend_span_count=25,
-        noise_ratio=0.08,
     )
     return DoctorState(
         evidence=evidence,
-        triage=TriageOutput(primary="performance"),
         case_id="BE-020",
     )
 

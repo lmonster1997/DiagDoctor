@@ -35,7 +35,6 @@ from src.graph.state import (
     DoctorState,
     NormalizedEvidence,
     Signal,
-    TriageOutput,
 )
 from src.graph.subgraphs.diagnosis_agent import clear_diagnosis_agent_cache
 
@@ -76,11 +75,9 @@ def base_state() -> DoctorState:
         ],
         frontend_span_count=1,
         backend_span_count=5,
-        noise_ratio=0.05,
     )
     return DoctorState(
         evidence=evidence,
-        triage=TriageOutput(primary="performance"),
         case_id="BUDGET-TEST",
     )
 

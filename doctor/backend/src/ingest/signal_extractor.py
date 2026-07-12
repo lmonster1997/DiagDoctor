@@ -217,6 +217,8 @@ def extract_golden_signals(
     traces: list[dict[str, Any]],
     browser_errors: list[dict[str, Any]] | None = None,
     slow_threshold_ms: float = 200.0,
+    *,
+    n_plus_ones: list[dict[str, Any]] | None = None,
 ) -> list[Signal]:
     """
     Extract golden signals from observability evidence.
@@ -231,6 +233,9 @@ def extract_golden_signals(
         traces: Trace spans.
         browser_errors: Browser-side errors (Playwright/OTel-JS).
         slow_threshold_ms: Spans slower than this are flagged.
+        n_plus_ones: Tree-level N+1 patterns from ``detect_n_plus_one``
+            (span-tree analysis).  Merged with span-level N+1 detection,
+            deduplicated by parent_span_id.
 
     Returns:
         List of Signal objects, ordered by severity.
@@ -336,6 +341,38 @@ def extract_golden_signals(
     # --- Span-level N+1 detection (raw spans, not tree-based) ---
     n1_signals = _detect_span_n_plus_one(traces)
     signals.extend(n1_signals)
+
+    # --- Tree-level N+1 detection (from span tree, dedup against span-level) ---
+    if n_plus_ones:
+        existing_n1_parents: set[str] = {
+            s.evidence_ref
+            for s in n1_signals
+        }
+        for np1 in n_plus_ones:
+            if np1["parent_span_id"] in existing_n1_parents:
+                continue
+            signals.append(
+                Signal(
+                    signal_id=np1["pattern_id"],
+                    source="trace",
+                    signal_type="repeated_query",
+                    service_tier="backend",
+                    severity="warning",
+                    summary=(
+                        f"[×{np1['count']}] {np1['db_statement'][:200]} "
+                        f"(total {np1['total_duration_ms']:.1f}ms, "
+                        f"parent={np1['parent_span_name']})"
+                    ),
+                    evidence_ref=np1["parent_span_id"],
+                    metadata={
+                        "n_plus_one": True,
+                        "detection_method": "tree_based",
+                        "count": np1["count"],
+                        "total_duration_ms": np1["total_duration_ms"],
+                        "db_statement": np1["db_statement"],
+                    },
+                )
+            )
 
     # Sort: severity (error > warning > info), then timestamp
     sev_order = {"error": 0, "warning": 1, "info": 2}
