@@ -21,7 +21,7 @@ from typing import Any
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import ToolMessage
 
-from src.graph.nodes.diagnosis_agent.middleware.run_context import (
+from src.graph.nodes.diagnosis_agent.run_context import (
     get_run_context,
     get_run_context_or_none,
 )

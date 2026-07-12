@@ -25,7 +25,7 @@ from __future__ import annotations
 from typing import Any
 
 from src.graph.nodes.bug_info import bug_info_node
-from src.graph.nodes.diagnosis_agent.middleware.run_context import (
+from src.graph.nodes.diagnosis_agent.run_context import (
     DiagnosisRunContext,
     clear_run_context,
     set_run_context,

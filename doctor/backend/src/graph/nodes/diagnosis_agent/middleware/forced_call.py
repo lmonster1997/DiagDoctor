@@ -42,7 +42,7 @@ from src.graph.nodes.diagnosis_agent.forced_call import (
     _last_ai_has_json,
     _last_ai_is_natural_stop,
 )
-from src.graph.nodes.diagnosis_agent.middleware.run_context import (
+from src.graph.nodes.diagnosis_agent.run_context import (
     get_run_context,
     get_run_context_or_none,
 )

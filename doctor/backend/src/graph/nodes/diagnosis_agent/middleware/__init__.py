@@ -31,7 +31,7 @@ from __future__ import annotations
 from src.graph.nodes.diagnosis_agent.middleware.budget_guard import BudgetGuardMiddleware
 from src.graph.nodes.diagnosis_agent.middleware.forced_call import ForcedFinalCallMiddleware
 from src.graph.nodes.diagnosis_agent.middleware.langfuse_tracing import LangfuseTracingMiddleware
-from src.graph.nodes.diagnosis_agent.middleware.run_context import (
+from src.graph.nodes.diagnosis_agent.run_context import (
     DiagnosisRunContext,
     clear_run_context,
     get_run_context,

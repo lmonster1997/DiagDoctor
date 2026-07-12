@@ -29,9 +29,8 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import ToolMessage
 
 from src.graph.context_engine import ContextBudget
-from src.graph.nodes.diagnosis_agent.middleware.run_context import (
+from src.graph.nodes.diagnosis_agent.run_context import (
     DiagnosisRunContext,
-    get_run_context,
     get_run_context_or_none,
 )
 from src.observability.logger import get_logger
@@ -77,7 +76,11 @@ class LangfuseTracingMiddleware(AgentMiddleware):
 
     async def abefore_agent(self, state: Any, runtime: Any) -> dict[str, Any] | None:
         self._local_llm_count = 0  # reset per invocation
-        ctx = get_run_context()
+        ctx = get_run_context_or_none()
+        if ctx is None:
+            # create_agent() may fire abefore_agent during graph compilation
+            # before diagnosis_agent_node sets the ContextVar. Silently skip.
+            return None
         # Fresh per-invocation budget + dedup cache
         ctx.ctx_budget = ContextBudget()
         if ctx.system_prompt_text:
