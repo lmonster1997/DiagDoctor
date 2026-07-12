@@ -101,14 +101,6 @@ async def _diagnosis_agent_node(state: dict[str, Any]) -> dict[str, Any]:
     case_id = state.get("case_id", state.get("thread_id", ""))
     evidence_text = format_evidence_for_agent(evidence)
 
-    # ── Enrich with error log excerpts (attached by bug_info_node) ──
-    error_excerpts = evidence.metadata.get("error_log_excerpts", [])
-    if error_excerpts:
-        parts = [evidence_text, "\n【关键错误日志摘录】"]
-        for i, excerpt in enumerate(error_excerpts, 1):
-            parts.append(f"{i}. {excerpt}")
-        evidence_text = "\n".join(parts)
-
     logger.info(
         "copilotkit_diagnosis_agent_invoking",
         case_id=case_id,

@@ -171,45 +171,6 @@ def _empty_prefetch() -> dict[str, Any]:
     return {"logs": [], "traces": [], "error_spans": [], "log_count": 0, "trace_count": 0}
 
 
-def _attach_error_log_excerpts(
-    evidence: NormalizedEvidence, logs: list[dict[str, Any]]
-) -> None:
-    """Attach key error log excerpts to evidence metadata.
-
-    Extracts the first 300 chars of each error-level log line so the
-    agent sees exception types (IntegrityError, ForeignKeyViolation,
-    etc.) directly in the evidence text without needing an extra
-    ``search_observability`` round-trip.
-
-    Only attaches up to 5 excerpts (most recent first) to keep the
-    evidence compact.
-    """
-    error_excerpts: list[str] = []
-    for log_entry in logs:
-        labels = log_entry.get("labels", {})
-        level = str(labels.get("detected_level", labels.get("level", ""))).lower()
-        if level not in ("error", "critical"):
-            continue
-        line = str(log_entry.get("line", log_entry.get("message", "")))
-        if not line.strip():
-            continue
-        # Truncate to first 300 chars — enough to capture exception
-        # type and key message without bloating the evidence text.
-        excerpt = line[:300]
-        if len(line) > 300:
-            excerpt += "…"
-        error_excerpts.append(excerpt)
-        if len(error_excerpts) >= 5:
-            break
-
-    if error_excerpts:
-        evidence.metadata["error_log_excerpts"] = error_excerpts
-        logger.debug(
-            "buginfo_error_excerpts_attached",
-            count=len(error_excerpts),
-        )
-
-
 # ═════════════════════════════════════════════════════════════════════
 # Main node function
 # ═════════════════════════════════════════════════════════════════════
@@ -347,10 +308,6 @@ async def bug_info_node(state: dict[str, Any]) -> dict[str, Any]:
     normalized = ingest(raw_dict)
     # Attach frontend error spans as metadata
     normalized.metadata["frontend_error_spans"] = frontend.get("error_spans", [])
-
-    # ── Enrich: attach error log excerpts ──
-    all_logs = backend["logs"] + frontend["logs"]
-    _attach_error_log_excerpts(normalized, all_logs)
 
     logger.info(
         "buginfo_normalized",
