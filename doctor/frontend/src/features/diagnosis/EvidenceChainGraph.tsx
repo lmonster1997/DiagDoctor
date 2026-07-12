@@ -1,25 +1,23 @@
 /**
- * EvidenceChainGraph — directed graph visualising the diagnosis evidence chain.
+ * EvidenceChainGraph — "侦探墙上的线索板" 因果推理可视化.
  *
- * Columns (left → right):
- *   1. golden_signals  — one node per Signal, coloured by `source`
- *   2. correlations    — nodes linking multiple signals (edges signal → correlation)
- *   3. findings        — Finding nodes with confidence (edges signal → finding via evidence_ref)
- *   4. report          — terminal node with root_cause + highlighted evidence_chain path
+ * Layout reimagined: not a database ER diagram, but a detective's clue board.
+ *   - Signal cards: colour-coded pushpin notes with slight rotation
+ *   - Correlation notes: dashed yellow sticky-notes connecting signals
+ *   - Finding cards: evidence dossiers with paperclip
+ *   - Report card: glowing "CASE SOLVED" card with golden border
  *
- * Edges are derived from `evidence_ref` strings (the shared reference namespace
- * between Signal.evidence_ref, Finding.evidence_refs and DiagnosisReport.evidence_chain).
- * `raw_refs` is used to resolve any refs that don't directly match a signal's
- * evidence_ref (defensive fallback).
- *
- * Highlighting: nodes/edges on the report's `evidence_chain` path are always
- * highlighted; an external `highlightedRefs` set (from ReportPanel clicks)
- * adds focus to specific signal nodes.
+ * Edges use smoothstep curves ("red string" metaphor), with correlation
+ * coefficients as edge labels. Click an evidence_ref → smooth zoom to the
+ * related nodes ("聚焦叙事").
  */
-import { useMemo } from "react";
+import { useMemo, useCallback, useEffect } from "react";
 import ReactFlow, {
   Background,
   Controls,
+  BackgroundVariant,
+  ReactFlowProvider,
+  useReactFlow,
   type Edge,
   type Node,
   type NodeProps,
@@ -37,21 +35,21 @@ import type {
   SignalSource,
 } from "@/api/types";
 
-// ── Column x-offsets ──────────────────────────────────────────────
+// ── Layout constants ──────────────────────────────────────────────
 const COL_SIGNAL = 0;
-const COL_CORRELATION = 320;
-const COL_FINDING = 640;
-const COL_REPORT = 960;
-const ROW_HEIGHT = 88;
-const NODE_WIDTH = 240;
+const COL_CORRELATION = 340;
+const COL_FINDING = 680;
+const COL_REPORT = 1020;
+const ROW_HEIGHT = 120;
+const NODE_WIDTH = 260;
 
 // ── Source colour map ─────────────────────────────────────────────
 const SOURCE_COLOR: Record<SignalSource, string> = {
-  log: "#f59e0b", // amber
-  trace: "#3b82f6", // blue
-  browser_error: "#a855f7", // purple
-  api_response: "#22c55e", // green
-  user_report: "#64748b", // slate
+  log: "#f59e0b",
+  trace: "#3b82f6",
+  browser_error: "#a855f7",
+  api_response: "#22c55e",
+  user_report: "#64748b",
 };
 
 const SOURCE_LABEL: Record<SignalSource, string> = {
@@ -62,146 +60,318 @@ const SOURCE_LABEL: Record<SignalSource, string> = {
   user_report: "User",
 };
 
+const SOURCE_ICON: Record<SignalSource, string> = {
+  log: "📜",
+  trace: "🔗",
+  browser_error: "🌐",
+  api_response: "📡",
+  user_report: "💬",
+};
+
+// ── Pseudo-random rotation for "pinned note" look ─────────────────
+function pinRotation(index: number): number {
+  // Deterministic slight rotation per card (-3° to +3°)
+  const seed = (index * 137 + 42) % 7;
+  return seed - 3;
+}
+
 // ── Node data types ───────────────────────────────────────────────
 interface SignalNodeData {
   signal: Signal;
+  index: number;
   highlighted: boolean;
   faded: boolean;
-  [key: string]: unknown;
 }
 interface CorrelationNodeData {
   correlation: Correlation;
   highlighted: boolean;
   faded: boolean;
-  [key: string]: unknown;
 }
 interface FindingNodeData {
   finding: Finding;
   index: number;
   highlighted: boolean;
   faded: boolean;
-  [key: string]: unknown;
 }
 interface ReportNodeData {
   report: DiagnosisReport;
-  [key: string]: unknown;
 }
 
-// ── Custom node renderers ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// Custom Node Renderers — "Clue Board" style
+// ═══════════════════════════════════════════════════════════════════
+
+/** Signal card — pushpin note with colour-coded left tab */
 function SignalNode({ data }: NodeProps<SignalNodeData>) {
-  const { signal, highlighted, faded } = data;
+  const { signal, index, highlighted, faded } = data;
   const color = SOURCE_COLOR[signal.source] ?? "#64748b";
+  const rotation = pinRotation(index);
+
   return (
     <div
-      className="rounded-md border bg-card px-3 py-2 text-left shadow-sm transition-opacity"
+      className="relative transition-all duration-500 ease-out"
       style={{
         width: NODE_WIDTH,
-        borderColor: color,
-        borderWidth: highlighted ? 2 : 1,
-        opacity: faded ? 0.35 : 1,
-        boxShadow: highlighted ? `0 0 0 2px ${color}55` : undefined,
+        opacity: faded ? 0.2 : 1,
+        transform: `rotate(${rotation}deg)`,
+        filter: faded ? "grayscale(0.6)" : undefined,
       }}
     >
-      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
-        <span
-          className="inline-block size-2 rounded-full"
-          style={{ backgroundColor: color }}
-        />
-        <span className="truncate">{signal.signal_id || "signal"}</span>
-        <span className="ml-auto rounded bg-muted px-1 text-[10px] text-muted-foreground">
-          {SOURCE_LABEL[signal.source]}
-        </span>
+      {/* Pushpin */}
+      <div
+        className="absolute -top-2 left-1/2 z-10 -translate-x-1/2"
+        style={{ filter: `drop-shadow(0 2px 2px rgba(0,0,0,0.5))` }}
+      >
+        <div
+          className="flex size-7 items-center justify-center rounded-full text-xs shadow-md"
+          style={{
+            background: `radial-gradient(circle at 40% 35%, ${color}cc, ${color}66)`,
+            border: `2px solid ${color}`,
+          }}
+        >
+          📌
+        </div>
       </div>
-      <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
-        {signal.summary || signal.signal_type}
-      </p>
+
+      {/* Card body */}
+      <div
+        className="rounded-lg border bg-[#1a1d25] p-3 pt-5 text-left shadow-lg transition-all duration-300"
+        style={{
+          borderColor: highlighted ? color : "rgba(255,255,255,0.08)",
+          borderLeftWidth: 4,
+          borderLeftColor: color,
+          boxShadow: highlighted
+            ? `0 0 18px ${color}22, 0 4px 12px rgba(0,0,0,0.4)`
+            : "0 2px 8px rgba(0,0,0,0.3)",
+        }}
+      >
+        {/* Source badge */}
+        <div className="mb-1.5 flex items-center gap-1.5">
+          <span className="text-xs">{SOURCE_ICON[signal.source]}</span>
+          <span
+            className="rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
+            style={{ backgroundColor: `${color}20`, color }}
+          >
+            {SOURCE_LABEL[signal.source]}
+          </span>
+          {signal.severity === "error" && (
+            <span className="ml-auto rounded bg-red-500/15 px-1.5 py-0.5 text-[9px] font-medium text-red-400">
+              ERROR
+            </span>
+          )}
+        </div>
+
+        {/* Signal title */}
+        <div className="text-[12px] font-semibold leading-snug text-[#e4e4ef]">
+          {signal.signal_id || signal.signal_type}
+        </div>
+
+        {/* Summary */}
+        <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-[#8a8fa3]">
+          {signal.summary || "—"}
+        </p>
+
+        {/* Timestamp */}
+        {signal.timestamp && (
+          <div className="mt-1.5 font-mono text-[9px] text-[#5c6070]">
+            {new Date(signal.timestamp).toLocaleTimeString("zh-CN", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
+/** Correlation note — yellow sticky, dashed border, with confidence */
 function CorrelationNode({ data }: NodeProps<CorrelationNodeData>) {
   const { correlation, highlighted, faded } = data;
+  const confPct = Math.round(correlation.confidence * 100);
+
   return (
     <div
-      className="rounded-md border border-dashed border-border bg-muted/40 px-3 py-2 text-left transition-opacity"
+      className="relative transition-all duration-500 ease-out"
       style={{
         width: NODE_WIDTH,
-        opacity: faded ? 0.35 : 1,
-        borderColor: highlighted ? "#0ea5e9" : undefined,
-        borderWidth: highlighted ? 2 : 1,
+        opacity: faded ? 0.2 : 1,
+        transform: `rotate(1.5deg)`,
       }}
     >
-      <div className="text-[11px] font-semibold text-foreground">
-        {correlation.correlation_id || "correlation"}
+      {/* Paperclip */}
+      <div className="absolute -right-1 -top-3 z-10 text-[#8a8fa3] opacity-60 text-lg rotate-12">
+        📎
       </div>
-      <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
-        {correlation.description}
-      </p>
-      <div className="mt-1 text-[10px] tabular-nums text-muted-foreground">
-        conf {(correlation.confidence * 100).toFixed(0)}%
+
+      <div
+        className="rounded-lg border-2 border-dashed bg-[#1e1b18] p-3 text-left shadow-md transition-all duration-300"
+        style={{
+          borderColor: highlighted ? "#f59e0b" : "rgba(245,158,11,0.15)",
+          boxShadow: highlighted
+            ? "0 0 16px rgba(245,158,11,0.12), 0 2px 8px rgba(0,0,0,0.4)"
+            : "0 2px 6px rgba(0,0,0,0.3)",
+        }}
+      >
+        {/* Header */}
+        <div className="mb-1.5 flex items-center gap-1.5">
+          <span className="text-xs">🧩</span>
+          <span className="text-[11px] font-semibold text-[#f59e0b]">
+            {correlation.correlation_id || "关联发现"}
+          </span>
+        </div>
+
+        {/* Description */}
+        <p className="line-clamp-2 text-[11px] leading-relaxed text-[#a8a29e]">
+          {correlation.description || "跨层信号关联"}
+        </p>
+
+        {/* Confidence badge */}
+        <div className="mt-2 flex items-center gap-2">
+          <div className="h-1.5 flex-1 rounded-full bg-white/[0.06]">
+            <div
+              className="h-full rounded-full bg-[#f59e0b] transition-all duration-500"
+              style={{ width: `${confPct}%` }}
+            />
+          </div>
+          <span className="font-mono text-[10px] tabular-nums text-[#8a8fa3]">
+            {confPct}%
+          </span>
+        </div>
       </div>
     </div>
   );
 }
 
+/** Finding card — evidence dossier with paperclip */
 function FindingNode({ data }: NodeProps<FindingNodeData>) {
   const { finding, index, highlighted, faded } = data;
   const confPct = Math.round(finding.confidence * 100);
+  const rotation = pinRotation(index + 100); // different seed
+
   return (
     <div
-      className="rounded-md border bg-card px-3 py-2 text-left shadow-sm transition-opacity"
+      className="relative transition-all duration-500 ease-out"
       style={{
         width: NODE_WIDTH,
-        borderColor: highlighted ? "#16a34a" : undefined,
-        borderWidth: highlighted ? 2 : 1,
-        opacity: faded ? 0.35 : 1,
-        boxShadow: highlighted ? "0 0 0 2px #16a34a44" : undefined,
+        opacity: faded ? 0.2 : 1,
+        transform: `rotate(${rotation}deg)`,
       }}
     >
-      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
-        <span className="truncate">F{index + 1} · {finding.agent || "finding"}</span>
-        {finding.cross_layer && (
-          <span className="ml-auto rounded bg-purple-500/15 px-1 text-[10px] text-purple-500">
-            cross
+      <div
+        className="rounded-lg border bg-[#131b17] p-3 text-left shadow-lg transition-all duration-300"
+        style={{
+          borderColor: highlighted ? "#22c55e" : "rgba(34,197,94,0.12)",
+          borderLeftWidth: 4,
+          borderLeftColor: "#22c55e",
+          boxShadow: highlighted
+            ? "0 0 20px rgba(34,197,94,0.18), 0 4px 12px rgba(0,0,0,0.4)"
+            : "0 2px 8px rgba(0,0,0,0.3)",
+        }}
+      >
+        {/* Header */}
+        <div className="mb-1.5 flex items-center gap-1.5">
+          <span className="text-xs">🔎</span>
+          <span className="text-[11px] font-semibold text-[#e4e4ef]">
+            发现 #{index + 1}
           </span>
-        )}
-      </div>
-      <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
-        {finding.summary}
-      </p>
-      <div className="mt-1 h-1 rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-green-500"
-          style={{ width: `${confPct}%` }}
-        />
+          {finding.agent && (
+            <span className="ml-auto rounded bg-white/[0.04] px-1.5 py-0.5 text-[9px] text-[#5c6070]">
+              {finding.agent}
+            </span>
+          )}
+          {finding.cross_layer && (
+            <span className="rounded bg-purple-500/15 px-1.5 py-0.5 text-[9px] text-purple-400">
+              跨层
+            </span>
+          )}
+        </div>
+
+        {/* Summary */}
+        <p className="line-clamp-2 text-[11px] leading-relaxed text-[#8a8fa3]">
+          {finding.summary}
+        </p>
+
+        {/* Confidence bar */}
+        <div className="mt-2 flex items-center gap-2">
+          <div className="h-1.5 flex-1 rounded-full bg-white/[0.06]">
+            <div
+              className="h-full rounded-full bg-[#22c55e] transition-all duration-500"
+              style={{ width: `${confPct}%` }}
+            />
+          </div>
+          <span className="font-mono text-[10px] tabular-nums text-[#8a8fa3]">
+            {confPct}%
+          </span>
+        </div>
       </div>
     </div>
   );
 }
 
+/** Report node — "CASE SOLVED" terminal card with golden glow */
 function ReportNode({ data }: NodeProps<ReportNodeData>) {
   const { report } = data;
   const confPct = Math.round(report.confidence * 100);
+
   return (
     <div
-      className="rounded-lg border-2 border-primary bg-primary/5 px-3 py-2 text-left shadow-md"
-      style={{ width: NODE_WIDTH }}
+      className="relative"
+      style={{ width: NODE_WIDTH + 20 }}
     >
-      <div className="text-[12px] font-bold text-foreground">诊断报告</div>
-      <div className="mt-1 text-[10px] text-muted-foreground">
-        {report.primary_category || "未分类"}
-      </div>
-      <p className="mt-1 line-clamp-3 text-[11px] leading-snug text-foreground">
-        {report.root_cause || "（未识别）"}
-      </p>
-      <div className="mt-1.5 h-1.5 rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-primary"
-          style={{ width: `${confPct}%` }}
-        />
-      </div>
-      <div className="mt-1 text-[10px] tabular-nums text-muted-foreground">
-        置信度 {confPct}%
+      {/* Glow aura */}
+      <div
+        className="absolute -inset-3 rounded-xl opacity-30 blur-xl transition-all"
+        style={{ background: "radial-gradient(ellipse, #f59e0b44, transparent 70%)" }}
+      />
+
+      <div
+        className="relative rounded-xl border-2 bg-[#1a1814] p-4 text-left shadow-2xl"
+        style={{
+          borderColor: "#f59e0b",
+          boxShadow: "0 0 30px rgba(245,158,11,0.15), 0 0 8px rgba(245,158,11,0.2), 0 4px 16px rgba(0,0,0,0.5)",
+        }}
+      >
+        {/* Status stamp — not "SOLVED" but an open investigation */}
+        <div className="absolute -right-2 -top-3 rotate-12 rounded border-2 border-[#3b82f6]/40 bg-[#3b82f6]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#3b82f6]">
+          分析中
+        </div>
+
+        <div className="mb-2 flex items-center gap-2 text-[13px] font-bold text-[#f59e0b]">
+          <span>🔍</span>
+          初步分析
+        </div>
+
+        {/* Category */}
+        <div className="mb-2 text-[10px] text-[#8a8fa3]">
+          {report.primary_category || "未分类"}
+        </div>
+
+        {/* Root cause */}
+        <p className="line-clamp-3 text-[12px] leading-snug text-[#e4e4ef]">
+          {report.root_cause || "（未识别）"}
+        </p>
+
+        {/* Confidence */}
+        <div className="mt-3 flex items-center gap-2">
+          <div className="h-2 flex-1 rounded-full bg-white/[0.06]">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#f59e0b] to-[#ef4444] transition-all duration-500"
+              style={{ width: `${confPct}%` }}
+            />
+          </div>
+          <span className="font-mono text-[10px] font-semibold tabular-nums text-[#f59e0b]">
+            {confPct}%
+          </span>
+        </div>
+
+        {/* Evidence chain count */}
+        {report.evidence_chain.length > 0 && (
+          <div className="mt-2 font-mono text-[9px] text-[#5c6070]">
+            {report.evidence_chain.length} 条证据
+          </div>
+        )}
       </div>
     </div>
   );
@@ -219,27 +389,49 @@ interface EvidenceChainGraphProps {
   evidence: NormalizedEvidence | null;
   findings: Finding[];
   report: DiagnosisReport | null;
-  /** Extra evidence_refs to focus (e.g. from ReportPanel clicks). */
   highlightedRefs?: Set<string>;
 }
 
-// ── Component ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// Main Component (outer — provides ReactFlowProvider context)
+// ═══════════════════════════════════════════════════════════════════
 export function EvidenceChainGraph({
   evidence,
   findings,
   report,
   highlightedRefs,
 }: EvidenceChainGraphProps) {
+  return (
+    <ReactFlowProvider>
+      <EvidenceChainGraphInner
+        evidence={evidence}
+        findings={findings}
+        report={report}
+        highlightedRefs={highlightedRefs}
+      />
+    </ReactFlowProvider>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Inner Component (child of ReactFlowProvider — can use useReactFlow)
+// ═══════════════════════════════════════════════════════════════════
+function EvidenceChainGraphInner({
+  evidence,
+  findings,
+  report,
+  highlightedRefs,
+}: EvidenceChainGraphProps) {
+  const reactFlowInstance = useReactFlow();
+
   const { nodes, edges } = useMemo(() => {
     const signals = evidence?.golden_signals ?? [];
     const correlations = evidence?.correlations ?? [];
 
-    // Refs on the report's evidence chain — the always-highlighted path.
     const chainRefs = new Set<string>(report?.evidence_chain ?? []);
     const focusRefs = highlightedRefs ?? new Set<string>();
     const allHighlighted = new Set<string>([...chainRefs, ...focusRefs]);
 
-    // Index signals by evidence_ref for edge resolution.
     const signalsByRef = new Map<string, Signal[]>();
     for (const s of signals) {
       const key = s.evidence_ref || s.signal_id;
@@ -257,7 +449,7 @@ export function EvidenceChainGraph({
     const newNodes: Node[] = [];
     const newEdges: Edge[] = [];
 
-    // ── Column 1: signals ──
+    // ── Column 1: Signal cards ───────────────────────────────
     signals.forEach((signal, i) => {
       const ref = signal.evidence_ref || signal.signal_id;
       const highlighted = isRefHighlighted(ref);
@@ -265,18 +457,18 @@ export function EvidenceChainGraph({
         id: `sig:${signal.signal_id || i}`,
         type: "signal",
         position: { x: COL_SIGNAL, y: i * ROW_HEIGHT },
-        data: { signal, highlighted, faded: isRefFaded(ref) },
+        data: { signal, index: i, highlighted, faded: isRefFaded(ref) },
         sourcePosition: Position.Right,
         targetPosition: Position.Left,
       });
     });
 
-    // ── Column 2: correlations ──
+    // ── Column 2: Correlation sticky-notes ───────────────────
     correlations.forEach((corr, i) => {
       const linked = [
-        ...corr.frontend_signals,
-        ...corr.backend_signals,
-        ...corr.db_signals,
+        ...(corr.frontend_signals ?? []),
+        ...(corr.backend_signals ?? []),
+        ...(corr.db_signals ?? []),
       ];
       const highlighted = linked.some((sid) => {
         const sigs = signalsByRef.get(sid) ?? [];
@@ -292,19 +484,35 @@ export function EvidenceChainGraph({
         sourcePosition: Position.Right,
         targetPosition: Position.Left,
       });
-      // edges: signal → correlation
+
+      // Edges: signal → correlation ("red string" curves)
       for (const sid of linked) {
+        const confLabel =
+          corr.confidence != null ? `${Math.round(corr.confidence * 100)}%` : undefined;
         newEdges.push({
           id: `e:${sid}->${id}`,
           source: `sig:${sid}`,
           target: id,
+          type: "smoothstep",
           animated: highlighted,
-          style: { stroke: highlighted ? "#0ea5e9" : "#cbd5e1", strokeWidth: highlighted ? 2 : 1 },
+          label: confLabel,
+          labelStyle: {
+            fill: highlighted ? "#f59e0b" : "rgba(255,255,255,0.25)",
+            fontSize: 9,
+            fontFamily: "JetBrains Mono, monospace",
+            fontWeight: 500,
+          },
+          labelBgStyle: { fill: "transparent" },
+          style: {
+            stroke: highlighted ? "#f59e0b" : "rgba(255,255,255,0.10)",
+            strokeWidth: highlighted ? 2.5 : 1,
+            strokeDasharray: highlighted ? undefined : "6 4",
+          },
         });
       }
     });
 
-    // ── Column 3: findings ──
+    // ── Column 3: Finding dossiers ───────────────────────────
     findings.forEach((finding, fi) => {
       const highlighted = finding.evidence_refs.some((r) => isRefHighlighted(r));
       const faded = hasFocus && !highlighted;
@@ -317,7 +525,8 @@ export function EvidenceChainGraph({
         sourcePosition: Position.Right,
         targetPosition: Position.Left,
       });
-      // edges: signal → finding (via shared evidence_ref)
+
+      // Edges: signal → finding (dashed or solid based on confidence)
       for (const ref of finding.evidence_refs) {
         const sigs = signalsByRef.get(ref) ?? [];
         for (const s of sigs) {
@@ -326,38 +535,52 @@ export function EvidenceChainGraph({
             id: `e:sig:${s.signal_id}->${id}`,
             source: `sig:${s.signal_id}`,
             target: id,
+            type: "smoothstep",
             animated: edgeHi,
             style: {
-              stroke: edgeHi ? "#16a34a" : "#cbd5e1",
+              stroke: edgeHi ? "#22c55e" : "rgba(255,255,255,0.08)",
               strokeWidth: edgeHi ? 2 : 1,
+              strokeDasharray: edgeHi ? undefined : "8 4",
             },
           });
         }
       }
     });
 
-    // ── Column 4: report (terminal) ──
+    // ── Column 4: Report (terminal) ──────────────────────────
     if (report) {
+      // Place report vertically centered among findings
+      const reportY = findings.length > 0
+        ? ((findings.length - 1) * ROW_HEIGHT) / 2
+        : 0;
       newNodes.push({
         id: "report",
         type: "report",
-        position: { x: COL_REPORT, y: 0 },
+        position: { x: COL_REPORT, y: reportY },
         data: { report },
         targetPosition: Position.Left,
       });
-      // edges: finding → report (highlighted if finding is on the chain)
+
+      // Edges: finding → report (only chain-path findings highlighted)
       findings.forEach((finding, fi) => {
         const onChain = finding.evidence_refs.some((r) => chainRefs.has(r));
         newEdges.push({
           id: `e:find:${fi}->report`,
           source: `find:${fi}`,
           target: "report",
+          type: "smoothstep",
           animated: onChain,
           style: {
-            stroke: onChain ? "#16a34a" : "#cbd5e1",
-            strokeWidth: onChain ? 2 : 1,
+            stroke: onChain ? "#f59e0b" : "rgba(255,255,255,0.06)",
+            strokeWidth: onChain ? 2.5 : 1,
+            strokeDasharray: onChain ? undefined : "6 4",
           },
-          markerEnd: { type: MarkerType.ArrowClosed, color: onChain ? "#16a34a" : "#cbd5e1" },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: onChain ? "#f59e0b" : "rgba(255,255,255,0.2)",
+            width: 14,
+            height: 14,
+          },
         });
       });
     }
@@ -365,13 +588,49 @@ export function EvidenceChainGraph({
     return { nodes: newNodes, edges: newEdges };
   }, [evidence, findings, report, highlightedRefs]);
 
+  // ── Focus narrative: smooth zoom to highlighted nodes ───────
+  const onInit = useCallback(() => {
+    setTimeout(() => {
+      reactFlowInstance?.fitView({ padding: 0.2, duration: 600 });
+    }, 100);
+  }, [reactFlowInstance]);
+
+  // When highlightedRefs changes (user clicks evidence_ref in report),
+  // zoom to the highlighted nodes for "聚焦叙事".
+  useEffect(() => {
+    const currentHighlightCount = highlightedRefs?.size ?? 0;
+    if (currentHighlightCount > 0 && nodes.length > 0) {
+      const highlightedNodeIds = nodes
+        .filter((n) => {
+          const d = n.data as Record<string, unknown>;
+          return d.highlighted === true;
+        })
+        .map((n) => n.id);
+      if (highlightedNodeIds.length > 0) {
+        // Delay to let ReactFlow finish rendering fade transitions
+        const timer = setTimeout(() => {
+          reactFlowInstance?.fitView({
+            nodes: highlightedNodeIds,
+            padding: 0.4,
+            duration: 800,
+            maxZoom: 1.2,
+          });
+        }, 300);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [highlightedRefs, nodes, reactFlowInstance]);
+
   const isEmpty = nodes.length === 0;
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-border px-4 py-2">
-        <h3 className="text-sm font-semibold text-foreground">证据链</h3>
-        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+    <div className="flex h-full flex-col bg-[#0d0f12]">
+      {/* Legend bar */}
+      <div className="flex shrink-0 items-center justify-between border-b border-white/[0.06] px-4 py-2">
+        <h3 className="text-sm font-semibold text-[#e4e4ef]">
+          🕵️ 证据链
+        </h3>
+        <div className="flex items-center gap-3 text-[10px] text-[#8a8fa3]">
           {(["log", "trace", "browser_error", "api_response", "user_report"] as SignalSource[]).map(
             (src) => (
               <span key={src} className="flex items-center gap-1">
@@ -385,10 +644,15 @@ export function EvidenceChainGraph({
           )}
         </div>
       </div>
+
       {isEmpty ? (
-        <div className="flex flex-1 items-center justify-center p-8 text-center">
-          <p className="text-sm text-muted-foreground">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+          <span className="text-3xl opacity-30">🔍</span>
+          <p className="text-sm text-[#5c6070]">
             诊断开始后，证据节点将在此显示
+          </p>
+          <p className="text-[11px] text-[#5c6070]/60">
+            信号 → 关联 → 发现 → 报告
           </p>
         </div>
       ) : (
@@ -396,18 +660,32 @@ export function EvidenceChainGraph({
           nodes={nodes}
           edges={edges}
           nodeTypes={NODE_TYPES}
+          onInit={onInit}
           fitView
-          fitViewOptions={{ padding: 0.15 }}
+          fitViewOptions={{ padding: 0.2, duration: 600 }}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
           zoomOnScroll
           panOnDrag
-          minZoom={0.3}
-          maxZoom={1.5}
+          minZoom={0.25}
+          maxZoom={1.8}
+          proOptions={{ hideAttribution: true }}
+          defaultEdgeOptions={{
+            type: "smoothstep",
+          }}
         >
-          <Background gap={20} size={1} color="#e2e8f0" />
-          <Controls showInteractive={false} />
+          {/* Cork-board style dot grid */}
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={18}
+            size={1.2}
+            color="rgba(255,255,255,0.045)"
+          />
+          <Controls
+            showInteractive={false}
+            className="[&>button]:!bg-[#13161b] [&>button]:!border-white/[0.06] [&>button]:!text-[#8a8fa3] [&>button:hover]:!bg-white/[0.06] [&>button>svg]:!fill-[#8a8fa3]"
+          />
         </ReactFlow>
       )}
     </div>

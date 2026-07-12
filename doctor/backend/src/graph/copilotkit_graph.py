@@ -35,6 +35,23 @@ from src.observability.logger import get_logger
 logger = get_logger(__name__)
 
 
+def _filter_visible_messages(messages: list[Any]) -> list[Any]:
+    """Strip SystemMessage and HumanMessage from agent output.
+
+    CopilotKit streams ALL messages back to the frontend.  The
+    SystemMessage (LLM instructions) and HumanMessage (evidence
+    dump + signal data) are internal context — they must never
+    appear in the user-visible chat.
+    """
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+
+    return [
+        m
+        for m in messages
+        if isinstance(m, (AIMessage, ToolMessage))
+    ]
+
+
 # ═════════════════════════════════════════════════════════════════════
 # DiagnosisAgent node (adapted for CopilotKit state)
 # ═════════════════════════════════════════════════════════════════════
@@ -179,7 +196,7 @@ async def _diagnosis_agent_node(state: dict[str, Any]) -> dict[str, Any]:
     )
 
     return {
-        "messages": final_messages,
+        "messages": _filter_visible_messages(final_messages),
         "report": report,
         "findings": findings,
         "budget": budget_state,

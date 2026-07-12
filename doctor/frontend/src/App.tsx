@@ -24,7 +24,7 @@ function ThemeToggle() {
   return (
     <button
       onClick={() => setDark((prev) => !prev)}
-      className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+      className="inline-flex size-8 items-center justify-center rounded-md text-[#8a8fa3] hover:bg-white/[0.06] hover:text-[#e4e4ef] transition-all duration-200"
       aria-label={dark ? "切换亮色主题" : "切换暗色主题"}
     >
       {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
@@ -39,11 +39,18 @@ const NAV_ITEMS = [
 
 function App() {
   return (
-    <div className="flex h-screen flex-col bg-background">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-card px-4">
-        <span className="mr-4 text-sm font-semibold tracking-tight text-foreground">
-          🔬 DiagDoctor
+    <div className="flex h-screen flex-col bg-[#0f1117]">
+      {/* Header — glass bar */}
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-white/[0.06] bg-white/[0.02] px-4 backdrop-blur-xl">
+        {/* Logo */}
+        <span className="mr-4 flex items-center gap-2 text-sm font-semibold tracking-tight text-[#e4e4ef]">
+          <span className="flex size-6 items-center justify-center rounded-md bg-amber-500/15 text-xs">
+            🔬
+          </span>
+          DiagDoctor
         </span>
+
+        {/* Nav pills */}
         <nav className="flex items-center gap-1">
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
             <NavLink
@@ -51,10 +58,10 @@ function App() {
               to={to}
               end={to === "/"}
               className={({ isActive }) =>
-                `inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                `inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
                   isActive
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                    ? "bg-white/[0.06] text-[#e4e4ef] shadow-sm"
+                    : "text-[#8a8fa3] hover:bg-white/[0.03] hover:text-[#e4e4ef]"
                 }`
               }
             >
@@ -63,7 +70,13 @@ function App() {
             </NavLink>
           ))}
         </nav>
-        <div className="ml-auto">
+
+        {/* Right actions */}
+        <div className="ml-auto flex items-center gap-2">
+          {/* ⌘K hint */}
+          <kbd className="hidden rounded border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5 font-mono text-[10px] text-[#5c6070] sm:inline-block">
+            ⌘K
+          </kbd>
           <ThemeToggle />
         </div>
       </header>

@@ -10,7 +10,7 @@
 
 ## 0. 总览
 
-### 0.1 目标功能（8 项）
+### 0.1 目标功能（7 项）
 
 | # | 功能 | 价值 | 落地 Phase |
 |---|------|------|-----------|
@@ -19,17 +19,16 @@
 | 3 | 实时预算 / Token / Cost 侧边面板 | 生产意识 | P1 + P4 |
 | 4 | HITL 工具审批 + 方向注入（useInterrupt） | 高价值 | P3 |
 | 5 | 证据链可视化（golden_signals → correlations → findings → report） | 后端价值显性化 | P2 |
-| 6 | 评测面板（9 维分数 + run 对比） | 评测闭环 | P5 |
-| 7 | 反馈回流标注（纠错 → Langfuse score + 本地集） | 评测飞轮 | P6 |
-| 8 | 多 Case 管理 + Langfuse trace 跳转 | 可观测性 | P5 + P7 |
+| 6 | 历史 Case 管理（查看、恢复历史诊断记录） | 用户留存 | P5 |
+| 7 | 用户反馈（👍👎 + 可选文字） | 体验闭环 | P6 |
 
 ### 0.2 技术栈（已选路线 B：CopilotKit）
 
 - **前端核心**：React 18 + Vite + TypeScript + Tailwind + **CopilotKit**（`@copilotkit/react-core` + `@copilotkit/react-ui`）
 - **诊断交互面**：CopilotKit 预组件（`CopilotChat` / `CopilotSidebar`）—— 自带流式、工具调用渲染、generative UI、HITL，slot 系统可逐层替换样式/子组件
 - **结构化侧面板**（自建，读 `useCoAgent` 订阅的 LangGraph state）：BudgetDashboard、EvidenceChainGraph、ReportPanel
-- **状态**：CopilotKit `useCoAgent`（agent state 同步，替代自建事件总线）+ TanStack Query（评测/反馈 REST）+ Zustand（仅本地 UI 态）
-- **可视化**：reactflow（证据链图）、recharts（评测雷达图）
+- **状态**：CopilotKit `useCoAgent`（agent state 同步，替代自建事件总线）+ TanStack Query（历史 REST）+ Zustand（仅本地 UI 态）
+- **可视化**：reactflow（证据链图）
 - **后端**：FastAPI + **CopilotKit FastAPI runtime**（暴露 LangGraph agent，替代手写 SSE 事件总线）+ `CopilotKitMiddleware()`（drop 进现有 `create_agent` middleware 列表）+ LangGraph `interrupt()`/`Command(resume=)`（HITL）
 
 > **关键转变**：原计划自建 asyncio.Queue 事件总线 + 手写 SSE drain（P1）和自建 interrupt/resume 端点（P3）的两大重活，改由 CopilotKit 的 AG-UI runtime + `useInterrupt` 接管。代价是诊断交互形态从「控制台」变为「chat + 侧边面板」。
@@ -37,7 +36,7 @@
 ### 0.3 目录约定
 
 - 前端：`doctor/frontend/`（与 doctor 包同级，CORS 已放行 5173）
-- 后端：`doctor/src/main.py` 挂载 CopilotKit runtime；`doctor/src/graph/subgraphs/diagnosis_agent.py` 追加 `CopilotKitMiddleware()`；新增 `doctor/src/graph/nodes/diagnosis_agent/middleware/hitl_approval.py`、`doctor/src/observability/pricing.py`、`doctor/src/api/{cases,runs,feedback}.py`
+- 后端：`doctor/src/main.py` 挂载 CopilotKit runtime；`doctor/src/graph/subgraphs/diagnosis_agent.py` 追加 `CopilotKitMiddleware()`；新增 `doctor/src/graph/nodes/diagnosis_agent/middleware/hitl_approval.py`、`doctor/src/observability/pricing.py`、`doctor/src/api/history.py`
 
 ### 0.4 架构与数据流
 
@@ -69,12 +68,110 @@ flowchart LR
     Side -->|useCoAgent 订阅 state| CKR
     HITL -->|interrupt 渲染/resolve| CKR
     Graph -->|interrupt 暂停| CKR
-    REST -->|GET cases/runs/scores POST feedback| CKR
-    CKR -->|fetch scores/traces| LF
+    REST -->|GET history| CKR
+    CKR -->|fetch traces| LF
     MW -->|record spans/scores| Trace
 ```
 
 > 与原计划对比：SSE 事件总线消失，改为 CopilotKit AG-UI runtime 统一承载流式/工具/HITL；预算与证据链数据通过 `useCoAgent` 订阅 LangGraph state 获取，不再需要 middleware 往 queue put 事件。
+
+---
+
+### 0.5 设计哲学：人机协同，非一次性诊断
+
+DiagDoctor 的 UI/UX **不是** "提交 Bug → 等待 → 拿到报告 → 结束" 的一次性流水线，而是一个**持续的协同诊断对话**。核心原则：
+
+#### 0.5.1 报告是"路标"而非"终点"
+
+- 所有诊断结果（ReportPanel、证据链图）均标注为 **"初步分析"**，而非"最终结论"
+- 证据链图上的 ReportNode 印章为 **蓝色"分析中"**，而非绿色"SOLVED"——暗示调查仍在进行
+- 诊断完成后 **不自动跳转到报告页**，只在标签上出现 **"新"** 红色通知徽章，由用户主动决定何时查看
+
+#### 0.5.2 对话始终是主交互通道
+
+- CopilotChat 永远占据左侧主区域（`flex-1`），始终保持可输入状态
+- 右侧面板（进度/证据链/报告）是**辅助参考工具**，不是对话的替代品
+- 用户在查看报告后可以（且被鼓励）切回聊天继续追问
+
+#### 0.5.3 明确的"追问"引导
+
+- ReportPanel 底部有 **"继续追问"** 区域（虚线边框 + 蓝色强调），包含 3 条引导性追问提示
+- 每条提示可一键复制到剪贴板，用户粘贴到聊天框即可继续
+- CopilotKit 保留完整对话上下文，AI 可基于已有证据链深入推理
+
+#### 0.5.4 视觉语言避免"终局感"
+
+| 避免 | 替代 |
+|------|------|
+| 绿色"SOLVED"印章 | 蓝色"分析中"印章 |
+| "诊断报告"标题 | "初步分析"标题 |
+| 报告到达自动弹入 | 标签徽章静默通知 |
+| 单次诊断的完成态动画 | 持续可追问的开放态 |
+
+#### 0.5.5 对后端的影响
+
+- `DiagnosisAgent` 应能在已有 `evidence`/`findings` 的上下文中继续运行——即支持"增量诊断"
+- `evidence_chain` 是追加式而非覆盖式：新一轮追问产生的新发现应追加到已有链上
+- State 中的 `report` 字段可能需要改为 `report_history: list[DiagnosisReport]` 以支持多轮分析
+
+#### 0.5.6 交互流程
+
+```
+用户输入 Bug 描述
+  ↓
+AI 采集证据 → 工具调用可视化(Step 1,2,3…) → 预算面板实时更新
+  ↓
+初步分析生成 → "报告"标签出现 "新" 徽章（不跳转）
+  ↓
+用户查看报告 → 看到"初步分析" + 追问引导
+  ↓
+用户选择追问 → 粘贴追问内容到聊天框 → AI 基于上下文继续
+  ↓
+（循环）更深入的分析 → 更新的初步分析 → 继续追问…
+```
+
+> **一句话总结**：DiagDoctor 的 UI 设计成**永远可以继续追问**——不是给你一份报告让你走，而是给你一把放大镜让你继续看。
+
+#### 0.5.7 当前限制：UI 先行，后端渐进
+
+上述设计哲学是产品的**目标形态**，但当前 V4 后端和 benchmark 基础设施基于"单次诊断"假设。以下是诚实的能力差距分析：
+
+**与后端的冲突**
+
+| 维度 | 设计哲学要求 | V4 后端现状 | 差距 |
+|------|-------------|-----------|------|
+| 图结构 | 可循环：诊断→报告→追问→再诊断 | 线性 DAG：`ingest → diagnosis_agent → reporter`，reporter 后图终结 | **阻断级** |
+| ReAct 循环 | 多轮追问无限继续 | `maxIterations=12`，预算耗尽即停 | 追问需重置预算 |
+| Report 模型 | 每轮一份"更新的初步分析"追加到历史 | `DiagnosisReport` 是单一对象，State 中只存一份 | 追问会覆盖第一轮报告 |
+| 证据来源 | 追问时可重新采集新证据 | Bug Factory 生成静态快照；生产 Loki/Tempo 查询固定时间窗口可重查 | 部分可用 |
+| 对话层 | 任意多轮 | CopilotKit 本身支持多轮对话，无限制 | **无冲突** |
+
+**与 benchmark 的冲突**
+
+| 维度 | 冲突 |
+|------|------|
+| 评分目标 | Ground truth 定义了一个根因 → 一次比对。多轮追问产生多个 report，**哪个算最终答案？** |
+| 入口 | `/api/diagnose` 是一次性同步调用，不支持多轮对话式 benchmark |
+| 指标 | 现有 precision/recall 是单次比对，无法衡量"追问后是否更准确" |
+| 回归 | 每次改 agent 逻辑后，需回归所有 case。多轮交互下回归矩阵爆炸 |
+
+**分阶段落地策略**
+
+```
+Phase 1-4（当前阶段）：
+  UI 层 → 完整实现"协同感"（初步分析、不强制跳转、追问入口、分析中印章）
+  后端层 → 仍做单次诊断
+  "追问"的实际行为 → 带更多上下文的新一轮单次诊断（新 thread）
+  benchmark → 不受影响，继续单次 `/api/diagnose` 评分
+
+Phase 5+（后端改造后）：
+  图结构 → ingest → diagnosis_agent ⇄ reporter（reporter 后可回环到 diagnosis_agent）
+  State → report 改为 report_history: Annotated[list[DiagnosisReport], add]
+  预算 → 追问轮次独立预算 or 共享预算池
+  benchmark → 新增多轮评分模式（首轮 accuracy + 追问 improvement delta）
+```
+
+> **核心原则**：UI 永远比后端快一步——先把"协同感"做出来，后端再跟上。用户看到的体验是连续的，后端的分批改造对用户透明。
 
 ---
 
@@ -89,19 +186,19 @@ flowchart LR
 
 ### 具体步骤
 1. `npm create vite@latest doctor/frontend -- --template react-ts`
-2. 安装前端依赖：`@copilotkit/react-core`、`@copilotkit/react-ui`、`react-router-dom`、`@tanstack/react-query`、`reactflow`、`recharts`、`tailwindcss`、shadcn/ui（按官方 init）、`lucide-react`、`zustand`
+2. 安装前端依赖：`@copilotkit/react-core`、`@copilotkit/react-ui`、`react-router-dom`、`@tanstack/react-query`、`reactflow`、`tailwindcss`、shadcn/ui（按官方 init）、`lucide-react`、`zustand`
 3. 配置 Tailwind + shadcn/ui，建立 `src/components/ui/`
-4. 目录结构：`src/api/`（REST client + types）、`src/features/{diagnosis,eval}/`、`src/pages/`、`src/main.tsx`、`src/App.tsx`
-5. 路由：`/` → DiagnosePage（诊断对话）、`/eval` → EvalPage、`/cases/:id` → CasePage、`/runs/:name` → RunPage（占位组件）
+4. 目录结构：`src/api/`（REST client + types）、`src/features/{diagnosis,history}/`、`src/pages/`、`src/main.tsx`、`src/App.tsx`
+5. 路由：`/` → DiagnosePage（诊断对话）、`/history` → HistoryPage、`/history/:id` → CaseHistoryPage（占位组件）
 6. 后端：`uv add copilotkit`；在 `main.py` 用 CopilotKit 的 FastAPI 集成挂载 `/api/copilotkit` runtime，注册 diagnosis agent（暴露编译后的 LangGraph 图）
 7. 后端：`subgraphs/diagnosis_agent.py` 的 `create_agent(middleware=[...])` 列表**末尾追加** `CopilotKitMiddleware()`（不动原有 5 个 middleware 顺序，CopilotKit 的转发逻辑放在最内层即可）
-8. `src/api/client.ts`：fetch 封装（baseURL `http://localhost:8001`），用于评测/反馈 REST
+8. `src/api/client.ts`：fetch 封装（baseURL `http://localhost:8001`），用于历史 REST
 9. `src/api/types.ts`：手写 TS 类型对应后端 Pydantic（`DiagnosisReport`、`BudgetState`、`Finding`、`NormalizedEvidence`、`Signal`、`Correlation`、`TimelineEvent`、`Evidence`）
 10. 顶层 `CopilotKit` Provider 包裹（`runtimeUrl="/api/copilotkit"` + `agent="diagnosis"`），导航栏 + 暗色主题
 11. **Spike 验证**：在 DiagnosePage 放一个最小 `CopilotChat`，发一句 "test"，确认能连到后端 agent 并收到流式回包（验证 CopilotKitMiddleware + runtime + 多节点图打通）
 
 ### 验收标准
-- 前端起 5173，4 路由可切；`CopilotKit` Provider 就位
+- 前端起 5173，3 路由可切；`CopilotKit` Provider 就位
 - 后端 `/api/copilotkit` 可用；最小 `CopilotChat` 能与 diagnosis agent 流式对话（即使 agent 还没接证据输入也算打通）
 - spike 确认：外层 3 节点图（ingest→diagnosis_agent→reporter）能否被 CopilotKit 当作一个 agent 暴露。若不能，记录卡点，Phase 1 先解决
 
@@ -246,62 +343,75 @@ flowchart LR
 
 ---
 
-## Phase 5：评测面板与多 Case 管理
+## Phase 5：历史 Case 管理
 
 ### 目标
-展示 run 列表、9 维分数、case 目录，支持 Langfuse trace 跳转。
+展示用户历史诊断记录，支持查看完整诊断结果、恢复继续诊断、按时间/状态筛选。
 
 ### 涉及文件
-- 后端：新建 `doctor/src/api/cases.py`、`doctor/src/api/runs.py`；`doctor/src/main.py` 注册
-- 前端：`src/features/eval/RunList.tsx`、`RunScoreboard.tsx`、`CaseCatalog.tsx`、`CaseDetailCompare.tsx`、`src/pages/EvalPage.tsx`、`RunPage.tsx`、`CasePage.tsx`
+- 后端：新建 `doctor/src/api/history.py`；`doctor/src/main.py` 注册
+- 前端：`src/features/history/HistoryList.tsx`、`HistoryDetail.tsx`、`src/pages/HistoryPage.tsx`、`CaseHistoryPage.tsx`
 
 ### 具体步骤
-1. **后端 cases.py**：`GET /api/cases` 读 `bug-factory/recipes/gold/*.yaml`，返回 `[{recipe_id, title, category, categories, split, difficulty, severity, expected_diagnosis}]`，支持 `?split=` 过滤
-2. **后端 runs.py**：
-   - `GET /api/runs`：glob `doctor/scripts/_scores_*.json` → `[{run_name, case_count, created_at}]`
-   - `GET /api/runs/{run_name}/scores`：返回对应 `_scores_*.json` 数组
-   - `GET /api/runs/{run_name}/cases/{recipe_id}`：合并 trace.output.diagnosis_report + dataset expected_output + `trace_url = f"{langfuse_host}/trace/{trace_id}"`
-3. **前端 RunList**：列表 + 进入 RunPage
-4. **前端 RunScoreboard**：recharts 雷达图（9 维）+ 表格（每 case 一行）+ 均值汇总
-5. **前端 CaseCatalog**：15 case 卡片，按 split 筛选，点击进入 CasePage
-6. **前端 CaseDetailCompare**：diagnosis vs expected_output 并排，字段级颜色标注一致/不一致；「在 Langfuse 查看」按钮跳 `trace_url`
+1. **后端 history.py**：
+   - `GET /api/history`：查询 LangGraph SqliteSaver checkpoint 或 Langfuse traces，返回历史诊断 session 列表 `[{session_id, thread_id, created_at, updated_at, user_report_summary, status（running/paused/completed/failed）, trace_id, total_cost_usd}]`，支持 `?status=` 过滤和分页
+   - `GET /api/history/{session_id}`：返回该 session 的完整诊断记录（`DiagnosisReport` + `findings` + `evidence` + `budget`），附带 `trace_url = f"{langfuse_host}/trace/{trace_id}"`
+   - `POST /api/history/{session_id}/resume`：复用 `thread_id` 恢复暂停的诊断（checkpoint replay），返回新的 stream
+2. **前端 HistoryList**：时间线列表，每条显示：
+   - 诊断摘要（用户输入的前 80 字符）
+   - 时间戳（相对时间 + 绝对时间 tooltip）
+   - 状态标签（进行中/暂停/已完成/失败，颜色区分）
+   - 快捷操作：查看详情、恢复继续（仅暂停态可用）
+3. **前端 HistoryDetail（CaseHistoryPage）**：展示完整诊断记录：
+   - 顶部：用户原始输入 + 时间信息 + Langfuse trace 跳转按钮
+   - 中部：`DiagnosisReport` 结构化卡片（root_cause、affected_file、fix_suggestion、confidence）
+   - 下部：证据链回顾（复用 P2 的 EvidenceChainGraph 组件，只读模式）+ findings 列表
+   - 预算摘要（iteration/token/cost 最终值）
+4. **恢复诊断**：从 HistoryList 点击「恢复继续」→ 携带 `thread_id` 进入 DiagnosePage，CopilotKit 以该 thread 初始化，agent 从 checkpoint 继续推理
 
 ### 验收标准
-- `/eval` 页能看到所有 run，点进能看到雷达图与每 case 分数
-- case 目录 15 条齐全，split 筛选正确
-- Langfuse 跳转链接正确打开 trace
+- `/history` 页能看到所有历史诊断记录，按时间倒序
+- 状态筛选正确（进行中/暂停/已完成/失败）
+- 点击进入可查看完整诊断报告 + 证据链图（只读）
+- 暂停态的 session 可恢复继续诊断
+- Langfuse 跳转链接正确打开对应 trace
 
 ---
 
-## Phase 6：反馈回流标注
+## Phase 6：用户反馈
 
 ### 目标
-人工纠错 → 回写 Langfuse score + 本地集，形成评测飞轮。
+用户对诊断结果评价有帮助/无帮助，可选附文字说明。轻量、无评测概念掺杂。
 
 ### 涉及文件
-- 后端：新建 `doctor/src/api/feedback.py`
-- 前端：`src/features/eval/FeedbackForm.tsx`、`CaseDetailCompare.tsx` 内嵌
+- 后端：新建 `doctor/src/api/feedback.py`；`doctor/src/main.py` 注册
+- 前端：`src/features/history/FeedbackForm.tsx`、`src/features/history/HistoryDetail.tsx` 内嵌、`src/features/diagnosis/ReportPanel.tsx` 内嵌
 
 ### 具体步骤
 1. **后端 feedback.py**：`POST /api/feedback`
    ```python
    class FeedbackRequest(BaseModel):
+       session_id: str
        trace_id: str
-       recipe_id: str
-       run_name: str | None
-       corrected_field: str  # root_cause / affected_file / ...
-       value: str
-       note: str | None
+       rating: Literal["helpful", "not_helpful"]
+       comment: str | None = None
    ```
-   - 调 Langfuse `client.score(trace_id=..., name=f"human_correction_{field}", value=..., comment=note)`
-   - 追加写 `doctor/scripts/_feedback.jsonl`（一行一条）
-   - 返回 `{status, feedback_id}`
-2. **前端 FeedbackForm**：在 CaseDetailCompare 每个字段旁加「纠错」按钮，弹出表单（corrected_field 预填、value 输入、note 可选）→ POST
-3. **前端**：提交成功后 toast，并刷新该 case 的标注状态
+   - 追加写 `doctor/scripts/_user_feedback.jsonl`（一行一条：`{session_id, trace_id, rating, comment, created_at}`）
+   - 可选：同步写 Langfuse `client.score(trace_id=..., name="user_feedback", value=1 if helpful else 0, comment=comment)`
+   - 返回 `{status: "ok", feedback_id}`
+2. **前端 FeedbackForm**：简单的 👍 / 👎 两个按钮 + 可选文本框：
+   - 点击 👍 或 👎 即提交 rating
+   - 若用户输入了文字，一并提交 comment
+   - 提交后按钮变为已选态（不可重复投票），toast 提示"感谢反馈"
+3. **前端嵌入位置**：
+   - **HistoryDetail**：诊断报告卡片底部放 FeedbackForm
+   - **ReportPanel**（诊断进行中结束时）：报告下方放 FeedbackForm
+4. **前端**：同一 session 不重复提交（前端本地记录已反馈的 session_id 集合）
 
 ### 验收标准
-- 提交纠错后 `_feedback.jsonl` 新增一行，Langfuse trace 上出现对应 score 注释
-- 同一字段可多次纠错（保留历史）
+- HistoryDetail 和 ReportPanel 底部均有 👍👎 按钮
+- 点击后 `_user_feedback.jsonl` 新增一行，Langfuse trace 出现 `user_feedback` score
+- 同一 session 不可重复投票
 
 ---
 
@@ -331,7 +441,7 @@ flowchart LR
 |------|------|------|
 | API | FastAPI `doctor/src/main.py` 8001，`/api/diagnose`(非流式) `/health` | 保留作为 benchmark 入口；新增 CopilotKit runtime（P0） |
 | 流式 | 现有 `?stream=true` SSE 只发 LLM token + report | **改由 CopilotKit AG-UI runtime 承载**（P0/P1），原 SSE 可弃用 |
-| `DiagnoseResponse` | 只有 report 摘要 + findings_count | P2 扩展（评测/case 详情 REST 用） |
+| `DiagnoseResponse` | 只有 report 摘要 + findings_count | P2 扩展（历史 case 详情 REST 用） |
 | 事件总线 | 无；`DiagnosisRunContext` ContextVar 仅活于 ainvoke 期间 | **不再自建**；改用 CopilotKit `useCoAgent` 订阅 LangGraph state |
 | `ContextBudget` | 有 `to_dict()` 但从不外发 | P1 写入 DoctorState 可增字段供 useCoAgent 同步 |
 | CopilotKit 兼容 | V4 已用 `create_agent(middleware=[...])` | **天然兼容**：列表追加 `CopilotKitMiddleware()` 即可（P0） |
@@ -339,9 +449,9 @@ flowchart LR
 | Checkpointer | `MemorySaver`（内存） | **需换 SqliteSaver**（P3，interrupt 必须持久化） |
 | `TokenAccountant` | 存在于 `observability/cost.py`，未接线 | **必须接线**（P4） |
 | `BudgetState.total_cost_usd` | 不更新 | P4 修复 |
-| 评测数据 | 15 gold recipes + `_scores_*.json`（9 维）+ Langfuse trace | 已就绪（P5 消费） |
-| 反馈/标注 API | 无 | **必须新建**（P6） |
-| Langfuse trace URL | `{langfuse_host}/trace/{trace_id}`，host 默认 3002 | 直接用（P5/P7） |
+| 历史诊断数据 | LangGraph SqliteSaver checkpoint + Langfuse trace | 已就绪（P5 消费） |
+| 用户反馈 | 无前端入口 | P6 加 👍👎 反馈 UI |
+| Langfuse trace URL | `{langfuse_host}/trace/{trace_id}`，host 默认 3002 | 直接用（P5/P6/P7） |
 | CORS | 已放行 5173/3000 | 无需改 |
 | 现有前端 | 仅 `demo-app/frontend`（TaskFlow） | 新建 `doctor/frontend` |
 
@@ -355,20 +465,19 @@ flowchart LR
 - Middleware：`doctor/src/graph/nodes/diagnosis_agent/middleware/`（run_context、tool_dedup、langfuse_tracing、tool_truncation、budget_guard、forced_call、新增 hitl_approval）
 - 上下文预算：`doctor/src/graph/context_engine.py`
 - 成本：`doctor/src/observability/cost.py`、`pricing.py`（新建）、`langfuse_tracing.py`
-- 评测脚本：`scripts/eval_agent.py`、`fetch_experiment_scores.py`、`langfuse_scorers.py`
-- Gold cases：`bug-factory/recipes/gold/*.yaml`
 
 **前端（待建）**
 - 工程根：`doctor/frontend/`
-- API 层：`doctor/frontend/src/api/{client,types}.ts`（REST 评测/反馈用）
+- API 层：`doctor/frontend/src/api/{client,types}.ts`（REST 历史用）
 - CopilotKit 集成：`doctor/frontend/src/main.tsx`（`CopilotKit` Provider）、各页面用 `CopilotChat`/`useCoAgent`/`useInterrupt`/`useRenderToolCall`
 - 诊断特性：`doctor/frontend/src/features/diagnosis/`（CaseInputChat、ToolCallCard、BudgetPanel、EvidenceChainGraph、ReportPanel、HITLApprovalDialog）
-- 评测特性：`doctor/frontend/src/features/eval/`
+- 历史特性：`doctor/frontend/src/features/history/`（HistoryList、HistoryDetail、FeedbackForm）
 
 ## 附录 C：关键风险与对策
 
 | 风险 | 对策 |
 |------|------|
+| **人机协同设计哲学 vs 后端单次诊断假设的鸿沟**（图结构线性、report 单一、benchmark 单次评分） | 分阶段：Phase 1-4 UI 先行（协同感到位，追问=新 thread 单次诊断），Phase 5+ 后端改造（图结构回环、report_history、多轮 benchmark）。参见 §0.5.7 |
 | 外层 3 节点图（ingest→diagnosis_agent→reporter）能否被 CopilotKit 当单一 agent 暴露 | P0 必做 spike；若不行，需在 CopilotKit runtime 注册时包装，或把 agent 入口适配为 CopilotKit 期望的形态 |
 | `useCoAgent` 推送高频 state 增量（每轮 budget_tick）的性能/支持度 | P1 spike；若不支持高频增量，BudgetPanel 降级为节点边界更新 + Langfuse polling 补实时性 |
 | `create_agent` + middleware 层 `interrupt()` 不被外层 checkpointer 捕获 | P3 先 spike；回退方案：审批逻辑上移到 `diagnosis_agent_node` 手动驱动循环（docs 方向 0），循环内显式 `interrupt()` |
@@ -387,6 +496,6 @@ flowchart LR
 - [ ] Phase 2：证据链与结构化报告
 - [ ] Phase 3：HITL 工具审批与方向注入（interrupt + useInterrupt）
 - [ ] Phase 4：Cost 接线
-- [ ] Phase 5：评测面板与多 Case 管理
-- [ ] Phase 6：反馈回流标注
+- [ ] Phase 5：历史 Case 管理
+- [ ] Phase 6：用户反馈（👍👎 + 可选文字）
 - [ ] Phase 7：收尾打磨
