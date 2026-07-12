@@ -75,9 +75,6 @@ async def _diagnosis_agent_node(state: dict[str, Any]) -> dict[str, Any]:
     from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
     from src.graph.nodes.diagnosis_agent.evidence import format_evidence_for_agent
-    from src.graph.nodes.diagnosis_agent.node import (
-        _finalize_langfuse_trace,
-    )
     from src.graph.state import NormalizedEvidence
 
     evidence: NormalizedEvidence | None = state.get("evidence")
@@ -238,6 +235,33 @@ def _finalize_report_for_dict_state(
             report.notes = "预算超限，提前终止诊断"
 
     return report, findings, budget_state, early_stopped
+
+
+def _finalize_langfuse_trace(
+    langfuse_handler: Any | None,
+    report: Any,
+    early_stopped: bool,
+    budget_state: Any,
+    forced_call_triggered: bool,
+    case_id: str,
+) -> None:
+    """End the Langfuse trace with the report + run flags. Errors are non-fatal."""
+    if langfuse_handler is None:
+        return
+    try:
+        report_dict = (
+            report.model_dump(mode="json") if hasattr(report, "model_dump") else {}
+        )
+        langfuse_handler.end_trace(
+            output_data={
+                "diagnosis_report": report_dict,
+                "early_stopped": early_stopped,
+                "tool_calls": budget_state.tool_calls,
+                "forced_final_json_call": forced_call_triggered,
+            },
+        )
+    except Exception:
+        pass
 
 
 # ═════════════════════════════════════════════════════════════════════
