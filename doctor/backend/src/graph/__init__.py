@@ -1,1 +1,1 @@
-"""LangGraph graph definitions for DiagDoctor diagnosis pipeline."""
+"""LangGraph diagnosis pipeline — BugInfo → DiagnosisAgent."""

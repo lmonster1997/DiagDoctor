@@ -209,12 +209,16 @@ async def run_case(
     # ── Ingest-only mode ───────────────────────────────────────
     if skip_llm:
         print_section("Step 3: Ingest only (--no-llm)")
-        from src.graph.nodes.ingest import ingest_node
-        from src.graph.state import DoctorState
+        from src.ingest.normalizer import ingest
 
-        state = DoctorState(raw_evidence=evidence, case_id=case_id or "debug")
-        ingest_result = await ingest_node(state)
-        normalized = ingest_result["evidence"]
+        raw_dict = {
+            "user_report": user_report,
+            "logs": [log.model_dump() for log in evidence.logs],
+            "traces": [span.model_dump() for span in evidence.traces],
+            "trigger_time": evidence.trigger_time,
+            "trigger_trace_ids": evidence.trigger_trace_ids,
+        }
+        normalized = ingest(raw_dict)
 
         print(f"\n  golden_signals ({len(normalized.golden_signals)}):")
         for sig in normalized.golden_signals:
@@ -229,9 +233,6 @@ async def run_case(
             print(f"      frontend_signals: {c.frontend_signals}")
             print(f"      backend_signals:  {c.backend_signals}")
 
-        print(f"\n  noise_ratio: {normalized.noise_ratio:.2%}")
-        print(f"  frontend_span_count: {normalized.frontend_span_count}")
-        print(f"  backend_span_count:  {normalized.backend_span_count}")
         return
 
     # ── Step 3: Run FULL graph ─────────────────────────────────
@@ -248,7 +249,6 @@ async def run_case(
         print("[DEBUG] 进入 pdb — 在 doctor 源码设断点后按 c 继续")
         print("[DEBUG] 推荐断点位置:")
         print("        src/graph/nodes/diagnosis_agent/node.py → diagnosis_agent_node")
-        print("        src/graph/nodes/ingest.py → ingest_node")
         breakpoint()  # ← VS Code: 在此设断点或 F5 附加后按 c
 
     final_state = await _run_graph(thread_id, initial_state)

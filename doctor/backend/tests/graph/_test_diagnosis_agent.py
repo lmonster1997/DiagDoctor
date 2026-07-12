@@ -37,7 +37,7 @@ from src.graph.state import (
     NormalizedEvidence,
     Signal,
 )
-from src.graph.subgraphs.diagnosis_agent import clear_diagnosis_agent_cache
+from src.graph.nodes.diagnosis_agent.subgraph import clear_diagnosis_agent_cache
 
 # ═════════════════════════════════════════════════════════════════════
 # Fixtures

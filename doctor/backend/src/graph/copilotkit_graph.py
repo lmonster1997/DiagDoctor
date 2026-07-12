@@ -30,6 +30,10 @@ from src.graph.nodes.diagnosis_agent.middleware.run_context import (
     clear_run_context,
     set_run_context,
 )
+from src.graph.nodes.diagnosis_agent.subgraph import (
+    _build_system_prompt,
+    get_diagnosis_agent,
+)
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)
@@ -73,13 +77,8 @@ async def _diagnosis_agent_node(state: dict[str, Any]) -> dict[str, Any]:
     from src.graph.nodes.diagnosis_agent.evidence import format_evidence_for_agent
     from src.graph.nodes.diagnosis_agent.node import (
         _finalize_langfuse_trace,
-        _finalize_report,
     )
     from src.graph.state import NormalizedEvidence
-    from src.graph.subgraphs.diagnosis_agent import (
-        _build_system_prompt,
-        get_diagnosis_agent,
-    )
 
     evidence: NormalizedEvidence | None = state.get("evidence")
     if evidence is None:

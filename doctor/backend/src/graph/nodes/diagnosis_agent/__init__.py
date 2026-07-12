@@ -11,7 +11,6 @@ all existing import paths (``main_graph.py``, ``nodes/__init__.py``, the
 ``test_forced_final_json_call.py`` test) keep working unchanged.
 
 Re-exported public API:
-    - ``diagnosis_agent_node`` — the LangGraph node itself
     - Evidence: ``format_evidence_for_agent``
     - Parsing: ``parse_diagnosis_report``, ``extract_findings``,
       ``_extract_json_from_text``, ``_extract_json_by_depth``, ``_ensure_str_list``
@@ -23,11 +22,9 @@ Re-exported public API:
     - Constants: ``MAX_TOOL_CALLS``, ``MAX_TOKENS_BUDGET``, ``MAX_TIME_SECONDS``,
       ``BUDGET_WARNING_THRESHOLD``
 
-Usage (in main_graph.py)::
+Usage::
 
-    from src.graph.nodes.diagnosis_agent import diagnosis_agent_node
-
-    g.add_node("diagnosis_agent", diagnosis_agent_node)
+    from src.graph.nodes.diagnosis_agent.subgraph import get_diagnosis_agent
 """
 
 from __future__ import annotations
@@ -57,7 +54,7 @@ from src.graph.nodes.diagnosis_agent.middleware import (
     ToolDedupMiddleware,
     ToolTruncationMiddleware,
 )
-from src.graph.nodes.diagnosis_agent.node import diagnosis_agent_node
+from src.graph.nodes.diagnosis_agent.node import _finalize_langfuse_trace
 from src.graph.nodes.diagnosis_agent.parsing import (
     _ensure_str_list,
     _extract_json_by_depth,
@@ -67,9 +64,7 @@ from src.graph.nodes.diagnosis_agent.parsing import (
 )
 
 __all__ = [
-    # Node
-    "diagnosis_agent_node",
-    # Evidence
+    # Langfuse
     "format_evidence_for_agent",
     # Parsing
     "parse_diagnosis_report",

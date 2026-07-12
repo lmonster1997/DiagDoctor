@@ -529,7 +529,7 @@ def _fake_echo_tool(monkeypatch: pytest.MonkeyPatch) -> Any:
 @pytest.fixture
 def _clear_agent_cache() -> Any:
     """Clear the cached create_agent so it rebuilds with the mocked LLM/tools."""
-    from src.graph.subgraphs.diagnosis_agent import clear_diagnosis_agent_cache
+    from src.graph.nodes.diagnosis_agent.subgraph import clear_diagnosis_agent_cache
 
     clear_diagnosis_agent_cache()
     yield

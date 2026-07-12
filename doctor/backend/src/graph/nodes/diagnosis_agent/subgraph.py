@@ -18,7 +18,7 @@ Design:
 
 Usage::
 
-    from src.graph.subgraphs.diagnosis_agent import get_diagnosis_agent
+    from src.graph.nodes.diagnosis_agent.subgraph import get_diagnosis_agent
 
     agent = get_diagnosis_agent()
     result = await agent.ainvoke({"messages": [HumanMessage(content=evidence_text)]})
