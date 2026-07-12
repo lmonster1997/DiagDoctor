@@ -15,26 +15,43 @@ from src.config import settings
 
 
 def _get_service_name(item: dict[str, Any]) -> str:
-    """Extract service_name from item, checking top-level first, then labels."""
-    svc = str(item.get("service_name", item.get("service", "")))
+    """Extract service_name from item, checking top-level first, then labels.
+
+    Checks each source independently — empty strings do NOT shadow
+    populated fallback fields (e.g. ``service_name=""`` won't hide
+    ``service="demo-backend"``).
+    """
+    # Top-level: service_name, then service (only if non-empty)
+    svc = str(item.get("service_name", "")).strip()
     if svc:
         return svc
+    svc = str(item.get("service", "")).strip()
+    if svc:
+        return svc
+    # Labels: same priority order
     labels = item.get("labels")
     if isinstance(labels, dict):
-        svc = str(labels.get("service_name", labels.get("service", "")))
+        svc = str(labels.get("service_name", "")).strip()
+        if svc:
+            return svc
+        svc = str(labels.get("service", "")).strip()
         if svc:
             return svc
     return ""
 
 
 def _get_trace_id(item: dict[str, Any]) -> str:
-    """Extract trace_id from item, checking top-level first, then labels."""
-    tid = str(item.get("trace_id", ""))
+    """Extract trace_id from item, checking top-level first, then labels.
+
+    Checks each source independently so empty strings don't shadow
+    populated fallback fields.
+    """
+    tid = str(item.get("trace_id", "")).strip()
     if tid:
         return tid
     labels = item.get("labels")
     if isinstance(labels, dict):
-        tid = str(labels.get("trace_id", ""))
+        tid = str(labels.get("trace_id", "")).strip()
         if tid:
             return tid
     return ""
