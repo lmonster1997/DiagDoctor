@@ -1,13 +1,14 @@
-"""DiagnosisAgent middleware package — 5 middlewares for the create_agent loop.
+"""DiagnosisAgent middleware package — 6 middlewares for the create_agent loop.
 
 Replaces the hand-written ReAct loop in ``react_loop.py`` with langchain
 ``create_agent`` + middleware. Each middleware owns one concern from the
 case-driven harness iteration log:
 
-- ``LangfuseTracingMiddleware`` — start/end trace + record_tool_span (Iter 0 baseline)
-- ``BudgetGuardMiddleware`` — MAX_TOOL_CALLS / token / time caps → jump_to end (Iter 0 baseline)
+- ``AgentLifecycleMiddleware`` — per-invocation budget init + counter resets (registered 1st)
 - ``ToolDedupMiddleware`` — skip identical repeated tool calls (Iter 0 baseline)
+- ``LangfuseTracingMiddleware`` — start trace + record_tool_span (Iter 0 baseline)
 - ``ToolTruncationMiddleware`` — static per-tool result truncation (Iter 0 baseline)
+- ``BudgetGuardMiddleware`` — MAX_TOOL_CALLS / token / time caps → jump_to end (Iter 0 baseline)
 - ``ForcedFinalCallMiddleware`` — post-loop forced JSON call with un-bound LLM
   + with_structured_output (Iter 1 + Iter 2)
 
@@ -28,6 +29,7 @@ Verified assumptions (scripts/verify_middleware_assumptions.py):
 
 from __future__ import annotations
 
+from src.graph.nodes.diagnosis_agent.middleware.agent_lifecycle import AgentLifecycleMiddleware
 from src.graph.nodes.diagnosis_agent.middleware.budget_guard import BudgetGuardMiddleware
 from src.graph.nodes.diagnosis_agent.middleware.forced_call import ForcedFinalCallMiddleware
 from src.graph.nodes.diagnosis_agent.middleware.langfuse_tracing import LangfuseTracingMiddleware
@@ -45,6 +47,7 @@ __all__ = [
     "set_run_context",
     "get_run_context",
     "clear_run_context",
+    "AgentLifecycleMiddleware",
     "LangfuseTracingMiddleware",
     "BudgetGuardMiddleware",
     "ToolDedupMiddleware",

@@ -1,8 +1,8 @@
 """LangfuseTracingMiddleware — owns the Langfuse trace lifecycle + tool span recording.
 
 Maps to the hand-written loop's Langfuse integration:
-- ``abefore_agent`` ← ``node.py:79-82`` (start_trace) + ``react_loop.py:88`` (ContextBudget init)
-- ``awrap_tool_call`` ← ``react_loop.py:139-188`` (tool latency / record_tool_span / add_tool_call / add_tool_result)
+- ``abefore_agent`` ← ``node.py:79-82`` (start_trace; budget init moved to AgentLifecycleMiddleware)
+- ``awrap_tool_call`` ← ``react_loop.py:139-188`` (tool latency / record_tool_span)
 - ``aafter_agent`` ← ``node.py:149-156`` (end_trace)
 
 Registered SECOND in the middleware list (after ToolDedup, before ToolTruncation)
@@ -28,9 +28,7 @@ from typing import Any
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import ToolMessage
 
-from src.graph.context_engine import ContextBudget
 from src.graph.nodes.diagnosis_agent.run_context import (
-    DiagnosisRunContext,
     get_run_context_or_none,
 )
 from src.observability.logger import get_logger
@@ -59,11 +57,11 @@ def _extract_result_content(result: Any) -> tuple[str, ToolMessage | None]:
 
 
 class LangfuseTracingMiddleware(AgentMiddleware):
-    """Langfuse trace lifecycle + per-tool span recording + tool token accounting.
+    """Langfuse trace lifecycle + per-tool span recording.
 
-    Initializes the run context's ``ctx_budget`` (system prompt + evidence
-    tokens) and ``call_history`` in ``abefore_agent`` so downstream middlewares
-    (BudgetGuard, ToolDedup) see a fresh budget per invocation.
+    Budget / counter initialisation is owned by AgentLifecycleMiddleware
+    (registered 1st).  This middleware only handles trace start and
+    tool span recording.
 
     All Langfuse handler calls are wrapped in ``contextlib.suppress(Exception)``
     — Langfuse outages must never block a diagnosis (graceful degradation,
@@ -81,17 +79,9 @@ class LangfuseTracingMiddleware(AgentMiddleware):
             # create_agent() may fire abefore_agent during graph compilation
             # before diagnosis_agent_node sets the ContextVar. Silently skip.
             return None
-        # Fresh per-invocation budget + dedup cache
-        ctx.ctx_budget = ContextBudget()
-        if ctx.system_prompt_text:
-            ctx.ctx_budget.add_system_prompt(ctx.system_prompt_text)
-        if ctx.evidence_text:
-            ctx.ctx_budget.add_evidence(ctx.evidence_text)
-        ctx.ctx_budget.start_timer()
-        ctx.call_history = []
-        ctx.model_call_count = 0
-        ctx.budget_exhausted = False
-        ctx.forced_call_triggered = False
+
+        # Budget / counter initialisation is owned by AgentLifecycleMiddleware
+        # (registered 1st — runs before this middleware).
 
         if ctx.langfuse_handler is not None:
             # When an external session_id is provided (experiment runner),
@@ -149,21 +139,18 @@ class LangfuseTracingMiddleware(AgentMiddleware):
 
         result_str, _ = _extract_result_content(result)
 
-        # Tool token accounting (matches react_loop.py:156-170 — only for
-        # non-dup calls; ToolDedup short-circuits dup calls before reaching here)
-        if ctx is not None:
-            ctx.ctx_budget.add_tool_call(1)
-            ctx.ctx_budget.add_tool_result(result_str)
-            if ctx.langfuse_handler is not None:
-                with contextlib.suppress(Exception):
-                    ctx.langfuse_handler.record_tool_span(
-                        tool_name=tool_name,
-                        tool_args=tool_args,
-                        result=result_str,
-                        latency_ms=latency_ms,
-                        iteration=iteration,
-                        error=None,
-                    )
+        # Record tool span to Langfuse (token accounting moved to BudgetGuard).
+        # ToolDedup short-circuits dup calls before reaching here.
+        if ctx is not None and ctx.langfuse_handler is not None:
+            with contextlib.suppress(Exception):
+                ctx.langfuse_handler.record_tool_span(
+                    tool_name=tool_name,
+                    tool_args=tool_args,
+                    result=result_str,
+                    latency_ms=latency_ms,
+                    iteration=iteration,
+                    error=None,
+                )
         return result
 
     # NOTE: end_trace is owned by diagnosis_agent_node (_finalize_langfuse_trace),

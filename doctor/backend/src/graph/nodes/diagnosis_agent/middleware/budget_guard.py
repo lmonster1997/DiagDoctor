@@ -6,6 +6,9 @@ Maps to the hand-written loop's hard-constraint block:
   ``budget_exhausted=True``. In middleware, ``model_call_count`` tracks LLM
   calls and tripping ``> MAX_TOOL_CALLS`` jumps to end with the flag set.
 - ``aafter_model`` ← ``react_loop.py:97`` (add_agent_reasoning token accounting)
+- ``awrap_tool_call`` ← ``react_loop.py:156-170`` (add_tool_call + add_tool_result
+  token accounting; moved from LangfuseTracingMiddleware to keep budget
+  concerns in one place)
 
 Uses ``@hook_config(can_jump_to=["end"])`` so the agent graph wires a
 conditional edge that reads ``state["jump_to"]``. Returning
@@ -88,3 +91,22 @@ class BudgetGuardMiddleware(AgentMiddleware):
                 ctx.ctx_budget.add_agent_reasoning(str(msg.content))
                 break
         return None
+
+    async def awrap_tool_call(self, request: Any, handler: Any) -> Any:
+        """Account tool result tokens in budget (moved from LangfuseTracing).
+
+        Registered 4th — wraps outside LangfuseTracing(#2) in the onion, so
+        this runs AFTER span recording.  Dedup(#1) short-circuits dup calls
+        before reaching here, so only unique calls are counted.
+        """
+        result = await handler(request)
+        ctx = get_run_context_or_none()
+        if ctx is not None:
+            ctx.ctx_budget.add_tool_call(1)
+            # Extract text content for token estimation
+            if hasattr(result, "content"):
+                result_text = str(result.content)
+            else:
+                result_text = str(result)
+            ctx.ctx_budget.add_tool_result(result_text)
+        return result
