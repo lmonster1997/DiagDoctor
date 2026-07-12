@@ -340,7 +340,6 @@ async def bug_info_node(state: dict[str, Any]) -> dict[str, Any]:
         "user_report": user_report,
         "logs": backend["logs"] + frontend["logs"],
         "traces": backend["traces"] + frontend["traces"],
-        "browser_errors": [],  # CopilotKit path has no browser_errors upload
         "trigger_time": trigger_time,
         "trigger_trace_ids": trace_ids,
     }

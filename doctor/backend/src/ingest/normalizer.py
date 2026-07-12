@@ -48,9 +48,8 @@ def _get_level(item: dict[str, Any]) -> str:
 def _merge_timeline(
     logs: list[dict[str, Any]],
     traces: list[dict[str, Any]],
-    browser_errors: list[dict[str, Any]] | None = None,
 ) -> list[TimelineEvent]:
-    """Merge all evidence sources into a single chronological timeline."""
+    """Merge log + trace sources into a single chronological timeline."""
     events: list[tuple[str, TimelineEvent]] = []
 
     for log in logs:
@@ -88,23 +87,6 @@ def _merge_timeline(
             )
         )
 
-    for err in browser_errors or []:
-        ts = str(err.get("timestamp", ""))
-        events.append(
-            (
-                ts,
-                TimelineEvent(
-                    timestamp=ts,
-                    source="browser_error",
-                    service_tier="frontend",
-                    service_name="unknown-frontend",
-                    description=f"Browser Error: {str(err.get('message', ''))[:300]}",
-                    evidence_ref=str(err.get("trace_id", err.get("span_id", ""))),
-                    trace_id=str(err.get("trace_id", "") or None),
-                ),
-            )
-        )
-
     # Sort by timestamp (string sort works for ISO format)
     events.sort(key=lambda x: x[0])
     return [e[1] for e in events]
@@ -113,7 +95,6 @@ def _merge_timeline(
 def _index_raw(
     raw_logs: list[dict[str, Any]],
     raw_traces: list[dict[str, Any]],
-    browser_errs: list[dict[str, Any]],
     folded_logs: list[dict[str, Any]],
     tree_summary: dict[str, Any],
 ) -> dict[str, Any]:
@@ -135,7 +116,6 @@ def _index_raw(
             "raw_logs": len(raw_logs),
             "denoised_logs": len(folded_logs),
             "raw_traces": len(raw_traces),
-            "browser_errors": len(browser_errs),
         },
         "tree_summary": tree_summary,
     }
@@ -173,21 +153,8 @@ def _index_raw(
                 "db_statement": str(span.get("db_statement", span.get("dbStatement", "")))[:300],
             }
 
-    # Index browser errors
-    browser_refs: list[dict[str, Any]] = []
-    for err in browser_errs:
-        browser_refs.append(
-            {
-                "message": str(err.get("message", ""))[:200],
-                "stack": str(err.get("stack", ""))[:500],
-                "component_stack": str(err.get("component_stack", ""))[:300],
-                "trace_id": err.get("trace_id", ""),
-            }
-        )
-
     raw_refs["log_index"] = log_index
     raw_refs["span_index"] = span_index
-    raw_refs["browser_refs"] = browser_refs
     raw_refs["error_log_refs"] = error_log_refs
     raw_refs["warn_log_refs"] = warn_log_refs
 
@@ -226,10 +193,8 @@ def ingest(raw_evidence: dict[str, Any]) -> NormalizedEvidence:
     user_report = str(raw_evidence.get("user_report", ""))
     raw_logs: list[dict[str, Any]] = raw_evidence.get("logs", [])
     raw_traces: list[dict[str, Any]] = raw_evidence.get("traces", [])
-    browser_errs: list[dict[str, Any]] = raw_evidence.get("browser_errors", []) or []
-
     # Step 1: Tier-aware marking
-    logs, traces = mark_tiers(raw_logs, raw_traces, browser_errs)
+    logs, traces = mark_tiers(raw_logs, raw_traces)
 
     # Step 2: Denoise (protect frontend sparse logs)
     denoised_logs = denoise_logs(logs, protect_tier="frontend")
@@ -243,24 +208,24 @@ def ingest(raw_evidence: dict[str, Any]) -> NormalizedEvidence:
     n_plus_ones: list[dict[str, Any]] = tree_summary.get("n_plus_ones", []) or []
 
     # Step 5: Merge timeline
-    timeline = _merge_timeline(folded_logs, traces, browser_errs)
+    timeline = _merge_timeline(folded_logs, traces)
 
     # Step 6: Golden signal extraction (all sources, including N+1)
     signals = extract_golden_signals(
-        folded_logs, traces, browser_errs,
+        folded_logs, traces,
         slow_threshold_ms=settings.ingest_slow_span_threshold_ms,
         n_plus_ones=n_plus_ones,
     )
 
     # Step 7: Cross-layer correlation
-    correlations = correlate_by_trace_id(folded_logs, traces, browser_errs, golden_signals=signals)
+    correlations = correlate_by_trace_id(folded_logs, traces, golden_signals=signals)
 
     # Step 8: Count spans by tier
     frontend_spans = sum(1 for t in traces if str(t.get("_tier", "")) == "frontend")
     backend_spans = sum(1 for t in traces if str(t.get("_tier", "")) == "backend")
 
     # Step 10: Build raw_refs index for tool-based deep-dives
-    raw_refs = _index_raw(raw_logs, raw_traces, browser_errs, folded_logs, tree_summary)
+    raw_refs = _index_raw(raw_logs, raw_traces, folded_logs, tree_summary)
 
     return NormalizedEvidence(
         user_report=user_report,

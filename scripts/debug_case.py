@@ -90,17 +90,12 @@ def load_case(case_id: str) -> dict[str, Any]:
 
     logs = json.loads((evidence_dir / "logs.json").read_text(encoding="utf-8"))
     traces = json.loads((evidence_dir / "traces.json").read_text(encoding="utf-8"))
-    browser_path = evidence_dir / "browser_errors.json"
-    browser_errors = (
-        json.loads(browser_path.read_text(encoding="utf-8")) if browser_path.exists() else []
-    )
 
     return {
         "case_id": case_id,
         "user_report": user_report,
         "logs": logs,
         "traces": traces,
-        "browser_errors": browser_errors,
         "expected": expected,
     }
 
@@ -129,14 +124,14 @@ async def run_case(
     from src.api.diagnose import DiagnoseRequest, _build_initial_state, _run_graph
     from src.config import settings
     from src.graph.copilotkit_graph import generate_thread_id
-    from src.graph.state import BrowserError, Evidence, LogEntry, TraceSpan
+    from src.graph.state import Evidence, LogEntry, TraceSpan
 
     # ── 加载证据 ──────────────────────────────────────────────
     if user_report:
         # 纯文本模式：构造最小 evidence
         print_section("Raw text mode (no case file)")
         print(f"  user_report: {user_report[:200]}")
-        logs, traces, browser_errors = [], [], []
+        logs, traces = [], []
         expected: dict[str, Any] = {}
     else:
         print_section(f"Step 1: Loading case {case_id}")
@@ -144,13 +139,11 @@ async def run_case(
         user_report = data["user_report"]
         logs = data["logs"]
         traces = data["traces"]
-        browser_errors = data["browser_errors"]
         expected = data["expected"]
 
         print(f"  user_report: {user_report[:120]}...")
         print(f"  logs: {len(logs)} entries")
         print(f"  traces: {len(traces)} spans")
-        print(f"  browser_errors: {len(browser_errors)} entries")
         if expected:
             print(f"  expected.categories: {expected.get('categories', [])}")
             print(f"  expected.root_cause_tier: {expected.get('root_cause_tier', '?')}")
@@ -207,7 +200,6 @@ async def run_case(
         user_report=user_report,
         logs=[LogEntry(**_sanitize(log, LogEntry)) for log in logs],
         traces=[TraceSpan(**_sanitize(span, TraceSpan)) for span in traces],
-        browser_errors=[BrowserError(**_sanitize(err, BrowserError)) for err in browser_errors],
     )
 
     request = DiagnoseRequest(evidence=evidence)

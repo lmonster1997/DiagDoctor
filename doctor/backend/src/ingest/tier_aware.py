@@ -106,13 +106,11 @@ def derive_service_tier(
 def mark_tiers(
     logs: list[dict[str, Any]],
     traces: list[dict[str, Any]],
-    browser_errors: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """
     Mark each evidence item with its service_tier.
 
-    Modifies items in-place by adding `_tier` field, then returns
-    separate frontend/backend partitions.
+    Modifies items in-place by adding `_tier` field.
 
     Returns:
         Tuple of (marked_logs, marked_traces).
@@ -147,10 +145,5 @@ def mark_tiers(
             tid = _get_trace_id(span)
             if tid:
                 span["_ref"] = tid
-
-    # Mark browser errors (always frontend)
-    for err in browser_errors or []:
-        err["_tier"] = "frontend"
-        err["service_tier"] = "frontend"
 
     return logs, traces

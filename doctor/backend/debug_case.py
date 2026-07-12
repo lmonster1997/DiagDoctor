@@ -16,7 +16,7 @@ import yaml
 sys.path.insert(0, "src")
 
 from src.graph.copilotkit_graph import generate_thread_id, get_copilotkit_graph
-from src.graph.state import BrowserError, Evidence, LogEntry, TraceSpan
+from src.graph.state import Evidence, LogEntry, TraceSpan
 
 # ── 改这里切换要调试的 Bug ──────────────────────────────────────────
 CASE_ID = "BE-020"
@@ -35,8 +35,7 @@ async def main() -> None:
     # Load evidence files
     logs = json.loads((evidence_dir / "logs.json").read_text(encoding="utf-8"))
     traces = json.loads((evidence_dir / "traces.json").read_text(encoding="utf-8"))
-    browser_errors = json.loads((evidence_dir / "browser_errors.json").read_text(encoding="utf-8"))
-    print(f"Loaded: {len(logs)} logs, {len(traces)} traces, {len(browser_errors)} browser errors")
+    print(f"Loaded: {len(logs)} logs, {len(traces)} traces")
 
     # Load user_report from case.yaml (auto, no hardcode)
     case_yaml = evidence_dir.parent / "case.yaml"
@@ -49,13 +48,10 @@ async def main() -> None:
     # Build Evidence
     log_entries = [LogEntry(**entry) for entry in logs]
     trace_spans = [TraceSpan(**t) for t in traces]
-    browser_errs = [BrowserError(**b) for b in browser_errors]
-
     raw_evidence = Evidence(
         user_report=user_report,
         logs=log_entries,
         traces=trace_spans,
-        browser_errors=browser_errs,
     )
 
     # Build state dict (same as REST API _build_initial_state)

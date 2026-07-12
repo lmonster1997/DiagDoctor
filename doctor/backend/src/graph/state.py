@@ -8,7 +8,7 @@ Key changes from v2:
 - DoctorState: added raw_evidence, triage (multi-label), total_cost, retrieval_trace
 - DoctorState (v3): removed iterations, critic_feedback, verdict, draft_report
 - New sub-models: NormalizedEvidence, Signal, TimelineEvent, Correlation,
-  RetrievalRecord, BrowserError
+  RetrievalRecord
 """
 
 from datetime import datetime
@@ -82,19 +82,6 @@ class TraceSpan(BaseModel):
             object.__setattr__(self, "start", self.start_time)
 
 
-class BrowserError(BaseModel):
-    """A browser-side error captured by Playwright/OTel-JS."""
-
-    message: str = ""
-    source: str = ""
-    lineno: int = 0
-    colno: int = 0
-    stack: str = ""
-    trace_id: str | None = None
-    span_id: str | None = None
-    component_stack: str = ""
-    breadcrumbs: list[dict[str, Any]] = Field(default_factory=list)
-    timestamp: str = ""
 
 
 class Evidence(BaseModel):
@@ -103,7 +90,6 @@ class Evidence(BaseModel):
     user_report: str = ""
     logs: list[LogEntry] = Field(default_factory=list)
     traces: list[TraceSpan] = Field(default_factory=list)
-    browser_errors: list[BrowserError] = Field(default_factory=list)
     error_screenshot_url: str | None = None
     request: dict[str, Any] | None = None
     response: dict[str, Any] | None = None
@@ -138,7 +124,7 @@ class Signal(BaseModel):
     """
 
     signal_id: str = ""  # e.g. "sig-be001-slow-sql"
-    source: Literal["log", "trace", "browser_error", "api_response", "user_report"] = "log"
+    source: Literal["log", "trace", "user_report"] = "log"
     signal_type: Literal[
         "error_log",
         "error_span",

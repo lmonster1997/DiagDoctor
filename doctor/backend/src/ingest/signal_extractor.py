@@ -215,7 +215,6 @@ def _detect_span_n_plus_one(
 def extract_golden_signals(
     logs: list[dict[str, Any]],
     traces: list[dict[str, Any]],
-    browser_errors: list[dict[str, Any]] | None = None,
     slow_threshold_ms: float = 200.0,
     *,
     n_plus_ones: list[dict[str, Any]] | None = None,
@@ -224,14 +223,13 @@ def extract_golden_signals(
     Extract golden signals from observability evidence.
 
     Note: "smokeless" bugs (logic/data/config) produce no signals here —
-    their logs/traces/browser_errors are all normal.  The Triage agent
+    their logs/traces are all normal.  The Triage agent
     must detect them from the user_report text and then actively
     investigate (code search, API probing).
 
     Args:
         logs: Denoised log entries.
         traces: Trace spans.
-        browser_errors: Browser-side errors (Playwright/OTel-JS).
         slow_threshold_ms: Spans slower than this are flagged.
         n_plus_ones: Tree-level N+1 patterns from ``detect_n_plus_one``
             (span-tree analysis).  Merged with span-level N+1 detection,
@@ -317,26 +315,6 @@ def extract_golden_signals(
                     },
                 )
             )
-
-    # --- From browser errors ---
-    for err in browser_errors or []:
-        msg = str(err.get("message", ""))
-        signals.append(
-            Signal(
-                signal_id=f"sig-browser-{_short_id()}",
-                source="browser_error",
-                signal_type="error_log",
-                service_tier="frontend",
-                severity="error",
-                summary=msg[:300],
-                evidence_ref=str(err.get("trace_id", err.get("span_id", ""))),
-                timestamp=err.get("timestamp", ""),
-                metadata={
-                    "stack": err.get("stack", ""),
-                    "component_stack": err.get("component_stack", ""),
-                },
-            )
-        )
 
     # --- Span-level N+1 detection (raw spans, not tree-based) ---
     n1_signals = _detect_span_n_plus_one(traces)

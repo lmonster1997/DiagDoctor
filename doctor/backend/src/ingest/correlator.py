@@ -82,15 +82,19 @@ def _get_tier(signal_id: str, signals: list[Signal]) -> str:
 def correlate_by_trace_id(
     logs: list[dict[str, Any]],
     traces: list[dict[str, Any]],
-    browser_errors: list[dict[str, Any]] | None = None,
     golden_signals: list[Signal] | None = None,
 ) -> list[Correlation]:
     """
     Build cross-layer correlations using trace_id.
 
-    Groups log entries, trace spans, and browser errors that share the same
-    trace_id into Correlation objects. Each Correlation represents a causal
+    Groups log entries and trace spans that share the same trace_id
+    into Correlation objects. Each Correlation represents a causal
     chain across tiers.
+
+    Note: Frontend errors are now captured as Loki ERROR logs (via
+    console.error interception) and Tempo client_error spans (via
+    window.onerror → OTel), so a separate browser_errors source is
+    no longer needed.
 
     Args:
         logs: Denoised, deduplicated log entries.
@@ -139,20 +143,6 @@ def correlate_by_trace_id(
                 trace_groups[trace_id].setdefault("db", []).append(
                     str(span.get("db_statement", ""))[:200]
                 )
-
-    for err in browser_errors or []:
-        trace_id = str(err.get("trace_id", ""))
-        if trace_id:
-            msg = str(err.get("message", ""))[:200]
-            trace_groups.setdefault(
-                trace_id,
-                {
-                    "frontend": [],
-                    "backend": [],
-                    "db": [],
-                },
-            )
-            trace_groups[trace_id]["frontend"].append(f"browser_error: {msg}")
 
     # Build Correlation objects from trace groups
     correlations: list[Correlation] = []
