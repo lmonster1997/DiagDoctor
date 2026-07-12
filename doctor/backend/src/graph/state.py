@@ -7,7 +7,7 @@ Key changes from v2:
 - DiagnosisReport: single bug_category → primary_category + categories(list)
 - DoctorState: added raw_evidence, triage (multi-label), total_cost, retrieval_trace
 - DoctorState (v3): removed iterations, critic_feedback, verdict, draft_report
-- New sub-models: NormalizedEvidence, Signal, TimelineEvent, Correlation,
+- New sub-models: NormalizedEvidence, Signal, Correlation,
   RetrievalRecord
 """
 
@@ -143,17 +143,6 @@ class Signal(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class TimelineEvent(BaseModel):
-    """A single event in the merged cross-source timeline."""
-
-    timestamp: datetime | str = ""
-    source: Literal["log", "trace", "browser_error", "api"] = "log"
-    service_tier: Literal["frontend", "backend"] = "backend"
-    service_name: str = ""
-    description: str = ""
-    evidence_ref: str = ""
-    trace_id: str | None = None
-
 
 class Correlation(BaseModel):
     """Cross-layer correlation: links evidence across frontend/backend/DB."""
@@ -172,9 +161,7 @@ class NormalizedEvidence(BaseModel):
 
     user_report: str = ""
     golden_signals: list[Signal] = Field(default_factory=list)
-    timeline: list[TimelineEvent] = Field(default_factory=list)
     correlations: list[Correlation] = Field(default_factory=list)
-    raw_refs: dict[str, Any] = Field(default_factory=dict)  # index to raw evidence
     trigger_time: str | None = Field(
         default=None,
         description="ISO 8601 UTC timestamp of bug trigger, used to narrow "
@@ -185,8 +172,6 @@ class NormalizedEvidence(BaseModel):
         description="W3C trace_ids associated with THIS trigger. When present, "
         "the agent can query Tempo/Loki precisely by them for per-case isolation.",
     )
-    frontend_span_count: int = 0
-    backend_span_count: int = 0
     metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Extra metadata attached by ingest (e.g. frontend_error_spans).",

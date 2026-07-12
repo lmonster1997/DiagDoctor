@@ -37,8 +37,8 @@ def format_evidence_for_agent(evidence: NormalizedEvidence) -> str:
 
     # ── Golden signals ──
     has_signals = bool(evidence.golden_signals)
-    has_trace_spans = (
-        evidence.frontend_span_count > 0 or evidence.backend_span_count > 0
+    has_trace_spans = any(
+        s.source == "trace" for s in evidence.golden_signals
     )
 
     if has_signals:

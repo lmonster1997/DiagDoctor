@@ -24,7 +24,6 @@ from src.graph.state import (
     Evidence,
     Finding,
     NormalizedEvidence,
-    TimelineEvent,
 )
 from src.observability.logger import get_logger
 
@@ -89,7 +88,7 @@ class DiagnoseResponse(BaseModel):
     """Standard (non-streaming) response from the diagnose endpoint (v2).
 
     Phase 2: carries the full evidence chain payload (budget, findings,
-    normalized evidence, correlations, timeline) so the frontend can render
+    normalized evidence, correlations) so the frontend can render
     the EvidenceChainGraph and a complete ReportPanel without a second
     round-trip.
     """
@@ -105,7 +104,6 @@ class DiagnoseResponse(BaseModel):
     findings: list[Finding] = Field(default_factory=list)
     evidence: NormalizedEvidence | None = None
     correlations: list[Correlation] = Field(default_factory=list)
-    timeline: list[TimelineEvent] = Field(default_factory=list)
 
 
 # ── Internal helpers ────────────────────────────────────────────────
@@ -151,18 +149,14 @@ def _extract_evidence_payload(final_state: Any) -> dict[str, Any]:
     evidence = final_state.get("evidence")
 
     correlations: list[Correlation] = []
-    timeline: list[TimelineEvent] = []
     if evidence is not None and hasattr(evidence, "correlations"):
         correlations = list(evidence.correlations or [])
-    if evidence is not None and hasattr(evidence, "timeline"):
-        timeline = list(evidence.timeline or [])
 
     return {
         "budget": budget,
         "findings": list(findings),
         "evidence": evidence,
         "correlations": correlations,
-        "timeline": timeline,
     }
 
 
@@ -171,7 +165,7 @@ async def _stream_graph(thread_id: str, state: dict[str, Any]) -> AsyncIterator[
 
     Emits incremental ``on_chat_model_*`` events during the run, then a
     final ``final`` event carrying the full Phase 2 payload (report +
-    budget + findings + evidence + correlations + timeline) so the
+    budget + findings + evidence + correlations) so the
     frontend can render the evidence chain graph and complete report
     without a second request.
     """
@@ -229,9 +223,6 @@ async def _stream_graph(thread_id: str, state: dict[str, Any]) -> AsyncIterator[
         correlations_dump = [
             c.model_dump() if hasattr(c, "model_dump") else c for c in payload["correlations"]
         ]
-        timeline_dump = [
-            t.model_dump() if hasattr(t, "model_dump") else t for t in payload["timeline"]
-        ]
 
         final_data = {
             "event": "final",
@@ -240,7 +231,6 @@ async def _stream_graph(thread_id: str, state: dict[str, Any]) -> AsyncIterator[
             "findings": findings_dump,
             "evidence": evidence_dump,
             "correlations": correlations_dump,
-            "timeline": timeline_dump,
         }
         yield f"data: {json.dumps(final_data, default=str)}\n\n"
     except Exception as exc:
@@ -323,5 +313,4 @@ async def diagnose(
         findings=payload["findings"],
         evidence=payload["evidence"],
         correlations=payload["correlations"],
-        timeline=payload["timeline"],
     )

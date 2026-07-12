@@ -292,16 +292,13 @@ def find_error_spans(roots: list[SpanNode]) -> list[dict[str, Any]]:
 
 def detect_n_plus_one(roots: list[SpanNode]) -> list[dict[str, Any]]:
     """
-    Detect N+1 query patterns in the span tree.
+    Detect N+1 query patterns in the span tree (agent tool, not ingest).
 
     An N+1 pattern is identified when one parent span has many child spans
     with the same (or very similar) db_statement, indicating repeated
     individual queries instead of a single batched query.
 
     Heuristic: same db_statement under same parent, count >= 3.
-
-    Returns:
-        List of dicts describing each N+1 pattern found.
     """
     patterns: list[dict[str, Any]] = []
 
@@ -309,18 +306,15 @@ def detect_n_plus_one(roots: list[SpanNode]) -> list[dict[str, Any]]:
         if not node.children:
             continue
 
-        # Group children by db_statement
         stmt_groups: dict[str, list[SpanNode]] = defaultdict(list)
         for child in node.children:
             stmt = child.db_statement.strip()
             if stmt:
-                # Normalise: collapse parameter values
                 norm = _normalise_sql(stmt)
                 stmt_groups[norm].append(child)
 
         for norm_stmt, children in stmt_groups.items():
             if len(children) >= 3:
-                # Use the first child's original statement as representative
                 sample_stmt = children[0].db_statement
                 patterns.append(
                     {
@@ -332,7 +326,7 @@ def detect_n_plus_one(roots: list[SpanNode]) -> list[dict[str, Any]]:
                         "count": len(children),
                         "avg_duration_ms": sum(c.duration_ms for c in children) / len(children),
                         "total_duration_ms": sum(c.duration_ms for c in children),
-                        "child_span_ids": [c.span_id for c in children[:10]],  # cap at 10
+                        "child_span_ids": [c.span_id for c in children[:10]],
                     }
                 )
     return patterns
@@ -342,11 +336,8 @@ def _normalise_sql(sql: str) -> str:
     """Normalise a SQL statement for comparison (collapse values)."""
     import re
 
-    # Collapse quoted strings
     sql = re.sub(r"'[^']*'", "?", sql)
-    # Collapse numbers
     sql = re.sub(r"\b\d+(\.\d+)?\b", "#", sql)
-    # Collapse whitespace
     sql = re.sub(r"\s+", " ", sql)
     return sql.strip().lower()
 
@@ -356,8 +347,6 @@ def get_tree_summary(roots: list[SpanNode]) -> dict[str, Any]:
     Get a high-level summary of the span tree for prompt context.
 
     Returns a compact dict suitable for feeding into LLM prompts.
-    ``n_plus_ones`` is the full list; ``n_plus_one_details`` is capped
-    at 3 for prompt brevity.
     """
     all_nodes = flatten_tree(roots)
     if not all_nodes:
@@ -366,13 +355,11 @@ def get_tree_summary(roots: list[SpanNode]) -> dict[str, Any]:
             "frontend_count": 0,
             "backend_count": 0,
             "error_count": 0,
-            "n_plus_one_patterns": 0,
         }
 
     frontend = [n for n in all_nodes if n.is_frontend]
     backend = [n for n in all_nodes if n.is_backend]
     errors = [n for n in all_nodes if n.is_error]
-    n_plus_ones = detect_n_plus_one(roots)
     bottlenecks = find_bottlenecks(roots)
     critical = find_critical_path(roots)
 
@@ -384,9 +371,6 @@ def get_tree_summary(roots: list[SpanNode]) -> dict[str, Any]:
         "error_span_names": [e.name for e in errors[:5]],
         "bottleneck_count": len(bottlenecks),
         "top_bottlenecks": bottlenecks[:5],
-        "n_plus_one_patterns": len(n_plus_ones),
-        "n_plus_ones": n_plus_ones,              # full list — caller may create Signals from it
-        "n_plus_one_details": n_plus_ones[:3],    # capped for LLM prompt brevity
         "critical_path_length": len(critical),
         "critical_path_duration_ms": sum(n.duration_ms for n in critical),
     }

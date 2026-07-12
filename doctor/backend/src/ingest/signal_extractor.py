@@ -66,174 +66,23 @@ def _get_span_name(span: dict[str, Any]) -> str:
     return name or "unknown"
 
 
-# ── Span-level N+1 detection ─────────────────────────────────────────
-
-
-def _normalise_sql_statement(sql: str) -> str:
-    """Normalise a SQL statement for comparison (collapse values and whitespace)."""
-    import re as _re
-
-    # Collapse quoted strings
-    sql = _re.sub(r"'[^']*'", "?", sql)
-    # Collapse numbers
-    sql = _re.sub(r"\b\d+(\.\d+)?\b", "#", sql)
-    # Collapse whitespace
-    sql = _re.sub(r"\s+", " ", sql)
-    return sql.strip().lower()
-
-
-def _get_parent_span_id(span: dict[str, Any]) -> str:
-    """Extract parent_span_id from a raw span dict (OTLP camelCase or snake_case)."""
-    pid = str(span.get("parent_span_id", span.get("parentSpanId", "")))
-    return pid
-
-
-def _get_span_db_statement(span: dict[str, Any]) -> str:
-    """Extract db_statement from a raw span dict (top-level or attributes)."""
-    stmt = str(span.get("db_statement", span.get("dbStatement", "")))
-    if stmt:
-        return stmt
-    attrs = span.get("attributes", {})
-    if isinstance(attrs, dict):
-        stmt = str(attrs.get("db.statement", attrs.get("dbStatement", "")))
-    return stmt
-
-
-def _detect_span_n_plus_one(
-    traces: list[dict[str, Any]],
-) -> list[Signal]:
-    """Detect N+1 query patterns directly from raw trace spans.
-
-    Groups spans by (parent_span_id, normalised_db_statement) and flags
-    groups with count >= 3 that exhibit linear time growth.
-
-    This complements the deduplicator's log-text-based N+1 folding by
-    working at the span level, which is more reliable when logs are
-    collapsed or the N+1 spans are interleaved with other operations.
-
-    Args:
-        traces: Raw trace span dicts.
-
-    Returns:
-        List of Signal objects for detected N+1 patterns.
-    """
-    if not traces:
-        return []
-
-    # ── Step 1: Collect spans that have both parent_span_id and db_statement ──
-    db_spans: list[dict[str, Any]] = []
-    for span in traces:
-        db_stmt = _get_span_db_statement(span)
-        parent_id = _get_parent_span_id(span)
-        if db_stmt and parent_id:
-            db_spans.append(span)
-
-    if not db_spans:
-        return []
-
-    # ── Step 2: Group by (parent_span_id, normalised_db_statement) ──
-    from collections import defaultdict
-
-    groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
-    for span in db_spans:
-        parent_id = _get_parent_span_id(span)
-        db_stmt = _get_span_db_statement(span)
-        norm = _normalise_sql_statement(db_stmt)
-        groups[(parent_id, norm)].append(span)
-
-    # ── Step 3: Filter groups with count >= 3 and validate linear growth ──
-    signals: list[Signal] = []
-    for (parent_id, norm_stmt), children in groups.items():
-        count = len(children)
-        if count < settings.ingest_n1_min_count:
-            continue
-
-        # Extract durations
-        durations = [float(c.get("duration_ms", 0) or 0) for c in children]
-        total_duration = sum(durations)
-        avg_duration = total_duration / count if count > 0 else 0.0
-
-        # Linear growth check: total ≈ avg × count
-        # Skip check if avg is near zero (no meaningful timing data)
-        if avg_duration > 0.1:
-            expected_total = avg_duration * count
-            deviation = abs(total_duration - expected_total) / max(expected_total, 0.001)
-            if deviation > settings.ingest_n1_linear_tolerance:
-                continue  # Not linear — likely different queries, skip
-
-        # ── Build Signal ──
-        sample_span = children[0]
-        sample_stmt = _get_span_db_statement(sample_span)
-        parent_name = ""
-        # Try to find the parent span to get its name
-        for t in traces:
-            sid = str(t.get("span_id", t.get("spanId", "")))
-            if sid == parent_id:
-                parent_name = str(t.get("name", t.get("operation_name", "")))
-                break
-
-        service_name = str(
-            sample_span.get("service_name", sample_span.get("service", "unknown-backend"))
-        )
-
-        summary = (
-            f"[×{count}] {sample_stmt[:200]} "
-            f"(avg {avg_duration:.1f}ms, total {total_duration:.1f}ms, "
-            f"parent={parent_name or parent_id[:8]})"
-        )
-
-        signals.append(
-            Signal(
-                signal_id=f"sig-n1-span-{_short_id()}",
-                source="trace",
-                signal_type="repeated_query",
-                service_tier="backend",
-                severity="warning",
-                summary=summary,
-                evidence_ref=parent_id,
-                timestamp=sample_span.get(
-                    "start", sample_span.get("start_time", "")
-                ),
-                metadata={
-                    "n_plus_one": True,
-                    "detection_method": "span_level",
-                    "count": count,
-                    "total_duration_ms": total_duration,
-                    "avg_duration_ms": avg_duration,
-                    "db_statement": sample_stmt,
-                    "normalised_statement": norm_stmt,
-                    "parent_span_id": parent_id,
-                    "parent_span_name": parent_name,
-                    "service": service_name,
-                },
-            )
-        )
-
-    return signals
-
-
 def extract_golden_signals(
     logs: list[dict[str, Any]],
     traces: list[dict[str, Any]],
     slow_threshold_ms: float = 200.0,
-    *,
-    n_plus_ones: list[dict[str, Any]] | None = None,
 ) -> list[Signal]:
     """
     Extract golden signals from observability evidence.
 
     Note: "smokeless" bugs (logic/data/config) produce no signals here —
-    their logs/traces are all normal.  The Triage agent
-    must detect them from the user_report text and then actively
-    investigate (code search, API probing).
+    their logs/traces are all normal. The diagnosis agent must detect
+    them from the user_report text and actively investigate
+    (code search, API probing).
 
     Args:
         logs: Denoised log entries.
         traces: Trace spans.
         slow_threshold_ms: Spans slower than this are flagged.
-        n_plus_ones: Tree-level N+1 patterns from ``detect_n_plus_one``
-            (span-tree analysis).  Merged with span-level N+1 detection,
-            deduplicated by parent_span_id.
 
     Returns:
         List of Signal objects, ordered by severity.
@@ -312,42 +161,6 @@ def extract_golden_signals(
                         "duration_ms": duration,
                         "service": service_name,
                         "db_statement": db_stmt,
-                    },
-                )
-            )
-
-    # --- Span-level N+1 detection (raw spans, not tree-based) ---
-    n1_signals = _detect_span_n_plus_one(traces)
-    signals.extend(n1_signals)
-
-    # --- Tree-level N+1 detection (from span tree, dedup against span-level) ---
-    if n_plus_ones:
-        existing_n1_parents: set[str] = {
-            s.evidence_ref
-            for s in n1_signals
-        }
-        for np1 in n_plus_ones:
-            if np1["parent_span_id"] in existing_n1_parents:
-                continue
-            signals.append(
-                Signal(
-                    signal_id=np1["pattern_id"],
-                    source="trace",
-                    signal_type="repeated_query",
-                    service_tier="backend",
-                    severity="warning",
-                    summary=(
-                        f"[×{np1['count']}] {np1['db_statement'][:200]} "
-                        f"(total {np1['total_duration_ms']:.1f}ms, "
-                        f"parent={np1['parent_span_name']})"
-                    ),
-                    evidence_ref=np1["parent_span_id"],
-                    metadata={
-                        "n_plus_one": True,
-                        "detection_method": "tree_based",
-                        "count": np1["count"],
-                        "total_duration_ms": np1["total_duration_ms"],
-                        "db_statement": np1["db_statement"],
                     },
                 )
             )
