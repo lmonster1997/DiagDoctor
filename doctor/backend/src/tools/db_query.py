@@ -18,6 +18,7 @@ Connection strategy (resilient across Docker Desktop / WSL / Linux):
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import re
 import subprocess
@@ -34,10 +35,8 @@ logger = get_logger(__name__)
 
 # ── Windows event loop fix (psycopg 3 requires SelectorEventLoop) ────
 if sys.platform == "win32":
-    try:
+    with contextlib.suppress(Exception):
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    except Exception:
-        pass  # Already set by caller
 
 
 def _get_db_url() -> str:
@@ -74,7 +73,7 @@ async def _query_via_psycopg(sql: str) -> dict:
         return {
             "columns": columns,
             "row_count": len(rows),
-            "rows": [_serialize_row(zip(columns, row)) for row in rows],
+            "rows": [_serialize_row(zip(columns, row, strict=False)) for row in rows],
             "status": "ok",
         }
     finally:
@@ -250,7 +249,7 @@ async def db_query(sql: str) -> str:
     except Exception as docker_err:
         logger.error(
             "db_query_all_methods_failed",
-            psycopg_error=str(psycopg_err) if "psycopg_err" in dir() else "",
+            psycopg_error=str(locals().get("psycopg_err", "")),
             docker_error=str(docker_err),
         )
         return json.dumps(

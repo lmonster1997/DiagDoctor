@@ -265,7 +265,9 @@ async def _forced_final_json_call(
                 )
         return None
 
-    parsed: ForcedDiagnosisReport | None = result.get("parsed") if isinstance(result, dict) else None
+    parsed: ForcedDiagnosisReport | None = (
+        result.get("parsed") if isinstance(result, dict) else None
+    )
     raw = result.get("raw") if isinstance(result, dict) else None
     if parsed is None:
         raw_content_str = str(getattr(raw, "content", "")) if raw is not None else None

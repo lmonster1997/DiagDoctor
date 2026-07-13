@@ -68,7 +68,8 @@ def build_diagnosis_agent() -> Any:
     - wrap_tool_call: outer→inner (first registered wraps outermost)
     - after_agent: reverse registration order
 
-    Pipeline: AgentLifecycle → ToolDedup → LangfuseTracing → ToolTruncation → BudgetGuard → ForcedFinalCall
+    Pipeline: AgentLifecycle → ToolDedup → LangfuseTracing
+              → ToolTruncation → BudgetGuard → ForcedFinalCall
     """
     llm = _get_llm()
     tools = _get_tools()
@@ -81,12 +82,12 @@ def build_diagnosis_agent() -> Any:
         tool_names=[t.name for t in tools],
     )
 
+    from src.engine.budget.guard import BudgetGuardMiddleware
+    from src.engine.middleware.forced_call import ForcedFinalCallMiddleware
+    from src.engine.middleware.langfuse_tracing import LangfuseTracingMiddleware
     from src.engine.middleware.lifecycle import AgentLifecycleMiddleware
     from src.engine.middleware.tool_dedup import ToolDedupMiddleware
     from src.engine.middleware.tool_truncation import ToolTruncationMiddleware
-    from src.engine.middleware.langfuse_tracing import LangfuseTracingMiddleware
-    from src.engine.budget.guard import BudgetGuardMiddleware
-    from src.engine.middleware.forced_call import ForcedFinalCallMiddleware
 
     middleware = [
         AgentLifecycleMiddleware(),

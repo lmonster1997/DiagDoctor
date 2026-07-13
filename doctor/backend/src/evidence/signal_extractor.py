@@ -25,7 +25,6 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from src.config import settings
 from src.engine.state import Signal
 
 

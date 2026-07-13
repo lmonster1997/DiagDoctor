@@ -75,9 +75,10 @@ class InfoCompatMiddleware(BaseHTTPMiddleware):
 
         # Fix content-type for SSE agent responses
         ctype = response.headers.get("content-type", "")
-        if _re.match(r"^/api/copilotkit/agent/([a-zA-Z0-9_-]+)$", path):
-            if "text/event-stream" not in ctype and request.method == "POST":
-                response.headers["content-type"] = "text/event-stream; charset=utf-8"
+        if _re.match(r"^/api/copilotkit/agent/([a-zA-Z0-9_-]+)$", path) and (
+            "text/event-stream" not in ctype and request.method == "POST"
+        ):
+            response.headers["content-type"] = "text/event-stream; charset=utf-8"
 
         if "text/event-stream" in response.headers.get("content-type", ""):
             return response

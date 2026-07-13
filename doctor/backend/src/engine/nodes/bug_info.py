@@ -20,6 +20,7 @@ user message.
 from __future__ import annotations
 
 import json
+from datetime import UTC
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -43,7 +44,9 @@ _PREFETCH_SERVICES: dict[str, str] = {
 _BUG_INFO_EXTRACTION_PROMPT = """你是一个 Bug 信息提取器。从用户的 Bug 描述中提取以下结构化信息。
 
 - bug_description: 用户描述的 Bug 现象（保留原文）
-- trigger_time: ISO 8601 UTC 时间，如 2026-07-11T06:26:51Z。从用户消息中提取。如果用户提到"刚才"/"今天"/"半小时前"等相对时间，请根据参考时间 {current_time} 推算。无法确定则不填
+- trigger_time: ISO 8601 UTC 时间，如 2026-07-11T06:26:51Z。从用户消息中提取。
+  如果用户提到"刚才"/"今天"/"半小时前"等相对时间，请根据参考时间 {current_time} 推算。
+  无法确定则不填
 - trace_ids: 用户消息中出现的 W3C trace id 列表（32 位 hex），没有则空数组
 
 用户消息：
@@ -74,11 +77,11 @@ async def _extract_bug_info(user_message: str) -> dict[str, Any]:
     Never raises — returns defaults on failure so the downstream
     diagnosis agent can still work with whatever info we have.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from src.llm_factory import get_llm_for_role
 
-    current_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    current_time = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     prompt = _BUG_INFO_EXTRACTION_PROMPT.format(
         current_time=current_time,
         user_message=user_message,
@@ -242,7 +245,8 @@ async def bug_info_node(state: dict[str, Any]) -> dict[str, Any]:
 
     # ── Step 2: Auto-prefetch from Loki/Tempo ────────────────────
     import asyncio as _asyncio
-    from datetime import datetime as dt, timedelta, timezone
+    from datetime import datetime as dt
+    from datetime import timedelta
 
     if trigger_time:
         # Normalise timezone: LLM may return "Z", "+00:00", or naive.
@@ -250,7 +254,7 @@ async def bug_info_node(state: dict[str, Any]) -> dict[str, Any]:
         tt = dt.fromisoformat(trigger_time.replace("Z", "+00:00"))
         # Keep tzinfo — Loki/Tempo require timezone-aware timestamps.
         if tt.tzinfo is None:
-            tt = tt.replace(tzinfo=timezone.utc)
+            tt = tt.replace(tzinfo=UTC)
         start = (tt - timedelta(minutes=5)).isoformat()
         end = (tt + timedelta(minutes=5)).isoformat()
 

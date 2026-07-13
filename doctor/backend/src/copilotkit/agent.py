@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import uuid as _uuid
 
-from copilotkit import LangGraphAGUIAgent
 from ag_ui.core import RunAgentInput
 from ag_ui.encoder import EventEncoder
+
+from copilotkit import LangGraphAGUIAgent
 
 
 class DiagDoctorAgent(LangGraphAGUIAgent):

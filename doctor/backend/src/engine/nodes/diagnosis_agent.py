@@ -24,15 +24,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.engine.agent import (
+    _build_system_prompt,
+    get_diagnosis_agent,
+)
 from src.engine.nodes.bug_info import bug_info_node
 from src.engine.run_context import (
     DiagnosisRunContext,
     clear_run_context,
     set_run_context,
-)
-from src.engine.agent import (
-    _build_system_prompt,
-    get_diagnosis_agent,
 )
 from src.observability.logger import get_logger
 
@@ -47,7 +47,7 @@ def _filter_visible_messages(messages: list[Any]) -> list[Any]:
     dump + signal data) are internal context — they must never
     appear in the user-visible chat.
     """
-    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+    from langchain_core.messages import AIMessage, ToolMessage
 
     return [
         m
@@ -74,8 +74,8 @@ async def _diagnosis_agent_node(state: dict[str, Any]) -> dict[str, Any]:
 
     from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-    from src.evidence.formatter import format_evidence_for_agent
     from src.engine.state import NormalizedEvidence
+    from src.evidence.formatter import format_evidence_for_agent
 
     evidence: NormalizedEvidence | None = state.get("evidence")
     if evidence is None:
@@ -206,7 +206,6 @@ def _finalize_report_for_dict_state(
     messages: list, budget_exhausted: bool
 ) -> tuple[Any, list[Any], Any, bool]:
     """Parse messages into report + findings (mirrors _finalize_report from node.py)."""
-    from src.engine.budget.constants import BUDGET_WARNING_THRESHOLD, MAX_TOOL_CALLS
     from src.engine.budget.tracker import is_budget_exceeded, update_budget
     from src.engine.parsing import (
         extract_findings,

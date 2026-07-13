@@ -9,14 +9,12 @@ ContextBudget — token 预算追踪与阶段判定。
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
 import tiktoken
 
-from src.config import settings
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)

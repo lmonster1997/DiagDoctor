@@ -13,9 +13,9 @@ init_observability()
 configure_logging(json_format=False)
 
 # ── Assemble the application ──
-from src.create_app import create_app
-from src.api.routes import register_routes
-from src.copilotkit.mount import mount_copilotkit
+from src.api.routes import register_routes  # noqa: E402
+from src.copilotkit.mount import mount_copilotkit  # noqa: E402
+from src.create_app import create_app  # noqa: E402
 
 app = create_app()
 register_routes(app)

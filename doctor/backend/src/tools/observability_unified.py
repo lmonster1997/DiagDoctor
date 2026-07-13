@@ -392,7 +392,10 @@ def _detect_error_bursts(
                             "stddev": round(stddev, 1),
                             "threshold": "absolute_minimum(≥8)",
                             "excess_pct": 0,
-                            "note": "Single-bucket burst; insufficient baseline for σ-based threshold.",
+                            "note": (
+                                "Single-bucket burst; "
+                                "insufficient baseline for σ-based threshold."
+                            ),
                         },
                     }
                 )
@@ -503,8 +506,8 @@ def _detect_error_clusters(
     error_entries.sort(key=lambda x: x[0])
 
     # Sliding window: group by fingerprint within 2-minute windows
-    CLUSTER_WINDOW_SECONDS = 120
-    CLUSTER_MIN_COUNT = 5
+    cluster_window_seconds = 120
+    cluster_min_count = 5
 
     # Use a simple sliding-window approach: for each fingerprint,
     # count occurrences in the next 2 minutes
@@ -518,14 +521,14 @@ def _detect_error_clusters(
         count = 1
         samples: list[str] = [original]
         for j in range(i + 1, len(error_entries)):
-            if (error_entries[j][0] - ts).total_seconds() > CLUSTER_WINDOW_SECONDS:
+            if (error_entries[j][0] - ts).total_seconds() > cluster_window_seconds:
                 break
             if error_entries[j][1] == fingerprint:
                 count += 1
                 if len(samples) < 3:
                     samples.append(error_entries[j][2])
 
-        if count >= CLUSTER_MIN_COUNT:
+        if count >= cluster_min_count:
             fingerprinted.append(
                 {
                     "fingerprint": fingerprint[:80],
@@ -835,7 +838,7 @@ def _generate_insights(analysis_result: dict[str, Any]) -> str:
         )
 
     parts.append(
-        f"4. **建议下一步**：\n   - " + "\n   - ".join(suggestions)
+        "4. **建议下一步**：\n   - " + "\n   - ".join(suggestions)
     )
 
     if not parts:
@@ -921,7 +924,8 @@ async def search_observability(
         query: 查询字符串。source="loki" 时为 LogQL；
                source="tempo" 时为 trace_id 或服务名；
                source="auto" 时为 LogQL
-        start: ISO 起始时间。**建议省略**——默认取 trigger_time ± 5min（只看本次触发附近，避免混入其他 case 的信号）。
+        start: ISO 起始时间。**建议省略**——默认取 trigger_time ± 5min
+          （只看本次触发附近，避免混入其他 case 的信号）。
             显式传入且整体早于当前 1 小时的窗口会被自动纠正为默认窗口。
         end: ISO 结束时间。**建议省略**——同 start。
         analysis: 分析深度（仅在使用 trace 数据时生效）

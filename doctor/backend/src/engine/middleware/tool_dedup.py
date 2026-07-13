@@ -26,7 +26,11 @@ class ToolDedupMiddleware(AgentMiddleware):
         tool = request.tool
         tool_call = request.tool_call
         tool_name = tool.name if tool is not None else tool_call.get("name", "unknown")
-        tool_args = tool_call.get("args", {}) if isinstance(tool_call, dict) else getattr(tool_call, "args", {})
+        tool_args = (
+            tool_call.get("args", {})
+            if isinstance(tool_call, dict)
+            else getattr(tool_call, "args", {})
+        )
         tool_call_id = (
             tool_call.get("id", "") if isinstance(tool_call, dict) else getattr(tool_call, "id", "")
         )
