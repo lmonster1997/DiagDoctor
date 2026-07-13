@@ -10,7 +10,7 @@ tags:
 expected_diagnosis:
   root_cause: list_tasks 把 .order_by(Task.created_at.desc()) 改成了 .asc()，任务按创建时间升序返回，导致最新任务排在末尾
   affected_file: demo-app/backend/app/api/tasks.py
-  affected_line: 41
+  affected_line: 45
   fix_suggestion: 将 list_tasks 的排序改回 Task.created_at.desc()（或按产品预期的排序字段降序）
   fix_keywords:
   - order_by
@@ -39,7 +39,7 @@ injection:
     +++ b/demo-app/backend/app/api/tasks.py
 
 
-    @@ -45,1 +45,1 @@
+    @@ -37,1 +37,1 @@
 
 
     -        .order_by(Task.created_at.desc())

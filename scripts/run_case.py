@@ -138,6 +138,76 @@ def load_json(path: Path) -> Any:
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# Git 状态保存/恢复（注入前 stash → 诊断后 pop）
+# ═══════════════════════════════════════════════════════════════════════
+
+_STASH_REF: str | None = None  # 本次运行的 stash 引用
+
+
+def has_dirty_worktree() -> bool:
+    """检查工作区是否有未提交的改动。"""
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=str(PROJECT_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    return bool(result.stdout.strip())
+
+
+def git_save_state(bug_id: str) -> bool:
+    """保存当前工作区状态（git stash push --include-untracked）。
+    返回 True 表示成功保存，False 表示工作区干净无需保存。
+    """
+    global _STASH_REF
+    if not has_dirty_worktree():
+        dim("  工作区干净，无需保存")
+        return False
+
+    stash_msg = f"run_case: auto-save before {bug_id}"
+    proc = subprocess.run(
+        ["git", "stash", "push", "--include-untracked", "-m", stash_msg],
+        cwd=str(PROJECT_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        warn(f"git stash 失败: {proc.stderr.strip()}")
+        return False
+
+    # 获取 stash 引用（格式: "Saved working directory and index state On <branch>: <msg>"）
+    output = proc.stdout.strip()
+    if "No local changes to save" in output:
+        dim("  无本地改动")
+        return False
+
+    _STASH_REF = "stash@{0}"
+    ok(f"已保存工作区状态 (stash: {stash_msg})")
+    return True
+
+
+def git_restore_state() -> None:
+    """恢复之前保存的工作区状态（git stash pop）。"""
+    global _STASH_REF
+    if _STASH_REF is None:
+        return
+
+    dim(f"  恢复工作区状态 ({_STASH_REF})...")
+    proc = subprocess.run(
+        ["git", "stash", "pop", _STASH_REF],
+        cwd=str(PROJECT_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        warn(f"git stash pop 失败: {proc.stderr.strip()}")
+        warn("  请手动恢复: git stash list && git stash pop")
+    else:
+        ok("工作区已恢复")
+    _STASH_REF = None
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # Step 3: 诊断 — 调用 Doctor API（HTTP）
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -394,6 +464,9 @@ def main() -> None:
     parser.add_argument("--no-llm-judge", action="store_true", help="跳过 LLM Judge")
     parser.add_argument("--langfuse", action="store_true", help="上传评测结果到 Langfuse")
     parser.add_argument("--show-only", action="store_true", help="只查看已有 case 详情")
+    parser.add_argument(
+        "--no-restore", action="store_true", help="诊断后不恢复工作区（保留注入的 Bug 代码）"
+    )
 
     args = parser.parse_args()
 
@@ -432,10 +505,16 @@ def main() -> None:
         sys.exit(1)
 
     # ═══════════════════════════════════════════════════════════════
-    # Step 1: Bug 注入
+    # Step 1: Bug 注入（注入前自动保存工作区，诊断后自动恢复）
     # ═══════════════════════════════════════════════════════════════
+    _did_save = False
     if not args.skip_inject:
         step(1, total_steps, f"Bug Factory: 注入 Bug ({bug_id})")
+
+        # 注入前保存当前工作区（git stash）
+        if not args.no_restore:
+            _did_save = git_save_state(bug_id)
+
         t0 = time.monotonic()
         run_cmd(
             ["uv", "run", "python", "-m", "bug_factory.cli", "inject", bug_id],
@@ -450,54 +529,64 @@ def main() -> None:
         step(1, total_steps, "跳过注入 (--skip-inject)")
 
     # ═══════════════════════════════════════════════════════════════
-    # Step 2: 触发 + 收集 + 生成 case.yaml
+    # Step 2-3: 触发 → 诊断（含自动恢复）
     # ═══════════════════════════════════════════════════════════════
-    if not args.skip_trigger:
-        step(2, total_steps, "Bug Factory: 触发 → 收集 → 生成 case.yaml")
-        dim("  这可能需要 1-2 分钟（含 OTel 管道 flush 等待）...")
+    diagnosis: dict[str, Any] = {}
+    thread_id = "N/A"
+    try:
+        if not args.skip_trigger:
+            step(2, total_steps, "Bug Factory: 触发 → 收集 → 生成 case.yaml")
+            dim("  这可能需要 1-2 分钟（含 OTel 管道 flush 等待）...")
+            t0 = time.monotonic()
+
+            cmd = [
+                "uv",
+                "run",
+                "python",
+                "-m",
+                "bug_factory.cli",
+                "full",
+                bug_id,
+                "--skip-inject",
+                "--clear-loki",
+                "--base-url",
+                args.demo_url,
+            ]
+            run_cmd(cmd, cwd=BUG_FACTORY_DIR)
+            ok(f"触发+收集+生成 完成 ({time.monotonic() - t0:.1f}s)")
+        else:
+            step(2, total_steps, "跳过触发+收集 (--skip-trigger)")
+
+        # ═══════════════════════════════════════════════════════════
+        # Step 3: 诊断 — 调用 Doctor API
+        # ═══════════════════════════════════════════════════════════
+        step(3, total_steps, "诊断: 调用 Doctor API")
         t0 = time.monotonic()
 
-        cmd = [
-            "uv",
-            "run",
-            "python",
-            "-m",
-            "bug_factory.cli",
-            "full",
-            bug_id,
-            "--skip-inject",
-            "--clear-loki",
-            "--base-url",
-            args.demo_url,
-        ]
-        run_cmd(cmd, cwd=BUG_FACTORY_DIR)
-        ok(f"触发+收集+生成 完成 ({time.monotonic() - t0:.1f}s)")
-    else:
-        step(2, total_steps, "跳过触发+收集 (--skip-trigger)")
+        diagnosis = asyncio.run(diagnose_case(bug_id, args.doctor_url))
 
-    # ═══════════════════════════════════════════════════════════════
-    # Step 3: 诊断 — 调用 Doctor API
-    # ═══════════════════════════════════════════════════════════════
-    step(3, total_steps, "诊断: 调用 Doctor API")
-    t0 = time.monotonic()
+        elapsed = time.monotonic() - t0
+        thread_id = diagnosis.get("thread_id", "N/A")
+        primary = diagnosis.get("primary_category", "N/A")
+        findings = diagnosis.get("findings_count", 0)
 
-    diagnosis = asyncio.run(diagnose_case(bug_id, args.doctor_url))
+        ok(f"诊断完成 ({elapsed:.1f}s)")
+        print(f"  Thread ID:      {thread_id}")
+        print(f"  Primary:        {primary}")
+        print(f"  Findings:       {findings}")
 
-    elapsed = time.monotonic() - t0
-    thread_id = diagnosis.get("thread_id", "N/A")
-    primary = diagnosis.get("primary_category", "N/A")
-    findings = diagnosis.get("findings_count", 0)
+        report = diagnosis.get("report") or {}
+        if report:
+            print(f"  Root cause:     {str(report.get('root_cause', ''))[:200]}")
+            print(f"  Affected file:  {report.get('affected_file', 'N/A')}")
+            print(f"  Confidence:     {report.get('confidence', 0):.2%}")
 
-    ok(f"诊断完成 ({elapsed:.1f}s)")
-    print(f"  Thread ID:      {thread_id}")
-    print(f"  Primary:        {primary}")
-    print(f"  Findings:       {findings}")
-
-    report = diagnosis.get("report") or {}
-    if report:
-        print(f"  Root cause:     {str(report.get('root_cause', ''))[:200]}")
-        print(f"  Affected file:  {report.get('affected_file', 'N/A')}")
-        print(f"  Confidence:     {report.get('confidence', 0):.2%}")
+    finally:
+        # 诊断完成后立即恢复工作区（无论成功或失败）
+        if _did_save:
+            git_restore_state()
+            dim(f"等待 uvicorn reload ({args.reload_wait}s)...")
+            time.sleep(args.reload_wait)
 
     # ═══════════════════════════════════════════════════════════════
     # Step 4: 评测
@@ -530,16 +619,11 @@ def main() -> None:
     total_elapsed = time.monotonic() - total_start
     header(f"完成 — overall={eval_result['overall']:.2f} | 耗时 {total_elapsed:.0f}s")
 
-    # 提示切回 main
-    result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        cwd=str(PROJECT_ROOT),
-        capture_output=True,
-        text=True,
-    )
-    branch = result.stdout.strip()
-    if branch != "main":
-        warn(f"当前分支: {branch} — 记得切回: git checkout main")
+    # 报告工作区恢复状态
+    if _did_save:
+        ok("工作区已自动恢复（Bug 注入代码已回退）")
+    elif not args.skip_inject and not args.no_restore:
+        dim("  工作区原本干净，无需恢复")
 
 
 # ═══════════════════════════════════════════════════════════════════════

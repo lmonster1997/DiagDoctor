@@ -82,7 +82,14 @@ class TriggerStep(BaseModel):
     """A single step in a trigger sequence that activates the bug."""
 
     action: Literal[
-        "login", "api_call", "ui_click", "create_data", "wait", "ui_navigate", "collect_diff"
+        "login",
+        "api_call",
+        "api_call_concurrent",
+        "ui_click",
+        "create_data",
+        "wait",
+        "ui_navigate",
+        "collect_diff",
     ]
     params: dict[str, Any]
 

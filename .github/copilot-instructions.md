@@ -15,7 +15,7 @@
 |--------|------|------|
 | **demo-app** | `demo-app/` | 被诊断的目标 Web 应用（TaskFlow 任务管理） |
 | **bug-factory** | `bug-factory/` | Bug 生成与注入工厂 |
-| **doctor** | `doctor/` | 诊断 Agent 主体（LangGraph + RAG） |
+| **doctor** | `doctor/` | 诊断 Agent 主体（LangGraph，ingest→diagnosis_agent→reporter） |
 
 ---
 
@@ -116,10 +116,10 @@ DiagDoctor/
 │           ├── observability/ # OTel-JS 遥测通道
 │           └── types/         # TypeScript 类型
 ├── bug-factory/               # Bug 生成系统 ✅ 已实现
-│   ├── recipes/               # Bug 配方 YAML（28 个）
+│   ├── recipes/               # Bug 配方 YAML（15 个，跨 8 类别；扩展已决策不做，见附录 E）
 │   └── src/                   # injector, trigger, evidence collector, case generator
 ├── doctor/                    # 诊断 Agent ✅ V3 基线已实现
-│   └── src/                   # LangGraph + RAG + FastAPI（ingest→unified_agent→reporter）
+│   └── src/                   # LangGraph（ingest→diagnosis_agent→reporter，手动 ReAct）+ FastAPI
 ├── benchmark/                 # 评测系统（已迁移至 Langfuse，仅保留导入脚本）
 ├── infra/                     # 部署配置
 │   ├── docker-compose.yml
@@ -169,11 +169,11 @@ DiagDoctor/
 
 ## 当前开发阶段
 
-**V3 基线 ✅ 已实现**（3 节点：ingest → unified_agent → reporter）
+**V3 基线 ✅ 已实现**（3 节点：ingest → diagnosis_agent → reporter）
 
 **架构要点**：
 - **Ingest**：两阶段（① auto-prefetch 并行采集 Loki/Tempo 后端+前端数据 → ② 9 步标准化管线），输出 `NormalizedEvidence`
-- **UnifiedAgent**：手动 ReAct 循环 + 5 工具，纯 LLM 诊断（不负责数据获取）
+- **DiagnosisAgent**：手动 ReAct 循环 + 5 工具，纯 LLM 诊断（不负责数据获取）
 - **前端错误双通道**：`console.error` → Loki、`window.onerror` → Tempo（client_error span）
 - **search_observability** 支持 `include_frontend=True` 查询前端 client_error span
 
@@ -181,20 +181,21 @@ DiagDoctor/
 - [x] Demo App 前后端骨架（TaskFlow）
 - [x] OpenTelemetry 集成（后端 + 前端 OTel-JS + console.error 拦截）
 - [x] 可观测性栈（Loki/Tempo/Grafana/Collector）
-- [x] Doctor Agent（LangGraph 手动循环 + 5 工具 + RAG + SQL 只读守卫）
-- [x] Bug Factory（28 配方 + injector + trigger + evidence + case generator）
+- [x] Doctor Agent（手动 ReAct 循环 + 5 工具 + 上下文工程 + SQL 只读守卫；code_search 用 ripgrep，不再依赖向量检索）
+- [x] Bug Factory（15 配方 + injector + trigger + evidence + case generator）
 - [x] 评测体系已迁移至 Langfuse（自托管，替代自研 benchmark）
 - [x] Ingest auto-prefetch（后端+前端并行查询）
 - [x] 前端错误实时采集（双通道：console.error → Loki / onerror → Tempo）
 
 **当前 Phase：深度化（见执行手册）**
-- Phase 0（2d）：Langfuse 部署 + 基线验证
-- Phase 1（10d）：手动循环 + 上下文工程 + Ingest/search 深度
-- Phase 2（13d）：Langfuse 评测体系 + Prompt 策略 + TodoWrite + Bug 扩展
+- Phase 0（2d）：Langfuse 部署 + 基线验证 ✅
+- Phase 1（10d）：手动循环 + 上下文工程 + Ingest/search 深度 ✅
+- Phase 2（7d）：Langfuse 评测体系 + TodoWrite（⏸ Prompt 策略化已暂缓，❌ Bug Factory 扩展已决策不做，详见 handbook 附录 E）
 - Phase 3（11d）：安全 + 自省 + Hook + Subagent
 
 > 详细任务卡片见 `docs/diagdoctor-depth-handbook-v2.md`
 > 14 个深度方向见 `docs/diagdoctor-depth-directions-v2.md`
+> Harness 迭代记录（case 驱动的增量机制）见 `docs/harness-iteration-log.md`
 
 ---
 
@@ -208,7 +209,7 @@ DiagDoctor/
 | Case 质量审查 | `docs/bug-case-quality-review-and-improvements.md` | Bug case 质量参考 |
 | Docker 排错 | `docs/docker-network-fixes.md` | Docker 网络问题 |
 | AI 编程技巧 | `docs/ai-assisted-dev-tips.md` | AI 辅助编程最佳实践 |
-| mini-swe-agent 分析 | `docs/mini-swe-agent-architecture-analysis.md` | Agent 架构参考 |
+| Harness 迭代日志 | `docs/harness-iteration-log.md` | ReAct 循环/forced call/结构化输出的 case 驱动迭代记录 |
 
 > ⚠️ 以下文档已删除（过时/冲突）：`_V1.md` / `_V3.md` / `execution-handbook_V1,V2,V3.md` / `architecture-diff-and-changes.md`。
 > 唯一权威来源：`depth-handbook-v2.md` + `depth-directions-v2.md`。

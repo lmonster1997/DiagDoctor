@@ -69,12 +69,15 @@ class BugInjector:
             repo_path=str(self.repo_path),
         )
 
-    async def inject(self, recipe: BugRecipe) -> InjectionResult:
+    async def inject(self, recipe: BugRecipe, in_place: bool = False) -> InjectionResult:
         """Inject a bug into the target repository according to *recipe*.
 
         Args:
             recipe: A validated :class:`BugRecipe` describing what to inject
                 and where.
+            in_place: If True, modify files directly on the current branch
+                without creating a bug branch. Use for quick diagnostics
+                where you want to undo changes afterwards.
 
         Returns:
             An :class:`InjectionResult` summarising the branch, diff, and
@@ -90,11 +93,16 @@ class BugInjector:
             title=recipe.title,
             strategy=recipe.injection.strategy,
             target_file=recipe.injection.target_file,
+            in_place=in_place,
         )
 
-        # ── 1. Create bug branch ──────────────────────────────────
-        branch = self.git.create_bug_branch(recipe.id)
-        logger.info("Bug branch ready", branch=branch)
+        # ── 1. Create bug branch (skip if in_place) ───────────────
+        if in_place:
+            branch = self.git.get_current_branch()
+            logger.info("In-place injection on current branch", branch=branch)
+        else:
+            branch = self.git.create_bug_branch(recipe.id)
+            logger.info("Bug branch ready", branch=branch)
 
         # ── 2. Resolve target file ─────────────────────────────────
         target = self.repo_path / recipe.injection.target_file
@@ -181,18 +189,19 @@ class BugInjector:
             logger.info("Extra file written", path=str(extra_path))
             modified_files.append(str(extra_path))
 
-        # ── 6. Commit changes (all injected files) ──────────────────
-        all_paths = [recipe.injection.target_file] + [
-            e["file"] for e in recipe.injection.extra_files
-        ]
-        commit_hexsha = self.git.commit_changes(
-            f"feat(bug-factory): inject bug {recipe.id} - {recipe.title}",
-            paths=all_paths,
-        )
-        logger.info("Changes committed", hexsha=commit_hexsha)
+        # ── 6. Commit changes (skip if in_place) ──────────────────
+        if not in_place:
+            all_paths = [recipe.injection.target_file] + [
+                e["file"] for e in recipe.injection.extra_files
+            ]
+            commit_hexsha = self.git.commit_changes(
+                f"feat(bug-factory): inject bug {recipe.id} - {recipe.title}",
+                paths=all_paths,
+            )
+            logger.info("Changes committed", hexsha=commit_hexsha)
 
         # ── 7. Compute diff ────────────────────────────────────────
-        diff = self.git.diff_against_main()
+        diff = self.git.diff_against_base() if not in_place else ""
         logger.info(
             "Injection complete",
             recipe_id=recipe.id,

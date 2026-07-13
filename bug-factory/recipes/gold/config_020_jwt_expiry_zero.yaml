@@ -66,7 +66,7 @@ trigger:
       min_occurrences: 1
     trace_attributes:
       GET /api/projects/:
-        status: OK
+        status: ERROR
     api_response: null
   ui_reachable: true
   expected_evidence:

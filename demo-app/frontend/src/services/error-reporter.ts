@@ -10,8 +10,8 @@
  * POST /api/log/client-error, which the backend funnels into Loki.
  *
  * Each error payload now includes the active OTel trace_id and span_id
- * so that the Doctor agent can correlate frontend crashes with backend
- * API calls under the same distributed trace (cross-tier diagnosis).
+ * so that frontend crashes can be correlated with backend API calls
+ * under the same distributed trace (cross-tier correlation).
  */
 
 import { trace } from "@opentelemetry/api";

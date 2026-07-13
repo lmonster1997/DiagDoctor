@@ -16,7 +16,7 @@ expected_diagnosis:
     每次超时都重新发起请求，导致后端同时承受多倍负载。
     级联效应：N+1 慢查询 → API 超时 → 前端重试 ×3 → 后端负载放大 4 倍 → 更慢 → 全部超时。
   affected_file: demo-app/backend/app/api/projects.py
-  affected_line: 13
+  affected_line: 24
   fix_suggestion: |
     方案 A（治本）：删除 list_projects 中对每个 project 的逐条 tasks 查询（N+1），
     改用 GROUP BY + COUNT 聚合查询或用 selectinload 预加载。
@@ -96,12 +96,12 @@ injection:
         +      config._retryCount = config._retryCount || 0;
         +      const maxRetries = 3;
         +      if (config._retryCount >= maxRetries) {
-        +        console.error('[CASCADE] Retry exhausted', { url: config.url, retries: config._retryCount });
+        +        console.error('[RETRY] Retry exhausted', { url: config.url, retries: config._retryCount });
         +        return Promise.reject(error);
         +      }
         +      config._retryCount += 1;
-        +      const backoff = Math.pow(2, config._retryCount - 1) * 1000;  // 1s, 2s, 4s
-        +      console.warn(`[CASCADE] Retry ${config._retryCount}/${maxRetries} after ${backoff}ms`, { url: config.url });
+        +      const backoff = Math.pow(2, config._retryCount - 1) * 1000;
+        +      console.warn(`[RETRY] Retry ${config._retryCount}/${maxRetries} after ${backoff}ms`, { url: config.url });
         +      await new Promise(resolve => setTimeout(resolve, backoff));
         +      return api(config);
         +    }

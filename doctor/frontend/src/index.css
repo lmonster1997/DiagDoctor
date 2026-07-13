@@ -1,0 +1,456 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════
+   DiagDoctor Design Tokens — "AI 诊断室" 暗色主题
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Tailwind v4 theme (CSS-first configuration) ────────────────── */
+@theme {
+  /* Typography */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+
+  /* Brand palette */
+  --color-brand-50: #fffbeb;
+  --color-brand-100: #fef3c7;
+  --color-brand-200: #fde68a;
+  --color-brand-300: #fcd34d;
+  --color-brand-400: #fbbf24;
+  --color-brand-500: #f59e0b;   /* amber/gold — key findings */
+  --color-brand-600: #d97706;
+  --color-brand-700: #b45309;
+  --color-brand-800: #92400e;
+  --color-brand-900: #78350f;
+
+  /* Accent: cyan-blue for flow & normal metrics */
+  --color-accent-50: #eff6ff;
+  --color-accent-100: #dbeafe;
+  --color-accent-200: #bfdbfe;
+  --color-accent-300: #93c5fd;
+  --color-accent-400: #60a5fa;
+  --color-accent-500: #3b82f6;
+  --color-accent-600: #2563eb;
+  --color-accent-700: #1d4ed8;
+  --color-accent-800: #1e40af;
+  --color-accent-900: #1e3a8a;
+
+  /* Accent: violet for analysis */
+  --color-violet-500: #a855f7;
+
+  /* Surface colours — dark clinic */
+  --color-surface-900: #0a0a0f;   /* deepest bg */
+  --color-surface-850: #0f1117;   /* main bg */
+  --color-surface-800: #13161b;   /* card bg */
+  --color-surface-750: #1a1d25;   /* hover / raised */
+  --color-surface-700: #1e2130;   /* border */
+  --color-surface-600: #2a2d3a;   /* strong border */
+
+  /* Glass panel tokens */
+  --color-glass-bg: rgba(255, 255, 255, 0.03);
+  --color-glass-border: rgba(255, 255, 255, 0.06);
+  --color-glass-hover: rgba(255, 255, 255, 0.06);
+
+  /* Semantic */
+  --color-danger: #ef4444;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+
+  /* Text hierarchy */
+  --color-text-primary: #e4e4ef;
+  --color-text-secondary: #8a8fa3;
+  --color-text-muted: #5c6070;
+}
+
+/* ── Base layer ─────────────────────────────────────────────────── */
+@layer base {
+  *,
+  ::after,
+  ::before {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--color-surface-850);
+    color: var(--color-text-primary);
+  }
+
+  /* Code & log blocks use mono */
+  code,
+  kbd,
+  samp,
+  pre,
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+}
+
+/* ── Utility layer ──────────────────────────────────────────────── */
+@utility glass {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+@utility glass-strong {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}
+
+/* ── Animations ─────────────────────────────────────────────────── */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes breathe {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(59, 130, 246, 0);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@utility animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out both;
+}
+
+@utility animate-fade-in {
+  animation: fade-in 0.3s ease-out both;
+}
+
+@utility animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+@utility animate-breathe {
+  animation: breathe 2s ease-in-out infinite;
+}
+
+@utility animate-slide-up {
+  animation: slide-up 0.5s ease-out both;
+}
+
+@utility animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+@utility animate-cursor-blink {
+  animation: cursor-blink 1s step-end infinite;
+}
+
+/* Stagger children animations — use as regular CSS class in @layer utilities */
+@layer utilities {
+  .stagger-children > * {
+    opacity: 0;
+    animation: fade-in-up 0.4s ease-out forwards;
+  }
+
+  .stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+  .stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+  .stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+  .stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+  .stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+  .stagger-children > *:nth-child(6) { animation-delay: 0.3s; }
+}
+
+/* ── Scrollbar styling ──────────────────────────────────────────── */
+@layer base {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
+}
+
+/* ── CopilotKit dark theme overrides ───────────────────────────── */
+/*
+ * §2 诊断对话区重设计
+ * 消息气泡：用户右对齐 / AI 左侧青色竖线 / 系统居中
+ * 流式文本：blinking-cursor + 思考态 opacity
+ */
+
+/* ── Container ──────────────────────────────────────────────── */
+.copilotKitChat,
+.copilotKitMessages,
+.copilotKitInput {
+  background: transparent !important;
+}
+
+/* ── Message list ───────────────────────────────────────────── */
+.copilotKitMessages {
+  padding: 12px 0 !important;
+}
+
+/* ── Individual message wrapper ─────────────────────────────── */
+.copilotKitMessage {
+  background: transparent !important;
+  margin-bottom: 4px !important;
+}
+
+/* ── User message: right-aligned, dark card ─────────────────── */
+.copilotKitUserMessage {
+  display: flex !important;
+  justify-content: flex-end !important;
+  padding: 0 16px !important;
+}
+.copilotKitUserMessage > div {
+  max-width: 75% !important;
+  background: #1a1c2b !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 16px 16px 4px 16px !important;
+  padding: 10px 14px !important;
+  color: #e4e4ef !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+}
+
+/* ── Assistant message: left-aligned, cyan thinking bar ─────── */
+.copilotKitAssistantMessage {
+  display: flex !important;
+  justify-content: flex-start !important;
+  padding: 0 16px !important;
+}
+.copilotKitAssistantMessage > div {
+  max-width: 85% !important;
+  background: transparent !important;
+  border-left: 2px solid rgba(6, 182, 212, 0.35) !important; /* cyan-500/35 */
+  border-radius: 0 !important;
+  padding: 8px 0 8px 12px !important;
+  color: #A0A5BA !important;                        /* "思考中" grey tone */
+  font-size: 13px !important;
+  line-height: 1.65 !important;
+  transition: border-color 0.5s ease, color 0.5s ease !important;
+}
+
+/* AI "thinking" state — dim grey text, semi-transparent cyan bar */
+.copilotKitAssistantMessage.is-streaming > div,
+.copilotKitAssistantMessage[data-streaming="true"] > div,
+.copilotKitMessages:has(.copilotKitLoading) .copilotKitAssistantMessage:last-child > div {
+  color: #A0A5BA !important;                        /* dim grey */
+  border-left-color: rgba(6, 182, 212, 0.45) !important; /* cyan-500/45 */
+}
+
+/* AI "conclusion" state — bright white text, bright cyan bar */
+.copilotKitAssistantMessage:not(.is-streaming):last-child > div {
+  color: #E8ECF1 !important;                       /* bright white */
+  border-left-color: rgba(6, 182, 212, 0.7) !important; /* cyan-500/70 */
+}
+
+
+
+/* ── Blinking cursor at end of last AI paragraph ────────────── */
+.copilotKitAssistantMessage:last-child > div > *:last-child::after {
+  content: "▍";
+  display: inline-block;
+  color: rgba(6, 182, 212, 0.7);                  /* cyan */
+  animation: cursor-blink 1s step-end infinite;
+  margin-left: 1px;
+  font-size: 14px;
+  vertical-align: -1px;
+}
+
+/* Hide cursor when message is complete (not streaming) */
+.copilotKitAssistantMessage:not([data-streaming]):last-child > div > *:last-child::after {
+  display: none;
+}
+
+/* ── Input area ─────────────────────────────────────────────── */
+.copilotKitInput {
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  padding: 12px 16px !important;
+}
+
+.copilotKitInput textarea,
+.copilotKitInput input {
+  color: #e4e4ef !important;
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+}
+
+.copilotKitInput textarea::placeholder,
+.copilotKitInput input::placeholder {
+  color: #5c6070 !important;
+}
+
+.copilotKitInput button[type="submit"] {
+  color: #8a8fa3 !important;
+  transition: all 0.2s ease !important;
+}
+
+.copilotKitInput button[type="submit"]:hover {
+  color: #e4e4ef !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ── Suggestion chips ───────────────────────────────────────── */
+.copilotKitSuggestion {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  color: #8a8fa3 !important;
+  font-size: 12px !important;
+  transition: all 0.2s ease !important;
+}
+
+.copilotKitSuggestion:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #e4e4ef !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* ── Window title bar ───────────────────────────────────────── */
+.copilotKitHeader {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  color: #e4e4ef !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+/* ── Message controls — hidden on all messages except the last ─ */
+.copilotKitMessageControls {
+  display: none !important;
+}
+
+/* Last message: force markdown + controls to stack vertically */
+.copilotKitMessage:last-child {
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+.copilotKitMessage:last-child > .copilotKitMarkdown {
+  display: block !important;
+  width: 100% !important;
+}
+.copilotKitMessage:last-child > .copilotKitMessageControls {
+  display: flex !important;
+  position: static !important;
+  justify-content: flex-start !important;
+  gap: 4px !important;
+  margin-top: 10px !important;
+  width: 100% !important;
+  opacity: 0.5 !important;
+  transition: opacity 0.2s ease !important;
+}
+.copilotKitMessage:last-child:hover > .copilotKitMessageControls {
+  opacity: 1 !important;
+}
+
+.copilotKitMessage:last-child .copilotKitMessageControlButton {
+  color: #5c6070 !important;
+  transition: color 0.15s ease !important;
+}
+.copilotKitMessage:last-child .copilotKitMessageControlButton:hover {
+  color: #8a8fa3 !important;
+}
+
+/* ── Loading indicator (spinner) ────────────────────────────── */
+.copilotKitLoading {
+  color: #3b82f6 !important;
+}
+
+/* ── Markdown inside messages ───────────────────────────────── */
+.copilotKitMessage code {
+  font-family: var(--font-mono) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 4px !important;
+  padding: 1px 5px !important;
+  color: #f59e0b !important;
+  font-size: 12px !important;
+}
+
+.copilotKitMessage pre {
+  background: #0a0a0f !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+}
+
+/* ── Thinking hint banner (gentle status message) ───────────── */
+.copilotKitThinkingHint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  animation: fade-in 0.4s ease-out both;
+}
+
+.copilotKitThinkingHint::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3b82f6;
+  animation: pulse-soft 2s ease-in-out infinite;
+}

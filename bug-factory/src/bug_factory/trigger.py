@@ -206,7 +206,7 @@ class TriggerRunner:
                 # data-setup steps, not the fault-triggering step.
                 if (
                     trigger.ui_reachable
-                    and step.action == "api_call"
+                    and step.action in ("api_call", "api_call_concurrent")
                     and step.action not in self._UI_REACHABLE_SAFE_ACTIONS
                     and not _browser_established
                 ):
@@ -216,7 +216,7 @@ class TriggerRunner:
                         success=False,
                         elapsed_ms=0,
                         error=(
-                            "api_call is forbidden when ui_reachable=True. "
+                            f"{step.action} is forbidden when ui_reachable=True. "
                             "Use ui_click or ui_navigate to trigger through "
                             "the real browser, or set ui_reachable=False on "
                             "the trigger for backend-only / unreachable scenarios."
@@ -300,6 +300,7 @@ class TriggerRunner:
     _ACTION_HANDLERS: dict[str, str] = {
         "login": "_action_login",
         "api_call": "_action_api_call",
+        "api_call_concurrent": "_action_api_call_concurrent",
         "ui_click": "_action_ui_click",
         "ui_navigate": "_action_ui_navigate",
         "create_data": "_action_create_data",
@@ -471,6 +472,52 @@ class TriggerRunner:
             )
 
         return result
+
+    async def _action_api_call_concurrent(self, params: dict[str, Any]) -> dict[str, Any] | None:
+        """Fire multiple HTTP requests concurrently to trigger race conditions.
+
+        Required *params*:
+            calls (list[dict]): A list of call specs, each with:
+                - method (str): HTTP method (GET, POST, PATCH, DELETE).
+                - path (str): URL path with optional ``{template}`` vars.
+                - body (dict, optional): JSON request body.
+                - query (dict, optional): Query string params.
+                - expected_status (list[int], optional): Accepted statuses.
+
+        All calls are fired simultaneously via ``asyncio.gather`` so they
+        race against each other — used to reproduce lost-update / TOCTOU
+        bugs that only manifest under true concurrency (sequential calls
+        would let the first complete before the second starts, masking
+        the race).
+
+        Template variables (``{task_id}`` etc.) are resolved per-call from
+        session state at dispatch time. Returns the last call's response
+        (or None if the list is empty).
+        """
+        import asyncio
+
+        calls: list[dict[str, Any]] = params.get("calls", [])
+        if not calls:
+            return None
+
+        async def _one(call_spec: dict[str, Any]) -> dict[str, Any] | None:
+            method = (call_spec.get("method", "GET") or "GET").upper()
+            path = self._resolve_template(call_spec.get("path", "/"))
+            body_tpl = call_spec.get("body")
+            body = self._resolve_template(body_tpl) if body_tpl else None
+            query = call_spec.get("query")
+            expected: set[int] = set(call_spec.get("expected_status", []))
+            return await self._http_request(
+                method=method,
+                path=path,
+                json_data=body,
+                params=query,
+                auth_required=True,
+                expected_status=expected,
+            )
+
+        results = await asyncio.gather(*[_one(c) for c in calls])
+        return results[-1] if results else None
 
     async def _action_ui_click(self, params: dict[str, Any]) -> dict[str, Any]:
         """Click a UI element using Playwright async API.

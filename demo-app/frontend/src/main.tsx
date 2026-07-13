@@ -29,7 +29,7 @@ console.warn = (...args: unknown[]) => {
 
 // ── Intercept console.error → OTel logs channel (frontend errors) ──
 // 将 React 渲染期间的 console.error（如 "Cannot read properties of undefined"）
-// 也发送到 Loki，确保 Doctor Agent 能通过 search_observability 查询到。
+// 也发送到 Loki，确保前端错误能通过 search_observability 查询到。
 // 这与 error-reporter.ts 的 window.onerror / unhandledrejection 互补：
 // - window.onerror → Tempo (client_error span)
 // - console.error → Loki (ERROR 日志)

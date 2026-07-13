@@ -40,7 +40,7 @@ jobs:
           # module naming conflicts in this monorepo.  Each subshell
           # isolates the working directory so failures don't cascade.
           set -e
-          (cd doctor       && uv run mypy --strict src)
+          (cd doctor/backend && uv run mypy --strict src)
           (cd bug-factory  && uv run mypy --strict src)
           (cd benchmark    && uv run mypy --strict src)
           (cd demo-app/backend && uv run mypy --strict app)

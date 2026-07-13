@@ -74,10 +74,7 @@ class ClassificationEvaluator(BaseEvaluator):
 
         # ── Extract predicted categories (multi-label) ──────────────
         # Priority: report.categories > top-level categories > triage scores > primary_category
-        pred_categories: list[str] = (
-            report.get("categories", [])
-            or diagnosis.get("categories", [])
-        )
+        pred_categories: list[str] = report.get("categories", []) or diagnosis.get("categories", [])
         if not pred_categories:
             triage = diagnosis.get("triage", {})
             scores = triage.get("scores", []) if triage else []

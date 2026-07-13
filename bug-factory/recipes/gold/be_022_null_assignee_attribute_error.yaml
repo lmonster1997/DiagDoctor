@@ -12,7 +12,7 @@ expected_diagnosis:
   root_cause: get_task 新增了 task.assignee_id.hex，但 assignee_id 可为 None；未分配负责人的任务访问
     .hex 抛 AttributeError 导致 500
   affected_file: demo-app/backend/app/api/tasks.py
-  affected_line: 90
+  affected_line: 93
   fix_suggestion: 删除该 assignee_id.hex 解引用，或先判空 (if task.assignee_id is not None)，未分配时跳过
   fix_keywords:
   - AttributeError
@@ -34,7 +34,7 @@ injection:
 
     '
   diff_patch: "\n--- a/demo-app/backend/app/api/tasks.py\n\n+++ b/demo-app/backend/app/api/tasks.py\n\
-    \n@@ -93,2 +93,4 @@\n\n         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,\
+    \n@@ -85,2 +85,4 @@\n\n         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,\
 \ detail=\"任务不存在\")\n\n+    _audit_label = task.assignee_id.hex\n\n\
     \     return task\n"
 trigger:

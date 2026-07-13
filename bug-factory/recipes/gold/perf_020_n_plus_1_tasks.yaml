@@ -11,7 +11,7 @@ expected_diagnosis:
   root_cause: list_tasks 删除了 selectinload(Task.comments) 预加载，改为对每个 task 单独查询 comments，构成
     N+1 查询
   affected_file: demo-app/backend/app/api/tasks.py
-  affected_line: 18
+  affected_line: 44
   fix_suggestion: 恢复 .options(selectinload(Task.comments)) 预加载，或用单条聚合查询统计评论，删除按 task
     循环的逐条查询
   fix_keywords:
@@ -37,8 +37,8 @@ injection:
 
     '
   diff_patch: "--- a/demo-app/backend/app/api/tasks.py\n+++ b/demo-app/backend/app/api/tasks.py\n\
-    @@ -17,2 +17,3 @@\n from app.models.task import Task\n+from app.models.comment\
-    \ import Comment\n from app.models.user import User\n@@ -44,4 +44,8 @@\n-    \
+    @@ -12,2 +12,3 @@\n from app.models.task import Task\n+from app.models.comment\
+    \ import Comment\n from app.models.user import User\n@@ -36,4 +36,8 @@\n-    \
     \    .options(selectinload(Task.comments))\n         .order_by(Task.created_at.desc())\n\
     \     )\n-    return list(result.scalars().all())\n+    tasks = list(result.scalars().all())\n+    for _t in tasks:\n+        _c = await db.execute(select(Comment).where(Comment.task_id\
     \ == _t.id))\n+        _ = _c.scalars().all()\n+    return tasks\n"
@@ -92,6 +92,7 @@ trigger:
 evaluation:
   must_mention_keywords:
   - N+1
+  - list_tasks
   should_mention_keywords:
   - selectinload
   - 预加载

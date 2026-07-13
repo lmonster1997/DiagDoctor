@@ -11,8 +11,8 @@ Usage:
     gm = GitManager(Path("/path/to/repo"))
     branch = gm.create_bug_branch("BE-001")       # → "bug/BE-001"
     gm.commit_changes("Inject bug: BE-001 - N+1 query")
-    diff = gm.diff_against_main()                  # → unified diff string
-    gm.reset_to_main()                             # clean up
+    diff = gm.diff_against_base()                  # → unified diff string
+    gm.reset_to_base()                             # clean up
 """
 
 from __future__ import annotations
@@ -39,27 +39,25 @@ class GitManager:
     """Encapsulates safe Git operations for bug injection workflow.
 
     All mutations are performed against a single repository identified
-    by ``repo_path``.  The manager always operates from the ``main``
-    baseline — bug branches are created from ``main`` and can be reset
-    back to it.
+    by ``repo_path``.  The manager always operates from a configurable
+    base branch (auto-detected from current branch) — bug branches are
+    created from it and can be reset back to it.
     """
 
-    def __init__(self, repo_path: Path) -> None:
+    def __init__(self, repo_path: Path, base_branch: str | None = None) -> None:
         """Initialise the manager and validate the target repository.
 
         Args:
             repo_path: Absolute or relative path to a git repository
                 root (the directory containing ``.git``).
+            base_branch: The branch to create bug branches from and reset
+                back to. Defaults to the currently checked-out branch.
 
         Raises:
             GitOperationError: If ``repo_path`` is not a valid git
-                repository or does not have a ``main`` branch.
+                repository or does not have the specified base branch.
         """
         self.repo_path = repo_path.resolve()
-        logger.info(
-            "Initialising GitManager",
-            repo_path=str(self.repo_path),
-        )
 
         try:
             self._repo = Repo(self.repo_path)
@@ -69,16 +67,32 @@ class GitManager:
                 f"Not a valid git repository: {self.repo_path}",
             ) from exc
 
-        # Ensure main branch exists
+        # Auto-detect current branch if not explicitly specified
+        if base_branch is None:
+            try:
+                base_branch = self._repo.active_branch.name
+            except TypeError:
+                # Detached HEAD — fall back to "main"
+                base_branch = "main"
+
+        self._base_branch_name = base_branch
+        logger.info(
+            "Initialising GitManager",
+            repo_path=str(self.repo_path),
+            base_branch=base_branch,
+        )
+
+        # Ensure base branch exists
         try:
-            self._main_branch = self._repo.heads.main
-        except AttributeError as exc:
+            self._base_branch = self._repo.heads[base_branch]
+        except (AttributeError, IndexError) as exc:
             raise GitOperationError(
                 "init",
-                "Repository does not have a 'main' branch. Bug branches must be created from main.",
+                f"Repository does not have a '{base_branch}' branch. "
+                f"Bug branches must be created from {base_branch}.",
             ) from exc
 
-        # Cache the initial branch so reset_to_main can return to it
+        # Cache the initial branch so reset_to_base can return to it
         self._initial_branch: str = self._get_active_branch_name()
 
     # ── helpers ──────────────────────────────────────────────────────
@@ -125,17 +139,17 @@ class GitManager:
         return branch
 
     def create_bug_branch(self, recipe_id: str) -> str:
-        """Create (or force-reset) a bug branch from ``main``.
+        """Create (or force-reset) a bug branch from the base branch.
 
         The branch is named ``bug/{recipe_id}``.  If a branch with that
         name already exists it is **force-deleted** and recreated from
-        the current tip of ``main``.
+        the current tip of the base branch.
 
         Steps:
             1. Stash any uncommitted changes.
-            2. Checkout ``main`` and pull latest (fast-forward only).
+            2. Checkout base branch and pull latest (fast-forward only).
             3. Delete local ``bug/{recipe_id}`` branch if present.
-            4. Create new branch ``bug/{recipe_id}`` from ``main``.
+            4. Create new branch ``bug/{recipe_id}`` from base branch.
 
         Args:
             recipe_id: The bug recipe identifier (e.g. ``"BE-001"``).
@@ -144,8 +158,8 @@ class GitManager:
             The full branch name (``"bug/BE-001"``).
 
         Raises:
-            GitOperationError: If any Git step fails (e.g. main cannot
-                be checked out, branch deletion fails, etc.).
+            GitOperationError: If any Git step fails (e.g. base branch
+                cannot be checked out, branch deletion fails, etc.).
         """
         branch_name = f"bug/{recipe_id}"
         logger.info("Creating bug branch", recipe_id=recipe_id, branch=branch_name)
@@ -153,13 +167,15 @@ class GitManager:
         stashed = self._stash_if_dirty()
 
         try:
-            # 1. Ensure we're on a clean main
-            self._force_checkout("main")
+            # 1. Ensure we're on a clean base branch
+            self._force_checkout(self._base_branch_name)
             try:
-                self._repo.remotes.origin.pull("main", ff_only=True)
-                logger.debug("Pulled latest main")
+                self._repo.remotes.origin.pull(self._base_branch_name, ff_only=True)
+                logger.debug(f"Pulled latest {self._base_branch_name}")
             except GitCommandError:
-                logger.warning("Could not pull main (no remote or network issue)")
+                logger.warning(
+                    f"Could not pull {self._base_branch_name} (no remote or network issue)"
+                )
 
             # 2. Delete existing bug branch if present
             if branch_name in self._repo.heads:
@@ -231,49 +247,53 @@ class GitManager:
 
         return commit.hexsha
 
-    def reset_to_main(self) -> None:
-        """Discard all local changes and switch back to ``main``.
+    def reset_to_base(self) -> None:
+        """Discard all local changes and switch back to the base branch.
 
         Any uncommitted changes are **lost**.  After this call the
-        working tree is clean on the ``main`` branch.  If the repo was
+        working tree is clean on the base branch.  If the repo was
         initially on a different branch, that original branch is NOT
-        restored — always goes to main.
+        restored — always goes to base branch.
         """
-        logger.info("Resetting to main", previous_branch=self.get_current_branch())
+        logger.info(
+            "Resetting to base branch",
+            previous_branch=self.get_current_branch(),
+            base=self._base_branch_name,
+        )
 
         try:
-            self._force_checkout("main")
-            # Discard any stray changes on main
+            self._force_checkout(self._base_branch_name)
+            # Discard any stray changes on base branch
             self._repo.git.clean("-fd")
             self._repo.git.reset("--hard", "HEAD")
-            logger.info("Reset to main complete")
+            logger.info("Reset to base branch complete")
         except GitCommandError as exc:
             raise GitOperationError(
-                "reset_to_main",
-                f"Failed to reset to main: {exc.stderr}",
+                "reset_to_base",
+                f"Failed to reset to base branch: {exc.stderr}",
             ) from exc
 
-    def diff_against_main(self) -> str:
-        """Compute the unified diff between the current branch and ``main``.
+    def diff_against_base(self) -> str:
+        """Compute the unified diff between the current branch and the base branch.
 
         Returns:
-            A unified diff string (``git diff main...HEAD``) showing
+            A unified diff string (``git diff {base}...HEAD``) showing
             all changes introduced on the current branch since it
-            diverged from ``main``.  Returns an empty string if there
-            are no differences.
+            diverged from the base branch.  Returns an empty string if
+            there are no differences.
 
         Raises:
             GitOperationError: If the diff operation fails.
         """
         current = self.get_current_branch()
-        logger.debug("Computing diff against main", branch=current)
+        logger.debug("Computing diff against base", branch=current, base=self._base_branch_name)
 
         try:
-            raw = self._repo.git.diff("main...HEAD", unified=3)
+            raw = self._repo.git.diff(f"{self._base_branch_name}...HEAD", unified=3)
             diff_text: str = str(raw) if raw else ""
         except GitCommandError as exc:
             raise GitOperationError(
-                "diff_against_main",
+                "diff_against_base",
                 f"Diff failed: {exc.stderr}",
             ) from exc
 

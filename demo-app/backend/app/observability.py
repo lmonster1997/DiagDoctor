@@ -117,7 +117,7 @@ def setup_loki_logging(service_name: str = "demo-backend") -> None:
         """Push log records to a queue; a background thread sends them to Loki.
 
         Each log entry carries the current OTel trace context (trace_id /
-        span_id) so that downstream consumers (Doctor ingest, Grafana) can
+        span_id) so that downstream consumers (Grafana, log aggregators) can
         correlate logs with distributed traces.
         """
 
@@ -187,8 +187,8 @@ def instrument_sqlalchemy() -> None:
 
     ``enable_commenter=True`` injects trace-context comments into SQL
     statements (``/* traceparent='...' */``), allowing the OTel SDK to
-    create child spans for every SQL execution — critical for N+1
-    detection and slow-query attribution in distributed traces.
+    create child spans for every SQL execution — useful for slow-query
+    attribution and repeated-query patterns in distributed traces.
     """
     SQLAlchemyInstrumentor().instrument(
         enable_commenter=True,

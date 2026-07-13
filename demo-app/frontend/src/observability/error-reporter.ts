@@ -4,8 +4,8 @@
  * Installs window.onerror and unhandledrejection handlers that create
  * dedicated ``client_error`` span events on the active OTel trace.
  * These spans are exported to Tempo alongside the normal trace spans
- * so the Doctor agent can correlate frontend crashes with backend
- * API calls under the same ``trace_id``.
+ * so frontend crashes can be correlated with backend API calls under
+ * the same ``trace_id``.
  *
  * Also provides ``reportClientErrorSpan()`` for ErrorBoundary integration.
  *
@@ -55,7 +55,7 @@ function _lastKnownContext(): SpanContext | null {
  *
  * This ensures the client_error span shares the same trace_id as the
  * API call that caused the crash, enabling cross-tier correlation in
- * the Doctor ingest pipeline.
+ * the downstream ingest pipeline.
  */
 function _getErrorParentContext(): import("@opentelemetry/api").Context {
   // 1. Try the currently active context (span still in-flight)
