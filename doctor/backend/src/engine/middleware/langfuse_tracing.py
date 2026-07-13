@@ -70,10 +70,13 @@ class LangfuseTracingMiddleware(AgentMiddleware):
         content_str, _ = _extract_result_content(result)
 
         if ctx is not None and ctx.langfuse_handler is not None:
+            # request.tool_call may be a dict or an object (LangChain varies)
+            tc = request.tool_call
+            tool_args = tc.get("args", {}) if isinstance(tc, dict) else getattr(tc, "args", {})
             with contextlib.suppress(Exception):
                 ctx.langfuse_handler.record_tool_span(
                     tool_name=tool_name,
-                    tool_args=getattr(request.tool_call, "args", {}),
+                    tool_args=tool_args,
                     result=content_str[:2000],
                     latency_ms=round(elapsed_ms, 1),
                     iteration=ctx.model_call_count,
