@@ -23,6 +23,7 @@ import json
 import re
 import subprocess
 import sys
+from typing import Any
 
 from langchain_core.tools import StructuredTool
 
@@ -47,7 +48,7 @@ def _get_db_url() -> str:
     return "postgresql://postgres:postgres@localhost:5432/taskflow"
 
 
-async def _query_via_psycopg(sql: str) -> dict:
+async def _query_via_psycopg(sql: str) -> dict[str, Any]:
     """Execute SQL via psycopg 3 async connection. Returns result dict or raises."""
     import psycopg
 
@@ -80,7 +81,7 @@ async def _query_via_psycopg(sql: str) -> dict:
         await conn.close()
 
 
-def _query_via_docker_exec(sql: str) -> dict:
+def _query_via_docker_exec(sql: str) -> dict[str, Any]:
     """Execute SQL via ``docker exec postgres psql`` subprocess.
 
     Fallback for Docker Desktop on Windows where port forwarding of
@@ -173,17 +174,17 @@ def _infer_columns(sql: str) -> list[str]:
     return columns
 
 
-def _serialize_row(row_items) -> dict:
+def _serialize_row(row_items: Any) -> dict[str, object]:
     """Serialize a psycopg result row to JSON-safe dict."""
-    result = {}
+    result: dict[str, object] = {}
     for col, val in row_items:
         result[str(col)] = _serialize_value(val)
     return result
 
 
-def _serialize_docker_row(row: list[str], columns: list[str]) -> dict:
+def _serialize_docker_row(row: list[str], columns: list[str]) -> dict[str, str | None]:
     """Serialize a docker exec psql result row to dict."""
-    result = {}
+    result: dict[str, str | None] = {}
     for i, col in enumerate(columns):
         if i < len(row):
             result[col] = row[i].strip()

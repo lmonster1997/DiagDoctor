@@ -11,13 +11,14 @@ from __future__ import annotations
 
 import json as _json
 import re as _re
+from typing import Any
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
 
-def _build_info_response() -> dict:
+def _build_info_response() -> dict[str, Any]:
     """Build /info response with agents as object (compat with frontend 1.62.x)."""
     return {
         "actions": [],
@@ -34,7 +35,7 @@ def _build_info_response() -> dict:
 class CorsPreflightMiddleware(BaseHTTPMiddleware):
     """Return 200 for OPTIONS /api/copilotkit (preflight workaround)."""
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
         if request.method == "OPTIONS" and request.url.path.startswith("/api/copilotkit"):
             return Response(status_code=200)
         return await call_next(request)
@@ -43,7 +44,7 @@ class CorsPreflightMiddleware(BaseHTTPMiddleware):
 class InfoCompatMiddleware(BaseHTTPMiddleware):
     """Rewrite CopilotKit SDK responses for frontend 1.62.x compatibility."""
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
         path = request.url.path.rstrip("/")
 
         # GET /threads stub

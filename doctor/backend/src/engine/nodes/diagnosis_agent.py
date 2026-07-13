@@ -144,7 +144,7 @@ async def _diagnosis_agent_node(state: dict[str, Any]) -> dict[str, Any]:
 
     try:
         agent = get_diagnosis_agent()
-        result = await agent.ainvoke(
+        result = await agent.ainvoke(  # type: ignore[call-overload]
             {"messages": initial_messages},
             config=invoke_config,
         )
@@ -200,7 +200,7 @@ def _get_langfuse_handler_for_dict_state(case_id: str, evidence_text: str) -> An
 
 
 def _finalize_report_for_dict_state(
-    messages: list, budget_exhausted: bool
+    messages: list[Any], budget_exhausted: bool
 ) -> tuple[Any, list[Any], Any, bool]:
     """Parse messages into report + findings (mirrors _finalize_report from node.py)."""
     from src.engine.budget.tracker import is_budget_exceeded, update_budget
@@ -279,10 +279,12 @@ def build_copilotkit_graph() -> Any:
     from langgraph.checkpoint.memory import MemorySaver
     from langgraph.graph import END, StateGraph
 
-    builder = StateGraph(dict)
+    builder = StateGraph(dict)  # type: ignore[type-var]
 
-    builder.add_node("bug_info", bug_info_node)
-    builder.add_node("diagnosis_agent", _diagnosis_agent_node)
+    builder.add_node("bug_info", bug_info_node)  # type: ignore[type-var]
+    builder.add_node(  # type: ignore[type-var]
+        "diagnosis_agent", _diagnosis_agent_node
+    )
 
     builder.set_entry_point("bug_info")
     builder.add_edge("bug_info", "diagnosis_agent")

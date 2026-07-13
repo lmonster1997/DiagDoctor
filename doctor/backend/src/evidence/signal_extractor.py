@@ -23,7 +23,7 @@ It does NOT score or prioritise signals — that's the LLM's job.
 from __future__ import annotations
 
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 from src.engine.state import Signal
 
@@ -96,7 +96,7 @@ def extract_golden_signals(
             tier: str = "frontend" if "frontend" in service_name.lower() else "backend"
             # Use 'line' field as fallback for 'message' (Loki format)
             log_content = str(log.get("message", log.get("line", "")))
-            sev = "error" if level == "ERROR" else "warning"
+            sev: Literal["error", "warning", "info"] = "error" if level == "ERROR" else "warning"
             signals.append(
                 Signal(
                     signal_id=f"sig-log-{_short_id()}",

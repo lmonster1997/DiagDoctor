@@ -90,7 +90,7 @@ async def _extract_bug_info(user_message: str) -> dict[str, Any]:
     try:
         llm = get_llm_for_role("buginfo")
         structured_llm = llm.with_structured_output(BugInfo, method="function_calling")
-        bug_info: BugInfo = await structured_llm.ainvoke(prompt)
+        bug_info: BugInfo = await structured_llm.ainvoke(prompt)  # type: ignore[assignment]
         logger.debug("bug_info_extracted", bug_info=bug_info.model_dump())
         return bug_info.model_dump()
     except Exception as exc:
@@ -203,7 +203,7 @@ async def bug_info_node(state: dict[str, Any]) -> dict[str, Any]:
     """
     # ── Step 0: Detect input path ────────────────────────────────
     raw_evidence: Any = state.get("raw_evidence")
-    messages: list = state.get("messages", [])
+    messages: list[Any] = state.get("messages", [])
 
     if raw_evidence is not None:
         # ── REST API path: structured evidence already provided ──

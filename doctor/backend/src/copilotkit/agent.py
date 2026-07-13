@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid as _uuid
+from typing import Any
 
 from ag_ui.core import RunAgentInput
 from ag_ui.encoder import EventEncoder
@@ -13,21 +14,21 @@ from copilotkit import LangGraphAGUIAgent
 class DiagDoctorAgent(LangGraphAGUIAgent):
     """LangGraphAGUIAgent subclass with execute() bridge + smart resume."""
 
-    async def execute(  # type: ignore[override]
+    async def execute(
         self,
         *,
-        state: dict,
-        config: dict | None = None,
-        messages: list,
+        state: dict[str, Any],
+        config: dict[str, Any] | None = None,
+        messages: list[Any],
         thread_id: str,
-        actions: list | None = None,
-        meta_events: list | None = None,
-        **kwargs,
-    ):
+        actions: list[Any] | None = None,
+        meta_events: list[Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
         import asyncio
 
         node_name = kwargs.get("node_name")
-        forwarded_props: dict = {}
+        forwarded_props: dict[str, Any] = {}
         if node_name:
             forwarded_props["node_name"] = node_name
 
@@ -42,11 +43,11 @@ class DiagDoctorAgent(LangGraphAGUIAgent):
         )
 
         encoder = EventEncoder()
-        async for event in self.run(run_input):
+        async for event in self.run(run_input):  # type: ignore[no-untyped-call]
             yield encoder.encode(event).encode("utf-8")
             await asyncio.sleep(0)
 
-    async def get_state(self, *, thread_id: str):  # type: ignore[override]
+    async def get_state(self, *, thread_id: str) -> dict[str, Any]:
         """Smart resume: fresh if completed, resume if interrupted."""
         try:
             state = await self.graph.aget_state({"configurable": {"thread_id": thread_id}})
