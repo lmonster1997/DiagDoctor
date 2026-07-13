@@ -206,7 +206,8 @@ def _finalize_report_for_dict_state(
     messages: list, budget_exhausted: bool
 ) -> tuple[Any, list[Any], Any, bool]:
     """Parse messages into report + findings (mirrors _finalize_report from node.py)."""
-    from src.engine.budget.constants import is_budget_exceeded, update_budget
+    from src.engine.budget.constants import BUDGET_WARNING_THRESHOLD, MAX_TOOL_CALLS
+    from src.engine.budget.tracker import is_budget_exceeded, update_budget
     from src.engine.parsing import (
         extract_findings,
         parse_diagnosis_report,
