@@ -73,7 +73,7 @@ class LangfuseTracingMiddleware(AgentMiddleware):
             with contextlib.suppress(Exception):
                 ctx.langfuse_handler.record_tool_span(
                     tool_name=tool_name,
-                    input_args=getattr(request.tool_call, "args", {}),
+                    tool_args=getattr(request.tool_call, "args", {}),
                     result=content_str[:2000],
                     latency_ms=round(elapsed_ms, 1),
                     iteration=ctx.model_call_count,
