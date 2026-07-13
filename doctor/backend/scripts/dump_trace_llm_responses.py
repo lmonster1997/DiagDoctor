@@ -5,7 +5,7 @@
 
 Usage:
     uv run python scripts/dump_trace_llm_responses.py --session <session_id> --bug <bug_id>
-    uv run python scripts/dump_trace_llm_responses.py --session smoke-after-SimplifiedConvergenceStrategy --bug FE-020
+    uv run python scripts/dump_trace_llm_responses.py --session <session_id> --bug FE-020
 """
 from __future__ import annotations
 
@@ -126,7 +126,7 @@ def main() -> int:
     print(f"# total observations: {len(flat)}")
     print(f"# GENERATION (LLM call) count: {len(llm_calls)}\n")
 
-    for i, (depth, o) in enumerate(llm_calls, 1):
+    for i, (_depth, o) in enumerate(llm_calls, 1):
         nm = getattr(o, "name", "") or ""
         in_sum, out_content = _extract_llm_content(o)
         is_last = i == len(llm_calls)

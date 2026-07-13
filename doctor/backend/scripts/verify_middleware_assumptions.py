@@ -25,7 +25,6 @@ from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.tools import tool
 from pydantic import PrivateAttr
 
-
 # ── Fake scripted chat model ─────────────────────────────────────────────
 
 
@@ -35,15 +34,27 @@ class ScriptedChatModel(BaseChatModel):
     responses: list[AIMessage]
     _idx: int = PrivateAttr(default=0)
 
-    def bind_tools(self, tools: list[Any], **kwargs: Any) -> "ScriptedChatModel":  # type: ignore[override]
+    def bind_tools(self, tools: list[Any], **kwargs: Any) -> ScriptedChatModel:  # type: ignore[override]
         return self
 
-    def _generate(self, messages: list[BaseMessage], stop: list[str] | None = None, run_manager: Any = None, **kwargs: Any) -> ChatResult:  # type: ignore[override]
+    def _generate(  # type: ignore[override]
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: Any = None,
+        **kwargs: Any,
+    ) -> ChatResult:
         resp = self.responses[self._idx]
         self._idx += 1
         return ChatResult(generations=[ChatGeneration(message=resp)])
 
-    async def _agenerate(self, messages: list[BaseMessage], stop: list[str] | None = None, run_manager: Any = None, **kwargs: Any) -> ChatResult:  # type: ignore[override]
+    async def _agenerate(  # type: ignore[override]
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: Any = None,
+        **kwargs: Any,
+    ) -> ChatResult:
         return self._generate(messages, stop, run_manager, **kwargs)
 
     @property
@@ -100,7 +111,10 @@ async def test_wrap_order() -> None:
     await agent.ainvoke({"messages": [HumanMessage(content="run echo")], "recursion_limit": 10})
     print(f"[Test 1] wrap_tool_call execution order: {wrap_order}")
     if wrap_order == ["outer-before", "inner-before", "inner-after", "outer-after"]:
-        print("  => CONFIRMED: registration order = outer->inner (first registered wraps outermost)")
+        print(
+            "  => CONFIRMED: registration order = outer->inner"
+            " (first registered wraps outermost)"
+        )
     elif wrap_order == ["inner-before", "outer-before", "outer-after", "inner-after"]:
         print("  => CONFIRMED: registration order = inner->outer (last registered wraps outermost)")
     else:
@@ -136,13 +150,22 @@ async def test_after_agent_append() -> None:
     final_msgs = result.get("messages", [])
     last_msg = final_msgs[-1] if final_msgs else None
     last_content = str(getattr(last_msg, "content", "")) if last_msg else ""
-    print(f"[Test 2] messages count before after_agent append: {after_agent_msg_count_before_append}")
+    print(
+        f"[Test 2] messages count before after_agent append:"
+        f" {after_agent_msg_count_before_append}"
+    )
     print(f"  final messages count: {len(final_msgs)}")
     print(f"  last message content: {last_content!r}")
     if "FORCED_CALL_MARKER" in last_content:
-        print("  => CONFIRMED: after_agent {'messages': [AIMessage]} IS appended and visible in ainvoke() result")
+        print(
+            "  => CONFIRMED: after_agent {'messages': [AIMessage]} IS appended"
+            " and visible in ainvoke() result"
+        )
     else:
-        print("  => FAILED: after_agent message append NOT visible in result — need fallback design")
+        print(
+            "  => FAILED: after_agent message append NOT visible in result"
+            " — need fallback design"
+        )
 
 
 # ── Test 3: callbacks propagation ────────────────────────────────────────
@@ -172,7 +195,10 @@ async def test_callbacks_propagation() -> None:
         {"messages": [HumanMessage(content="run echo")], "recursion_limit": 10},
         config={"callbacks": [cb]},
     )
-    print(f"[Test 3] on_llm_start fired {cb.llm_starts} times (expect 2: one per scripted LLM call)")
+    print(
+        f"[Test 3] on_llm_start fired {cb.llm_starts} times"
+        f" (expect 2: one per scripted LLM call)"
+    )
     if cb.llm_starts >= 2:
         print("  => CONFIRMED: config callbacks propagate to internal LLM calls")
     elif cb.llm_starts == 0:

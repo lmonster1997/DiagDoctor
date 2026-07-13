@@ -10,7 +10,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import json
+import contextlib
 import os
 import sys
 import traceback
@@ -25,10 +25,8 @@ from src.llm_factory import get_llm_for_role
 
 async def main() -> int:
     # Reconfigure stdout to utf-8 for Windows gbk cp.
-    try:
+    with contextlib.suppress(Exception):
         sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-    except Exception:
-        pass
 
     llm = get_llm_for_role("diagnosis")
     print(f"# LLM type: {type(llm).__name__}")

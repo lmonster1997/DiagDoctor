@@ -19,7 +19,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
-
 from src.graph.nodes.diagnosis_agent import (
     diagnosis_agent_node,
     extract_findings,
@@ -29,6 +28,8 @@ from src.graph.nodes.diagnosis_agent import (
     parse_diagnosis_report,
     update_budget,
 )
+
+from src.engine.agent import clear_diagnosis_agent_cache
 from src.engine.state import (
     BudgetState,
     Correlation,
@@ -37,7 +38,6 @@ from src.engine.state import (
     NormalizedEvidence,
     Signal,
 )
-from src.engine.agent import clear_diagnosis_agent_cache
 
 # ═════════════════════════════════════════════════════════════════════
 # Fixtures

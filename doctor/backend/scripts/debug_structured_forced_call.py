@@ -14,6 +14,7 @@ Usage:
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import sys
@@ -109,10 +110,8 @@ def main() -> int:
     only_bug = sys.argv[2] if len(sys.argv) > 2 else None
 
     # Reconfigure stdout to utf-8 so emoji / Chinese don't blow up on gbk cp.
-    try:
+    with contextlib.suppress(Exception):
         sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-    except Exception:
-        pass
 
     lf = Langfuse(
         secret_key=settings.langfuse_secret_key,
@@ -151,7 +150,7 @@ def main() -> int:
         gens.sort(key=lambda x: getattr(x[1], "start_time", None))
         print(f"\n## GENERATION count: {len(gens)}")
 
-        for i, (depth, o) in enumerate(gens, 1):
+        for i, (_depth, o) in enumerate(gens, 1):
             output = getattr(o, "output", None) or {}
             summary = _summarize_output(output)
             is_last = i == len(gens)
@@ -174,7 +173,7 @@ def main() -> int:
 
         # ── 3. Full input + output dump for last 2 GENERATIONs ──
         print("\n## Full input + output dump (last 2 GENERATIONs):")
-        for i, (depth, o) in enumerate(gens[-2:], len(gens) - 1):
+        for i, (_depth, o) in enumerate(gens[-2:], len(gens) - 1):
             output = getattr(o, "output", None) or {}
             inp = getattr(o, "input", None) or {}
             print(f"\n  === LLM call #{i} full INPUT ===")

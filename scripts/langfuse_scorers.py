@@ -37,10 +37,10 @@ _DOCTOR_BACKEND = Path(__file__).resolve().parent.parent / "doctor" / "backend"
 if str(_DOCTOR_BACKEND) not in sys.path:
     sys.path.insert(0, str(_DOCTOR_BACKEND))
 
-from langfuse import Langfuse
+from langfuse import Langfuse  # noqa: E402
 
-from src.llm_factory import get_llm_for_role
-from src.prompts.registry import render_prompt
+from src.llm_factory import get_llm_for_role  # noqa: E402
+from src.prompts.registry import render_prompt  # noqa: E402
 
 # ── 权重 ─────────────────────────────────────────────────────────────
 WEIGHTS: dict[str, float] = {

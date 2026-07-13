@@ -29,7 +29,6 @@ from src.engine.parsing import (
     parse_diagnosis_report,
 )
 
-
 # ═════════════════════════════════════════════════════════════════════
 # Reproduces the CONFIG-020 failure: pretty-printed JSON with literal
 # newlines inside string values (root_cause, fix_suggestion).

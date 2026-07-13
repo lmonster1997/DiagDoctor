@@ -73,7 +73,8 @@ def main() -> None:
         has_output = "y" if t.get("output") else "-"
         score_names_str = ",".join(score_names)
         print(
-            f"{name[:40]:<40} {len(obs):<5} {has_input:<6} {has_output:<7} {score_names_str[:25]:<25}"
+            f"{name[:40]:<40} {len(obs):<5} {has_input:<6}"
+            f" {has_output:<7} {score_names_str[:25]:<25}"
         )
 
         # 按 recipe_id 归组（name 形如 baseline-15case_BE-020）
@@ -89,7 +90,7 @@ def main() -> None:
                 )
                 break
 
-    print(f"\n=== 按 recipe 归组（看是否每个 case 出现 2 个 trace）===")
+    print("\n=== 按 recipe 归组（看是否每个 case 出现 2 个 trace）===")
     for recipe, lst in sorted(pairs_by_recipe.items()):
         marker = "  ← 双 trace!" if len(lst) > 1 else ""
         print(f"  {recipe}: {len(lst)} trace(s){marker}")

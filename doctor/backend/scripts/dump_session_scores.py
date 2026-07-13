@@ -116,7 +116,11 @@ def main() -> int:
     if nums:
         print(f"  mean={sum(nums) / len(nums):.3f}  n={len(nums)}")
         print(f"  min={min(nums):.2f}  max={max(nums):.2f}")
-        disasters = [r["bug_id"] for r in rows if isinstance(r["overall"], (int, float)) and r["overall"] < 0.4]
+        disasters = [
+            r["bug_id"]
+            for r in rows
+            if isinstance(r["overall"], (int, float)) and r["overall"] < 0.4
+        ]
         print(f"  disasters (overall<0.4): {len(disasters)} -> {disasters}")
 
     # ── 各维度均值（便于看哪个维度拉后腿）──

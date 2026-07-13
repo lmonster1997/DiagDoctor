@@ -1,10 +1,15 @@
 ﻿"""Quick check: for a session, dump each trace's early_stopped + JSON parse status."""
 import sys
-from langfuse import Langfuse
-from src.config import settings
-from src.graph.nodes.diagnosis_agent import _extract_json_from_text
 
-lf = Langfuse(secret_key=settings.langfuse_secret_key, public_key=settings.langfuse_public_key, host=settings.langfuse_host)
+from langfuse import Langfuse
+
+from src.config import settings
+
+lf = Langfuse(
+    secret_key=settings.langfuse_secret_key,
+    public_key=settings.langfuse_public_key,
+    host=settings.langfuse_host,
+)
 
 session_id = sys.argv[1]
 traces = []

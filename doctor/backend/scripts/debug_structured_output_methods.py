@@ -21,18 +21,18 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import sys
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
 sys.path.insert(0, ".")
 from src.graph.nodes.diagnosis_agent import ForcedDiagnosisReport
+
 from src.llm_factory import get_llm_for_role
 
-try:
+with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-except Exception:
-    pass
 
 
 PROMPT_MESSAGES = [
@@ -90,7 +90,9 @@ async def try_method(llm, method: str) -> dict:
         out["raw_tool_calls_count"] = len(tc) if isinstance(tc, list) else 0
         if ak:
             # response_format metadata sometimes lands here
-            out["raw_additional_kwargs_keys"] = list(ak.keys()) if isinstance(ak, dict) else type(ak).__name__
+            out["raw_additional_kwargs_keys"] = (
+                list(ak.keys()) if isinstance(ak, dict) else type(ak).__name__
+            )
 
     return out
 
@@ -99,7 +101,7 @@ async def main() -> int:
     llm = get_llm_for_role("diagnosis")
     model_name = getattr(llm, "model_name", getattr(llm, "model", "?"))
     base_url = getattr(llm, "base_url", "?")
-    print(f"# Probe: with_structured_output methods on diagnosis LLM")
+    print("# Probe: with_structured_output methods on diagnosis LLM")
     print(f"# model={model_name!r}  base_url={base_url!r}")
     print()
 
@@ -115,7 +117,10 @@ async def main() -> int:
             print(f"  OK ✓  parsed.primary_category={result['parsed']['primary_category']!r}")
             print(f"        parsed.confidence={result['parsed']['confidence']}")
             print(f"        parsed.affected_file={result['parsed']['affected_file']!r}")
-            print(f"        raw_content_len={result['raw_content_len']}  raw_tool_calls_count={result.get('raw_tool_calls_count', 0)}")
+            print(
+                f"        raw_content_len={result['raw_content_len']}"
+                f"  raw_tool_calls_count={result.get('raw_tool_calls_count', 0)}"
+            )
         else:
             print(f"  FAIL ✗  error={result['error']}")
             print(f"        raw_content_len={result['raw_content_len']}")

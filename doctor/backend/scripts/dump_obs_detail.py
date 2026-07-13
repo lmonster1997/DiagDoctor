@@ -64,7 +64,9 @@ def main() -> int:
         if not args.all and args.substrs and not any(s in nm for s in args.substrs):
             continue
         t = getattr(obs, "type", "?") or "?"
-        print(f"\n=== #{i}  type={t}  name={nm}  start={getattr(obs,'start_time',None)}  end={getattr(obs,'end_time',None)} ===")
+        st = getattr(obs, 'start_time', None)
+        et = getattr(obs, 'end_time', None)
+        print(f"\n=== #{i}  type={t}  name={nm}  start={st}  end={et} ===")
         # input
         inp = getattr(obs, "input", None)
         print(f"-- input --\n{_short(inp, 3000)}")

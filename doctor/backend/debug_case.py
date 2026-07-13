@@ -9,6 +9,7 @@ Usage:
 import asyncio
 import json
 import sys
+import typing
 from pathlib import Path
 
 import yaml
@@ -56,7 +57,7 @@ async def main() -> None:
 
     # Build state dict (same as REST API _build_initial_state)
     thread_id = generate_thread_id()
-    state: dict[str, Any] = {
+    state: dict[str, typing.Any] = {
         "raw_evidence": raw_evidence,
         "case_id": case_id,
         "trace_id": thread_id,

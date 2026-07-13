@@ -10,7 +10,12 @@ Usage:
 
 from __future__ import annotations
 
-import argparse, asyncio, json, subprocess, sys, time
+import argparse
+import asyncio
+import json
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -101,13 +106,19 @@ def main() -> None:
 
     ur = args.msg or (load_report(args.rid) if args.rid else "")
     ur = ur or input("Bug description: ").strip()
-    if not ur: print("No input."); return
+    if not ur:
+        print("No input.")
+        return
 
     tt = ""
     if args.rid and not args.skip_inject:
-        print(f"[inject] {args.rid}"); inject(args.rid); time.sleep(RELOAD_WAIT)
+        print(f"[inject] {args.rid}")
+        inject(args.rid)
+        time.sleep(RELOAD_WAIT)
     if args.rid and not args.skip_trigger:
-        print(f"[trigger] {args.rid}"); tt, _ = trigger(args.rid); time.sleep(3)
+        print(f"[trigger] {args.rid}")
+        tt, _ = trigger(args.rid)
+        time.sleep(3)
 
     if args.score:
         asyncio.run(do_score(args.rid or "manual", ur, tt))

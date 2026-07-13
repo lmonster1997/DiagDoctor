@@ -29,13 +29,13 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from pydantic import PrivateAttr
-
 from src.graph.nodes.diagnosis_agent import (
     ForcedDiagnosisReport,
     _forced_final_json_call,
     _last_ai_has_json,
     _last_ai_is_natural_stop,
 )
+
 from src.engine.state import DoctorState
 
 # ═════════════════════════════════════════════════════════════════════
@@ -136,18 +136,18 @@ def _make_mock_llm(parsed_report: ForcedDiagnosisReport | None) -> tuple[MagicMo
 
 def _sample_report(**overrides: Any) -> ForcedDiagnosisReport:
     """Build a populated ForcedDiagnosisReport for tests."""
-    defaults = dict(
-        primary_category="backend_error",
-        categories=["backend_error"],
-        symptom_tier="backend",
-        root_cause_tier="backend",
-        root_cause="N+1 查询",
-        affected_file="app/services/task_service.py",
-        affected_line=42,
-        fix_suggestion="用 selectinload",
-        evidence_chain=["sig-be020-slow"],
-        confidence=0.8,
-    )
+    defaults: dict[str, Any] = {
+        "primary_category": "backend_error",
+        "categories": ["backend_error"],
+        "symptom_tier": "backend",
+        "root_cause_tier": "backend",
+        "root_cause": "N+1 查询",
+        "affected_file": "app/services/task_service.py",
+        "affected_line": 42,
+        "fix_suggestion": "用 selectinload",
+        "evidence_chain": ["sig-be020-slow"],
+        "confidence": 0.8,
+    }
     defaults.update(overrides)
     return ForcedDiagnosisReport(**defaults)
 
@@ -468,10 +468,10 @@ class _ScriptedChatModel(BaseChatModel):
     _idx: int = PrivateAttr(default=0)
     with_structured_output_call_count: int = 0
 
-    def bind_tools(self, tools: list[Any], **kwargs: Any) -> "_ScriptedChatModel":  # type: ignore[override]
+    def bind_tools(self, tools: list[Any], **kwargs: Any) -> _ScriptedChatModel:  # type: ignore[override]
         return self
 
-    def with_structured_output(self, schema: Any, **kwargs: Any) -> "_StructuredScriptedLLM":
+    def with_structured_output(self, schema: Any, **kwargs: Any) -> _StructuredScriptedLLM:
         self.with_structured_output_call_count += 1
         return _StructuredScriptedLLM(forced_result=self.forced_result)
 
@@ -599,8 +599,9 @@ class TestForcedCallWiredIntoNode:
             forced_result=structured,
         )
 
-        import src.llm_factory as llm_factory_mod
         import src.graph.subgraphs.diagnosis_agent as subgraph_mod
+
+        import src.llm_factory as llm_factory_mod
 
         monkeypatch.setattr(llm_factory_mod, "get_llm_for_role", lambda _role: mock_llm)
         # The subgraph bound `get_llm_for_role` at module import time
@@ -649,8 +650,9 @@ class TestForcedCallWiredIntoNode:
             forced_result={"parsed": None, "raw": AIMessage(content="")},
         )
 
-        import src.llm_factory as llm_factory_mod
         import src.graph.subgraphs.diagnosis_agent as subgraph_mod
+
+        import src.llm_factory as llm_factory_mod
 
         monkeypatch.setattr(llm_factory_mod, "get_llm_for_role", lambda _role: mock_llm)
         monkeypatch.setattr(subgraph_mod, "get_llm_for_role", lambda _role: mock_llm)

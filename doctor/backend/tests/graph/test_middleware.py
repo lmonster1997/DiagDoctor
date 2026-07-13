@@ -7,21 +7,20 @@ covered by TestForcedCallWiredIntoNode in test_forced_final_json_call.py.
 
 from __future__ import annotations
 
-import asyncio
 import time
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from src.engine.context.budget import ContextBudget, truncate_tool_result
 from src.engine.budget.constants import (
     MAX_TIME_SECONDS,
     MAX_TOKENS_BUDGET,
     MAX_TOOL_CALLS,
 )
+from src.engine.context.budget import ContextBudget
 from src.engine.middleware import (
     BudgetGuardMiddleware,
     DiagnosisRunContext,
@@ -33,7 +32,6 @@ from src.engine.middleware import (
     get_run_context,
     set_run_context,
 )
-
 
 # ═════════════════════════════════════════════════════════════════════
 # Fixtures
