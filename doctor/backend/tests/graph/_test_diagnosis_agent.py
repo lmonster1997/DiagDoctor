@@ -1,4 +1,4 @@
-﻿"""
+"""
 Integration tests for DiagnosisAgent subgraph & node wrapper (V3).
 
 Covers:

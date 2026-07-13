@@ -1,4 +1,4 @@
-﻿"""Unit tests for the 5 create_agent middlewares + run_context.
+"""Unit tests for the 5 create_agent middlewares + run_context.
 
 Each middleware's hooks are tested in isolation with fake state + runtime +
 ToolCallRequest. The end-to-end wiring (create_agent + all middlewares) is
@@ -280,7 +280,9 @@ class TestBudgetGuardMiddleware:
     async def test_after_model_accounts_agent_reasoning_tokens(
         self, run_ctx: DiagnosisRunContext
     ) -> None:
-        state = {"messages": [HumanMessage(content="q"), AIMessage(content="thinking about the bug")]}
+        state = {
+            "messages": [HumanMessage(content="q"), AIMessage(content="thinking about the bug")]
+        }
         before = run_ctx.ctx_budget.agent_reasoning_tokens
         mw = BudgetGuardMiddleware()
         result = await mw.aafter_model(state=state, runtime=None)
@@ -337,9 +339,7 @@ class TestToolDedupMiddleware:
         # call_history NOT doubled (dup not appended)
         assert len(run_ctx.call_history) == 1
 
-    async def test_different_args_not_treated_as_dup(
-        self, run_ctx: DiagnosisRunContext
-    ) -> None:
+    async def test_different_args_not_treated_as_dup(self, run_ctx: DiagnosisRunContext) -> None:
         handler = AsyncMock(return_value=ToolMessage(content="r", tool_call_id="tc", name="echo"))
         mw = ToolDedupMiddleware()
         await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "a"}, "tc1"), handler)
@@ -415,9 +415,7 @@ class TestToolTruncationMiddleware:
 
 
 class TestForcedFinalCallMiddleware:
-    async def test_skips_when_last_ai_has_json(
-        self, run_ctx: DiagnosisRunContext
-    ) -> None:
+    async def test_skips_when_last_ai_has_json(self, run_ctx: DiagnosisRunContext) -> None:
         state = {"messages": [AIMessage(content='{"primary_category":"logic"}')]}
         mw = ForcedFinalCallMiddleware()
         with patch("src.llm_factory.get_llm_for_role") as mock_llm:
@@ -426,9 +424,7 @@ class TestForcedFinalCallMiddleware:
         mock_llm.assert_not_called()
         assert run_ctx.forced_call_triggered is False
 
-    async def test_skips_when_budget_blown(
-        self, run_ctx: DiagnosisRunContext
-    ) -> None:
+    async def test_skips_when_budget_blown(self, run_ctx: DiagnosisRunContext) -> None:
         run_ctx.ctx_budget.system_prompt_tokens = MAX_TOKENS_BUDGET
         state = {"messages": [AIMessage(content="narrative, no json")]}
         mw = ForcedFinalCallMiddleware()
@@ -451,11 +447,13 @@ class TestForcedFinalCallMiddleware:
         state = {"messages": [HumanMessage(content="q"), AIMessage(content="narrative conclusion")]}
         forced_msg = AIMessage(content='{"primary_category":"logic","confidence":0.8}')
         mw = ForcedFinalCallMiddleware()
-        with patch("src.llm_factory.get_llm_for_role") as mock_llm_role, \
-             patch(
-                 "src.graph.nodes.diagnosis_agent.middleware.forced_call._forced_final_json_call",
-                 new=AsyncMock(return_value=forced_msg),
-             ) as mock_forced:
+        with (
+            patch("src.llm_factory.get_llm_for_role") as mock_llm_role,
+            patch(
+                "src.graph.nodes.diagnosis_agent.middleware.forced_call._forced_final_json_call",
+                new=AsyncMock(return_value=forced_msg),
+            ) as mock_forced,
+        ):
             result = await mw.aafter_agent(state=state, runtime=None)
         assert result == {"messages": [forced_msg]}
         assert run_ctx.forced_call_triggered is True
@@ -473,11 +471,13 @@ class TestForcedFinalCallMiddleware:
         state = {"messages": [cap_msg]}
         forced_msg = AIMessage(content='{"primary_category":"logic"}')
         mw = ForcedFinalCallMiddleware()
-        with patch("src.llm_factory.get_llm_for_role"), \
-             patch(
-                 "src.graph.nodes.diagnosis_agent.middleware.forced_call._forced_final_json_call",
-                 new=AsyncMock(return_value=forced_msg),
-             ) as mock_forced:
+        with (
+            patch("src.llm_factory.get_llm_for_role"),
+            patch(
+                "src.graph.nodes.diagnosis_agent.middleware.forced_call._forced_final_json_call",
+                new=AsyncMock(return_value=forced_msg),
+            ) as mock_forced,
+        ):
             await mw.aafter_agent(state=state, runtime=None)
         forced_kwargs = mock_forced.call_args.kwargs
         assert forced_kwargs["natural_stop"] is False
@@ -489,11 +489,13 @@ class TestForcedFinalCallMiddleware:
         returns None so the node's existing fallback report path runs."""
         state = {"messages": [AIMessage(content="narrative")]}
         mw = ForcedFinalCallMiddleware()
-        with patch("src.llm_factory.get_llm_for_role"), \
-             patch(
-                 "src.graph.nodes.diagnosis_agent.middleware.forced_call._forced_final_json_call",
-                 new=AsyncMock(return_value=None),
-             ):
+        with (
+            patch("src.llm_factory.get_llm_for_role"),
+            patch(
+                "src.graph.nodes.diagnosis_agent.middleware.forced_call._forced_final_json_call",
+                new=AsyncMock(return_value=None),
+            ),
+        ):
             result = await mw.aafter_agent(state=state, runtime=None)
         assert result is None
         # forced_call_triggered still True (the trigger happened, just failed)
@@ -509,11 +511,13 @@ class TestForcedFinalCallMiddleware:
         state = {"messages": [AIMessage(content="narrative")]}
         forced_msg = AIMessage(content='{"primary_category":"logic"}')
         mw = ForcedFinalCallMiddleware()
-        with patch("src.llm_factory.get_llm_for_role"), \
-             patch(
-                 "src.graph.nodes.diagnosis_agent.middleware.forced_call._forced_final_json_call",
-                 new=AsyncMock(return_value=forced_msg),
-             ) as mock_forced:
+        with (
+            patch("src.llm_factory.get_llm_for_role"),
+            patch(
+                "src.graph.nodes.diagnosis_agent.middleware.forced_call._forced_final_json_call",
+                new=AsyncMock(return_value=forced_msg),
+            ) as mock_forced,
+        ):
             await mw.aafter_agent(state=state, runtime=None)
         forced_kwargs = mock_forced.call_args.kwargs
         assert forced_kwargs["invoke_config"].get("callbacks") == [lf]

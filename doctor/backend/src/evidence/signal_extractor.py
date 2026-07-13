@@ -1,4 +1,4 @@
-﻿"""
+"""
 Signal Extractor — identifies "golden signals" from normalized evidence.
 
 Golden signals are the critical clues that an LLM needs to diagnose the bug:

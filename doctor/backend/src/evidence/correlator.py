@@ -1,4 +1,4 @@
-﻿"""
+"""
 Correlator — links evidence across frontend/backend/DB layers.
 
 Uses trace_id as the primary correlation key to chain:

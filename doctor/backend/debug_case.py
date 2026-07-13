@@ -66,9 +66,7 @@ async def main() -> None:
 
     print(f"\n=== Running Graph for {case_id} ===")
     graph = get_copilotkit_graph()
-    result = await graph.ainvoke(
-        state, config={"configurable": {"thread_id": thread_id}}
-    )
+    result = await graph.ainvoke(state, config={"configurable": {"thread_id": thread_id}})
 
     # Evidence (from bug_info node)
     print("\n=== Normalized Evidence ===")
@@ -119,9 +117,11 @@ async def main() -> None:
     # Budget
     budget = result.get("budget")
     if budget:
-        print(f"\n[Budget] tool_calls={getattr(budget, 'tool_calls', 0)}, "
-              f"tokens={getattr(budget, 'total_tokens', 0)}, "
-              f"elapsed={getattr(budget, 'elapsed_seconds', 0):.1f}s")
+        print(
+            f"\n[Budget] tool_calls={getattr(budget, 'tool_calls', 0)}, "
+            f"tokens={getattr(budget, 'total_tokens', 0)}, "
+            f"elapsed={getattr(budget, 'elapsed_seconds', 0):.1f}s"
+        )
 
     print("\n=== DONE ===")
 

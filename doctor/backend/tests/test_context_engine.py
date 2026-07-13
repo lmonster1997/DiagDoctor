@@ -1,4 +1,4 @@
-﻿"""
+"""
 单元测试：doctor/src/graph/context_engine.py
 
 覆盖：

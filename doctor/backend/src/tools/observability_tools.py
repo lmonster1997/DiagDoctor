@@ -1,4 +1,4 @@
-﻿"""
+"""
 Observability data fetching tools for DiagDoctor agents.
 
 Provides async functions to query Loki (logs) and Tempo (traces) via their

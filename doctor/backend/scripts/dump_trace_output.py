@@ -1,4 +1,5 @@
 """Fetch trace-level input/output for a single trace."""
+
 import json
 import sys
 

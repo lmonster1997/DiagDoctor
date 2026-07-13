@@ -92,13 +92,21 @@ def _query_via_docker_exec(sql: str) -> dict:
 
     # Pipe SQL via stdin to avoid shell escaping issues
     cmd = [
-        "docker", "exec", "-i", container,
-        "psql", "-U", user, "-d", db_name,
-        "-X",           # No .psqlrc
-        "-q",           # Quiet
-        "-t",           # Tuples only (no headers)
-        "-A",           # Unaligned output
-        "-F", "|",      # Field separator
+        "docker",
+        "exec",
+        "-i",
+        container,
+        "psql",
+        "-U",
+        user,
+        "-d",
+        db_name,
+        "-X",  # No .psqlrc
+        "-q",  # Quiet
+        "-t",  # Tuples only (no headers)
+        "-A",  # Unaligned output
+        "-F",
+        "|",  # Field separator
     ]
 
     result = subprocess.run(

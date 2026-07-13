@@ -473,9 +473,7 @@ class TriggerRunner:
 
         return result
 
-    async def _action_api_call_concurrent(
-        self, params: dict[str, Any]
-    ) -> dict[str, Any] | None:
+    async def _action_api_call_concurrent(self, params: dict[str, Any]) -> dict[str, Any] | None:
         """Fire multiple HTTP requests concurrently to trigger race conditions.
 
         Required *params*:

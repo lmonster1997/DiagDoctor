@@ -1,4 +1,4 @@
-﻿"""Format NormalizedEvidence into the agent's HumanMessage text.
+"""Format NormalizedEvidence into the agent's HumanMessage text.
 
 Ingest 节点已完成 Loki/Tempo 实时查询 + 标准化管线处理，
 此处仅格式化 golden_signals、correlations、frontend_error_spans 供 LLM 消费。
@@ -30,16 +30,14 @@ def format_evidence_for_agent(evidence: NormalizedEvidence) -> str:
         parts.append(
             "【本次触发的 trace_id】\n"
             f"  {tids}\n"
-            "  💡 用 search_observability(source=\"tempo\", query=\"<某个 trace_id>\") "
+            '  💡 用 search_observability(source="tempo", query="<某个 trace_id>") '
             "可精准拿到本次请求的完整 Trace；查日志可用 "
-            "search_observability(source=\"loki\", query='{trace_id=\"<某个 trace_id>\"}')。"
+            'search_observability(source="loki", query=\'{trace_id="<某个 trace_id>"}\')。'
         )
 
     # ── Golden signals ──
     has_signals = bool(evidence.golden_signals)
-    has_trace_spans = any(
-        s.source == "trace" for s in evidence.golden_signals
-    )
+    has_trace_spans = any(s.source == "trace" for s in evidence.golden_signals)
 
     if has_signals:
         parts.append("【实时查询信号】")
@@ -106,8 +104,7 @@ def _format_signals(signals: list[Signal]) -> str:
         sev_label = {"error": "❌", "warning": "⚠️", "info": "ℹ️"}.get(sig.severity, "•")
         ref = f" [{sig.signal_id}]" if sig.signal_id else ""
         lines.append(
-            f"  {sev_label} [{tier_label}] "
-            f"[{sig.source}/{sig.signal_type}] {sig.summary}{ref}"
+            f"  {sev_label} [{tier_label}] [{sig.source}/{sig.signal_type}] {sig.summary}{ref}"
         )
     if not lines:
         return "  （无信号）"

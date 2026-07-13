@@ -565,9 +565,7 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
 
         # completion-style LLM：用 prompts（stringified messages）兜底
         self._llm_input = {
-            "messages": [
-                {"role": "user", "content": p[:2000]} for p in (prompts or [])
-            ],
+            "messages": [{"role": "user", "content": p[:2000]} for p in (prompts or [])],
             "model": model_name,
         }
 
@@ -698,7 +696,7 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         tags: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
         **kwargs: Any,
-        ) -> None:
+    ) -> None:
         """No-op — see class-level note on tool callback hooks."""
         return
 
@@ -770,8 +768,10 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
         tool_calls = getattr(msg, "tool_calls", None)
         if tool_calls:
             entry["tool_calls"] = [
-                {"name": tc.get("name") if isinstance(tc, dict) else getattr(tc, "name", ""),
-                 "args": tc.get("args") if isinstance(tc, dict) else getattr(tc, "args", {})}
+                {
+                    "name": tc.get("name") if isinstance(tc, dict) else getattr(tc, "name", ""),
+                    "args": tc.get("args") if isinstance(tc, dict) else getattr(tc, "args", {}),
+                }
                 for tc in tool_calls
             ]
         # ToolMessage 的 tool_call_id：这条结果对应哪次工具调用

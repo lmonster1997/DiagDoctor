@@ -44,10 +44,7 @@ def load_tools_reference() -> str:
     """Load the tools reference markdown document for the System Prompt."""
     # engine/agent.py → parent=engine/ → parent.parent=src/
     ref_path = (
-        Path(__file__).resolve().parent.parent
-        / "prompts"
-        / "templates"
-        / "tools_reference.md"
+        Path(__file__).resolve().parent.parent / "prompts" / "templates" / "tools_reference.md"
     )
     if ref_path.exists():
         return ref_path.read_text(encoding="utf-8")

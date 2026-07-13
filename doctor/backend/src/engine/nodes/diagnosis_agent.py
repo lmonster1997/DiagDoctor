@@ -1,4 +1,4 @@
-﻿"""
+"""
 CopilotKit diagnosis graph — BugInfo → DiagnosisAgent.
 
 This graph replaces the original single-subgraph approach for CopilotKit.
@@ -49,16 +49,13 @@ def _filter_visible_messages(messages: list[Any]) -> list[Any]:
     """
     from langchain_core.messages import AIMessage, ToolMessage
 
-    return [
-        m
-        for m in messages
-        if isinstance(m, (AIMessage, ToolMessage))
-    ]
+    return [m for m in messages if isinstance(m, (AIMessage, ToolMessage))]
 
 
 # ═════════════════════════════════════════════════════════════════════
 # DiagnosisAgent node (adapted for CopilotKit state)
 # ═════════════════════════════════════════════════════════════════════
+
 
 async def _diagnosis_agent_node(state: dict[str, Any]) -> dict[str, Any]:
     """CopilotKit-adapted diagnosis agent node.
@@ -249,9 +246,7 @@ def _finalize_langfuse_trace(
     if langfuse_handler is None:
         return
     try:
-        report_dict = (
-            report.model_dump(mode="json") if hasattr(report, "model_dump") else {}
-        )
+        report_dict = report.model_dump(mode="json") if hasattr(report, "model_dump") else {}
         langfuse_handler.end_trace(
             output_data={
                 "diagnosis_report": report_dict,

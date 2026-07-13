@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for src.tools.observability_tools — Loki & Tempo API clients.
 
 Uses pytest + pytest-asyncio. Mocks aiohttp to avoid real network calls.

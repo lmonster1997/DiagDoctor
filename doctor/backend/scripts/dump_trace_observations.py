@@ -1,4 +1,5 @@
 """Dump observations for a trace (by recipe_id within a session)."""
+
 from __future__ import annotations
 
 import sys

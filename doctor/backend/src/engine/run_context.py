@@ -58,9 +58,7 @@ class DiagnosisRunContext:
 
 # Module-level ContextVar. Default None so a missing set raises clearly rather
 # than silently using a leaked context from a prior invocation.
-_run_ctx: ContextVar[DiagnosisRunContext | None] = ContextVar(
-    "diagnosis_run_ctx", default=None
-)
+_run_ctx: ContextVar[DiagnosisRunContext | None] = ContextVar("diagnosis_run_ctx", default=None)
 
 
 def set_run_context(ctx: DiagnosisRunContext) -> None:

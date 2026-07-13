@@ -1,4 +1,5 @@
 """Dump only obs names + inputs (compact) for a trace."""
+
 from __future__ import annotations
 
 import json
@@ -17,9 +18,9 @@ lf = Langfuse(
 )
 trace = lf.fetch_trace(sys.argv[1]).data
 flat = []
-for obs in (trace.observations or []):
+for obs in trace.observations or []:
     flat.append(obs)
-    for c in (getattr(obs, "children", None) or []):
+    for c in getattr(obs, "children", None) or []:
         flat.append(c)
 
 for i, obs in enumerate(flat, 1):
@@ -32,8 +33,13 @@ for i, obs in enumerate(flat, 1):
     hint = ""
     if isinstance(args, dict):
         keep_keys = (
-            "file_path", "start_line", "end_line",
-            "query", "sql", "source", "analysis",
+            "file_path",
+            "start_line",
+            "end_line",
+            "query",
+            "sql",
+            "source",
+            "analysis",
         )
         hint = json.dumps(
             {k: args[k] for k in keep_keys if k in args},
@@ -46,24 +52,27 @@ for i, obs in enumerate(flat, 1):
     else:
         # show first 240 chars of result
         r = outp.get("result") if isinstance(outp, dict) else str(outp)
-        r = (r or "")
+        r = r or ""
         # try to extract just file path or first meaningful line
         if "文件]" in r or "[文件" in r or "file_path" in r:
-            hint += "  -> " + r[:200].replace("\n"," ")
+            hint += "  -> " + r[:200].replace("\n", " ")
         elif "match_type" in r or "ripgrep" in r:
             # extract matched file_paths
             try:
                 obj = json.loads(r)
                 if isinstance(obj, list):
-                    files = sorted({
-                        x.get("file_path", "") + ":" + str(x.get("line_number", ""))
-                        for x in obj if isinstance(x, dict)
-                    })
+                    files = sorted(
+                        {
+                            x.get("file_path", "") + ":" + str(x.get("line_number", ""))
+                            for x in obj
+                            if isinstance(x, dict)
+                        }
+                    )
                     hint += "  -> " + " | ".join(files)
                 elif isinstance(obj, dict) and obj.get("results") == []:
                     hint += "  -> NO_MATCH"
             except Exception:
-                hint += "  -> " + r[:120].replace("\n"," ")
+                hint += "  -> " + r[:120].replace("\n", " ")
         else:
-            hint += "  -> " + r[:120].replace("\n"," ")
+            hint += "  -> " + r[:120].replace("\n", " ")
     print(f"{i:>3} {t[:4]:<4} {nm:<32} {hint}")

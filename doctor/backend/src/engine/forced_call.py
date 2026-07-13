@@ -1,4 +1,4 @@
-﻿"""Forced final JSON call mechanism (Iteration 1 + Iteration 2 structured output).
+"""Forced final JSON call mechanism (Iteration 1 + Iteration 2 structured output).
 
 Baseline (Iteration 0) showed two failure modes accounting for all disaster
 cases:
@@ -126,8 +126,7 @@ _FORCED_FINAL_JSON_SCHEMA_HINT = (
     '  "root_cause": "一句话根因（中文）",\n'
     '  "affected_file": "path/to/file.py",\n'
     '  "affected_function": "function_name",\n'
-
-    "  \"fix_suggestion\": \"【文件】...\\n【位置】第 N 行\\n【改前】...\\n"
+    '  "fix_suggestion": "【文件】...\\n【位置】第 N 行\\n【改前】...\\n'
     '【改后】...\\n【原因】...",\n'
     '  "evidence_chain": ["sig-xxx"],\n'
     '  "confidence": 0.85\n'
@@ -219,9 +218,7 @@ async def _forced_final_json_call(
         existing ``parse_diagnosis_report`` fallback path in that case.
     """
     instruction = (
-        _FORCED_FINAL_INSTRUCTION_NARRATIVE
-        if natural_stop
-        else _FORCED_FINAL_INSTRUCTION_CAP
+        _FORCED_FINAL_INSTRUCTION_NARRATIVE if natural_stop else _FORCED_FINAL_INSTRUCTION_CAP
     )
     forced_messages = list(messages) + [HumanMessage(content=instruction)]
 

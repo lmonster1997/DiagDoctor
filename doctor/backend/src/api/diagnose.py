@@ -1,4 +1,4 @@
-﻿"""
+"""
 Diagnose endpoint — runs the full LangGraph diagnosis pipeline.
 
 Accepts Evidence (user_report + optional logs/traces/browser_errors)

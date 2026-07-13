@@ -1,4 +1,4 @@
-﻿"""Parse agent JSON output into DiagnosisReport + Finding records.
+"""Parse agent JSON output into DiagnosisReport + Finding records.
 
 Strategies for extracting JSON from LLM text (tried in order):
 1. Markdown code fences (```json ... ``` or ``` ... ```)

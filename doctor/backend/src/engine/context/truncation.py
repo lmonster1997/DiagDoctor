@@ -24,11 +24,31 @@ _DEFAULT_CHAR_LIMIT = 4_000
 
 # 关键行关键词（匹配这些词的行优先保留）
 _KEY_LINE_PATTERNS: list[str] = [
-    "error", "exception", "trace", "span", "fail", "line",
-    "warning", "critical", "fatal", "crash", "panic",
-    "timeout", "refused", "denied", "forbidden",
-    "stack", "at ", " caused by", "root cause",
-    "500", "502", "503", "504", "4xx", "5xx",
+    "error",
+    "exception",
+    "trace",
+    "span",
+    "fail",
+    "line",
+    "warning",
+    "critical",
+    "fatal",
+    "crash",
+    "panic",
+    "timeout",
+    "refused",
+    "denied",
+    "forbidden",
+    "stack",
+    "at ",
+    " caused by",
+    "root cause",
+    "500",
+    "502",
+    "503",
+    "504",
+    "4xx",
+    "5xx",
 ]
 
 _KEY_LINE_RE = re.compile("|".join(_KEY_LINE_PATTERNS), re.IGNORECASE)

@@ -3,6 +3,7 @@
 Fetches the raw last LLM output from Langfuse and tries multiple parsing
 strategies, printing detailed error messages for each.
 """
+
 from __future__ import annotations
 
 import json

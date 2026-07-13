@@ -1,4 +1,4 @@
-﻿"""
+"""
 Normalizer — orchestrates the full Ingest pipeline.
 
 Entry point: ingest(raw_evidence) → NormalizedEvidence
@@ -67,7 +67,8 @@ def ingest(raw_evidence: dict[str, Any]) -> NormalizedEvidence:
 
     # Step 4: Golden signal extraction
     signals = extract_golden_signals(
-        folded_logs, traces,
+        folded_logs,
+        traces,
         slow_threshold_ms=settings.ingest_slow_span_threshold_ms,
     )
 

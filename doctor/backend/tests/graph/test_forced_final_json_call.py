@@ -1,4 +1,4 @@
-﻿"""
+"""
 Unit tests for the Iteration 1 forced final JSON call mechanism.
 
 Covers the two failure modes observed in baseline (Iteration 0):
@@ -54,7 +54,7 @@ class TestLastAiHasJson:
 
     def test_returns_true_when_json_in_markdown_fence(self) -> None:
         messages = [
-            AIMessage(content="Analysis...\n```json\n{\"primary_category\":\"logic\"}\n```"),
+            AIMessage(content='Analysis...\n```json\n{"primary_category":"logic"}\n```'),
         ]
         assert _last_ai_has_json(messages) is True
 
@@ -475,7 +475,13 @@ class _ScriptedChatModel(BaseChatModel):
         self.with_structured_output_call_count += 1
         return _StructuredScriptedLLM(forced_result=self.forced_result)
 
-    def _generate(self, messages: list[Any], stop: list[str] | None = None, run_manager: Any = None, **kwargs: Any) -> ChatResult:  # type: ignore[override]
+    def _generate(
+        self,
+        messages: list[Any],
+        stop: list[str] | None = None,
+        run_manager: Any = None,
+        **kwargs: Any,
+    ) -> ChatResult:  # type: ignore[override]
         if self._idx >= len(self.responses):
             # Run out of scripted responses — return a natural stop with JSON
             # so the loop terminates cleanly rather than raising.
@@ -485,7 +491,13 @@ class _ScriptedChatModel(BaseChatModel):
             self._idx += 1
         return ChatResult(generations=[ChatGeneration(message=resp)])
 
-    async def _agenerate(self, messages: list[Any], stop: list[str] | None = None, run_manager: Any = None, **kwargs: Any) -> ChatResult:  # type: ignore[override]
+    async def _agenerate(
+        self,
+        messages: list[Any],
+        stop: list[str] | None = None,
+        run_manager: Any = None,
+        **kwargs: Any,
+    ) -> ChatResult:  # type: ignore[override]
         return self._generate(messages, stop, run_manager, **kwargs)
 
     @property
@@ -613,7 +625,9 @@ class TestForcedCallWiredIntoNode:
         # Disable real Langfuse.
         import src.observability.langfuse_tracing as lf_mod
 
-        monkeypatch.setattr(lf_mod, "get_langfuse_handler", MagicMock(side_effect=ImportError("off")))
+        monkeypatch.setattr(
+            lf_mod, "get_langfuse_handler", MagicMock(side_effect=ImportError("off"))
+        )
 
         result = await node_module.diagnosis_agent_node(be020_state)
 
@@ -658,7 +672,9 @@ class TestForcedCallWiredIntoNode:
         monkeypatch.setattr(subgraph_mod, "get_llm_for_role", lambda _role: mock_llm)
         import src.observability.langfuse_tracing as lf_mod
 
-        monkeypatch.setattr(lf_mod, "get_langfuse_handler", MagicMock(side_effect=ImportError("off")))
+        monkeypatch.setattr(
+            lf_mod, "get_langfuse_handler", MagicMock(side_effect=ImportError("off"))
+        )
 
         result = await node_module.diagnosis_agent_node(be020_state)
 

@@ -12,6 +12,7 @@ For each case in a session, pulls the trace and:
 Usage:
     uv run python scripts/debug_structured_forced_call.py <session_id> [bug_id]
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -63,11 +64,13 @@ def _extract_tool_calls(output: Any) -> list[dict[str, Any]]:
     if isinstance(tc, list):
         for c in tc:
             if isinstance(c, dict):
-                calls.append({
-                    "name": c.get("name", "?"),
-                    "args": c.get("args", {}),
-                    "id": c.get("id", ""),
-                })
+                calls.append(
+                    {
+                        "name": c.get("name", "?"),
+                        "args": c.get("args", {}),
+                        "id": c.get("id", ""),
+                    }
+                )
     # additional_kwargs.tool_calls (OpenAI raw format)
     if not calls:
         ak = output.get("additional_kwargs") or {}
@@ -81,11 +84,13 @@ def _extract_tool_calls(output: Any) -> list[dict[str, Any]]:
                         args = json.loads(args_str) if isinstance(args_str, str) else args_str
                     except json.JSONDecodeError:
                         args = {"_raw": args_str}
-                    calls.append({
-                        "name": fn.get("name", "?"),
-                        "args": args,
-                        "id": c.get("id", ""),
-                    })
+                    calls.append(
+                        {
+                            "name": fn.get("name", "?"),
+                            "args": args,
+                            "id": c.get("id", ""),
+                        }
+                    )
     return calls
 
 

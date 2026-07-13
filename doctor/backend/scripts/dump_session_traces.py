@@ -52,9 +52,7 @@ def main() -> None:
 
     print(f"\nSession: {session_id}")
     print(f"Total traces: {len(all_traces)}\n")
-    print(
-        f"{'name':<40} {'obs':<5} {'input':<6} {'output':<7} {'scores':<25}"
-    )
+    print(f"{'name':<40} {'obs':<5} {'input':<6} {'output':<7} {'scores':<25}")
     print("-" * 90)
 
     pairs_by_recipe: dict[str, list] = {}

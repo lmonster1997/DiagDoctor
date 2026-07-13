@@ -3,6 +3,7 @@
 Usage:
     uv run python scripts/dump_obs_detail.py <trace_id> [obs_name_substring ...]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -64,8 +65,8 @@ def main() -> int:
         if not args.all and args.substrs and not any(s in nm for s in args.substrs):
             continue
         t = getattr(obs, "type", "?") or "?"
-        st = getattr(obs, 'start_time', None)
-        et = getattr(obs, 'end_time', None)
+        st = getattr(obs, "start_time", None)
+        et = getattr(obs, "end_time", None)
         print(f"\n=== #{i}  type={t}  name={nm}  start={st}  end={et} ===")
         # input
         inp = getattr(obs, "input", None)

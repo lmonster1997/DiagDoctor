@@ -49,11 +49,21 @@ async def main() -> None:
     except Exception as e:
         print(f"[WARN] Dataset item not found: {recipe_id}, falling back to case.yaml ({e})")
         import yaml
+
         cp = PROJECT_ROOT / "bug-factory" / "output" / recipe_id / "case.yaml"
-        exp = yaml.safe_load(cp.read_text(encoding="utf-8")).get("expected", {}) if cp.exists() else {}
+        exp = (
+            yaml.safe_load(cp.read_text(encoding="utf-8")).get("expected", {})
+            if cp.exists()
+            else {}
+        )
         import yaml
+
         cp = PROJECT_ROOT / "bug-factory" / "output" / recipe_id / "case.yaml"
-        exp = yaml.safe_load(cp.read_text(encoding="utf-8")).get("expected", {}) if cp.exists() else {}
+        exp = (
+            yaml.safe_load(cp.read_text(encoding="utf-8")).get("expected", {})
+            if cp.exists()
+            else {}
+        )
 
     # 从 trace output 提取诊断
     output = trace.output or {}
@@ -65,24 +75,33 @@ async def main() -> None:
     else:
         r = {"categories": [], "affected_file": None, "root_cause": str(r)}
 
-    diag = {**r, "report": r, "categories": r.get("categories", []), "confidence": r.get("confidence", 0)}
+    diag = {
+        **r,
+        "report": r,
+        "categories": r.get("categories", []),
+        "confidence": r.get("confidence", 0),
+    }
 
     print(f"Trace:  {trace_id}")
     print(f"Recipe: {recipe_id}")
-    print(f"categories={diag.get('categories')}, file={diag.get('affected_file')}, func={diag.get('affected_function')}, conf={diag.get('confidence', 0):.0%}")
+    print(
+        f"categories={diag.get('categories')}, file={diag.get('affected_file')}, func={diag.get('affected_function')}, conf={diag.get('confidence', 0):.0%}"
+    )
     print(f"expected_func={exp.get('affected_function')}, expected_file={exp.get('affected_file')}")
 
     scores = await score_all_dimensions(lf, trace_id, exp, diag, skip_llm_judge=False)
     await asyncio.sleep(1)
     pq = score_process_quality(lf, trace_id)
 
-    print(f"\noverall={scores.get('overall', 0):.2f}  "
-          f"(rc={scores.get('root_cause_accuracy', 0):.2f} "
-          f"cat={scores.get('category_accuracy', 0):.2f} "
-          f"file={scores.get('affected_file_accuracy', 0):.2f} "
-          f"func={scores.get('affected_function_accuracy', 0):.2f} "
-          f"fix={scores.get('fix_suggestion_quality', 0):.2f})  "
-          f"pq={pq:.2f}")
+    print(
+        f"\noverall={scores.get('overall', 0):.2f}  "
+        f"(rc={scores.get('root_cause_accuracy', 0):.2f} "
+        f"cat={scores.get('category_accuracy', 0):.2f} "
+        f"file={scores.get('affected_file_accuracy', 0):.2f} "
+        f"func={scores.get('affected_function_accuracy', 0):.2f} "
+        f"fix={scores.get('fix_suggestion_quality', 0):.2f})  "
+        f"pq={pq:.2f}"
+    )
 
 
 if __name__ == "__main__":

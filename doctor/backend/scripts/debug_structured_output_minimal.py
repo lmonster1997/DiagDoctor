@@ -1,4 +1,4 @@
-﻿"""Minimal isolated test: does DeepSeek support with_structured_output?
+"""Minimal isolated test: does DeepSeek support with_structured_output?
 
 Bypasses the whole pipeline — just constructs a fake diagnosis conversation
 and calls llm.with_structured_output(ForcedDiagnosisReport, include_raw=True)
@@ -7,6 +7,7 @@ directly. Prints exactly what comes back (or the exception).
 Usage:
     uv run python scripts/debug_structured_output_minimal.py
 """
+
 from __future__ import annotations
 
 import asyncio

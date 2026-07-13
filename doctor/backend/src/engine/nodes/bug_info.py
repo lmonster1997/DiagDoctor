@@ -1,4 +1,4 @@
-﻿"""
+"""
 BugInfo node — lightweight ingest for CopilotKit chat path.
 
 When a user describes a bug in the CopilotKit chat UI, this node:
@@ -111,8 +111,12 @@ async def _prefetch_service(logql: str, start: str, end: str) -> dict[str, Any]:
 
     try:
         result_json = await search_observability(
-            source="auto", query=logql, start=start, end=end,
-            analysis="errors", limit=50,
+            source="auto",
+            query=logql,
+            start=start,
+            end=end,
+            analysis="errors",
+            limit=50,
         )
         data = json.loads(result_json)
         error_spans = data.get("analysis", {}).get("error_spans", [])
@@ -128,9 +132,7 @@ async def _prefetch_service(logql: str, start: str, end: str) -> dict[str, Any]:
         return {"logs": [], "traces": [], "error_spans": [], "log_count": 0, "trace_count": 0}
 
 
-async def _prefetch_by_trace_ids(
-    trace_ids: list[str], start: str, end: str
-) -> dict[str, Any]:
+async def _prefetch_by_trace_ids(trace_ids: list[str], start: str, end: str) -> dict[str, Any]:
     """Precise prefetch by W3C trace_ids."""
     from src.tools.observability_unified import search_observability
 
@@ -141,7 +143,11 @@ async def _prefetch_by_trace_ids(
     for tid in trace_ids:
         try:
             tj = await search_observability(
-                source="tempo", query=tid, analysis="full", start=start, end=end,
+                source="tempo",
+                query=tid,
+                analysis="full",
+                start=start,
+                end=end,
             )
             tdata = json.loads(tj)
             all_traces.extend(tdata.get("traces", []))
@@ -154,7 +160,11 @@ async def _prefetch_by_trace_ids(
         logql = '{service_name=~"demo-backend|demo-frontend", trace_id=~"' + selector + '"}'
         try:
             lj = await search_observability(
-                source="loki", query=logql, start=start, end=end, limit=200,
+                source="loki",
+                query=logql,
+                start=start,
+                end=end,
+                limit=200,
             )
             ldata = json.loads(lj)
             all_logs.extend(ldata.get("logs", []))
@@ -291,8 +301,10 @@ async def bug_info_node(state: dict[str, Any]) -> dict[str, Any]:
         f_logs, f_traces = frontend["log_count"], frontend["trace_count"]
         logger.info(
             "buginfo_prefetch_done",
-            backend_logs=b_logs, backend_traces=b_traces,
-            frontend_logs=f_logs, frontend_traces=f_traces,
+            backend_logs=b_logs,
+            backend_traces=b_traces,
+            frontend_logs=f_logs,
+            frontend_traces=f_traces,
         )
     else:
         # No trigger_time → skip prefetch, agent will use tools manually

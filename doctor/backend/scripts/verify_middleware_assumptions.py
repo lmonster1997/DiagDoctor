@@ -112,8 +112,7 @@ async def test_wrap_order() -> None:
     print(f"[Test 1] wrap_tool_call execution order: {wrap_order}")
     if wrap_order == ["outer-before", "inner-before", "inner-after", "outer-after"]:
         print(
-            "  => CONFIRMED: registration order = outer->inner"
-            " (first registered wraps outermost)"
+            "  => CONFIRMED: registration order = outer->inner (first registered wraps outermost)"
         )
     elif wrap_order == ["inner-before", "outer-before", "outer-after", "inner-after"]:
         print("  => CONFIRMED: registration order = inner->outer (last registered wraps outermost)")
@@ -151,8 +150,7 @@ async def test_after_agent_append() -> None:
     last_msg = final_msgs[-1] if final_msgs else None
     last_content = str(getattr(last_msg, "content", "")) if last_msg else ""
     print(
-        f"[Test 2] messages count before after_agent append:"
-        f" {after_agent_msg_count_before_append}"
+        f"[Test 2] messages count before after_agent append: {after_agent_msg_count_before_append}"
     )
     print(f"  final messages count: {len(final_msgs)}")
     print(f"  last message content: {last_content!r}")
@@ -163,8 +161,7 @@ async def test_after_agent_append() -> None:
         )
     else:
         print(
-            "  => FAILED: after_agent message append NOT visible in result"
-            " — need fallback design"
+            "  => FAILED: after_agent message append NOT visible in result — need fallback design"
         )
 
 
@@ -196,8 +193,7 @@ async def test_callbacks_propagation() -> None:
         config={"callbacks": [cb]},
     )
     print(
-        f"[Test 3] on_llm_start fired {cb.llm_starts} times"
-        f" (expect 2: one per scripted LLM call)"
+        f"[Test 3] on_llm_start fired {cb.llm_starts} times (expect 2: one per scripted LLM call)"
     )
     if cb.llm_starts >= 2:
         print("  => CONFIRMED: config callbacks propagate to internal LLM calls")

@@ -1,4 +1,4 @@
-﻿"""拉一个 trace 的所有 LLM GENERATION observation 内容（截断展示）。
+"""拉一个 trace 的所有 LLM GENERATION observation 内容（截断展示）。
 
 用于诊断"agent 是否产出有效 JSON"——看 S1 forced call 的 LLM 响应
 到底是 JSON 还是 narrative 文本。
@@ -7,6 +7,7 @@ Usage:
     uv run python scripts/dump_trace_llm_responses.py --session <session_id> --bug <bug_id>
     uv run python scripts/dump_trace_llm_responses.py --session <session_id> --bug FE-020
 """
+
 from __future__ import annotations
 
 import argparse
@@ -150,6 +151,7 @@ def main() -> int:
         # 复用 diagnosis_agent 的 JSON 提取器
         try:
             from src.graph.nodes.diagnosis_agent import _extract_json_from_text
+
             data = _extract_json_from_text(last_out)
             if data is None:
                 print("  ❌ _extract_json_from_text returned None")

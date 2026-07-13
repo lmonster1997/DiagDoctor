@@ -7,6 +7,7 @@ Pydantic object visible in `output.parsed`.
 Usage:
     uv run python scripts/dump_structured_output_spans.py <session_id> [bug_id]
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -75,9 +76,7 @@ def main() -> int:
         # List all SPAN observations (focus on structured_output_*)
         spans = [(d, o) for d, o in flat if (getattr(o, "type", "?") or "?") == "SPAN"]
         structured = [
-            (d, o)
-            for d, o in spans
-            if "structured_output" in (getattr(o, "name", "") or "")
+            (d, o) for d, o in spans if "structured_output" in (getattr(o, "name", "") or "")
         ]
 
         print(f"  total SPAN observations: {len(spans)}")
@@ -96,7 +95,7 @@ def main() -> int:
                     print(f"    parsed.primary_category = {parsed.get('primary_category')!r}")
                     print(f"    parsed.confidence = {parsed.get('confidence')!r}")
                     print(f"    parsed.affected_file = {parsed.get('affected_file')!r}")
-                    rc_preview = str(parsed.get('root_cause', ''))[:200]
+                    rc_preview = str(parsed.get("root_cause", ""))[:200]
                     print(f"    parsed.root_cause (first 200 chars) = {rc_preview!r}")
                 elif parsed is None:
                     print("    parsed = None  (failure path)")
@@ -107,7 +106,7 @@ def main() -> int:
                     print(f"    raw_content_len = {len(str(rc))}")
                 rtc = outp.get("raw_tool_calls")
                 if rtc is not None:
-                    tc_count = len(rtc) if isinstance(rtc, list) else '?'
+                    tc_count = len(rtc) if isinstance(rtc, list) else "?"
                     print(f"    raw_tool_calls count = {tc_count}")
             else:
                 print(f"    output type: {type(outp).__name__}")

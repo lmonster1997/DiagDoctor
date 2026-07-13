@@ -201,7 +201,7 @@ def trigger_bug(recipe_id: str) -> tuple[datetime, list[str]]:
         line = line.strip()
         if line.startswith("TRACE_IDS_JSON="):
             try:
-                payload = json.loads(line[len("TRACE_IDS_JSON="):])
+                payload = json.loads(line[len("TRACE_IDS_JSON=") :])
                 trace_ids = list(payload.get("trace_ids", []))
             except (ValueError, TypeError):
                 pass
@@ -262,7 +262,9 @@ async def call_doctor(
         payload["langfuse_session_id"] = langfuse_session_id
 
     print(f"  [DEBUG] call_doctor payload keys: {list(payload.keys())}")
-    print(f"  [DEBUG] langfuse_trace_id={langfuse_trace_id}, langfuse_session_id={langfuse_session_id}")
+    print(
+        f"  [DEBUG] langfuse_trace_id={langfuse_trace_id}, langfuse_session_id={langfuse_session_id}"
+    )
 
     async with (
         aiohttp.ClientSession() as session,
@@ -338,7 +340,9 @@ async def diagnose_task(item, trace_id: str, session_id: str) -> dict:
             else diagnosis.get("categories", [])
         )
         confidence = (
-            report.get("confidence", 0) if isinstance(report, dict) else diagnosis.get("confidence", 0)
+            report.get("confidence", 0)
+            if isinstance(report, dict)
+            else diagnosis.get("confidence", 0)
         )
         print(f"  [OK] 诊断完成（categories={categories}, confidence={confidence}）")
 
@@ -434,8 +438,10 @@ async def main(
         # 验证 trace 已成功创建（fetch_trace 若不存在会抛异常）
         try:
             fetched = langfuse.get_trace(trace.id)
-            print(f"  [OK] Langfuse trace 已确认: id={trace.id}, "
-                  f"session_id={getattr(fetched, 'session_id', 'N/A')}")
+            print(
+                f"  [OK] Langfuse trace 已确认: id={trace.id}, "
+                f"session_id={getattr(fetched, 'session_id', 'N/A')}"
+            )
         except Exception as fetch_err:
             print(f"  [WARN] Langfuse trace 验证失败: {fetch_err}")
 

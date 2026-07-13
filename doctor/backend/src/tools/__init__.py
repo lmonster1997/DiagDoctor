@@ -1,4 +1,4 @@
-﻿"""
+"""
 LangChain tools for the DiagDoctor agents.
 
 Exposes observability data-fetching tools as LangChain StructuredTool instances

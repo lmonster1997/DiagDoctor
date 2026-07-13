@@ -1,4 +1,4 @@
-﻿"""
+"""
 Budget exceeded tests for DiagnosisAgent (V3).
 
 Covers:

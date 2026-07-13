@@ -1,4 +1,5 @@
 """Check whether code_search returned real results in the iter0 baseline."""
+
 import sys
 
 from langfuse import Langfuse
@@ -37,7 +38,7 @@ def _walk(obs_list, out=None):
         out = []
     for obs in obs_list:
         out.append(obs)
-        for c in (getattr(obs, "children", None) or []):
+        for c in getattr(obs, "children", None) or []:
             out.append(c)
     return out
 

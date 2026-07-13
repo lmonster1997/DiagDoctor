@@ -13,6 +13,7 @@ Usage:
   fix=fix_suggestion_quality, line=affected_line_accuracy, evid=evidence_chain_completeness,
   conf=confidence_calibration, proc=process_quality（不计入 overall）。
 """
+
 from __future__ import annotations
 
 import os
@@ -43,7 +44,7 @@ def _latest_scores(lf: Langfuse, trace) -> dict[str, float | None]:
     """取一条 trace 的全部 score，同名按 timestamp 取最新。返回 {name: value}。"""
     full = lf.fetch_trace(trace.id).data
     latest_by_name: dict[str, object] = {}
-    for s in (full.scores or []):
+    for s in full.scores or []:
         cur = latest_by_name.get(s.name)
         ts_s = getattr(s, "timestamp", None)
         ts_c = getattr(cur, "timestamp", None) if cur is not None else None
