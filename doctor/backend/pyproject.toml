@@ -58,6 +58,12 @@ python_version = "3.11"
 strict = true
 ignore_missing_imports = true
 
+# copilotkit: type availability varies between local/CI — suppress
+# platform-dependent errors (subclass Any, untyped call).
+[[tool.mypy.overrides]]
+module = "src.copilotkit.*"
+disable_error_code = ["misc", "no-untyped-call"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

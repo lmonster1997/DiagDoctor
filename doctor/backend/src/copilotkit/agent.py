@@ -43,7 +43,7 @@ class DiagDoctorAgent(LangGraphAGUIAgent):
         )
 
         encoder = EventEncoder()
-        async for event in self.run(run_input):  # type: ignore[no-untyped-call]
+        async for event in self.run(run_input):
             yield encoder.encode(event).encode("utf-8")
             await asyncio.sleep(0)
 
