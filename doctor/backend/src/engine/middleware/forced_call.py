@@ -12,7 +12,7 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models import BaseChatModel
 
 import src.llm_factory as _llm_factory
-from src.graph.nodes.diagnosis_agent.forced_call import (
+from src.engine.forced_call import (
     _forced_final_json_call,
     _last_ai_is_natural_stop,
 )

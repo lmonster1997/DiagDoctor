@@ -1,4 +1,4 @@
-"""Minimal isolated test: does DeepSeek support with_structured_output?
+﻿"""Minimal isolated test: does DeepSeek support with_structured_output?
 
 Bypasses the whole pipeline — just constructs a fake diagnosis conversation
 and calls llm.with_structured_output(ForcedDiagnosisReport, include_raw=True)
@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from src.graph.nodes.diagnosis_agent.forced_call import ForcedDiagnosisReport
+from src.engine.forced_call import ForcedDiagnosisReport
 from src.llm_factory import get_llm_for_role
 
 

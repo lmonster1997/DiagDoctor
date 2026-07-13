@@ -1,4 +1,4 @@
-"""
+﻿"""
 Normalizer — orchestrates the full Ingest pipeline.
 
 Entry point: ingest(raw_evidence) → NormalizedEvidence
@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 from src.config import settings
-from src.graph.state import (
+from src.engine.state import (
     NormalizedEvidence,
 )
 from src.evidence.correlator import correlate_by_trace_id

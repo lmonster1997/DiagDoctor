@@ -1,4 +1,4 @@
-"""
+﻿"""
 CopilotKit diagnosis graph — BugInfo → DiagnosisAgent.
 
 This graph replaces the original single-subgraph approach for CopilotKit.
@@ -24,13 +24,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.graph.nodes.bug_info import bug_info_node
-from src.graph.nodes.diagnosis_agent.run_context import (
+from src.engine.nodes.bug_info import bug_info_node
+from src.engine.run_context import (
     DiagnosisRunContext,
     clear_run_context,
     set_run_context,
 )
-from src.graph.nodes.diagnosis_agent.subgraph import (
+from src.engine.agent import (
     _build_system_prompt,
     get_diagnosis_agent,
 )
@@ -75,7 +75,7 @@ async def _diagnosis_agent_node(state: dict[str, Any]) -> dict[str, Any]:
     from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
     from src.evidence.formatter import format_evidence_for_agent
-    from src.graph.state import NormalizedEvidence
+    from src.engine.state import NormalizedEvidence
 
     evidence: NormalizedEvidence | None = state.get("evidence")
     if evidence is None:
@@ -166,7 +166,7 @@ async def _diagnosis_agent_node(state: dict[str, Any]) -> dict[str, Any]:
     forced_call_triggered = run_ctx.forced_call_triggered
 
     # Build a minimal budget_state for _finalize_report
-    from src.graph.state import BudgetState
+    from src.engine.state import BudgetState
 
     budget_state = BudgetState()
 
@@ -206,12 +206,12 @@ def _finalize_report_for_dict_state(
     messages: list, budget_exhausted: bool
 ) -> tuple[Any, list[Any], Any, bool]:
     """Parse messages into report + findings (mirrors _finalize_report from node.py)."""
-    from src.graph.nodes.diagnosis_agent.budget import is_budget_exceeded, update_budget
-    from src.graph.nodes.diagnosis_agent.parsing import (
+    from src.engine.budget.constants import is_budget_exceeded, update_budget
+    from src.engine.parsing import (
         extract_findings,
         parse_diagnosis_report,
     )
-    from src.graph.state import BudgetState, DiagnosisReport
+    from src.engine.state import BudgetState, DiagnosisReport
 
     agent_result: dict[str, Any] = {"messages": messages}
     report = parse_diagnosis_report(agent_result)

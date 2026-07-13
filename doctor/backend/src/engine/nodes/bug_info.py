@@ -1,4 +1,4 @@
-"""
+﻿"""
 BugInfo node — lightweight ingest for CopilotKit chat path.
 
 When a user describes a bug in the CopilotKit chat UI, this node:
@@ -25,7 +25,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from src.config import settings
-from src.graph.state import NormalizedEvidence
+from src.engine.state import NormalizedEvidence
 from src.evidence.normalizer import ingest
 from src.observability.logger import get_logger
 

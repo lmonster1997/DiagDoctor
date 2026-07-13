@@ -1,4 +1,4 @@
-"""
+﻿"""
 Signal Extractor — identifies "golden signals" from normalized evidence.
 
 Golden signals are the critical clues that an LLM needs to diagnose the bug:
@@ -26,7 +26,7 @@ import uuid
 from typing import Any
 
 from src.config import settings
-from src.graph.state import Signal
+from src.engine.state import Signal
 
 
 def _short_id() -> str:

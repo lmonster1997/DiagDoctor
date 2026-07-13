@@ -1,4 +1,4 @@
-"""Format NormalizedEvidence into the agent's HumanMessage text.
+﻿"""Format NormalizedEvidence into the agent's HumanMessage text.
 
 Ingest 节点已完成 Loki/Tempo 实时查询 + 标准化管线处理，
 此处仅格式化 golden_signals、correlations、frontend_error_spans 供 LLM 消费。
@@ -6,7 +6,7 @@ Ingest 节点已完成 Loki/Tempo 实时查询 + 标准化管线处理，
 
 from __future__ import annotations
 
-from src.graph.state import Correlation, NormalizedEvidence, Signal
+from src.engine.state import Correlation, NormalizedEvidence, Signal
 
 
 def format_evidence_for_agent(evidence: NormalizedEvidence) -> str:

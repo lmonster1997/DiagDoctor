@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unit tests for the JSON parser bugfix (Iteration 1 hotfix).
 
 The forced final JSON call mechanism (Iteration 1) was producing correct JSON,
@@ -23,7 +23,7 @@ import json
 
 from langchain_core.messages import AIMessage
 
-from src.graph.nodes.diagnosis_agent.parsing import (
+from src.engine.parsing import (
     _extract_json_by_depth,
     _extract_json_from_text,
     parse_diagnosis_report,

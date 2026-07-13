@@ -1,4 +1,4 @@
-"""Quick check: for a session, dump each trace's early_stopped + JSON parse status."""
+﻿"""Quick check: for a session, dump each trace's early_stopped + JSON parse status."""
 import sys
 from langfuse import Langfuse
 from src.config import settings

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tests for src.tools.observability_tools — Loki & Tempo API clients.
 
 Uses pytest + pytest-asyncio. Mocks aiohttp to avoid real network calls.
@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 
-from src.graph.state import LogEntry, TraceSpan
+from src.engine.state import LogEntry, TraceSpan
 from src.tools.observability_tools import (
     _convert_otlp_span_to_trace_span,
     _handle_loki_response,

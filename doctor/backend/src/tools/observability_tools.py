@@ -1,4 +1,4 @@
-"""
+﻿"""
 Observability data fetching tools for DiagDoctor agents.
 
 Provides async functions to query Loki (logs) and Tempo (traces) via their
@@ -37,7 +37,7 @@ from tenacity import (
 )
 
 from src.config import settings
-from src.graph.state import LogEntry, TraceSpan
+from src.engine.state import LogEntry, TraceSpan
 from src.observability.logger import get_logger
 from src.observability.tracing import traced
 

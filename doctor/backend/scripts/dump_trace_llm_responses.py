@@ -1,4 +1,4 @@
-"""拉一个 trace 的所有 LLM GENERATION observation 内容（截断展示）。
+﻿"""拉一个 trace 的所有 LLM GENERATION observation 内容（截断展示）。
 
 用于诊断"agent 是否产出有效 JSON"——看 S1 forced call 的 LLM 响应
 到底是 JSON 还是 narrative 文本。

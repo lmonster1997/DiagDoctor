@@ -1,4 +1,4 @@
-"""
+﻿"""
 Budget exceeded tests for DiagnosisAgent (V3).
 
 Covers:
@@ -28,7 +28,7 @@ from src.graph.nodes.diagnosis_agent import (
     is_budget_exceeded,
     update_budget,
 )
-from src.graph.state import (
+from src.engine.state import (
     BudgetState,
     Correlation,
     DiagnosisReport,
@@ -36,7 +36,7 @@ from src.graph.state import (
     NormalizedEvidence,
     Signal,
 )
-from src.graph.nodes.diagnosis_agent.subgraph import clear_diagnosis_agent_cache
+from src.engine.agent import clear_diagnosis_agent_cache
 
 # ═════════════════════════════════════════════════════════════════════
 # Fixtures

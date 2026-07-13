@@ -1,4 +1,4 @@
-"""Standalone probe: does DeepSeek accept `with_structured_output(method="json_schema")`?
+﻿"""Standalone probe: does DeepSeek accept `with_structured_output(method="json_schema")`?
 
 Background: `forced_call.py` currently uses `method="function_calling"` because
 an earlier test hit a DeepSeek 400 — `'This response_format type is unavailable now'`.

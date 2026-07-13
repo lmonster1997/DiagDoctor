@@ -1,4 +1,4 @@
-"""Unit tests for the 5 create_agent middlewares + run_context.
+﻿"""Unit tests for the 5 create_agent middlewares + run_context.
 
 Each middleware's hooks are tested in isolation with fake state + runtime +
 ToolCallRequest. The end-to-end wiring (create_agent + all middlewares) is
@@ -16,13 +16,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
-from src.graph.context_engine import ContextBudget, truncate_tool_result
-from src.graph.nodes.diagnosis_agent.budget import (
+from src.engine.context.budget import ContextBudget, truncate_tool_result
+from src.engine.budget.constants import (
     MAX_TIME_SECONDS,
     MAX_TOKENS_BUDGET,
     MAX_TOOL_CALLS,
 )
-from src.graph.nodes.diagnosis_agent.middleware import (
+from src.engine.middleware import (
     BudgetGuardMiddleware,
     DiagnosisRunContext,
     ForcedFinalCallMiddleware,

@@ -1,4 +1,4 @@
-"""
+﻿"""
 单元测试：doctor/src/graph/context_engine.py
 
 覆盖：
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 
-from src.graph.context_engine import (
+from src.engine.context.budget import (
     _COMPRESS_MARKER,
     TOOL_CHAR_LIMITS,
     ContextBudget,

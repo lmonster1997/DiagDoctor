@@ -1,4 +1,4 @@
-"""
+﻿"""
 Correlator — links evidence across frontend/backend/DB layers.
 
 Uses trace_id as the primary correlation key to chain:
@@ -13,7 +13,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from src.graph.state import Correlation, Signal
+from src.engine.state import Correlation, Signal
 
 
 def _short_id() -> str:

@@ -1,4 +1,4 @@
-"""
+﻿"""
 LangChain tools for the DiagDoctor agents.
 
 Exposes observability data-fetching tools as LangChain StructuredTool instances
@@ -135,7 +135,7 @@ async def analyze_trace_tree(trace_id: str) -> str:
     Returns:
         JSON string with the full tree summary (see ``get_tree_summary``).
     """
-    from src.graph.state import TraceSpan
+    from src.engine.state import TraceSpan
 
     spans: list[TraceSpan] | list[dict[str, Any]] = await query_tempo_trace(trace_id)
     if not spans:

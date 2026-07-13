@@ -1,4 +1,4 @@
-"""
+﻿"""
 Diagnose endpoint — runs the full LangGraph diagnosis pipeline.
 
 Accepts Evidence (user_report + optional logs/traces/browser_errors)
@@ -16,8 +16,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from src.graph.copilotkit_graph import generate_thread_id, get_copilotkit_graph
-from src.graph.state import (
+from src.engine.nodes.diagnosis_agent import generate_thread_id, get_copilotkit_graph
+from src.engine.state import (
     BudgetState,
     Correlation,
     DiagnosisReport,

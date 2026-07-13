@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unit tests for the Iteration 1 forced final JSON call mechanism.
 
 Covers the two failure modes observed in baseline (Iteration 0):
@@ -36,7 +36,7 @@ from src.graph.nodes.diagnosis_agent import (
     _last_ai_has_json,
     _last_ai_is_natural_stop,
 )
-from src.graph.state import DoctorState
+from src.engine.state import DoctorState
 
 # ═════════════════════════════════════════════════════════════════════
 # _last_ai_has_json
@@ -416,7 +416,7 @@ class TestStructuredOutputObservability:
 
 @pytest.fixture
 def be020_state() -> DoctorState:
-    from src.graph.state import (
+    from src.engine.state import (
         Correlation,
         NormalizedEvidence,
         Signal,
@@ -529,7 +529,7 @@ def _fake_echo_tool(monkeypatch: pytest.MonkeyPatch) -> Any:
 @pytest.fixture
 def _clear_agent_cache() -> Any:
     """Clear the cached create_agent so it rebuilds with the mocked LLM/tools."""
-    from src.graph.nodes.diagnosis_agent.subgraph import clear_diagnosis_agent_cache
+    from src.engine.agent import clear_diagnosis_agent_cache
 
     clear_diagnosis_agent_cache()
     yield

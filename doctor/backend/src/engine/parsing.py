@@ -1,4 +1,4 @@
-"""Parse agent JSON output into DiagnosisReport + Finding records.
+﻿"""Parse agent JSON output into DiagnosisReport + Finding records.
 
 Strategies for extracting JSON from LLM text (tried in order):
 1. Markdown code fences (```json ... ``` or ``` ... ```)
@@ -15,7 +15,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage
 
-from src.graph.state import DiagnosisReport, Finding
+from src.engine.state import DiagnosisReport, Finding
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)

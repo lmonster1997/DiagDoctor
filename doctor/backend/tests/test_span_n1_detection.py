@@ -1,6 +1,6 @@
-"""Quick test for span-level N+1 detection in signal_extractor."""
+﻿"""Quick test for span-level N+1 detection in signal_extractor."""
 
-from src.ingest.signal_extractor import _detect_span_n_plus_one
+from src.evidence.signal_extractor import _detect_span_n_plus_one
 
 
 def test_detect_n1_basic():
