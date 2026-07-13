@@ -5,88 +5,100 @@
 
 ---
 
-## P0：RAG 错误模式检索（可实现可验证）
+## P0：历史诊断 RAG（可实现；基础设施已就绪）
 
-**目标**：在 diagnosis 前检索相似错误模式，注入 system prompt，对比有/无 RAG 的诊断质量差异。
+**目标**：将每次高质量诊断自动存入 Qdrant，新诊断时检索相似历史案例并注入 system prompt，形成"越用越准"的正反馈循环。
 
 ### 动机
 
-- 这是四个待做方向中**最容易出量化数据**的一个
-- 能产出一张有说服力的对比表，成为简历上最硬的增量
-- 对 performance/logic/data/config 类"需要经验模式匹配"的 case 帮助预期最大
+- 真实场景中最可能产生 ROI 的方向——工程师修 bug 的过程本身就在标注高质量诊断
+- **P0 错误模式检索被废弃的原因**：原始证据（logs/traces）与人类描述的错误模式之间存在语义鸿沟，embedding 直接检索不可行
+- 而历史诊断 RAG 的查询端与文档端**都是自然语言**（user_report + evidence 摘要 ↔ 历史 DiagnosisReport），语义空间一致，检索可靠
+- 基础设施已就绪：`index_diagnosis()`、`search_historical_cases()`、Qdrant collection `historical_cases` 均已实现
 
-### 实验设计
+### 为什么这条线可行（与废弃 P0 的对比）
 
-```
-同一批 case，跑两组：
-  A 组（baseline）：当前 doctor，无 RAG
-  B 组（RAG）   ：diagnosis 前先检索相似错误模式 → 注入 system prompt
-
-对比指标：
-  - overall 加权分（7 维度）
-  - root_cause_accuracy（最重要）
-  - 诊断轮次（RAG 能否减少不必要的工具调用？）
-  - token 消耗（RAG 额外 token vs 节省的调查 token）
-```
-
-### 错误模式库设计
-
-不用等 30 个 case，从**现有 15 个配方**中提取模式特征：
-
-```yaml
-pattern_id: "N+1_QUERY"
-symptom_signature: "high latency + repeated identical SQL queries in trace"
-observability_clues:
-  - "Tempo span shows >500ms in database operations"
-  - "same parameterized SQL appearing >3 times in a single request trace"
-root_cause_template: "ORM lazy loading causing N+1 queries"
-fix_template: "Use joinedload() / selectinload() to eager-load relations"
-category: "performance"
-related_recipes: ["PERF-020"]
-```
-
-```yaml
-pattern_id: "NULL_REFERENCE"
-symptom_signature: "TypeError / Cannot read property of null in frontend"
-observability_clues:
-  - "console.error with 'Cannot read properties of null'"
-  - "client_error span in Tempo with component stack"
-  - "race between data fetch and render"
-root_cause_template: "Component rendering before async data resolved"
-fix_template: "Add null-guard / optional chaining / loading state before render"
-category: "frontend_crash"
-related_recipes: ["FE-020"]
-```
+| 维度 | 废弃 P0（错误模式检索） | 新 P0（历史诊断 RAG） |
+|------|------------------------|---------------------|
+| 查询端 | 原始 logs/traces（结构化） | user_report + signal 摘要（自然语言） |
+| 文档端 | 人工编写的模式描述 | 历史 DiagnosisReport（自然语言） |
+| 语义空间 | 不一致 ❌ | 一致 ✅ |
+| 基础设施 | 需从零搭建 | `index_diagnosis` + `search_historical_cases` 已有 |
 
 ### 技术方案
 
 ```
-错误模式 → embedding (Qdrant 已有) → 检索 top-k 相似模式
-                                      ↓
-                         注入到 diagnosis system prompt
+诊断完成（confidence ≥ 0.6）
+    │
+    ▼
+DiagnosisReport ──→ embed(user_report + root_cause + fix_summary)
+    │                   │
+    │                   ▼
+    │             Qdrant "historical_cases"
+    │
+    ▼
+新诊断时：
+    user_report + signal 摘要 ──→ embed ──→ Qdrant 检索 top-3
+                                                │
+                                                ▼
+                                    注入 system prompt：
+                                    "## 历史相似诊断参考
+                                     {case_1}...{case_2}...{case_3}"
 ```
 
-- Embedding 模型：复用现有 Qdrant 部署
-- 检索策略：按 symptom_signature 相似度 + category 加权
-- 注入格式：`## 已知错误模式参考\n{matched_patterns}`
-- 对比基线：`run_baseline_experiment.py` 加 `--rag` flag
+### 实现步骤
 
-### 预期产出
+1. **检索接入 diagnosis 流程**（核心改动，~0.5d）
+   - 在 `subgraph.py:_build_system_prompt()` 之前调用 `search_historical_cases()`
+   - 查询文本：`evidence.user_report` + `format_evidence_for_agent(evidence)` 的前 500 字符
+   - 将 top-3 结果格式化注入 system prompt 末尾
 
-一张对比表 + 分析洞察：
+2. **检索质量保障**（~0.5d）
+   - 相似度阈值：cosine ≥ 0.75，低于阈值不注入（避免不相关历史干扰）
+   - 去重：排除当前 case 自身（按 trace_id / case_id）
+   - category 加权：同类别 case 提升 rank
 
-| Case | Baseline overall | RAG overall | Δ | 分析 |
-|------|-----------------|-------------|---|------|
-| PERF-020 | ? | ? | ? | 性能类，预期 RAG 显著帮助 |
-| DATA-020 | ? | ? | ? | 数据类，预期中等帮助 |
-| FE-020 | ? | ? | ? | 前端 crash，预期帮助不大（证据已足够） |
-| ... | | | | |
+3. **写入质量保障**（已有基础，~0.5d）
+   - 当前 `index_diagnosis()` 以 confidence ≥ 0.6 为阈值，维持
+   - 增加去重：同一 trace_id 不重复写入
+   - 可选：仅存储 Langfuse overall ≥ 0.7 的高质量诊断
 
-**面试金句**："RAG 错误模式检索在 15 个 case 上 overall 提升了 X%，尤其在需要经验模式匹配的 performance/logic 类 case 上最显著，而对证据已足够充分的 crash 类 case 帮助不大——这验证了 RAG 的价值边界。"
+4. **Prompt 注入格式设计**（~0.5d）
+   ```
+   ## 历史相似诊断参考（来自知识库）
+
+   以下是与当前问题相似的已解决 Bug，仅供参考其诊断思路：
+
+   ### Case 1（相似度: 0.89）
+   - 用户报告: "创建任务后页面卡死..."
+   - 根因: ORM lazy loading 导致 N+1 查询
+   - 修复: 使用 selectinload() 预加载关联数据
+
+   ### Case 2（相似度: 0.82）
+   ...
+
+   ⚠️ 以上仅供参考，请基于当前实际证据独立判断，不要机械套用。
+   ```
+
+### 验证策略
+
+**在 15 个独立 case 的 benchmark 上不做量化验证**。原因是场景不匹配：
+- 历史诊断的价值体现在"同类 bug 反复出现"的场景
+- 当前 benchmark 的 15 个 case 各不相干，无法体现增量
+- 强行跑 A/B 对比会得到噪声级别的差异，没有统计意义
+
+**替代验证方式**：
+- 手动构造 2-3 个"同类变体"case（如 PERF-020 的 N+1 变体），验证检索命中率
+- 人工检查检索结果的相关性（top-3 是否确实相似）
+- 这是**边界判断**——架构正确但当前场景无法量化，面试时可讲清楚
+
+### 面试讲法
+
+> "我实现了历史诊断 RAG 检索，每次高质量诊断自动存入 Qdrant，新诊断时检索相似历史案例注入 system prompt。这形成'越用越准'的正反馈——工程师修 bug 的过程本身就在标注训练数据。在 benchmark 上不做量化验证，因为 15 个独立 case 无法体现历史检索的价值——它的真正价值在'同类 bug 反复出现'的生产场景中。这是边界判断能力。"
 
 ### 预计投入
 
-3-5 天。
+2 天（基础设施已有，主要是接线 + prompt 工程）。
 
 ---
 
@@ -177,38 +189,7 @@ def rank_evidence(evidence_items: list[Evidence]) -> list[Evidence]:
 
 ---
 
-## P3：历史诊断 RAG 架构设计（可实现难验证）
-
-**目标**：设计并实现历史诊断检索机制，但在当前 benchmark 上不要求量化验证。
-
-### 动机
-
-- 真实场景中最可能产生 ROI 的方向——工程师修 bug 的过程本身就在标注高质量诊断
-- 但在 15 个独立 case 的 benchmark 上**无法验证增量价值**（每个 case 都是全新的 bug 类型，没有"同类 bug 反复出现"的场景）
-- 这是**场景不匹配**，不是方案无效
-
-### 技术方案
-
-```
-每次诊断完成后：
-  DiagnosisReport → embedding → Qdrant collection "diagnosis_history"
-
-新诊断时：
-  evidence → embedding → Qdrant 检索 top-3 相似历史诊断
-  → 注入 system prompt："以下是历史上类似的 Bug 诊断记录，可供参考：..."
-```
-
-### 面试讲法
-
-> "我设计了历史诊断检索架构并完成了代码实现，但在独立 case 的 benchmark 上无法体现增量价值。因为历史诊断的价值体现在'同类 bug 反复出现'的场景，而不是每个 bug 都是全新的。在有生产数据的真实场景中，这是最有可能产生 ROI 的方向，因为工程师修 bug 的过程本身就在标注高质量诊断。当前不做量化验证，这是边界判断。"
-
-### 预计投入
-
-1 天（架构设计文档 + 代码骨架），不强求跑通实验。
-
----
-
-## P4：Bug Case 扩展至 30+
+## P3：Bug Case 扩展至 30+
 
 **目标**：增加 case 数量，使 benchmark 具备统计显著性。
 
@@ -237,7 +218,7 @@ def rank_evidence(evidence_items: list[Evidence]) -> list[Evidence]:
 
 ---
 
-## P5：CI 评测门禁
+## P4：CI 评测门禁
 
 **目标**：在 GitHub Actions 中接入 Langfuse Experiment，实现自动化回归检测。
 
@@ -275,12 +256,11 @@ evaluate:
 
 | 优先级 | 方向 | 验证层级 | 投入 | 简历价值 |
 |--------|------|---------|------|---------|
-| **P0** | RAG 错误模式检索 | 可实现可验证 | 3-5d | ⭐⭐⭐⭐⭐ 最硬的增量 |
+| **P0** | 历史诊断 RAG | 可实现（基础设施已就绪） | 2d | ⭐⭐⭐⭐⭐ 越用越准的正反馈 |
 | **P1** | Evidence Ranking | 可实现可验证 | 2-3d | ⭐⭐⭐⭐ 上下文工程加分 |
 | **P2** | 安全守卫接线 | 可实现可验证 | 1-2d | ⭐⭐⭐ 补完完整性 |
-| **P3** | 历史诊断 RAG | 可实现难验证 | 1d | ⭐⭐⭐ 展示边界判断 |
-| **P4** | Bug Case 扩展 | 可实现可验证 | 5-7d | ⭐⭐⭐⭐ 统计可信度 |
-| **P5** | CI 评测门禁 | 可实现可验证 | 2-3d | ⭐⭐⭐⭐ 工程化闭环 |
+| **P3** | Bug Case 扩展 | 可实现可验证 | 5-7d | ⭐⭐⭐⭐ 统计可信度 |
+| **P4** | CI 评测门禁 | 可实现可验证 | 2-3d | ⭐⭐⭐⭐ 工程化闭环 |
 
 ---
 

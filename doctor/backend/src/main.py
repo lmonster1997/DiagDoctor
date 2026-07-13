@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # doesn't pay the compilation cost (and avoids cold-start hook
     # issues where create_agent fires middleware hooks before
     # the DiagnosisRunContext ContextVar is initialised).
-    from src.graph.nodes.diagnosis_agent.subgraph import get_diagnosis_agent
+    from src.engine.agent import get_diagnosis_agent
 
     get_diagnosis_agent()
     yield
