@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 
 from src.config import settings
 from src.graph.state import NormalizedEvidence
-from src.ingest.normalizer import ingest
+from src.evidence.normalizer import ingest
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)

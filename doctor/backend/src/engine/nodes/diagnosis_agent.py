@@ -74,7 +74,7 @@ async def _diagnosis_agent_node(state: dict[str, Any]) -> dict[str, Any]:
 
     from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-    from src.graph.nodes.diagnosis_agent.evidence import format_evidence_for_agent
+    from src.evidence.formatter import format_evidence_for_agent
     from src.graph.state import NormalizedEvidence
 
     evidence: NormalizedEvidence | None = state.get("evidence")
