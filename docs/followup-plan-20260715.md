@@ -2,12 +2,11 @@
 
 > 本文由 2026-07-15 的全项目审查(文档 + 代码,6 组件并行深读)产出,聚焦**转 agent 岗**的简历价值。
 >
-> **与既有规划文档的关系**:
-> - `next-directions.md`(2026-07-12):其 P0(历史诊断 RAG)已完成、P3(扩 30+ case)与「不做」决策冲突,**本文取代其作为当前路线**。
-> - `diagdoctor-depth-directions-v2.md`(14 方向,pre-Phase-1 设计稿)、`diagdoctor-depth-handbook-v2.md`(执行手册 + S0/S1/S1.5 迭代日志):保留作设计理由 / 迭代记录。
-> - 长期记忆系统以 `docs/long_term_memory_design.md` 为权威设计,**不在本文范围**;与之相关的 RAG 闭环仅作衔接项。
->
-> 后续可与其他规划文档合并收敛(文档清理见审查报告 §二)。
+> **文档关系**:
+> - `current-status.md`:当前实现现状(向后看/盘点,作 README 定稿前替身)。
+> - 本文:后续计划(向前看)。两份合起来即项目全貌。
+> - `long_term_memory_design.md`:长期记忆权威设计,不在本文范围;RAG 闭环仅作衔接项(A5)。
+> - 原 `next-directions.md` / `diagdoctor-depth-directions-v2.md` / `diagdoctor-depth-handbook-v2.md` / `harness-iteration-log.md` 等旧规划文档已删除(历史见 git;设计要点参考业界同类 agent 优秀实践)。
 
 ---
 
