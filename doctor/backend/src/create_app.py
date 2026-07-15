@@ -18,10 +18,23 @@ from src.observability import instrument_fastapi
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Pre-build the diagnosis agent at startup."""
+    """Pre-build the diagnosis agent + ensure Qdrant collection at startup."""
     from src.engine.agent import get_diagnosis_agent
+    from src.observability.logger import get_logger
 
+    logger = get_logger(__name__)
+
+    # Pre-build agent (warm cache)
     get_diagnosis_agent()
+
+    # Ensure historical_cases collection exists with correct config
+    try:
+        from src.memory.long_term.qdrant_client import ensure_collection
+
+        await ensure_collection()
+    except Exception:
+        logger.warning("qdrant_collection_init_failed", exc_info=True)
+
     yield
 
 

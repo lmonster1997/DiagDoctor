@@ -124,6 +124,25 @@ services:
       tempo:
         condition: service_started
 
+  # ---- TEI (Text Embeddings Inference) — bge-m3 embedding service ----
+  tei:
+    image: ghcr.io/huggingface/text-embeddings-inference:1.2
+    container_name: diagdoctor-tei
+    restart: unless-stopped
+    command: ["--model-id", "BAAI/bge-m3", "--auto-truncate"]
+    ports:
+      - "8080:80"
+    volumes:
+      - tei_cache:/data
+    # GPU: 取消下面注释 + 加 deploy.resources.reservations.devices
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
   # ---- Qdrant — Vector database for Doctor RAG ----
   qdrant:
     image: qdrant/qdrant:latest
@@ -230,6 +249,8 @@ services:
     depends_on:
       qdrant:
         condition: service_started
+      tei:
+        condition: service_started
       loki:
         condition: service_started
       tempo:
@@ -244,6 +265,8 @@ services:
       # Embedding
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      # bge-m3 via TEI (local embedding service)
+      TEI_URL: http://tei:80
       # Qdrant
       QDRANT_URL: http://qdrant:6333
       # Loki / Tempo (for evidence collection tools)
@@ -268,3 +291,4 @@ volumes:
   grafanadata:
   qdrantdata:
   langfuse_pgdata:
+  tei_cache:

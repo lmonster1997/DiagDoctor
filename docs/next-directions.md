@@ -28,7 +28,7 @@
 ### 技术方案
 
 ```
-诊断完成（confidence ≥ 0.6）
+诊断完成 → 用户点赞（👍）
     │
     ▼
 DiagnosisReport ──→ embed(user_report + root_cause + fix_summary)
@@ -58,10 +58,11 @@ DiagnosisReport ──→ embed(user_report + root_cause + fix_summary)
    - 去重：排除当前 case 自身（按 trace_id / case_id）
    - category 加权：同类别 case 提升 rank
 
-3. **写入质量保障**（已有基础，~0.5d）
-   - 当前 `index_diagnosis()` 以 confidence ≥ 0.6 为阈值，维持
+3. **写入质量保障**（用户反馈驱动，~0.5d）
+   - 诊断完成后，展示"👍 有帮助 / 👎 无帮助"反馈按钮
+   - 仅用户点赞（👍）的诊断才触发 `index_diagnosis()` 写入 Qdrant
    - 增加去重：同一 trace_id 不重复写入
-   - 可选：仅存储 Langfuse overall ≥ 0.7 的高质量诊断
+   - 优势：新 case 无 ground truth，自动评分无法判断诊断质量；只有遇到 bug 的用户自己能确认"这个诊断帮到我了"，以人类反馈为最终标准，"越用越准"由真实用户驱动
 
 4. **Prompt 注入格式设计**（~0.5d）
    ```

@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     embedding_base_url: str = ""
     embedding_model: str = "text-embedding-3-small"
 
+    # --- TEI (Text Embeddings Inference) — bge-m3 local embedding service ---
+    tei_url: str = "http://localhost:8080"
+
     # --- Qdrant ---
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: SecretStr = SecretStr("")
