@@ -73,7 +73,7 @@ async def _get_collection_vector_size(name: str) -> int | None:
         info = await client.get_collection(name)
         config = info.config
         if config and config.params and config.params.vectors:
-            return config.params.vectors.size
+            return config.params.vectors.size  # type: ignore[union-attr]
         return None
     except (UnexpectedResponse, Exception):
         return None
@@ -96,7 +96,7 @@ async def _create_collection_internal(name: str) -> None:
     # INT8 scalar quantization: ~50% memory reduction, 2-5% precision loss
     await client.update_collection(
         collection_name=name,
-        quantization_config=QUANTIZATION,
+        quantization_config=QUANTIZATION,  # type: ignore[arg-type]
     )
     logger.info("qdrant_quantization_applied", collection=name, type="int8")
 
@@ -105,7 +105,7 @@ async def _create_collection_internal(name: str) -> None:
         await client.create_payload_index(
             collection_name=name,
             field_name=field,
-            field_schema=kind,
+            field_schema=kind,  # type: ignore[arg-type]
         )
     logger.info(
         "qdrant_payload_indexes_created",

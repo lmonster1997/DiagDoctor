@@ -12,6 +12,7 @@ state that holds ``report`` (DiagnosisReport) and ``evidence`` (NormalizedEviden
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
@@ -50,7 +51,7 @@ async def _load_run_state(
     if snapshot is None or snapshot.values is None:
         return None, None, ""
 
-    state: dict = snapshot.values
+    state: dict[str, Any] = snapshot.values
     report = state.get("report")
     evidence = state.get("evidence")
 
@@ -93,7 +94,7 @@ async def upvote(run_id: str) -> dict[str, object]:
         )
 
     # Fire-and-forget: don't block the HTTP response on Qdrant I/O
-    async def _index():
+    async def _index() -> None:
         from src.memory.long_term.case_store import maybe_index_diagnosis
 
         try:

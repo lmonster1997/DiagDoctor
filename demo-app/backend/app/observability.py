@@ -123,20 +123,30 @@ def setup_loki_logging(service_name: str = "demo-backend") -> None:
 
         def emit(self, record: logging.LogRecord) -> None:
             try:
-                # Inject OTel trace context into Loki stream labels
+                # stream labels must stay LOW-cardinality (service_name + level
+                # only). Putting trace_id/span_id here creates one stream per
+                # trace and blows up Loki's stream count (high-cardinality
+                # anti-pattern). Trace context goes in structured metadata
+                # (Loki 3.x values[2]) so Grafana tracesToLogsV2 still correlates.
                 stream_labels = {
                     "service_name": service_name,
                     "level": record.levelname.lower(),
                 }
                 tid, sid = _otel_trace_context()
-                if tid:
-                    stream_labels["trace_id"] = tid
-                if sid:
-                    stream_labels["span_id"] = sid
-
+                value: list[Any] = [
+                    str(int(record.created * 1_000_000_000)),
+                    self.format(record),
+                ]
+                if tid or sid:
+                    metadata: dict[str, str] = {}
+                    if tid:
+                        metadata["trace_id"] = tid
+                    if sid:
+                        metadata["span_id"] = sid
+                    value.append(metadata)
                 entry = {
                     "stream": stream_labels,
-                    "values": [[str(int(record.created * 1_000_000_000)), self.format(record)]],
+                    "values": [value],
                 }
                 _log_queue.put_nowait(entry)
             except queue.Full:

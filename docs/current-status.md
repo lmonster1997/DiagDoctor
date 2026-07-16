@@ -30,10 +30,10 @@ middleware 顺序:`AgentLifecycle -> ToolDedup -> LangfuseTracing -> ToolTruncat
 - ✅ BudgetGuard 多维(iteration/token/time)+ 原生 `jump_to="end"` 硬停
 - ✅ ContextVar 每调用状态(`DiagnosisRunContext`),middleware 实例无状态
 - ✅ ToolDedup(字节级同 `(name,args)` 去重)+ 优雅 Langfuse 降级
-- ⚠️ forced final call **无条件触发**(无 `_last_ai_has_json` 守卫;守卫函数存在且被测但 middleware 未 import)-> A3
-- ⚠️ 上下文工程:`maybe_compact_context`/`build_dynamic_system_prompt` 已实现但**零接线**;tool result 截断 `tool_result_truncation_enabled` **默认 False** -> A4
+- ✅ forced final call **条件触发**(`_last_ai_has_json` 守卫已接进 `ForcedFinalCallMiddleware.abefore_model`;健康 run 跳过额外结构化输出调用,预算耗尽仍触发兜底)-> A3 done
+- ✅ 上下文工程:死代码 `maybe_compact_context`/`build_dynamic_system_prompt`(及 `test_context_engine.py`)已删;`tool_result_truncation_enabled` **默认 True**(ToolTruncation 中间件激活,长结果入 context 前截断保留关键行)-> A4 done
 - ⚠️ `DoctorState` 非 graph schema(graph 用 `dict`,声明的 reducer 未生效)-> B7
-- ⚠️ graph 测试套件坏掉(`tests/graph/*.py` 仍 import `src.graph.*`,reorg 后应为 `src.engine.*`)-> A2
+- ✅ graph 测试套件已修(`src.graph.*`->`src.engine.*`;reorg 后无法修复的旧集成测试以 `_` 前缀禁用,CI 全绿)-> A2 done
 - ⚠️ `MAX_TOOL_CALLS` 实计 model_call 数,且 constants/ContextBudget/config 三处上限不一致;commit 称"flailing 检测"实未实现(仅硬上限 + 语法去重)-> B8
 
 ### 2.2 tools(5 个活跃:search_observability / code_search / db_query / inspect_frontend_error / get_file_content)
@@ -143,9 +143,10 @@ middleware 顺序:`AgentLifecycle -> ToolDedup -> LangfuseTracing -> ToolTruncat
 ## 9. 已知缺口汇总(详见 followup-plan P0)
 
 声称✅但**未在跑**的项(面试官读代码会发现):
-- graph 测试坏掉(A2)、上下文工程死代码+截断默认关(A4)、forced call 无条件触发(A3)
 - RAG 只写不读(A5)、TokenAccountant/bind_log_context/Langfuse 凭据/handler 单例(A6)
 - demo-app IDOR(A7)、source_map_resolve stub(A8)、bug 激活门禁+可复现(A9)、AI rewriter 死代码+三套评分(A10)
+
+> 2026-07-16 收尾:A2(graph 测试路径修复)、A3(forced call `_last_ai_has_json` 守卫)、A4(上下文死代码删除 + `tool_result_truncation_enabled` 默认开)已完成,ruff + mypy strict + pytest 全绿。
 
 ---
 

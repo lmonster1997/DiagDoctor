@@ -26,26 +26,10 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./infra/postgres/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d taskflow"]
       interval: 5s
       timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7
-    container_name: diagdoctor-redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes --appendfsync everysec
-    ports:
-      - "6379:6379"
-    volumes:
-      - redisdata:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
       retries: 5
 
   # ---- OpenTelemetry Collector ----
@@ -204,8 +188,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
       otel-collector:
         condition: service_started
     environment:
@@ -257,6 +239,8 @@ services:
         condition: service_started
       otel-collector:
         condition: service_started
+      langfuse-server:
+        condition: service_started
     environment:
       # LLM
       LLM_API_KEY: ${LLM_API_KEY:-}
@@ -275,6 +259,11 @@ services:
       # OpenTelemetry
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: doctor-api
+      # Langfuse (LLM observability; create a project at http://localhost:3002,
+      # then set LANGFUSE_SECRET_KEY / LANGFUSE_PUBLIC_KEY in .env)
+      LANGFUSE_HOST: http://langfuse-server:3000
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
       # CORS
       CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:3001"]'
     ports:
@@ -286,7 +275,6 @@ services:
 
 volumes:
   pgdata:
-  redisdata:
   lokidata:
   grafanadata:
   qdrantdata:

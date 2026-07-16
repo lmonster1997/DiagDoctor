@@ -27,10 +27,10 @@ async def verify_tei_status() -> None:
 
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(3.0)) as client:
-            resp = await client.get(f"{tei_url}/health")
-            print(f"  ✅ TEI 运行中 — 将使用 TEI 作为 embedding 后端")
+            await client.get(f"{tei_url}/health")
+            print("  ✅ TEI 运行中 — 将使用 TEI 作为 embedding 后端")
     except Exception:
-        print(f"  ⚠️  TEI 不可用 — 将降级到本地 sentence-transformers（同等精度，稍慢）")
+        print("  ⚠️  TEI 不可用 — 将降级到本地 sentence-transformers（同等精度，稍慢）")
 
 
 async def verify_qdrant_collection() -> bool:
@@ -47,8 +47,10 @@ async def verify_qdrant_collection() -> bool:
         client = await get_qdrant_client()
         info = await client.get_collection(collection_name)
         config = info.config
-        vec_size = config.params.vectors.size if config and config.params and config.params.vectors else "?"
-        print(f"  ✅ 向量维度: {vec_size}, 距离: {config.params.vectors.distance if config else '?'}")
+        vectors = config.params.vectors if config and config.params else None
+        vec_size = vectors.size if vectors else "?"
+        distance = vectors.distance if vectors else "?"
+        print(f"  ✅ 向量维度: {vec_size}, 距离: {distance}")
 
         # Check payload indexes
         print("  Payload 索引:")
@@ -66,7 +68,7 @@ async def verify_qdrant_collection() -> bool:
 
 async def verify_embedding_module() -> bool:
     """Test embedding.py module (TEI → sentence-transformers dual backend)."""
-    from src.memory.long_term.embedding import embed_texts, embed_single
+    from src.memory.long_term.embedding import embed_single, embed_texts
 
     print("\n[2/3] 测试 bge-m3 embedding（TEI 优先 → sentence-transformers 降级）...")
 

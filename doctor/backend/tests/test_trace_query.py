@@ -340,7 +340,7 @@ class TestGetTreeSummary:
         summary = get_tree_summary(roots)
         assert summary["node_count"] == 5
         assert summary["error_count"] == 1
-        assert summary["n_plus_one_patterns"] == 1
+        # N+1 detection lives in detect_n_plus_one(), not get_tree_summary().
         assert "top_bottlenecks" in summary
         assert "critical_path_length" in summary
 

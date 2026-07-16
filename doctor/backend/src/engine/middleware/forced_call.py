@@ -14,6 +14,7 @@ from langchain_core.language_models import BaseChatModel
 import src.llm_factory as _llm_factory
 from src.engine.forced_call import (
     _forced_final_json_call,
+    _last_ai_has_json,
     _last_ai_is_natural_stop,
 )
 from src.engine.run_context import get_run_context
@@ -30,6 +31,18 @@ class ForcedFinalCallMiddleware(AgentMiddleware):
         messages = state.get("messages", []) if isinstance(state, dict) else []
 
         if not messages:
+            return None
+
+        # Healthy case: the agent already emitted a JSON report on its final
+        # AIMessage -> skip the extra structured-output call. Saves one
+        # full-history LLM call per healthy run with no regression (the
+        # ``_last_ai_has_json`` guard already exists and is unit-tested in
+        # test_forced_final_json_call.py::TestLastAiHasJson).
+        # NOTE: budget exhaustion is intentionally NOT a skip condition -
+        # the forced call exists to recover the mode-1 failure (loop hit
+        # MAX_TOOL_CALLS with content="" + tool_calls), so it must still fire.
+        if _last_ai_has_json(messages):
+            logger.info("forced_call_skipped_last_ai_has_json", case_id=ctx.case_id)
             return None
 
         natural_stop = _last_ai_is_natural_stop(messages)

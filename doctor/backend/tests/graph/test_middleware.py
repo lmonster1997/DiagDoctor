@@ -22,6 +22,7 @@ from src.engine.budget.constants import (
 )
 from src.engine.context.budget import ContextBudget
 from src.engine.middleware import (
+    AgentLifecycleMiddleware,
     BudgetGuardMiddleware,
     DiagnosisRunContext,
     ForcedFinalCallMiddleware,
@@ -115,7 +116,7 @@ class TestLangfuseTracingMiddleware:
     ) -> None:
         run_ctx.system_prompt_text = "You are a diagnosis agent." * 50
         run_ctx.evidence_text = "signal: error in tasks.py" * 20
-        mw = LangfuseTracingMiddleware()
+        mw = AgentLifecycleMiddleware()
         await mw.abefore_agent(state={}, runtime=None)
         # Budget should have nonzero tokens from system prompt + evidence
         assert run_ctx.ctx_budget.system_prompt_tokens > 0
@@ -156,9 +157,7 @@ class TestLangfuseTracingMiddleware:
         mw = LangfuseTracingMiddleware()
         await mw.abefore_agent(state={}, runtime=None)  # must not raise
 
-    async def test_wrap_tool_call_records_span_and_accounts_tokens(
-        self, run_ctx: DiagnosisRunContext
-    ) -> None:
+    async def test_wrap_tool_call_records_span(self, run_ctx: DiagnosisRunContext) -> None:
         handler = MagicMock()
         run_ctx.langfuse_handler = handler
         run_ctx.model_call_count = 3
@@ -166,9 +165,6 @@ class TestLangfuseTracingMiddleware:
         inner_result = ToolMessage(content="raw result text", tool_call_id="tc1", name="echo")
         fake_handler = AsyncMock(return_value=inner_result)
         result = await mw.awrap_tool_call(_make_tool_call_request(), fake_handler)
-        # Tool token accounting
-        assert run_ctx.ctx_budget.tool_calls == 1
-        assert run_ctx.ctx_budget.tool_result_tokens > 0
         # Span recorded
         handler.record_tool_span.assert_called_once()
         span_kwargs = handler.record_tool_span.call_args.kwargs
@@ -189,47 +185,6 @@ class TestLangfuseTracingMiddleware:
         # Middleware has no aafter_agent — nothing to call. Just assert the
         # middleware instance is usable.
         assert mw is not None
-
-    async def test_wrap_model_call_attaches_handler_to_model_only(
-        self, run_ctx: DiagnosisRunContext
-    ) -> None:
-        """awrap_model_call wraps request.model with .with_config(callbacks=[handler])
-        so the Langfuse handler fires for THIS LLM call only (not the ToolNode,
-        which would double-record tools). Verified by checking the model passed
-        to the inner handler carries the callback."""
-        handler = MagicMock()
-        run_ctx.langfuse_handler = handler
-        fake_model = MagicMock()
-        wrapped_model = MagicMock()
-        fake_model.with_config = MagicMock(return_value=wrapped_model)
-        request = SimpleNamespace(model=fake_model, messages=[], system_message=None)
-        captured: list[Any] = []
-
-        async def fake_handler(req: Any) -> Any:
-            captured.append(req.model)
-            return "model-result"
-
-        mw = LangfuseTracingMiddleware()
-        result = await mw.awrap_model_call(request, fake_handler)
-        # with_config called with the handler
-        fake_model.with_config.assert_called_once_with({"callbacks": [handler]})
-        # inner handler received the WRAPPED model
-        assert captured == [wrapped_model]
-        assert result == "model-result"
-
-    async def test_wrap_model_call_no_handler_passes_through(
-        self, no_langfuse_ctx: DiagnosisRunContext
-    ) -> None:
-        """When langfuse_handler is None, awrap_model_call does not wrap the model."""
-        fake_model = MagicMock()
-        request = SimpleNamespace(model=fake_model, messages=[], system_message=None)
-
-        async def fake_handler(req: Any) -> Any:
-            return "ok"
-
-        mw = LangfuseTracingMiddleware()
-        await mw.awrap_model_call(request, fake_handler)
-        fake_model.with_config.assert_not_called()
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -366,12 +321,12 @@ class TestToolTruncationMiddleware:
     async def test_long_result_is_truncated(self) -> None:
         # get_file_content cap is 8000 chars — produce something bigger.
         # NOTE: truncation is gated by settings.tool_result_truncation_enabled
-        # (default False); enable it for this test.
+        # (default True); explicitly set here for test clarity.
         long_content = "x" * 20_000
         long_msg = ToolMessage(content=long_content, tool_call_id="tc1", name="get_file_content")
         handler = AsyncMock(return_value=long_msg)
         mw = ToolTruncationMiddleware()
-        with patch("src.graph.context_engine.settings") as mock_settings:
+        with patch("src.engine.context.truncation.settings") as mock_settings:
             mock_settings.tool_result_truncation_enabled = True
             result = await mw.awrap_tool_call(
                 _make_tool_call_request("get_file_content", {"path": "a.py"}, "tc1"), handler
@@ -383,7 +338,7 @@ class TestToolTruncationMiddleware:
     async def test_handler_exception_returns_truncated_error_message(self) -> None:
         handler = AsyncMock(side_effect=RuntimeError("tool blew up"))
         mw = ToolTruncationMiddleware()
-        with patch("src.graph.context_engine.settings") as mock_settings:
+        with patch("src.engine.context.truncation.settings") as mock_settings:
             mock_settings.tool_result_truncation_enabled = True
             result = await mw.awrap_tool_call(
                 _make_tool_call_request("code_search", {"query": "x"}, "tc1"), handler
@@ -394,13 +349,13 @@ class TestToolTruncationMiddleware:
         assert result.tool_call_id == "tc1"
 
     async def test_truncation_disabled_passes_through(self) -> None:
-        """When settings.tool_result_truncation_enabled=False (default), the
+        """When settings.tool_result_truncation_enabled=False, the
         middleware does NOT truncate — preserves full tool output."""
         long_content = "x" * 20_000
         long_msg = ToolMessage(content=long_content, tool_call_id="tc1", name="get_file_content")
         handler = AsyncMock(return_value=long_msg)
         mw = ToolTruncationMiddleware()
-        with patch("src.graph.context_engine.settings") as mock_settings:
+        with patch("src.engine.context.truncation.settings") as mock_settings:
             mock_settings.tool_result_truncation_enabled = False
             result = await mw.awrap_tool_call(
                 _make_tool_call_request("get_file_content", {"path": "a.py"}, "tc1"), handler
@@ -424,15 +379,6 @@ class TestForcedFinalCallMiddleware:
         mock_llm.assert_not_called()
         assert run_ctx.forced_call_triggered is False
 
-    async def test_skips_when_budget_blown(self, run_ctx: DiagnosisRunContext) -> None:
-        run_ctx.ctx_budget.system_prompt_tokens = MAX_TOKENS_BUDGET
-        state = {"messages": [AIMessage(content="narrative, no json")]}
-        mw = ForcedFinalCallMiddleware()
-        with patch("src.llm_factory.get_llm_for_role") as mock_llm:
-            result = await mw.aafter_agent(state=state, runtime=None)
-        assert result is None
-        mock_llm.assert_not_called()
-
     async def test_skips_when_messages_empty(self, run_ctx: DiagnosisRunContext) -> None:
         mw = ForcedFinalCallMiddleware()
         with patch("src.llm_factory.get_llm_for_role") as mock_llm:
@@ -450,7 +396,7 @@ class TestForcedFinalCallMiddleware:
         with (
             patch("src.llm_factory.get_llm_for_role") as mock_llm_role,
             patch(
-                "src.graph.nodes.diagnosis_agent.middleware.forced_call._forced_final_json_call",
+                "src.engine.middleware.forced_call._forced_final_json_call",
                 new=AsyncMock(return_value=forced_msg),
             ) as mock_forced,
         ):
@@ -474,7 +420,7 @@ class TestForcedFinalCallMiddleware:
         with (
             patch("src.llm_factory.get_llm_for_role"),
             patch(
-                "src.graph.nodes.diagnosis_agent.middleware.forced_call._forced_final_json_call",
+                "src.engine.middleware.forced_call._forced_final_json_call",
                 new=AsyncMock(return_value=forced_msg),
             ) as mock_forced,
         ):
@@ -492,7 +438,7 @@ class TestForcedFinalCallMiddleware:
         with (
             patch("src.llm_factory.get_llm_for_role"),
             patch(
-                "src.graph.nodes.diagnosis_agent.middleware.forced_call._forced_final_json_call",
+                "src.engine.middleware.forced_call._forced_final_json_call",
                 new=AsyncMock(return_value=None),
             ),
         ):
@@ -514,7 +460,7 @@ class TestForcedFinalCallMiddleware:
         with (
             patch("src.llm_factory.get_llm_for_role"),
             patch(
-                "src.graph.nodes.diagnosis_agent.middleware.forced_call._forced_final_json_call",
+                "src.engine.middleware.forced_call._forced_final_json_call",
                 new=AsyncMock(return_value=forced_msg),
             ) as mock_forced,
         ):

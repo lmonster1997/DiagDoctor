@@ -34,7 +34,7 @@ _local_model: SentenceTransformer | None = None
 _local_model_lock = asyncio.Lock()
 
 
-def _get_local_model() -> "SentenceTransformer":
+def _get_local_model() -> SentenceTransformer:
     """Load (or return cached) bge-m3 via sentence-transformers.
 
     Priority:
@@ -109,11 +109,10 @@ async def embed_texts(texts: list[str]) -> list[list[float]]:
         ).tolist(),
     )
     logger.debug("local_embed_success", count=len(embeddings), backend="sentence-transformers")
-    return embeddings  # type: ignore[return-value]
+    return embeddings
 
 
 async def embed_single(text: str) -> list[float]:
     """Embed a single text. Convenience wrapper around ``embed_texts``."""
     results = await embed_texts([text])
     return results[0]
-

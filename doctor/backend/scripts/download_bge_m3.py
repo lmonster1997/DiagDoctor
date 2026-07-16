@@ -1,4 +1,4 @@
-"""
+r"""
 一次性脚本：用 ModelScope 下载 bge-m3 到 HuggingFace 缓存目录。
 用法: $env:HF_HUB_CACHE="D:\hf_cache"; uv run --with modelscope python scripts/download_bge_m3.py
 """
@@ -36,7 +36,7 @@ def main():
 
     print(f"  ✅ 完成！模型已就位: {target}")
     print(f"  验证前记得设: $env:HF_HUB_CACHE='{HF_BASE}'")
-    print(f"  然后运行: cd doctor/backend && uv run python scripts/verify_am1.py")
+    print("  然后运行: cd doctor/backend && uv run python scripts/verify_am1.py")
 
 
 if __name__ == "__main__":
