@@ -1,0 +1,162 @@
+# DiagDoctor 项目实现现状(2026-07-15)
+
+> 准确描述当前代码**实际实现与运行状态**,作 README 定稿前的权威替身(README 待项目完成后生成准确版)。
+> 后续计划见 `followup-plan-20260715.md`;长期记忆系统以 `long_term_memory_design.md` 为权威设计。
+>
+> 状态标记:**✅ 已实现且在跑** / **⚠️ 已实现但未接线或默认关闭** / **🔲 未实现**。⚠️/🔲 项后跟 followup-plan 编号。
+
+---
+
+## 1. 系统概览
+
+DiagDoctor = LLM 诊断 agent:给定出错 Web 应用(demo-app/TaskFlow)+ 错误现象 + 日志/trace,编排工具定位根因并给修复建议,由 LLM-judge benchmark 评测。
+
+三个子系统:
+- **demo-app**:被诊断目标(TaskFlow,FastAPI + React)
+- **bug-factory**:AI 辅助生成 + 注入 bug,量产可复现评测 case
+- **doctor**:诊断 agent 主体(LangGraph)
+
+**doctor 主图(实际)**:2 节点 `bug_info -> diagnosis_agent -> END`。非 3 节点;reporter 已并入 diagnosis_agent 的 forced final call。diagnosis agent 用 LangChain `create_agent()` + 6 middleware 管线(**非手写 while 循环**;Iteration 3 从手写循环迁移而来,借 middleware 找回注入点)。状态为普通 `dict`(非 typed `DoctorState`);checkpointer 为内存态 `MemorySaver`。
+
+middleware 顺序:`AgentLifecycle -> ToolDedup -> LangfuseTracing -> ToolTruncation -> BudgetGuard -> ForcedFinalCall`。
+
+---
+
+## 2. doctor 后端
+
+### 2.1 engine(编排)
+- ✅ 2 节点图 + `create_agent` + 6 middleware,顺序有文档
+- ✅ **forced_call 结构化输出**:`with_structured_output(method="function_calling", include_raw=True)` + Langfuse span 记录解析对象(method 选 function_calling 是为避 DeepSeek 对 json_schema 的 400)
+- ✅ BudgetGuard 多维(iteration/token/time)+ 原生 `jump_to="end"` 硬停
+- ✅ ContextVar 每调用状态(`DiagnosisRunContext`),middleware 实例无状态
+- ✅ ToolDedup(字节级同 `(name,args)` 去重)+ 优雅 Langfuse 降级
+- ✅ forced final call **条件触发**(`_last_ai_has_json` 守卫已接进 `ForcedFinalCallMiddleware.abefore_model`;健康 run 跳过额外结构化输出调用,预算耗尽仍触发兜底)-> A3 done
+- ✅ 上下文工程:死代码 `maybe_compact_context`/`build_dynamic_system_prompt`(及 `test_context_engine.py`)已删;`tool_result_truncation_enabled` **默认 True**(ToolTruncation 中间件激活,长结果入 context 前截断保留关键行)-> A4 done
+- ⚠️ `DoctorState` 非 graph schema(graph 用 `dict`,声明的 reducer 未生效)-> B7
+- ✅ graph 测试套件已修(`src.graph.*`->`src.engine.*`;reorg 后无法修复的旧集成测试以 `_` 前缀禁用,CI 全绿)-> A2 done
+- ⚠️ `MAX_TOOL_CALLS` 实计 model_call 数,且 constants/ContextBudget/config 三处上限不一致;commit 称"flailing 检测"实未实现(仅硬上限 + 语法去重)-> B8
+
+### 2.2 tools(5 个活跃:search_observability / code_search / db_query / inspect_frontend_error / get_file_content)
+- ✅ **code_search**:ripgrep 精确匹配,无匹配时返回结构化"下一步建议"(非假向量结果)
+- ✅ **search_observability** auto 模式:Loki -> 提 trace_id -> Tempo -> 跨层 span 树 -> N+1/bottleneck/error span/cascade/timeout 检测 -> 因果链 -> insights;含 stale-window 自动纠正(防 agent 用 prompt 里的硬编码示例日期)
+- ✅ **db_query**:app 层 sql_guard(sqlparse token walk + raw-regex 兜底 + 多语句拒绝 + first-keyword 检查)
+- ✅ file_reader、inspect_frontend_error(浏览器错误分类 + 组件名抽取)
+- ⚠️ **source_map_resolve 是 stub**(原样返回 input + "passthrough"),却默认被 inspect_frontend_error 调用、工具描述宣传"Source map 还原" -> A8
+- ⚠️ 无统一工具返回/错误契约(5 种不兼容错误形态)-> B6
+- ⚠️ 三个 observability 模块(observability_tools / observability_unified / trace_query)+ deprecated 工具仍导出;`frontend_tools` 死但被 import 私有 helper(耦合)
+- ⚠️ tools_reference.md 手维护,已与 tool schema 漂移(k 默认 10 vs 文档 5)
+
+### 2.3 evidence 管线(确定性纯 Python,在 `evidence/`)
+- ✅ `tier_aware -> denoise -> dedup -> signal_extract -> correlate` 流水线;golden signal(error_log / error_span / slow_span / browser_error)+ 跨层 trace_id 关联
+- ⚠️ helper 重复(`_get_service_name`/`_get_trace_id`/`derive_tier` 在 correlator/signal_extractor/tier_aware/trace_query 各一份)
+- ⚠️ `repeated_query`(N+1)信号 docstring 列了但 ingest 不 emit,仅 agent 主动调 search_observability 时出
+
+### 2.4 prompts
+- ✅ `diagnosis_agent.j2`(静态 3 步策略 + 工具选择表)+ Jinja2 registry
+- ⚠️ `triage.j2` 死模板(triage 节点 V3 已删);registry 无版本/必需变量校验
+- ⚠️ `tools_reference.md` 在 agent 构建时注入 system prompt,与 tool schema 双源漂移
+
+### 2.5 observability
+- ✅ **Langfuse 集成是真 LLM 可观测**:逐 generation 抓真实 `token_usage`(非估算)+ 工具 span(带 latency/iteration)+ structured-output span + dedup skip 事件;7 维 scorer + `score_process_quality`(evidence_coverage);全程 `contextlib.suppress` 优雅降级
+- ✅ **demo-app OTel 管线正确**:前端 FetchInstrumentation 注 W3C traceparent -> 后端 FastAPIInstrumentor 提取 -> SQLAlchemy commenter -> Collector -> Tempo/Loki -> Grafana(tracesToLogsV2 关联)
+- ✅ **agent 用 observability 诊断**(search_observability auto 模式)是核心 agent-eng 故事
+- ⚠️ **TokenAccountant 完全死代码**(零调用,cost_usd 恒 0)-> A6
+- ⚠️ **structlog `bind_log_context` 从不调用**(trace_id/session_id 不进日志)-> A6
+- ⚠️ **Langfuse 凭据未进 docker-compose doctor-api**(Docker 下 Langfuse 静默禁用)-> A6
+- ⚠️ **Langfuse handler 可变单例**(并发下 trace 串台)-> A6
+- ⚠️ 无跨系统 trace_id 链接(Langfuse↔Tempo 不可导航)-> B1
+- ⚠️ doctor-api 日志不进 Loki(仅 stdout);Grafana dashboard 通用,无 agent 面板 -> B10
+- ⚠️ trace_id 作 Loki stream label(高基数反模式);Langfuse v2(legacy);`record_llm_generation` 死代码
+
+### 2.6 memory(长期记忆)
+- ✅ `case_store.maybe_index_diagnosis` 写入侧(用户点赞触发)
+- 🔲 检索侧 `case_retriever.search_historical_cases` **未实现**(零调用点;`triage.j2` 的 `{{ similar_cases }}` 无消费方)-> A5
+- (设计见 `long_term_memory_design.md`,权威)
+
+### 2.7 security
+- ✅ sql_guard app 层(见 2.2)
+- ⚠️ "只读 role / SET TRANSACTION READ ONLY" **未实现**(以 postgres 超级用户连接;文档声称三层防御)
+- ⚠️ `sanitize_path`/`sanitize_for_llm`/`safe_subprocess_args` 死代码;`file_reader` 手写重复沙箱未复用 `sanitize_path` -> B5
+
+---
+
+## 3. bug-factory
+
+- ✅ **15 个 gold recipe**,8 类别:BE(020/021/022)、FE(020/021)、PERF(020/021)、LOGIC(020/021/022)、DATA(020/021)、RACE(020)、CONFIG(020)、CASCADE(020)
+- ✅ recipe schema 丰富:`categories`(多标签)+ `cross_layer` + `symptom_tier`/`root_cause_tier` + `retrieval_gold` + `expected_evidence` + `expected_observation`(log_patterns/trace_attributes)
+- ✅ injector:diff_patch 注入(确定性,`DiffPatchApplier`)+ git 分支管理
+- ✅ trigger:每 case 注入 W3C `traceparent` 让后端采纳 + `ui_reachable` 门禁(强制经真实浏览器)+ `collect_diff`(无信号逻辑/数据/配置类 bug 用 `access_control_anomaly`/`silent_data_loss` 显式捕获)
+- ⚠️ **AI rewriter 死代码路径**(15 recipe 全用 diff_patch,`injector.py:123` 让 patch 优先,`AIRewriter.rewrite_file` 永不触发;README 称"AI 自动生成 bug"不实)-> A10
+- ⚠️ **`expected_observation` 从不校验**(bug 没真触发也能产出合法 case,eval ground truth 不可信)-> A9
+- ⚠️ **不可复现**(trigger_trace_id 随机、user_report LLM 无 seed)-> A9
+- ⚠️ `retrieval_gold` 无人消费(无 RetrievalEvaluator)-> B3
+
+---
+
+## 4. benchmark + scripts
+
+- ✅ `benchmark/src/benchmark/`:runner + 4 evaluators(exact_match / keyword_match / efficiency / llm_judge)+ 2 reporters(html/markdown),完整保留(**未迁移**)
+- ✅ `scripts/langfuse_scorers.py`:7 维 scorer + process_quality(hosted,更丰富);`LLMJudgeEvaluator` 有 structured output + cache + fallback
+- ✅ `score_category_accuracy` 主动防 gold 泄漏;`score_process_quality` 用 evidence_coverage 而非惩罚调用数
+- ⚠️ **三套评分体系打架**(benchmark 4 维 / langfuse 7 维 / `run_case.py:evaluate_locally` 5 维,维度权重 prompt 各不同);README "已迁移至 Langfuse,仅保留导入脚本"不实 -> A10
+- ⚠️ LLM judge 无自一致性(单次)+ 静默失败 `except: return 0.0`(与"诊断全错"不可区分)-> B2
+- ⚠️ judge 模型隔离仅 local 路径(langfuse 路径回落到与 doctor 同模型)-> B2
+- ⚠️ `score_trace.py:53-66` 有复制粘贴重复块
+
+---
+
+## 5. demo-app(被诊断目标)
+
+- ✅ FastAPI + React(TaskFlow):auth(JWT)/项目 CRUD/任务 CRUD + 看板/@dnd-kit 拖拽/评论/Alembic 迁移/种子数据
+- ✅ **bug-ready**:OTel tracing + 自定义 Loki bridge(注入 trace_id/span_id)+ FastAPI/SQLAlchemy instrumentation + 双通道错误上报(OTel span->Tempo 且 sendBeacon->Loki)+ W3C traceparent + `[TAG]` console 标记 + 结构化 diff 注入
+- ⚠️ **`tasks.py`/`comments.py` 无 ownership 校验**(get/update/delete_task、create_comment 任意已认证用户可读写他人数据=pre-existing IDOR;而 logic_020 recipe 正是靠移除 owner 过滤注入 IDOR,baseline 不干净污染评测)-> A7
+- ⚠️ `jwt_secret` 弱默认;alembic 外键约束名传 None
+
+---
+
+## 6. doctor 前端(支撑)
+
+- ✅ **真展示 agent 工程**:`EvidenceChainGraph`(侦探板 4 列 signal->correlation->finding->report + 红线 + 点击聚焦)、`ToolCallCard`(编号步骤 + per-tool 图标 + 状态 + 可展开 args/result)、`BudgetPanel`(迭代环 + >80% 脉冲 + token in/out + 阶段 + 预算耗尽早停 banner)、`ReportPanel`、`parseAgentState`(防御性 JSON 抽取)
+- ⚠️ EvalPage/RunPage/CasePage 占位("Phase 5 将实现")
+
+---
+
+## 7. infra
+
+- ✅ docker-compose(10 服务:demo-fe/be、doctor-api、postgres、redis、grafana、loki、tempo、otel-collector、qdrant)+ Makefile + 多阶段 Dockerfile + CI(ruff/mypy strict/pytest)
+- ⚠️ **无 K8s/Helm**(README 声称"K8s + Helm"不实)
+- ⚠️ Langfuse v2(legacy);`tempo/config.yaml` metrics_generator 死配置;`init-db.sql` 实际为空
+- ⚠️ `bug-factory/output/` 提交 9MB 生成证据(含全 traceback);`infra/tempo/data/`、`benchmark/output/` 已 gitignore
+
+---
+
+## 8. 迭代历程要点(面试素材,详见 git log)
+
+- baseline overall **0.598**(S0.2)-> iter2 **0.909**(单次,±0.03 方差,非定数)
+- **Iteration 3**:手写 ReAct while 循环 -> `create_agent` + middleware(认识到手写循环维护成本,借 LangChain 1.0 middleware 找回预算/去重/forced call 注入点)
+- **forced-call / structured-output 演进**:un-bound LLM + `function_calling` method(避 DeepSeek 对 json_schema 的 400)+ `include_raw=True` + Langfuse span 记录回调路径看不到的解析对象
+- **S1.5**:iteration-based phase + 总时间帽 + 预算耗尽兜底报告 + 收敛检测
+- **方法论**:每个机制由 case 跑分 + trace 分析驱动,非理论先行(harness-iteration-log 原 log 已删,git 可追溯)
+
+---
+
+## 9. 已知缺口汇总(详见 followup-plan P0)
+
+声称✅但**未在跑**的项(面试官读代码会发现):
+- RAG 只写不读(A5)、TokenAccountant/bind_log_context/Langfuse 凭据/handler 单例(A6)
+- demo-app IDOR(A7)、source_map_resolve stub(A8)、bug 激活门禁+可复现(A9)、AI rewriter 死代码+三套评分(A10)
+
+> 2026-07-16 收尾:A2(graph 测试路径修复)、A3(forced call `_last_ai_has_json` 守卫)、A4(上下文死代码删除 + `tool_result_truncation_enabled` 默认开)已完成,ruff + mypy strict + pytest 全绿。
+
+---
+
+## 10. 亮点(面试重点,勿当缺点)
+
+1. **forced_call 结构化输出**--真懂 structured output 的坑(function_calling method 选择 + include_raw + span 记录)
+2. **search_observability auto 模式**--agent 用 observability 诊断的核心故事(Loki->trace_id->Tempo->span 树->多类检测->因果链)
+3. **evidence 管线**--确定性纯 Python、tiered、跨层关联,把便宜可复现的活留在 LLM 之外
+4. **Langfuse 7 维 scorer + process_quality**--scorer 注释记录真实 trade-off 演进
+5. **bug-factory recipe schema + traceparent 注入 + ui_reachable 门禁 + collect_diff**--eval-data 工程真功夫,跨层 bug 可评
+6. **budget guard + ContextVar 每调用状态**--harness 工程真理解
+7. **doctor 前端**--EvidenceChainGraph/ToolCallCard/BudgetPanel 真展示 agent 推理
+8. **手写循环 -> create_agent+middleware 迁移**--比"一直手写"更强的成熟度故事

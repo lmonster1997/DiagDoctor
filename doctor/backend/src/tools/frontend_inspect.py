@@ -170,7 +170,7 @@ def _generate_cross_layer_hint(
 @traced("frontend.inspect_frontend_error")
 async def inspect_frontend_error(
     browser_errors: str,
-    resolve_sourcemap: bool = True,
+    resolve_sourcemap: bool = False,
 ) -> str:
     """一站式前端错误分析。
 
@@ -351,7 +351,7 @@ def _build_inspect_frontend_error_tool() -> Any:
             "1. 错误类型分类（TypeError(undefined_access)、PromiseRejection 等）\n"
             "2. 栈帧提取（过滤框架噪声，保留用户源码位置）\n"
             "3. 跨层根因检测（如 undefined 读取 → 可能后端 API 缺字段）\n"
-            "4. Source map 还原（resolve_sourcemap=True 时自动还原到源码）\n"
+            "4. Source map 还原（pending：默认关闭 resolve_sourcemap=False，stub 未实现）\n"
             "返回 JSON: {errors: [...], summary: '...'}\n"
             "每个 error 含 type、message、stack_frames、component、trace_id、cross_layer_hint"
         ),

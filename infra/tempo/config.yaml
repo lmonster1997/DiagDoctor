@@ -39,18 +39,5 @@ storage:
     wal:
       path: /var/tempo/wal
 
-overrides:
-  defaults:
-    metrics_generator:
-      processors: [service-graphs, span-metrics]
-
-metrics_generator:
-  storage:
-    path: /var/tempo/generator
-    remote_write:
-      - url: http://localhost:9009  # placeholder (not used in dev)
-  registry:
-    collection_interval: 15s
-
 usage_report:
   reporting_enabled: false

@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     embedding_base_url: str = ""
     embedding_model: str = "text-embedding-3-small"
 
+    # --- TEI (Text Embeddings Inference) — bge-m3 local embedding service ---
+    tei_url: str = "http://localhost:8080"
+
     # --- Qdrant ---
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: SecretStr = SecretStr("")
@@ -87,9 +90,9 @@ class Settings(BaseSettings):
     # --- Tool Result Truncation ---
     # 当为 False 时，禁用所有工具结果的截断/压缩（用于调试诊断效果）。
     # 影响两处：
-    #   1. context_engine.truncate_tool_result —— 入 context 前的字符上限
+    #   1. engine.context.truncation.truncate_tool_result —— 入 context 前的字符上限
     #   2. observability_unified.search_observability —— 8000 字符 JSON 截断
-    tool_result_truncation_enabled: bool = False
+    tool_result_truncation_enabled: bool = True
 
     # --- OpenTelemetry ---
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"

@@ -47,4 +47,11 @@ jobs:
         shell: bash
 
       - name: Run tests
-        run: uv run pytest --tb=short
+        run: |
+          set -e
+          # Run from each package's own directory (mirrors the mypy step):
+          # doctor tests import `src.*` which resolves from doctor/backend,
+          # not from the repo root.
+          (cd doctor/backend && uv run pytest --tb=short)
+          (cd bug-factory  && uv run pytest --tb=short)
+        shell: bash

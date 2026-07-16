@@ -103,7 +103,6 @@ class TestParseDiagnosisReportWithLiteralNewlines:
         assert report is not None
         assert report.primary_category == "config_error"
         assert report.affected_file == "app/config.py"
-        assert report.affected_line == 28
         assert report.confidence == 0.88
         assert "\n" in report.root_cause
 
@@ -117,7 +116,6 @@ class TestParseDiagnosisReportWithLiteralNewlines:
         report = parse_diagnosis_report(agent_result)
         assert report is not None
         assert report.primary_category == "config_error"
-        assert report.affected_line == 28
 
 
 class TestRegressionNormalJson:

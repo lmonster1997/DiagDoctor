@@ -26,26 +26,10 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./infra/postgres/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d taskflow"]
       interval: 5s
       timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7
-    container_name: diagdoctor-redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes --appendfsync everysec
-    ports:
-      - "6379:6379"
-    volumes:
-      - redisdata:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
       retries: 5
 
   # ---- OpenTelemetry Collector ----
@@ -124,6 +108,25 @@ services:
       tempo:
         condition: service_started
 
+  # ---- TEI (Text Embeddings Inference) — bge-m3 embedding service ----
+  tei:
+    image: ghcr.io/huggingface/text-embeddings-inference:1.2
+    container_name: diagdoctor-tei
+    restart: unless-stopped
+    command: ["--model-id", "BAAI/bge-m3", "--auto-truncate"]
+    ports:
+      - "8080:80"
+    volumes:
+      - tei_cache:/data
+    # GPU: 取消下面注释 + 加 deploy.resources.reservations.devices
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
   # ---- Qdrant — Vector database for Doctor RAG ----
   qdrant:
     image: qdrant/qdrant:latest
@@ -185,8 +188,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
       otel-collector:
         condition: service_started
     environment:
@@ -230,11 +231,15 @@ services:
     depends_on:
       qdrant:
         condition: service_started
+      tei:
+        condition: service_started
       loki:
         condition: service_started
       tempo:
         condition: service_started
       otel-collector:
+        condition: service_started
+      langfuse-server:
         condition: service_started
     environment:
       # LLM
@@ -244,6 +249,8 @@ services:
       # Embedding
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      # bge-m3 via TEI (local embedding service)
+      TEI_URL: http://tei:80
       # Qdrant
       QDRANT_URL: http://qdrant:6333
       # Loki / Tempo (for evidence collection tools)
@@ -252,6 +259,11 @@ services:
       # OpenTelemetry
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: doctor-api
+      # Langfuse (LLM observability; create a project at http://localhost:3002,
+      # then set LANGFUSE_SECRET_KEY / LANGFUSE_PUBLIC_KEY in .env)
+      LANGFUSE_HOST: http://langfuse-server:3000
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
       # CORS
       CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:3001"]'
     ports:
@@ -263,8 +275,8 @@ services:
 
 volumes:
   pgdata:
-  redisdata:
   lokidata:
   grafanadata:
   qdrantdata:
   langfuse_pgdata:
+  tei_cache:
