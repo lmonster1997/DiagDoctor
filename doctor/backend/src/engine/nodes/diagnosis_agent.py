@@ -16,13 +16,17 @@ the REST API path — formats it into a system+human message pair, invokes
 the ``create_agent`` subgraph (with all 5 middlewares), and produces a
 structured diagnosis report.
 
-State schema uses a TypedDict with ``messages`` (CopilotKit-compatible,
-with ``add_messages`` reducer) plus evidence/report fields.
+State schema: typed ``DoctorState`` (TypedDict) so the declared ``add`` reducers
+on findings/hypotheses/budget_ticks/total_cost actually run (``messages`` is
+overwrite - preserves CopilotKit streaming; add_messages deferred to #5 HITL).
+Compiled with a persistent SQLite checkpointer (``_LazyAsyncSqliteSaver`` ->
+``data/checkpoints.db``) instead of in-memory MemorySaver. See state.py +
+checkpointer.py.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from src.engine.agent import (
     _build_system_prompt,
@@ -35,6 +39,9 @@ from src.engine.run_context import (
     set_run_context,
 )
 from src.observability.logger import get_logger
+
+if TYPE_CHECKING:
+    from src.engine.state import DoctorState
 
 logger = get_logger(__name__)
 
@@ -57,7 +64,7 @@ def _filter_visible_messages(messages: list[Any]) -> list[Any]:
 # ═════════════════════════════════════════════════════════════════════
 
 
-async def _diagnosis_agent_node(state: dict[str, Any]) -> dict[str, Any]:
+async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
     """CopilotKit-adapted diagnosis agent node.
 
     Reads ``state["evidence"]`` (NormalizedEvidence produced by BugInfoNode),
@@ -65,7 +72,7 @@ async def _diagnosis_agent_node(state: dict[str, Any]) -> dict[str, Any]:
     returns the diagnosis report + findings.
 
     Mirrors ``diagnosis_agent_node`` from ``nodes/diagnosis_agent/node.py``
-    but works with dict state instead of ``DoctorState``.
+    but operates on the typed ``DoctorState`` (TypedDict) graph schema.
     """
     import contextlib
 
@@ -91,7 +98,7 @@ async def _diagnosis_agent_node(state: dict[str, Any]) -> dict[str, Any]:
     except (ImportError, AttributeError):
         pass
 
-    case_id = state.get("case_id", state.get("thread_id", ""))
+    case_id = state.get("case_id") or ""
     evidence_text = format_evidence_for_agent(evidence)
 
     logger.info(
@@ -272,25 +279,33 @@ def build_copilotkit_graph() -> Any:
     2-node linear pipeline:
         START → bug_info → diagnosis_agent → END
 
-    State: plain ``dict`` compatible with CopilotKit's LangGraphAGUIAgent.
-    Compiled with MemorySaver checkpointer — required by LangGraphAGUIAgent
-    which calls ``aget_state()`` to inspect conversation history.
+    State: typed ``DoctorState`` (TypedDict) so the declared ``add`` reducers
+    on ``findings`` / ``hypotheses`` / ``budget_ticks`` / ``total_cost`` actually
+    run (the old ``StateGraph(dict)`` declared them but they were dead — node
+    returns did dict-overwrite). See ``src/engine/state.py``.
+
+    Compiled with a persistent SQLite checkpointer (``_LazyAsyncSqliteSaver`` ->
+    ``data/checkpoints.db``) instead of the in-memory ``MemorySaver``: checkpoints
+    now survive process restarts, which is the foundation for #5 HITL
+    (``interrupt()`` + resume). The lazy proxy is required because the graph is
+    compiled at module-load (sync, no event loop) while ``AsyncSqliteSaver``
+    needs a running loop at construction. See ``src/engine/checkpointer.py``.
     """
-    from langgraph.checkpoint.memory import MemorySaver
     from langgraph.graph import END, StateGraph
 
-    builder = StateGraph(dict)  # type: ignore[type-var]
+    from src.engine.checkpointer import make_checkpointer
+    from src.engine.state import DoctorState
 
-    builder.add_node("bug_info", bug_info_node)  # type: ignore[type-var]
-    builder.add_node(  # type: ignore[type-var]
-        "diagnosis_agent", _diagnosis_agent_node
-    )
+    builder = StateGraph(DoctorState)
+
+    builder.add_node("bug_info", bug_info_node)
+    builder.add_node("diagnosis_agent", _diagnosis_agent_node)
 
     builder.set_entry_point("bug_info")
     builder.add_edge("bug_info", "diagnosis_agent")
     builder.add_edge("diagnosis_agent", END)
 
-    return builder.compile(checkpointer=MemorySaver())
+    return builder.compile(checkpointer=make_checkpointer())
 
 
 def get_copilotkit_graph() -> Any:

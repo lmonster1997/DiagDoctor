@@ -14,12 +14,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.engine.context.truncation import truncate_tool_result
 from src.tools.observability_unified import (
     MAX_QUERY_RANGE_HOURS,
     _default_time_range,
     _extract_trace_ids_from_logs,
     _parse_time,
     _run_trace_analysis,
+    _slim_log,
+    _slim_span,
     _validate_time_range,
     get_search_observability_tool,
     search_observability,
@@ -621,7 +624,7 @@ class TestSearchObservabilityTool:
 class TestLargePayloadTruncation:
     @pytest.mark.asyncio
     async def test_large_payload_is_truncated(self):
-        """When response exceeds 8000 chars, it should be truncated."""
+        """When response exceeds 16000 chars, it should be truncated."""
         # Create a Loki response with many log entries to trigger truncation
         many_logs: dict[str, Any] = {
             "status": "success",
@@ -707,3 +710,90 @@ class TestLargePayloadTruncation:
         # Check truncation flag (may or may not be truncated depending on payload size)
         if parsed.get("_truncated"):
             assert "_original_counts" in parsed
+
+
+# ── Structural slimming tests (keep signal, drop bulk) ──────────────
+
+
+class TestStructuralSlimming:
+    """The >12000-char path must slim logs/spans structurally (keep signal,
+    drop http.* bulk) instead of line-based head/tail, and set ``_truncated``
+    so the ToolTruncationMiddleware skips its destructive head/tail."""
+
+    def test_slim_span_drops_http_bulk_keeps_skeleton_and_error_attr(self) -> None:
+        span = {
+            "span_id": "abc123",
+            "parent_span_id": "",
+            "trace_id": "",
+            "name": "POST /api/auth/login",
+            "service": "demo-backend",
+            "start": "2026-07-16T15:06:46Z",
+            "duration_ms": 324.0,
+            "status": "error",
+            "db_statement": "",
+            "attributes": {
+                "http.scheme": "http",
+                "http.host": "127.0.0.1:8000",
+                "net.peer.ip": "127.0.0.1",
+                "http.user_agent": "Python/3.11",
+                "http.status_code": "500",
+                "exception.type": "KeyError",
+            },
+        }
+        slim = _slim_span(span)
+        # skeleton kept
+        assert slim["span_id"] == "abc123"
+        assert slim["name"] == "POST /api/auth/login"
+        assert slim["status"] == "error"
+        assert slim["duration_ms"] == 324.0
+        # empty skeleton fields dropped
+        assert "trace_id" not in slim  # was ""
+        assert "db_statement" not in slim  # was ""
+        # http.* bulk dropped; error/status attrs kept
+        attrs = slim["attributes"]
+        assert "http.status_code" in attrs
+        assert "exception.type" in attrs
+        assert "http.host" not in attrs
+        assert "net.peer.ip" not in attrs
+        assert "http.user_agent" not in attrs
+
+    def test_slim_log_caps_long_message_head_tail(self) -> None:
+        long_tb = (
+            "Traceback (most recent call last):\n"
+            + "  line of stack\n" * 500
+            + "KeyError: comments"
+        )
+        entry = {
+            "timestamp": "2026-07-16T15:07:03Z",
+            "level": "error",
+            "service": "demo-backend",
+            "message": "unhandled_exception: " + long_tb,
+            "trace_id": "76d3dcf8469c4dfda78d6b20c7742797",
+            "attributes": {"http.method": "POST", "traceback": long_tb},
+        }
+        slim = _slim_log(entry)
+        # message capped, error location (head + tail) preserved
+        assert "KeyError: comments" in slim["message"]
+        assert "[+" in slim["message"] and "chars]" in slim["message"]
+        assert len(slim["message"]) < len(entry["message"])
+        # http.* attr dropped, traceback attr kept + capped
+        assert "traceback" in slim["attributes"]
+        assert "http.method" not in slim["attributes"]
+
+    def test_truncate_skips_when_already_truncated(self) -> None:
+        """Layer 2 must not head/tail a result Layer 1 already slimmed
+        (marked with _truncated) - that would destroy the preserved signal."""
+        content = '{"_truncated": true, "logs": [' + '"x",' * 3000 + '"end"]}'
+        assert len(content) > 12000  # would normally trigger head/tail
+        out = truncate_tool_result("search_observability", content)
+        assert out == content  # unchanged - skip-if-_truncated short-circuit
+        assert "已压缩" not in out
+
+    def test_truncate_headtail_for_non_truncated_large(self) -> None:
+        """Layer 2 still head/tail's large results that were NOT structurally
+        truncated (no _truncated flag) - the middleware fallback stays intact."""
+        content = "\n".join(f"line {i} " + "x" * 50 for i in range(400))
+        assert len(content) > 12000
+        out = truncate_tool_result("search_observability", content)
+        assert out != content
+        assert "已压缩" in out

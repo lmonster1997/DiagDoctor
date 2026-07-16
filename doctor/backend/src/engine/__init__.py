@@ -2,7 +2,8 @@
 
 包含：
 - agent.py: Agent 构建 + 缓存 + middleware 注册
-- state.py: DoctorState + Pydantic schema
+- state.py: DoctorState (TypedDict, graph schema) + Pydantic sub-models
+- checkpointer.py: lazy AsyncSqliteSaver (persistent checkpoints, #5 HITL 地基)
 - run_context.py: ContextVar per-invocation 状态
 - context/: 上下文工程（预算追踪、截断、压缩、动态 prompt）
 - budget/: 监测预算（常量、追踪、守卫中间件）

@@ -13,7 +13,7 @@ from src.config import settings
 
 # 各工具类型的字符上限（按 ~4 chars/token 估算）
 TOOL_CHAR_LIMITS: dict[str, int] = {
-    "search_observability": 6_000,
+    "search_observability": 12_000,
     "code_search": 4_000,
     "get_file_content": 8_000,
     "db_query": 3_200,
@@ -68,6 +68,13 @@ def truncate_tool_result(tool_name: str, content: str) -> str:
     4. 追加 ``[已压缩]`` 标记
     """
     if not settings.tool_result_truncation_enabled:
+        return content
+
+    # If the tool already structurally truncated (search_observability sets
+    # ``_truncated`` after field-level slimming), skip the line-based head/tail
+    # - it would destroy the log/trace signal the tool preserved. The tool's
+    # slimming is schema-aware; head/tail on the resulting JSON is not.
+    if '"_truncated"' in content:
         return content
 
     char_limit = TOOL_CHAR_LIMITS.get(tool_name, _DEFAULT_CHAR_LIMIT)

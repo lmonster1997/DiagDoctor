@@ -206,6 +206,94 @@ def _span_to_dict(span: Any) -> dict[str, Any]:
         return {"raw": str(span)}
 
 
+# ── Slim helpers for truncation: keep signal, drop bulk ─────────────
+# Used by the >12000-char path below. Structural slimming (schema-aware)
+# instead of line-based head/tail: head/tail deleted the log/trace content
+# from the middle of the JSON, leaving the agent with "[已压缩]" and no
+# usable signal. See docs/followup-plan-20260715.md truncation fix.
+
+# Attribute keys worth keeping - error/db/status signal. Drops the 15+ line
+# http.*/net.* boilerplate per span that bloats results without aiding diagnosis.
+_ATTR_KEEP_RE = re.compile(
+    r"^(http\.status_code|http\.response\.status_code|otel\.status_code|"
+    r"status_code|exception\.|error\.|db\.statement|db\.operation|"
+    r"traceback|stack|cause)",
+    re.IGNORECASE,
+)
+
+_SPAN_SKELETON: tuple[str, ...] = (
+    "span_id",
+    "parent_span_id",
+    "trace_id",
+    "name",
+    "service",
+    "service_name",
+    "start",
+    "duration_ms",
+    "status",
+    "db_statement",
+)
+_LOG_SKELETON: tuple[str, ...] = (
+    "timestamp",
+    "level",
+    "service",
+    "service_name",
+    "message",
+    "trace_id",
+    "span_id",
+)
+# Cap a single long field (e.g. a traceback in a log message/attribute) head+tail
+# so the error location (top) + cause (bottom) survive without blowing context.
+_MAX_FIELD_CHARS = 2000
+
+
+def _cap_long_string(value: Any) -> Any:
+    """Head+tail cap a long string to _MAX_FIELD_CHARS; pass through non-strings."""
+    if not isinstance(value, str) or len(value) <= _MAX_FIELD_CHARS:
+        return value
+    half = _MAX_FIELD_CHARS // 2
+    return f"{value[:half]}\n...[+{len(value) - _MAX_FIELD_CHARS} chars]...\n{value[-half:]}"
+
+
+def _slim_attributes(attrs: Any) -> dict[str, Any]:
+    """Keep only error/db/status-relevant attributes; drop http.*/net.* bulk."""
+    if not isinstance(attrs, dict):
+        return {}
+    kept: dict[str, Any] = {}
+    for k, v in attrs.items():
+        if _ATTR_KEEP_RE.match(str(k)):
+            kept[k] = _cap_long_string(v)
+    return kept
+
+
+def _slim_span(span: dict[str, Any]) -> dict[str, Any]:
+    """Span skeleton + error/db attributes; drops the 15-line http.* attribute dump."""
+    slim: dict[str, Any] = {}
+    for k in _SPAN_SKELETON:
+        if k in span:
+            v = span[k]
+            if v not in (None, "", [], {}):
+                slim[k] = v
+    kept = _slim_attributes(span.get("attributes"))
+    if kept:
+        slim["attributes"] = kept
+    return slim
+
+
+def _slim_log(entry: dict[str, Any]) -> dict[str, Any]:
+    """Log skeleton + error-relevant attributes; caps long messages (tracebacks)."""
+    slim: dict[str, Any] = {}
+    for k in _LOG_SKELETON:
+        if k in entry:
+            slim[k] = entry[k]
+    if "message" in slim:
+        slim["message"] = _cap_long_string(slim["message"])
+    kept = _slim_attributes(entry.get("attributes"))
+    if kept:
+        slim["attributes"] = kept
+    return slim
+
+
 # ── Helper: Anomaly detection ────────────────────────────────────────
 
 
@@ -1151,15 +1239,20 @@ async def search_observability(
         "insights": insights_text,
     }
 
-    # Truncate large payloads for LLM context
+    # Truncate large payloads for LLM context.
+    # Strategy: STRUCTURAL slimming, not line-based head/tail. Keep ALL logs +
+    # ALL traces (the diagnostic signal) but slim each to skeleton + error/db
+    # attributes, dropping the http.*/net.* attribute bulk that is most of the
+    # size. Threshold matches the ToolTruncationMiddleware cap (12000) so the
+    # middleware's `skip-if-_truncated` short-circuits and never runs its
+    # destructive head/tail on these results. See docs/followup-plan-20260715.md.
     result_json = json.dumps(response, ensure_ascii=False, indent=2, default=str)
     original_json = result_json  # keep reference for accurate comparison
 
-    if settings.tool_result_truncation_enabled and len(result_json) > 8000:
-        # Truncate logs and traces arrays, keep analysis (including anomalies)
+    if settings.tool_result_truncation_enabled and len(result_json) > 12000:
         truncated: dict[str, Any] = dict(response)
-        truncated["logs"] = logs[:5]
-        truncated["traces"] = traces[:5]
+        truncated["logs"] = [_slim_log(lg) if isinstance(lg, dict) else lg for lg in logs]
+        truncated["traces"] = [_slim_span(sp) if isinstance(sp, dict) else sp for sp in traces]
         truncated["_truncated"] = True
         truncated["_original_counts"] = {
             "logs": len(logs),

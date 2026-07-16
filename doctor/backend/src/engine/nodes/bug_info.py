@@ -26,7 +26,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from src.config import settings
-from src.engine.state import NormalizedEvidence
+from src.engine.state import DoctorState, NormalizedEvidence
 from src.evidence.normalizer import ingest
 from src.observability.logger import get_logger
 
@@ -189,7 +189,7 @@ def _empty_prefetch() -> dict[str, Any]:
 # ═════════════════════════════════════════════════════════════════════
 
 
-async def bug_info_node(state: dict[str, Any]) -> dict[str, Any]:
+async def bug_info_node(state: DoctorState) -> dict[str, Any]:
     """BugInfo node: ingest → auto-prefetch → normalize.
 
     Supports two input paths:
