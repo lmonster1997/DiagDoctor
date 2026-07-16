@@ -14,8 +14,12 @@ from datetime import datetime
 from operator import add
 from typing import Annotated, Any, Literal
 
-from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field
+from typing_extensions import TypedDict
+
+# NOTE: TypedDict must come from typing_extensions, not typing -- langgraph's
+# StateGraph schema introspection (used by CopilotKit's ag-ui path) rejects
+# typing.TypedDict with "Please use typing_extensions.TypedDict".
 
 # ── Evidence sub-models ──────────────────────────────────────────────
 
@@ -240,56 +244,83 @@ class BudgetState(BaseModel):
 # ── Main State ──────────────────────────────────────────────────────
 
 
-class DoctorState(BaseModel):
-    """
-    Shared state for the DiagDoctor LangGraph (v3).
+class DoctorState(TypedDict, total=False):
+    """Shared state schema for the DiagDoctor LangGraph (v3).
+
+    **TypedDict, not Pydantic** -- this is the *graph* state schema. LangGraph
+    passes a plain ``dict`` to nodes when the schema is a TypedDict, so existing
+    nodes/middlewares keep using ``state.get(...)`` and their
+    ``isinstance(state, dict)`` guards (a Pydantic schema would hand nodes a
+    model instance with no ``.get()``, breaking BudgetGuard/ForcedFinalCall).
+
+    Reducers (the fix for the "declared-but-dead reducer" anti-pattern from the
+    old ``StateGraph(dict)`` -- where ``Annotated[..., add]`` was declared but
+    never ran and node returns did dict-overwrite):
+
+    - ``findings`` / ``hypotheses`` / ``budget_ticks``: ``add`` -> accumulate
+      across nodes. Essential for #5 HITL resume (a resumed run appends to
+      prior findings instead of clobbering them).
+    - ``total_cost``: ``add`` -> accumulate cost across the run.
+    - ``messages``: **no reducer (overwrite)** -- intentionally preserves the
+      prior CopilotKit streaming behaviour (the diagnosis node's filtered
+      AI/Tool messages become the final ``messages``). ``add_messages`` is the
+      LangGraph idiom and is what #5 HITL-resume will ultimately need, but it
+      changes what lands in the synced agent state (user HumanMessage would
+      persist); copilotkit is not installable in the local dev env so that
+      switch is deferred to #5 where the chat UI can be smoke-tested. See
+      ``docs/followup-plan-20260715.md`` #7.
+
+    All fields are optional (``total=False``): nodes return only the keys they
+    write; LangGraph initialises missing channels to ``None`` (non-reducer) or
+    via the reducer's zero (``add`` -> empty).
 
     V3 key changes from v2:
     - Removed: iterations, critic_feedback, verdict (no Critic loop in V3)
     - Removed: draft_report (no synthesis node in V3)
-    - Kept: triage field (default-empty, for backward compat; classification
-      now embedded in diagnosis_agent System Prompt)
     - Kept: raw_evidence, evidence, findings, hypotheses, report, budget,
       total_cost, messages
     """
 
     # ── Input ──
-    raw_evidence: Evidence = Field(default_factory=Evidence)
-    case_id: str | None = None
+    raw_evidence: Evidence
+    case_id: str | None
 
     # ── Ingest layer output ──
-    evidence: NormalizedEvidence = Field(default_factory=NormalizedEvidence)
+    evidence: NormalizedEvidence
 
-    # ── Accumulated findings & hypotheses ──
-    findings: Annotated[list[Finding], add] = Field(default_factory=list)
-    hypotheses: Annotated[list[DiagnosisHypothesis], add] = Field(default_factory=list)
+    # ── Accumulated findings & hypotheses (add reducer) ──
+    findings: Annotated[list[Finding], add]
+    hypotheses: Annotated[list[DiagnosisHypothesis], add]
 
     # ── Reports (V3: diagnosis_agent produces report directly; no draft_report) ──
-    report: DiagnosisReport | None = None
+    report: DiagnosisReport | None
 
-    # ── Message history (for ReAct agents) ──
-    messages: Annotated[list[Any], add_messages] = Field(default_factory=list)
+    # ── Message history (overwrite - see class docstring) ──
+    messages: list[Any]
 
     # ── Cost & budget ──
-    total_cost: Annotated[float, add] = 0.0
-    budget: BudgetState = Field(default_factory=BudgetState)
+    total_cost: Annotated[float, add]
+    budget: BudgetState
 
     # ── Budget ticks for real-time frontend sync ──
     # The BudgetGuardMiddleware appends a snapshot of the running budget
     # before each LLM call.  CopilotKit's useCoAgent syncs this list to
     # the frontend BudgetPanel so the user sees live token/cost/tool_call
     # counters (Phase 1).
-    budget_ticks: Annotated[list[dict[str, Any]], add] = Field(default_factory=list)
+    budget_ticks: Annotated[list[dict[str, Any]], add]
+
+    # ── Early-stop flag (set by diagnosis_agent when budget exhausted) ──
+    early_stopped: bool
 
     # ── Metadata ──
-    trace_id: str = ""
-    session_id: str = ""
+    trace_id: str
+    session_id: str
 
     # ── Langfuse trace 复用 ID（与 OTel trace_id 语义不同）──
     # 由 Experiment 传入，Agent 节点用它把 LLM/tool observation 记录到
     # 与评分同一个 trace 上。None 时 Agent 自动生成新 trace。
-    langfuse_trace_id: str | None = None
+    langfuse_trace_id: str | None
     # ── Langfuse session ID（由 Experiment 传入）──
     # 当 Experiment runner 提供时，覆盖 handler 内部的随机 UUID session，
     # 确保所有 trace/observation 归入正确的 Langfuse Sessions 视图。
-    langfuse_session_id: str | None = None
+    langfuse_session_id: str | None

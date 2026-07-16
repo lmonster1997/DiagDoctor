@@ -16,7 +16,7 @@ DiagDoctor = LLM 诊断 agent:给定出错 Web 应用(demo-app/TaskFlow)+ 错误
 - **bug-factory**:AI 辅助生成 + 注入 bug,量产可复现评测 case
 - **doctor**:诊断 agent 主体(LangGraph)
 
-**doctor 主图(实际)**:2 节点 `bug_info -> diagnosis_agent -> END`。非 3 节点;reporter 已并入 diagnosis_agent 的 forced final call。diagnosis agent 用 LangChain `create_agent()` + 6 middleware 管线(**非手写 while 循环**;Iteration 3 从手写循环迁移而来,借 middleware 找回注入点)。状态为普通 `dict`(非 typed `DoctorState`);checkpointer 为内存态 `MemorySaver`。
+**doctor 主图(实际)**:2 节点 `bug_info -> diagnosis_agent -> END`。非 3 节点;reporter 已并入 diagnosis_agent 的 forced final call。diagnosis agent 用 LangChain `create_agent()` + 6 middleware 管线(**非手写 while 循环**;Iteration 3 从手写循环迁移而来,借 middleware 找回注入点)。状态为 typed `DoctorState`(TypedDict,声明的 `add` reducer 真跑);checkpointer 为持久 `_LazyAsyncSqliteSaver`(`data/checkpoints.db`,#7)。
 
 middleware 顺序:`AgentLifecycle -> ToolDedup -> LangfuseTracing -> ToolTruncation -> BudgetGuard -> ForcedFinalCall`。
 
@@ -32,7 +32,7 @@ middleware 顺序:`AgentLifecycle -> ToolDedup -> LangfuseTracing -> ToolTruncat
 - ✅ ToolDedup(字节级同 `(name,args)` 去重)+ 优雅 Langfuse 降级
 - ✅ forced final call **条件触发**(`_last_ai_has_json` 守卫已接进 `ForcedFinalCallMiddleware.abefore_model`;健康 run 跳过额外结构化输出调用,预算耗尽仍触发兜底)-> A3 done
 - ✅ 上下文工程:死代码 `maybe_compact_context`/`build_dynamic_system_prompt`(及 `test_context_engine.py`)已删;`tool_result_truncation_enabled` **默认 True**(ToolTruncation 中间件激活,长结果入 context 前截断保留关键行)-> A4 done
-- ⚠️ `DoctorState` 非 graph schema(graph 用 `dict`,声明的 reducer 未生效)-> B7
+- ✅ `DoctorState` 为 typed graph schema(TypedDict,reducer 真跑:`findings`/`hypotheses`/`budget_ticks`/`total_cost` 用 `add` 累加;`messages` overwrite 保留 CopilotKit 流式行为);checkpointer 换持久 `_LazyAsyncSqliteSaver`(`data/checkpoints.db`,重启不丢)-> #7 done
 - ✅ graph 测试套件已修(`src.graph.*`->`src.engine.*`;reorg 后无法修复的旧集成测试以 `_` 前缀禁用,CI 全绿)-> A2 done
 - ⚠️ `MAX_TOOL_CALLS` 实计 model_call 数,且 constants/ContextBudget/config 三处上限不一致;commit 称"flailing 检测"实未实现(仅硬上限 + 语法去重)-> B8
 
