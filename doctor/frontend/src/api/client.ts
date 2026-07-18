@@ -5,7 +5,9 @@
  * streaming — that goes through the CopilotKit runtime via AG-UI protocol).
  */
 
-const BASE_URL = import.meta.env.VITE_DOCTOR_API_URL || "http://localhost:8001";
+// 默认相对路径 -> 经 vite dev 代理(/api -> :8001)同源无 CORS,与 CopilotKit 的
+// runtimeUrl="/api/copilotkit"(相对)一致。生产分源时设 VITE_DOCTOR_API_URL。
+const BASE_URL = import.meta.env.VITE_DOCTOR_API_URL || "";
 
 interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
@@ -53,4 +55,29 @@ export async function apiFetch<T = unknown>(
   if (res.status === 204) return undefined as T;
 
   return res.json() as Promise<T>;
+}
+
+// ── Diagnosis threads (#5 F3 HITL history) ───────────────────────
+
+/** A single diagnosis thread summary from GET /api/diagnose/threads. */
+export interface DiagnosisThread {
+  thread_id: string;
+  case_id: string | null;
+  /** "paused" = mid-graph (awaiting HITL guidance, resumable); "completed" = END with report; "empty" = no values. */
+  status: "paused" | "completed" | "empty";
+  early_stopped: boolean;
+  hitl_resumed: boolean;
+  findings_count: number;
+  has_report: boolean;
+  /** Pending graph node names (non-empty while paused). */
+  next: string[];
+}
+
+export interface ThreadsResponse {
+  threads: DiagnosisThread[];
+}
+
+/** List recent diagnosis threads (paused first). Enabler for the F3 history list. */
+export function listThreads(limit = 50): Promise<ThreadsResponse> {
+  return apiFetch<ThreadsResponse>(`/api/diagnose/threads?limit=${limit}`);
 }

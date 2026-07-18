@@ -421,21 +421,32 @@ async def list_diagnosis_threads(
     if saver is None:
         return {"threads": []}
 
-    seen: dict[str, dict[str, Any]] = {}
-    # alist yields checkpoints latest-first across all threads; over-fetch
-    # then dedup to `limit` unique thread_ids.
+    # alist yields checkpoints latest-first across all threads AND subgraphs:
+    # the ``diagnosis_agent`` node runs an inner compiled subgraph whose
+    # checkpoints share this saver under a "diagnosis_agent" namespace. We only
+    # want the outer-graph (root) state per thread, so dedup by thread_id and
+    # re-fetch the latest root state via ``aget_state({thread_id})``. Passing a
+    # subgraph checkpoint's config directly makes langgraph try to resolve the
+    # "diagnosis_agent" subgraph (a function node, not registered) -> ValueError
+    # "Subgraph diagnosis_agent not found".
+    seen: set[str] = set()
+    thread_ids: list[str] = []
     async for tup in saver.alist(None, limit=limit * 10):
-        cfg = tup.config or {}
-        tid = cfg.get("configurable", {}).get("thread_id")
+        tid = (tup.config or {}).get("configurable", {}).get("thread_id")
         if not tid or tid in seen:
             continue
-        seen[tid] = cfg
-        if len(seen) >= limit:
+        seen.add(tid)
+        thread_ids.append(tid)
+        if len(thread_ids) >= limit:
             break
 
     threads: list[dict[str, Any]] = []
-    for tid, cfg in seen.items():
-        snap = await graph.aget_state(cfg)
+    for tid in thread_ids:
+        try:
+            snap = await graph.aget_state({"configurable": {"thread_id": tid}})
+        except ValueError:
+            # Stale / subgraph-only checkpoint we can't resolve at the root.
+            continue
         vals = snap.values or {}
         is_paused = bool(snap.next)
         report = vals.get("report")

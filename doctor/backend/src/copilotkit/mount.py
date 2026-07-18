@@ -16,6 +16,7 @@ def mount_copilotkit(app: FastAPI) -> None:
         from copilotkit import CopilotKitRemoteEndpoint
         from src.copilotkit.agent import DiagDoctorAgent
         from src.copilotkit.middleware import CorsPreflightMiddleware, InfoCompatMiddleware
+        from src.copilotkit.run_endpoint import register_default_agent_run_endpoint
         from src.engine.nodes.diagnosis_agent import get_copilotkit_graph
 
         agent = DiagDoctorAgent(
@@ -26,6 +27,11 @@ def mount_copilotkit(app: FastAPI) -> None:
         )
 
         sdk = CopilotKitRemoteEndpoint(agents=[agent])
+
+        # #5 F1: 自定义 /agent/default/run 端点,转发 forwardedProps(CopilotKit 的
+        # handler 会丢,导致 useInterrupt resume 的 command.resume 不到后端)。
+        # 必须在 add_fastapi_endpoint 之前注册,优先匹配。
+        register_default_agent_run_endpoint(app, agent)
 
         app.add_middleware(CorsPreflightMiddleware)
         app.add_middleware(InfoCompatMiddleware)
