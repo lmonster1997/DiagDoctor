@@ -43,6 +43,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from langchain_core.messages import HumanMessage
+
+from src.config import settings
 from src.engine.agent import (
     _build_system_prompt,
     get_diagnosis_agent,
@@ -53,7 +56,11 @@ from src.engine.run_context import (
     clear_run_context,
     set_run_context,
 )
-from src.engine.state import DoctorState
+from src.engine.state import DoctorState, NormalizedEvidence
+from src.memory.long_term.case_retriever import (
+    format_similar_cases,
+    search_historical_cases,
+)
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)
@@ -70,6 +77,52 @@ def _filter_visible_messages(messages: list[Any]) -> list[Any]:
     from langchain_core.messages import AIMessage, ToolMessage
 
     return [m for m in messages if isinstance(m, (AIMessage, ToolMessage))]
+
+
+async def _build_similar_cases_message(
+    state: DoctorState, evidence: NormalizedEvidence, is_resume: bool
+) -> tuple[HumanMessage | None, dict[str, Any]]:
+    """Retrieve (or reuse cached) similar historical cases as a HumanMessage.
+
+    First pass (``not is_resume``): query ``search_historical_cases`` and format
+    via §6.5; cache the text + case_ids in state for the resume pass. Resume:
+    reuse the cached ``similar_cases_text`` (no re-query). Design §6.5: "only
+    first pass" means don't re-QUERY, not don't re-inject -- the inner agent is
+    a fresh ``ainvoke`` per pass, so pass-1's injection would otherwise be lost
+    on resume.
+
+    Gated by ``settings.rag_injection_enabled``. Graceful degradation: any
+    failure or empty recall -> ``(None, {})`` so diagnosis proceeds without RAG.
+
+    Returns ``(message_or_None, state_updates)``; ``state_updates`` carries
+    ``retrieved_case_ids`` + ``similar_cases_text`` on first pass (empty dict on
+    resume, preserving pass-1's cached values).
+    """
+    if not settings.rag_injection_enabled:
+        return None, {}
+
+    if is_resume:
+        cached = state.get("similar_cases_text") or ""
+        if not cached:
+            return None, {}
+        return HumanMessage(content=cached), {}
+
+    state_updates: dict[str, Any] = {"retrieved_case_ids": [], "similar_cases_text": ""}
+    try:
+        scored = await search_historical_cases(evidence)
+    except Exception:
+        logger.warning("rag_injection_failed", exc_info=True)
+        return None, state_updates
+    if not scored:
+        return None, state_updates
+
+    text = format_similar_cases(scored)
+    if not text:
+        return None, state_updates
+
+    state_updates["retrieved_case_ids"] = [c.case_id for c in scored]
+    state_updates["similar_cases_text"] = text
+    return HumanMessage(content=text), state_updates
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -91,7 +144,6 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
 
     from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-    from src.engine.state import NormalizedEvidence
     from src.evidence.formatter import format_evidence_for_agent
 
     evidence: NormalizedEvidence | None = state.get("evidence")
@@ -131,6 +183,14 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
     human_guidance = state.get("human_guidance")
     is_resume = bool(human_guidance and str(human_guidance).strip())
 
+    # ── #1 RAG: retrieve similar historical cases (design §6.5). First
+    #    pass queries + caches; resume re-injects the cached block without
+    #    re-querying. Graceful degradation: None on failure / empty recall /
+    #    disabled -> diagnosis proceeds without historical reference. ──
+    similar_msg, rag_updates = await _build_similar_cases_message(
+        state, evidence, is_resume
+    )
+
     if is_resume:
         prior_findings = state.get("findings", []) or []
         prior_summary = (
@@ -143,21 +203,21 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
             f"操作员补充引导: {human_guidance}\n\n"
             "请基于已有发现和引导继续调查,并输出最终诊断报告 JSON。"
         )
-        initial_messages: list[BaseMessage] = [
-            SystemMessage(content=base_prompt),
-            HumanMessage(content=evidence_text),
-            HumanMessage(content=continuation),
-        ]
+        initial_messages: list[BaseMessage] = [SystemMessage(content=base_prompt)]
+        if similar_msg is not None:
+            initial_messages.append(similar_msg)
+        initial_messages.append(HumanMessage(content=evidence_text))
+        initial_messages.append(HumanMessage(content=continuation))
         logger.info(
             "copilotkit_diag_hitl_resume_pass",
             case_id=case_id,
             prior_findings=len(prior_findings),
         )
     else:
-        initial_messages = [
-            SystemMessage(content=base_prompt),
-            HumanMessage(content=evidence_text),
-        ]
+        initial_messages = [SystemMessage(content=base_prompt)]
+        if similar_msg is not None:
+            initial_messages.append(similar_msg)
+        initial_messages.append(HumanMessage(content=evidence_text))
 
     # ── Langfuse setup (graceful degradation) ────────────────────
     langfuse_handler = None
@@ -238,6 +298,7 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
         "findings": findings,
         "budget": budget_state,
         "early_stopped": early_stopped,
+        **rag_updates,
     }
 
 

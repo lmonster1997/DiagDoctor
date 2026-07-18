@@ -94,6 +94,14 @@ class Settings(BaseSettings):
     #   2. observability_unified.search_observability —— 8000 字符 JSON 截断
     tool_result_truncation_enabled: bool = True
 
+    # --- RAG Injection (episodic memory retrieval) ---
+    # When False, the diagnosis agent skips historical-case retrieval entirely
+    # (no Qdrant query, no injection). Demo/interactive keeps True; benchmark/CI
+    # set RAG_INJECTION_ENABLED=false for reproducibility + speed (an empty
+    # library is already neutral, but this avoids the embed/Qdrant round-trip).
+    # Also the toggle for #2 ablation (RAG on vs off on the same case set).
+    rag_injection_enabled: bool = True
+
     # --- OpenTelemetry ---
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
     otel_service_name: str = "doctor-api"

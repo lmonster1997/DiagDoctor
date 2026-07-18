@@ -1,10 +1,10 @@
 """
-Historical case store — index 👍-approved diagnosis reports into Qdrant.
+Historical case store - index 👍-approved diagnosis reports into Qdrant.
 
 P0 scope:
-- ``maybe_index_diagnosis()``: validate → embed → upsert, async fire-and-forget
-- ``_build_passage_text()``: construct embedding passage
-  (metadata anchor + user_report + root_cause + fix_suggestion)
+- ``maybe_index_diagnosis()``: validate -> embed -> upsert, async fire-and-forget
+- ``build_symptom_passage()`` (from ``encoding``): the embedding passage --
+  symptom-only, shared with the query side (recall/utilization 三分离, §4)
 - ``_dedup_exists()``: check trace_id duplicates (warn, don't reject)
 - ``_build_point()``: construct Qdrant PointStruct with full payload
 
@@ -20,6 +20,7 @@ from qdrant_client.models import PointStruct
 
 from src.engine.state import DiagnosisReport, NormalizedEvidence
 from src.memory.long_term.embedding import embed_single
+from src.memory.long_term.encoding import build_symptom_passage
 from src.memory.long_term.qdrant_client import (
     COLLECTION_NAME,
     get_qdrant_client,
@@ -31,62 +32,17 @@ logger = get_logger(__name__)
 # ── Constants ───────────────────────────────────────────────────────
 
 SOURCE_USER_UPVOTE = "user_upvote"
-SIMILARITY_THRESHOLD = 0.75  # minimum score for retrieved cases
+# Retrieval threshold (RELEVANCE_THRESHOLD) lives in case_retriever.py (calibration TODO §9.1).
 
 
 # ═════════════════════════════════════════════════════════════════════
 # Passage construction
 # ═════════════════════════════════════════════════════════════════════
-
-
-def _build_passage_text(report: DiagnosisReport, evidence: NormalizedEvidence) -> str:
-    """Construct the embedding passage from report + evidence.
-
-    Structure: [诊断元数据] ... (user_report) ... (root_cause) ... (fix_suggestion)
-
-    Metadata anchor goes FIRST for bge-m3 positional bias.
-    fix_suggestion is kept full (no truncation) — code fragments like
-    field names and function signatures must not be lost.
-    """
-    signal_types = sorted({s.signal_type for s in evidence.golden_signals})
-    tier = "cross_layer" if evidence.correlations else report.symptom_tier
-
-    meta = (
-        f"[诊断元数据] 信号类型: {', '.join(signal_types) if signal_types else '未识别'} "
-        f"| 类别: {report.primary_category} "
-        f"| 层级: {tier} "
-        f"| 涉及文件: {report.affected_file or '未定位'}"
-    )
-
-    parts: list[str] = [meta]
-
-    if evidence.user_report:
-        parts.append(evidence.user_report)
-
-    if report.root_cause:
-        parts.append(report.root_cause)
-
-    if report.fix_suggestion:
-        parts.append(report.fix_suggestion)
-
-    return "\n\n".join(parts)
-
-
-def _build_query_text(evidence: NormalizedEvidence) -> str:
-    """Construct the query-side passage (symmetric to index-side, minus root_cause/fix)."""
-    signal_types = sorted({s.signal_type for s in evidence.golden_signals})
-    tier = "cross_layer" if evidence.correlations else "backend"
-
-    meta = (
-        f"[诊断元数据] 信号类型: {', '.join(signal_types) if signal_types else '未识别'} "
-        f"| 层级: {tier}"
-    )
-
-    parts: list[str] = [meta]
-    if evidence.user_report:
-        parts.append(evidence.user_report)
-
-    return "\n\n".join(parts)
+# Embedding passage construction lives in ``encoding.build_symptom_passage`` --
+# shared between index side (here) and query side (``case_retriever``) so the
+# two vectors are truly symmetric (recall/utilization 三分离, design §4):
+# the vector carries symptoms only; root_cause / fix / category /
+# affected_files stay in the payload (see ``_build_point`` below).
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -95,7 +51,7 @@ def _build_query_text(evidence: NormalizedEvidence) -> str:
 
 
 def _resolve_affected_files(report: DiagnosisReport) -> list[str]:
-    """Normalise affected files into a list — report.affected_file is singular."""
+    """Normalise affected files into a list - report.affected_file is singular."""
     files: list[str] = []
     if report.affected_file:
         files.append(report.affected_file)
@@ -114,21 +70,30 @@ def _build_point(
     now = datetime.now(UTC).isoformat()
 
     return PointStruct(
-        id=case_id,  # UUID → upsert 天然幂等
+        id=case_id,  # UUID -> upsert 天然幂等
         vector=vector,
         payload={
+            # ── 去重 / 溯源 ──
             "trace_id": trace_id,
             "case_id": case_id,
+            # ── 结构化锚 (filter / rerank / injection label, §5.2) ──
             "category": report.primary_category,
             "symptom_tier": report.symptom_tier,
+            "is_cross_layer": bool(evidence.correlations),
+            "root_cause_tier": report.root_cause_tier,
             "signal_types": [s.signal_type for s in evidence.golden_signals],
             "affected_files": _resolve_affected_files(report),
+            # ── 诊断输出 (injection 利用,全文不截断,§5.2) ──
             "root_cause": report.root_cause,
+            "fix_suggestion": report.fix_suggestion,
             "confidence": report.confidence,
+            "user_report_snippet": evidence.user_report[:200],
+            # ── 治理字段 (three-factor importance / feedback loop, §6.1/§8) ──
+            "hit_count": 0,  # 检索命中次数 (feedback loop 写入)
+            "effectiveness": 0.0,  # 回流有效性分 (feedback loop 写入)
+            # ── 元数据 ──
             "source": source,
             "created_at": now,
-            "user_report_snippet": evidence.user_report[:200],
-            "fix_snippet": report.fix_suggestion[:300],
         },
     )
 
@@ -193,7 +158,7 @@ async def maybe_index_diagnosis(
     Args:
         report: The final DiagnosisReport from the agent.
         evidence: The NormalizedEvidence that went into diagnosis.
-        source: Always ``"user_upvote"`` in P0 — kept as param for P1 auto channel.
+        source: Always ``"user_upvote"`` in P0 - kept as param for P1 auto channel.
         trace_id: The W3C trace_id associated with this bug trigger.
         case_id: Point ID in Qdrant (UUID). Auto-generated if not provided.
 
@@ -215,7 +180,9 @@ async def maybe_index_diagnosis(
         logger.info("duplicate_trace_id_upvote", trace_id=trace_id)
 
     # ── Build passage & embed ──
-    passage = _build_passage_text(report, evidence)
+    # Symptom-only passage (shared with the query side); root_cause / fix
+    # stay in the payload, NOT in the vector (recall/utilization 三分离, §4).
+    passage = build_symptom_passage(evidence)
     try:
         vector = await embed_single(passage)
     except Exception:

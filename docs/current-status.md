@@ -70,8 +70,9 @@ middleware 顺序:`AgentLifecycle -> ToolDedup -> LangfuseTracing -> ToolTruncat
 - ⚠️ trace_id 作 Loki stream label(高基数反模式);Langfuse v2(legacy);`record_llm_generation` 死代码
 
 ### 2.6 memory(长期记忆)
-- ✅ `case_store.maybe_index_diagnosis` 写入侧(用户点赞触发)
-- 🔲 检索侧 `case_retriever.search_historical_cases` **未实现**(零调用点;`triage.j2` 的 `{{ similar_cases }}` 无消费方)-> A5
+- ✅ `case_store.maybe_index_diagnosis` 写入侧(用户点赞触发);写侧三分离(embedding 只症状,诊断输出进 payload,§4)
+- ✅ 检索侧 `case_retriever.search_historical_cases`(三因子 relevance×recency×importance + 自排 + trace 去重 + 阈值 + 空召回/异常降级)+ `_diagnosis_agent_node` 首次 pass §6.5 静态注入;HITL resume 从 `similar_cases_text` 缓存重注入不 re-query;`rag_injection_enabled` 开关;`retrieved_case_ids`/`similar_cases_text` 入 DoctorState -> A5 done
+- ✅ 检索召回评测 `recall_ablation`(§9.1/§9.3):15 case 成对 symptom-cosine 四象限 recall@k,实证 P0 症状相似天花板(根因似症状异 BE-022↔FE-021 召回低 -> P1-a 突破基线);`recall_ablation.py` + `scripts/eval_recall_ablation.py` + 单测 -> #8 done
 - (设计见 `long_term_memory_design.md`,权威)
 
 ### 2.7 security

@@ -324,6 +324,15 @@ class DoctorState(TypedDict, total=False):
     human_guidance: str | None
     hitl_resumed: bool
 
+    # ── RAG: retrieved historical cases (#1 episodic retrieval) ────────
+    # ``retrieved_case_ids``: case_ids recalled on pass 1 -- consumed by the
+    # feedback loop (#8 / §8.1) to backfill ``effectiveness`` on 👍.
+    # ``similar_cases_text``: the formatted §6.5 injection block, cached on
+    # pass 1 so the HITL resume pass re-injects WITHOUT re-querying Qdrant
+    # (design §6.5: "only first pass" = don't re-QUERY, not don't re-inject).
+    retrieved_case_ids: list[str]
+    similar_cases_text: str
+
     # ── Metadata ──
     trace_id: str
     session_id: str

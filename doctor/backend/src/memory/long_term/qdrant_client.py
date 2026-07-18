@@ -33,6 +33,7 @@ PAYLOAD_INDEXES: list[tuple[str, str]] = [
     ("category", "keyword"),
     ("symptom_tier", "keyword"),
     ("source", "keyword"),
+    ("trace_id", "keyword"),  # dedup scroll + retrieval self-exclusion (§5.2)
     ("created_at", "datetime"),
 ]
 

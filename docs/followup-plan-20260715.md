@@ -118,7 +118,7 @@
 
 | # | 方向 | 解决的架构/设计问题 | 信号 | 成本 |
 |---|---|---|---|---|
-| 1 | **RAG 检索侧--闭合记忆 LOOP** | 记忆 write-only 无学习闭环;`case_retriever.search_historical_cases` 零调用点。实现检索 + top-k 相似 case 注入 diagnosis(结构化 few-shot "相似已解 bug 的诊断路径",非裸塞 `similar_cases`) | ⭐⭐⭐⭐⭐ | 1.5d |
+| 1 | ✅ done **RAG 检索侧--闭合记忆 LOOP** | 记忆 write-only 无学习闭环;`case_retriever.search_historical_cases` 零调用点。实现检索 + top-k 相似 case 注入 diagnosis(结构化 few-shot "相似已解 bug 的诊断路径",非裸塞 `similar_cases`) | ⭐⭐⭐⭐⭐ | 1.5d |
 | 2 | **单一可信评测 + ablation harness** | 三套评分打架(benchmark 4 / langfuse 7 / run_case 5)无法 eval-driven dev。统一为 canonical harness + 同 case 集 × 配置开关(截断 / RAG / budget)对比,产"配置 X 让 overall ±Y、token ±Z"表 | ⭐⭐⭐⭐⭐ | 2.5d |
 | 3 | **LLM judge 加固** | 单次 + 静默失败(`return 0.0` 不可区分)+ judge 不隔离。失败返 None;root_cause 维 k=3 自一致性;judge ≠ agent 强制隔离;5 case 人工一致性集报 judge-human agreement | ⭐⭐⭐⭐⭐ | 1.5d |
 | 4 | **评测完整性:激活门禁 + 可复现** | `expected_observation` 从不校验(bug 没触发也合法 case)+ 不可复现。取证后校验 log_patterns(缺失标 invalid 不入库);case metadata 记 `generator_model`/`temperature`/`generation_seed` | ⭐⭐⭐⭐ | 1d |
@@ -132,7 +132,7 @@
 |---|---|---|---|---|
 | 6 | **观测"医生"**:`TokenAccountant` 接线 + `bind_log_context` 进 FastAPI middleware + per-phase 成本归因 + Langfuse↔Tempo 跨系统 trace_id 链接 | 只观测病人不观测医生;cost_usd 恒 0;trace_id 不进日志;Langfuse↔Tempo 不可导航。`trigger_trace_ids[0]` 设 doctor OTel span 属性 `diag.bug_trace_id` + Langfuse trace metadata | ⭐⭐⭐⭐ | 1.5d |
 | 7 | ✅ done **`StateGraph(DoctorState)` 真 reducer + 持久 checkpointer** | reducer 声明了不跑 = 反模式;dict 覆盖;`MemorySaver` 重启丢。`StateGraph(DoctorState)` 让 reducer 真跑 + 换 SqliteSaver/PostgresSaver。**#5 HITL 的地基**。已实现(commit `960d63b`) | ⭐⭐⭐⭐ | 0.5d |
-| 8 | **`RetrievalEvaluator`(消费 `retrieval_gold`)** | 死字段;code_search 头牌能力未量化。从 doctor 工具调用参数 / report `evidence_refs` 算 hit-rate 对 `retrieval_gold.code_chunks` | ⭐⭐⭐⭐ | 1d |
+| 8 | ✅ done **`RetrievalEvaluator`--成对召回 ablation** | 检索质量未量化。**已实现**:`recall_ablation.py`(四象限 same/diff root × same/diff symptom 的 recall@k 纯逻辑)+ `scripts/eval_recall_ablation.py`(15 case 症状向量两两 cosine ablation)+ 单测。用现有 15 case 覆盖三方向(同类型相似症状/根因似症状异/症状似根因异),实证 P0 症状相似天花板 -> P1-a 双向量 before 基线。原 code_chunks 方向改做记忆召回 ablation(`retrieval_gold.similar_cases` 空)。**P0 基线(bge-m3, recall@3)**:①同根同症状 1.00 / ②同根异症状 0.50(天花板)/ ③异根同症状 0.80(过召回)/ ④异根异症状 0.16。P1-a 目标:②升(根因向量召回突破天花板)、③降(根因向量区分) | ⭐⭐⭐⭐ | 1d |
 
 ### T3 工具/预算契约(中 ROI,便宜)
 
@@ -150,10 +150,29 @@
 | 13 | **demo-app IDOR 修补** | `tasks.py`/`comments.py` get/update/delete 无 ownership 校验 = 预存漏洞污染受控注入评测(logic_020 正靠移除 owner 过滤注入 IDOR,baseline 不干净) | ⭐⭐⭐ | 0.5d |
 | 14 | **安全守卫接线** | `sanitize_path`/`sanitize_for_llm`/`safe_subprocess_args` 死代码;`file_reader` 手写重复沙箱未复用 `sanitize_path` | ⭐⭐ | 1d |
 
+### P1 记忆系统进阶(episodic→semantic + 工具化双向量,在 #1/#8 之后)
+
+> 对标 Generative Agents reflection + MemGPT 工具化。P1 在 P0(#1 episodic 检索+注入)之上扩展,不替换:#1 的 collection 与 `search_historical_cases` 函数被 P1 复用。
+> **评估边界(讲清,同 HITL/RAG)**:P1 价值不在 15-case benchmark 数字(agent 可能不调工具、case 互不相关,设计 §9.5),靠 §9.2/§9.3 可控检索测试 + 叙事体现。semantic pattern 在 15 case 上偏薄,只能定性 demo。**面试讲法**:想证明 pattern 效果需扩充评测集,但 pattern 做法参考优秀记忆系统设计(Generative Agents reflection),能检索类似 bug 的诊断经验。
+
+| # | 方向 | 解决的架构/设计问题 | 信号 | 成本 |
+|---|---|---|---|---|
+| 15 | **P1-a 双向量工具化检索** | P0 静态注入有症状相似天花板(查询端无根因)。`search_historical_cases` 包成 agent tool + collection 加 `root_cause` named vector;agent 形成根因假设后查根因向量拿根因相似。解决"症状似/根因似不可兼得"(§6.4) | ⭐⭐⭐⭐⭐ | 1.5d |
+| 16 | **P1-b semantic pattern(`bug_patterns`)** | 记忆只有 episodic 无跨案例学习。攒 N 个同类 case 后 LLM 反思提炼 pattern,双路注入(case 给具体、pattern 给规律)。对标 Generative Agents reflection,§3.2 标"最能拉开档次" | ⭐⭐⭐⭐ | 1d |
+| 17 | **P1-c failed-case 负样本 + 冲突检测** | 失败不进记忆=闭环缺一臂。👎 case 存 `agent_root_cause` 作负样本("曾走此方向未解决,请核查");同症状异根因 case 标冲突提示 agent | ⭐⭐⭐ | 0.5d |
+
+P1 测试 case(体现效果,非 benchmark 跑分):
+- **§9.3 双向量区分(P1-a 核心 demo)**:"症状似根因异"case 对(如"列表卡死"= N+1 / 前端大列表无虚拟化 / 死锁),症状向量 top-3 召回三者(噪声),根因向量(假设"前端渲染")精准命中前端那条。
+- **§9.2 变体召回(#8 载体,P0/P1 共用)**:变体 evidence 检索 top-3 召回同源原版,recall@3 ≥ 0.8。
+- **semantic pattern(定性)**:PERF 类 N+1 case 反思出"本库 N+1 多发于 selectinload",新 N+1 case 检索到 pattern 注入。
+- **failed-case / 冲突(定性)**:错判 case 作负样本注入;同症状异根因标冲突。
+
+> 专家手动入库通道(`source="expert_curated"`)不做(infra、不 demonstrable;👍 通道对简历够,selection bias 作已知限制讲)。
+
 ### 推荐执行顺序(故事深度优先 + 依赖)
 
-1. ~~**#7**~~(✅ done,commit `960d63b`)+ ~~**#5**~~(✅ done,2026-07-18):编排正确性地基 + 杀手级 demo(budget 耗尽 -> 暂停 -> 人工补一句 -> 恢复续查)已落地。**下一步:#1**(RAG 检索侧,闭合记忆 LOOP)。
-2. **#1**(RAG 检索侧,1.5d)-> **#8**(RetrievalEvaluator,1d):闭合记忆 LOOP + 量化检索,故事自洽("越用越准"且可测)。
+1. ~~**#7**~~(✅ done,commit `960d63b`)+ ~~**#5**~~(✅ done,2026-07-18):编排正确性地基 + 杀手级 demo(budget 耗尽 -> 暂停 -> 人工补一句 -> 恢复续查)已落地。+ ~~**#1**~~(✅ done,2026-07-18:RAG 检索闭环,三因子检索 + §6.5 静态注入 + 写侧三分离 + resume 缓存重注入 + `rag_injection_enabled` 开关)已落地。**下一步:#8**(RetrievalEvaluator,量化检索)。
+2. ~~**#1**~~(✅ done,1.5d)-> ~~**#8**~~(✅ done,成对召回 ablation,实证 P0 症状相似天花板):闭合记忆 LOOP + 量化检索。-> **反馈回填**(§8.1,~0.5d,闭合"越用越准"闭环)-> **P1-a**(双向量,1.5d,突破天花板,before/after ablation)-> **P1-c**(0.5d)-> **P1-b**(semantic pattern,1d):记忆系统进阶,P1-a 可控测试体现,P1-b 定性+叙事(效果需扩评测集证明)。
 3. **#2**(单一可信评测 + ablation,2.5d)-> **#3**(judge 加固,1.5d)-> **#4**(激活门禁+可复现,1d):eval-driven dev 支点--#2 让 #3/#4/#8 都可量化验证。
 4. **#6**(观测医生,1.5d)+ **#9/#10/#11**(便宜除雷,1.3d)穿插。
 5. T4 按需。
