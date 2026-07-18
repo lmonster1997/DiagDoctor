@@ -177,6 +177,42 @@ P1 测试 case(体现效果,非 benchmark 跑分):
 4. **#6**(观测医生,1.5d)+ **#9/#10/#11**(便宜除雷,1.3d)穿插。
 5. T4 按需。
 
+### 下一步任务交接(新窗口接手)
+
+> 本会话完成 #1(RAG 检索侧静态注入)+ #8(召回 ablation 评测,commit `a38f411` on `feat/RAG`)。
+> 跑 embed 见记忆 `bge-m3-local-model-setup`(HF 被 SSL 拦,走 ModelScope 下到 `D:/hf_cache`,带 `BGE_M3_LOCAL_PATH` + `HF_HUB_OFFLINE=1`)。
+> P0 基线(bge-m3, recall@3)已在 #8 行:①同根同症状 1.00 / ②同根异症状 0.50(天花板)/ ③异根同症状 0.80(过召回)/ ④异根异症状 0.16。
+> 下一步两块,按顺序:
+
+#### A. 反馈回填(§8.1,~0.5d)-- 闭合"越用越准"闭环
+
+**问题**:#1 已把 `retrieved_case_ids` 捕获进 `DoctorState`(诊断时召回的 case 列表,持久到 checkpoint),但 👍 upvote 时只索引新 case(`maybe_index_diagnosis`),**没回填**被召回 case 的 effectiveness/hit_count -> `importance` 因子恒 = 0.5·confidence(case_retriever `_importance` 读 hit_count/effectiveness 默认 0),"越用越准"没真正成立。
+
+**做法**:
+1. `case_store.py` 加 `async def backfill_effectiveness(case_ids: list[str], *, delta: float, hit: bool = True) -> int`:Qdrant `set_payload` 把这些 case(按 case_id = point id)的 `effectiveness += delta`(clamp [0,1])、`hit_count += 1`。返回更新数。异常降级(记日志,不抛)。
+2. `api/feedback.py` upvote handler:索引新 case 后,从 checkpoint 取该 run 的 `retrieved_case_ids`(`_load_run_state` 已有 `graph.aget_state`,复用),调 `backfill_effectiveness(retrieved_case_ids, delta=+0.1)`。👎 下调(delta=-0.1)可选,留接口。
+3. 检索器 `_importance` 已读 hit_count/effectiveness -> 回填后自动生效,无需改。
+4. 单测:`backfill_effectiveness`(mock Qdrant set_payload,验 payload 值 + clamp + 异常降级)+ feedback 流程(mock checkpoint state 带 retrieved_case_ids)。
+
+**验证**:👍 一个 case -> 该 case 召回过的 case 的 effectiveness/hit_count +1;下次检索这些 case 的 importance 升、排序提前。
+
+**设计 ref**:§8.1;关联 [[long-term-memory-design-doc]]。
+
+#### B. P1-a 双向量(~1.5d)-- 突破症状相似天花板
+
+**问题**:P0 单向量(症状)有天花板(#8 基线 ②0.50 漏召回 / ③0.80 过召回)。P1-a 加 `root_cause_vector`,agent 形成根因假设后查根因向量,拿根因相似(§6.4)。
+
+**做法**:
+1. `qdrant_client.py`:collection 改 **named vectors**(`symptom` + `root_cause`,都 1024/cosine/int8)。重建 collection(库冷启动,重灌即可;`ensure_collection` 加 named-vector 分支)。
+2. `case_store._build_point`:加 `root_cause_vector = await embed_single(report.root_cause)`。point 用 `{vector: {"symptom": ..., "root_cause": ...}}`。`maybe_index_diagnosis` 改为 embed 两个向量。
+3. `case_retriever.py`:加 `search_by_root_cause(hypothesis: str, k_final=3)`(embed 假设 -> query `root_cause` named vector,复用三因子/去重/阈值)。或给 `search_historical_cases` 加 `vector: Literal["symptom","root_cause"] = "symptom"` 参数。
+4. agent:把根因检索做成 **tool**(§6.4 工具化,非静态注入)注册到 tools,agent 调查中形成根因假设后主动调。`rag_injection_enabled` 门控症状静态注入保留;工具单独开关。
+5. eval:`eval_recall_ablation.py` 加 `--vector root_cause`(15 case 的 root_cause 文本两两 cosine,跑 after 四象限表)。对比 P0 before(②0.50/③0.80),期望 **②升(同根因->根因向量似->召回)、③降(异根因->根因向量不似->不召回)**。
+
+**验证**:after 表 ② > 0.50、③ < 0.80 = 突破天花板。before(P0)/ after(P1-a) 四象限对比表 = 完整 ablation 叙事。
+
+**设计 ref**:§6.4、§5.1。
+
 ### 明确不做(过度工程 / 已决策)
 
 | 方向 | 原因 |
