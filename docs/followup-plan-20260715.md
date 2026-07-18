@@ -122,7 +122,7 @@
 | 2 | **单一可信评测 + ablation harness** | 三套评分打架(benchmark 4 / langfuse 7 / run_case 5)无法 eval-driven dev。统一为 canonical harness + 同 case 集 × 配置开关(截断 / RAG / budget)对比,产"配置 X 让 overall ±Y、token ±Z"表 | ⭐⭐⭐⭐⭐ | 2.5d |
 | 3 | **LLM judge 加固** | 单次 + 静默失败(`return 0.0` 不可区分)+ judge 不隔离。失败返 None;root_cause 维 k=3 自一致性;judge ≠ agent 强制隔离;5 case 人工一致性集报 judge-human agreement | ⭐⭐⭐⭐⭐ | 1.5d |
 | 4 | **评测完整性:激活门禁 + 可复现** | `expected_observation` 从不校验(bug 没触发也合法 case)+ 不可复现。取证后校验 log_patterns(缺失标 invalid 不入库);case metadata 记 `generator_model`/`temperature`/`generation_seed` | ⭐⭐⭐⭐ | 1d |
-| 5 | **HITL interrupt + 持久 checkpointer(收窄版,复用 CopilotKit)** | 无 HITL / 不可恢复;LangGraph 诊断标配。scope 收窄:**中断点 + 一条人工引导消息 + 从 checkpoint 恢复续查**,非完整协同编辑。复用已集成 CopilotKit(`render` 工具)做输入 UI。**依赖 #7 先做 checkpointer 地基** | ⭐⭐⭐⭐⭐ | 2d |
+| 5 | ✅ done **HITL interrupt + 持久 checkpointer(收窄版)** | 无 HITL / 不可恢复;LangGraph 诊断标配。scope 收窄:**中断点 + 一条人工引导消息 + 从 checkpoint 恢复续查**,非完整协同编辑。**已实现(2026-07-18)**:`human_input` 节点 `interrupt()` + `Command(resume=guidance)` 从持久 checkpoint 恢复;budget 耗尽 -> 暂停 -> 知情二次调查(全新 ReAct + 新预算);一次性门 `hitl_resumed`(二次耗尽直奔 END);`messages` 切 `add_messages` 跨 pass 保聊天历史;REST `POST /api/diagnose/resume` + `GET /api/diagnose/threads` + 流式 `hitl_interrupt` 事件;CopilotKit `get_state` 修暂停态 resume;`tests/graph/test_hitl.py` 6 case headless 全绿(聊天 UI 待浏览器 smoke-test)。benchmark 中性(不调 /resume 返回同一份 early_stopped 报告) | ⭐⭐⭐⭐⭐ | 2d |
 
 > HITL 诚实边界(讲清,免被当过度工程):15-case headless benchmark **无法量化** HITL 价值,价值在交互 demo + 面试叙事;走 CopilotKit 交互路径,与 benchmark headless 路径并存不冲突--与 RAG"边界判断"同理。
 
@@ -131,7 +131,7 @@
 | # | 方向 | 解决的架构/设计问题 | 信号 | 成本 |
 |---|---|---|---|---|
 | 6 | **观测"医生"**:`TokenAccountant` 接线 + `bind_log_context` 进 FastAPI middleware + per-phase 成本归因 + Langfuse↔Tempo 跨系统 trace_id 链接 | 只观测病人不观测医生;cost_usd 恒 0;trace_id 不进日志;Langfuse↔Tempo 不可导航。`trigger_trace_ids[0]` 设 doctor OTel span 属性 `diag.bug_trace_id` + Langfuse trace metadata | ⭐⭐⭐⭐ | 1.5d |
-| 7 | **`StateGraph(DoctorState)` 真 reducer + 持久 checkpointer** | reducer 声明了不跑 = 反模式;dict 覆盖;`MemorySaver` 重启丢。`StateGraph(DoctorState)` 让 reducer 真跑 + 换 SqliteSaver/PostgresSaver。**#5 HITL 的地基** | ⭐⭐⭐⭐ | 0.5d |
+| 7 | ✅ done **`StateGraph(DoctorState)` 真 reducer + 持久 checkpointer** | reducer 声明了不跑 = 反模式;dict 覆盖;`MemorySaver` 重启丢。`StateGraph(DoctorState)` 让 reducer 真跑 + 换 SqliteSaver/PostgresSaver。**#5 HITL 的地基**。已实现(commit `960d63b`) | ⭐⭐⭐⭐ | 0.5d |
 | 8 | **`RetrievalEvaluator`(消费 `retrieval_gold`)** | 死字段;code_search 头牌能力未量化。从 doctor 工具调用参数 / report `evidence_refs` 算 hit-rate 对 `retrieval_gold.code_chunks` | ⭐⭐⭐⭐ | 1d |
 
 ### T3 工具/预算契约(中 ROI,便宜)
@@ -152,7 +152,7 @@
 
 ### 推荐执行顺序(故事深度优先 + 依赖)
 
-1. **#7**(checkpointer + 真 reducer 地基,0.5d)-> **#5**(HITL 收窄版,2d):编排正确性地基 + 杀手级 demo(budget 耗尽 -> 暂停 -> 人工补一句 -> 恢复续查),连贯不堆砌。
+1. ~~**#7**~~(✅ done,commit `960d63b`)+ ~~**#5**~~(✅ done,2026-07-18):编排正确性地基 + 杀手级 demo(budget 耗尽 -> 暂停 -> 人工补一句 -> 恢复续查)已落地。**下一步:#1**(RAG 检索侧,闭合记忆 LOOP)。
 2. **#1**(RAG 检索侧,1.5d)-> **#8**(RetrievalEvaluator,1d):闭合记忆 LOOP + 量化检索,故事自洽("越用越准"且可测)。
 3. **#2**(单一可信评测 + ablation,2.5d)-> **#3**(judge 加固,1.5d)-> **#4**(激活门禁+可复现,1d):eval-driven dev 支点--#2 让 #3/#4/#8 都可量化验证。
 4. **#6**(观测医生,1.5d)+ **#9/#10/#11**(便宜除雷,1.3d)穿插。

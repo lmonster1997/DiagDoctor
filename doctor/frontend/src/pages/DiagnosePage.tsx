@@ -9,16 +9,18 @@
  */
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { CopilotChat } from "@copilotkit/react-ui";
-import { useCoAgent, useCopilotMessagesContext } from "@copilotkit/react-core";
-import { Network, FileText, Activity, Sparkles, Copy, Check } from "lucide-react";
+import { useCoAgent, useCopilotMessagesContext, useLangGraphInterrupt } from "@copilotkit/react-core";
+import { Network, FileText, Activity, Sparkles, Copy, Check, History } from "lucide-react";
 
 import { BudgetPanel } from "@/features/diagnosis/BudgetPanel";
 import { EvidenceChainGraph } from "@/features/diagnosis/EvidenceChainGraph";
 import { ReportPanel } from "@/features/diagnosis/ReportPanel";
+import { GuidanceCard, type HitlPayload } from "@/features/diagnosis/GuidanceCard";
+import { HistoryPanel } from "@/features/diagnosis/HistoryPanel";
 import { parseAgentState, type RawAgentState } from "@/features/diagnosis/parseAgentState";
 import type { BudgetState, BudgetTick } from "@/api/types";
 
-type Tab = "budget" | "graph" | "report";
+type Tab = "budget" | "graph" | "report" | "history";
 
 interface AgentState extends RawAgentState {
   budget?: BudgetState | null;
@@ -33,7 +35,7 @@ const FOLLOWUP_PROMPTS = [
 ];
 
 export default function DiagnosePage() {
-  const { state } = useCoAgent<AgentState>({ name: "default" });
+  const { state, running } = useCoAgent<AgentState>({ name: "default" });
   const { messages: chatMessages } = useCopilotMessagesContext();
 
   const { report, findings, evidence } = useMemo(
@@ -41,9 +43,41 @@ export default function DiagnosePage() {
     [state, chatMessages],
   );
 
+  // #5 F1+F2: HITL 暂停标志。收到 hitl_guidance_request -> 置 true(状态灯变
+  // "等待引导" + 抑制续问卡);resolve 包装清除,新 run 启动(running=true)时
+  // 由下方 effect 清除。
+  const [hitlPending, setHitlPending] = useState(false);
+
+  // #5 F1: HITL 引导卡(调查中)。图在 human_input 暂停时由 useLangGraphInterrupt
+  // 渲染进 <CopilotChat>。续查/采纳当前 -> CopilotKit resolve(value) ->
+  // copilotkit.runAgent({forwardedProps:{command:{resume:value}}}) ->
+  // POST /api/copilotkit/agent/default/run。调查 command.resume 为何不到后端:
+  // 详见 docs/frontend-hitl-plan.md §9.3,后端断点见 .venv/.../ag_ui_langgraph/agent.py prepare_stream。
+  useLangGraphInterrupt<HitlPayload>({
+    enabled: ({ eventValue }) => eventValue?.type === "hitl_guidance_request",
+    handler: () => {
+      setHitlPending(true);
+    },
+    render: ({ event, resolve }) => (
+      <GuidanceCard
+        payload={event.value}
+        findings={findings}
+        onResolve={async (v) => {
+          setHitlPending(false);
+          resolve(v);
+        }}
+      />
+    ),
+  });
+
   const latestTick = state.budget_ticks?.at(-1) ?? null;
   const budget = state.budget ?? null;
   const isRunning = (latestTick?.model_call_count ?? 0) > 0 && !report;
+
+  // HITL 暂停在续查/采纳后,或新诊断 run 启动时清除。
+  useEffect(() => {
+    if (running) setHitlPending(false);
+  }, [running]);
 
   const [tab, setTab] = useState<Tab>("graph");
   const [highlightedRef, setHighlightedRef] = useState<string | null>(null);
@@ -96,6 +130,27 @@ export default function DiagnosePage() {
     setTab("graph");
   };
 
+  // 状态灯 5 态(永不绿色):amber-pulse=HITL 等待引导;blue=收敛完成;
+  // amber-static=early_stopped 完成;cyan=分析中;grey=就绪。
+  const dotCls = hitlPending
+    ? "bg-amber-400 animate-breathe"
+    : report
+      ? report.early_stopped
+        ? "bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.5)]"
+        : "bg-blue-400 shadow-[0_0_6px_rgba(59,130,246,0.5)]"
+      : running
+        ? "bg-cyan-400 animate-breathe"
+        : "bg-[#5c6070]";
+  const dotTitle = hitlPending
+    ? "等待人工引导…"
+    : report
+      ? report.early_stopped
+        ? "已达最佳努力结论(预算耗尽)"
+        : "诊断完成"
+      : running
+        ? "分析中…"
+        : "就绪";
+
   return (
     <div className="flex h-full gap-0">
       {/* ── Left: Chat area (always visible, always active) ────── */}
@@ -121,14 +176,8 @@ export default function DiagnosePage() {
         <div className="flex shrink-0 items-center gap-1 border-b border-white/[0.06] px-3 py-2">
           {/* Status dot: grey → cyan pulse → blue static, NEVER green */}
           <span
-            className={`mr-1.5 size-2 shrink-0 rounded-full transition-all duration-500 ${
-              report
-                ? "bg-blue-400 shadow-[0_0_6px_rgba(59,130,246,0.5)]"
-                : isRunning
-                  ? "bg-cyan-400 animate-breathe"
-                  : "bg-[#5c6070]"
-            }`}
-            title={report ? "已有初步分析" : isRunning ? "分析中…" : "就绪"}
+            className={`mr-1.5 size-2 shrink-0 rounded-full transition-all duration-500 ${dotCls}`}
+            title={dotTitle}
           />
 
           {/* Capsule tabs: 进度 | 证据链 | 初步分析 */}
@@ -153,6 +202,12 @@ export default function DiagnosePage() {
               label="初步分析"
               dotBadge={report && !reportSeen}
               dotPulsing={dotPulsing}
+            />
+            <CapsuleTab
+              active={tab === "history"}
+              onClick={() => handleTabChange("history")}
+              icon={<History className="size-3.5" />}
+              label="历史"
             />
           </div>
         </div>
@@ -191,7 +246,31 @@ export default function DiagnosePage() {
               <BudgetPanel tick={latestTick} budget={budget} />
             </div>
           )}
+          {tab === "history" && (
+            <div key="history" className="flex flex-1 flex-col animate-fade-in-up">
+              <HistoryPanel onResumed={() => setTab("graph")} />
+            </div>
+          )}
         </div>
+
+        {/* F2: 诊断完成续问卡(收敛 / early_stopped 完成;HITL 暂停时隐藏) */}
+        {report && !hitlPending && (
+          <div className="shrink-0 border-t border-white/[0.06] p-2">
+            <div
+              className={`mb-1.5 flex items-center gap-1.5 px-1 text-[10px] font-medium uppercase tracking-wider ${
+                report.early_stopped ? "text-amber-400" : "text-blue-400"
+              }`}
+            >
+              <Check className="size-3" />
+              {report.early_stopped ? "已达最佳努力结论 · 可继续提问" : "诊断完成 · 可继续提问"}
+            </div>
+            <FollowUpCard
+              prompts={FOLLOWUP_PROMPTS}
+              copiedIdx={copiedIdx}
+              onCopy={handleCopyPrompt}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

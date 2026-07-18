@@ -14,6 +14,7 @@ from datetime import datetime
 from operator import add
 from typing import Annotated, Any, Literal
 
+from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
@@ -261,14 +262,16 @@ class DoctorState(TypedDict, total=False):
       across nodes. Essential for #5 HITL resume (a resumed run appends to
       prior findings instead of clobbering them).
     - ``total_cost``: ``add`` -> accumulate cost across the run.
-    - ``messages``: **no reducer (overwrite)** -- intentionally preserves the
-      prior CopilotKit streaming behaviour (the diagnosis node's filtered
-      AI/Tool messages become the final ``messages``). ``add_messages`` is the
-      LangGraph idiom and is what #5 HITL-resume will ultimately need, but it
-      changes what lands in the synced agent state (user HumanMessage would
-      persist); copilotkit is not installable in the local dev env so that
-      switch is deferred to #5 where the chat UI can be smoke-tested. See
-      ``docs/followup-plan-20260715.md`` #7.
+    - ``messages``: ``add_messages`` -> accumulate visible (AI/Tool) messages
+      across nodes and across HITL passes. #5 HITL resume: the chat history
+      must persist across the pause/resume boundary so the operator sees
+      pass-1 reasoning -> pause -> pass-2 reasoning in one thread. With the
+      old ``overwrite`` semantics, the second ``diagnosis_agent`` pass would
+      clobber pass-1's visible messages from the synced state. ``add_messages``
+      is the LangGraph idiom for an append-only message channel and is what
+      CopilotKit's ag-ui state sync expects. Safe for the REST/benchmark path:
+      that path carries no input chat messages, so accumulation == overwrite
+      there (no regression). See ``docs/followup-plan-20260715.md`` #5/#7.
 
     All fields are optional (``total=False``): nodes return only the keys they
     write; LangGraph initialises missing channels to ``None`` (non-reducer) or
@@ -295,8 +298,8 @@ class DoctorState(TypedDict, total=False):
     # ── Reports (V3: diagnosis_agent produces report directly; no draft_report) ──
     report: DiagnosisReport | None
 
-    # ── Message history (overwrite - see class docstring) ──
-    messages: list[Any]
+    # ── Message history (add_messages - see class docstring) ──
+    messages: Annotated[list[Any], add_messages]
 
     # ── Cost & budget ──
     total_cost: Annotated[float, add]
@@ -311,6 +314,15 @@ class DoctorState(TypedDict, total=False):
 
     # ── Early-stop flag (set by diagnosis_agent when budget exhausted) ──
     early_stopped: bool
+
+    # ── #5 HITL (interrupt + resume) ──────────────────────────────────
+    # ``human_guidance``: the operator's one-line steering hint, written by
+    # the ``human_input`` node when it resumes from ``interrupt()``. The
+    # ``diagnosis_agent`` node reads it to run an informed second pass.
+    # ``hitl_resumed``: one-shot gate -- once True, a second budget exhaustion
+    # routes straight to END instead of re-pausing (no infinite HITL loop).
+    human_guidance: str | None
+    hitl_resumed: bool
 
     # ── Metadata ──
     trace_id: str
