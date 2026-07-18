@@ -220,10 +220,9 @@ async def test_normal_completion_skips_hitl(
 # ── one-shot gate (no infinite HITL loop) ────────────────────────────
 
 
-async def test_one_shot_hitl_no_loop(
-    tmp_path: pytest.Path, fake_agent: _FakeAgent
-) -> None:
+async def test_one_shot_hitl_no_loop(tmp_path: pytest.Path, fake_agent: _FakeAgent) -> None:
     """Pass 2 also exhausts budget -> END (hitl_resumed gates a second pause)."""
+
     # Override ainvoke to flail on BOTH passes (second exhaustion on resume).
     async def always_flail(state: dict[str, Any], config: Any = None) -> dict[str, Any]:
         fake_agent.calls += 1
@@ -256,9 +255,7 @@ async def test_one_shot_hitl_no_loop(
 # ── cross-process resume (fresh graph + saver, same db + thread_id) ──
 
 
-async def test_resume_survives_fresh_graph(
-    tmp_path: pytest.Path, fake_agent: _FakeAgent
-) -> None:
+async def test_resume_survives_fresh_graph(tmp_path: pytest.Path, fake_agent: _FakeAgent) -> None:
     """A paused diagnosis resumes from a fresh graph+saver on the same db file.
 
     Mirrors test_checkpointer_reducer's persistence test: the checkpoint must

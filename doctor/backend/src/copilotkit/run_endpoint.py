@@ -18,6 +18,7 @@ registered BEFORE ``add_fastapi_endpoint`` so it takes precedence for
 forwardedProps again). Normal diagnosis runs hit this too with empty
 forwarded_props -> behaves identically to the dropped path.
 """
+
 from __future__ import annotations
 
 import uuid as _uuid

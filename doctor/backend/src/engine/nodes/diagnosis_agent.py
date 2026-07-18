@@ -134,11 +134,7 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
     if is_resume:
         prior_findings = state.get("findings", []) or []
         prior_summary = (
-            "\n".join(
-                f"- {f.summary}"
-                for f in prior_findings
-                if getattr(f, "summary", "")
-            )
+            "\n".join(f"- {f.summary}" for f in prior_findings if getattr(f, "summary", ""))
             or "(暂无)"
         )
         continuation = (
@@ -346,9 +342,7 @@ async def human_input_node(state: DoctorState) -> dict[str, Any]:
     from langgraph.types import interrupt
 
     prior_findings = state.get("findings", []) or []
-    prior_summary = "; ".join(
-        f.summary for f in prior_findings if getattr(f, "summary", "")
-    )[:500]
+    prior_summary = "; ".join(f.summary for f in prior_findings if getattr(f, "summary", ""))[:500]
     prompt = (
         "预算耗尽,诊断未收敛。"
         f"已收集 {len(prior_findings)} 条发现"
