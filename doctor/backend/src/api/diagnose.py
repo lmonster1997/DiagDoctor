@@ -203,6 +203,28 @@ async def _stream_graph(thread_id: str, state: dict[str, Any]) -> AsyncIterator[
         # Fetch the persisted checkpoint state to access budget/findings/
         # evidence/correlations/timeline alongside the report.
         snapshot = await graph.aget_state(config)
+
+        # -- #5 HITL: if the graph paused (budget exhausted before
+        # convergence), surface the interrupt so the client can collect
+        # guidance and POST /api/diagnose/resume instead of treating the
+        # best-effort early_stopped report as final. --
+        if snapshot.next:
+            interrupt_payload: dict[str, Any] | None = None
+            for task in snapshot.tasks:
+                if task.interrupts:
+                    interrupt_payload = task.interrupts[0].value
+                    break
+            hitl_data = {
+                "event": "hitl_interrupt",
+                "thread_id": thread_id,
+                "prompt": (interrupt_payload or {}).get("prompt", "预算耗尽,请补充人工引导。"),
+                "prior_findings_count": (interrupt_payload or {}).get("prior_findings_count", 0),
+                "early_stopped": bool((snapshot.values or {}).get("early_stopped")),
+                "next": list(snapshot.next),
+            }
+            yield f"data: {json.dumps(hitl_data, default=str)}\n\n"
+            return
+
         final_state: dict[str, Any] = snapshot.values or {}
         payload = _extract_evidence_payload(final_state)
 
@@ -290,6 +312,14 @@ async def diagnose(
             detail=f"Graph execution failed: {e}",
         ) from e
 
+    return _response_from_state(thread_id, final_state)
+
+
+# -- #5 HITL: resume a paused diagnosis + list resumable threads ----------
+
+
+def _response_from_state(thread_id: str, final_state: dict[str, Any]) -> DiagnoseResponse:
+    """Build a DiagnoseResponse from a graph state dict (shared by diagnose + resume)."""
     report = final_state.get("report")
     # V3: categories are embedded in DiagnosisReport (diagnosis_agent output),
     # NOT in triage (triage node was removed in V3).
@@ -302,7 +332,6 @@ async def diagnose(
             categories = list(report.categories) if report.categories else []
     findings = final_state.get("findings", [])
     payload = _extract_evidence_payload(final_state)
-
     return DiagnoseResponse(
         thread_id=thread_id,
         report=report,
@@ -314,3 +343,114 @@ async def diagnose(
         evidence=payload["evidence"],
         correlations=payload["correlations"],
     )
+
+
+class ResumeRequest(BaseModel):
+    """Request body for the diagnose resume endpoint (#5 HITL)."""
+
+    thread_id: str = Field(..., description="The paused diagnosis thread_id to resume.")
+    guidance: str = Field(
+        default="",
+        description=(
+            "Operator guidance line. Non-empty re-enters the diagnosis agent "
+            "for an informed second pass; empty accepts the current best-effort "
+            "(early_stopped) report."
+        ),
+    )
+
+
+@router.post("/diagnose/resume", response_model=None)
+async def resume_diagnosis(request: ResumeRequest) -> DiagnoseResponse:
+    """Resume a paused (HITL-interrupted) diagnosis with operator guidance.
+
+    The diagnosis must have paused at the ``human_input`` node (budget
+    exhausted before convergence, ``early_stopped``). Non-empty ``guidance``
+    re-enters the diagnosis agent for an informed second pass; empty guidance
+    accepts the current best-effort report. Returns the (possibly improved)
+    final report after the resumed run.
+    """
+    from langgraph.types import Command
+
+    graph = get_copilotkit_graph()
+    config: dict[str, Any] = {"configurable": {"thread_id": request.thread_id}}
+
+    snapshot = await graph.aget_state(config)
+    if not snapshot or not snapshot.next:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "No paused diagnosis to resume for this thread_id "
+                "(none exists or it already completed)."
+            ),
+        )
+
+    try:
+        await graph.ainvoke(Command(resume=request.guidance), config)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Resume failed: {e}") from e
+
+    final_state = (await graph.aget_state(config)).values or {}
+    logger.info(
+        "diagnose_resume_done",
+        thread_id=request.thread_id,
+        early_stopped=bool(final_state.get("early_stopped")),
+        hitl_resumed=bool(final_state.get("hitl_resumed")),
+        guidance_len=len(request.guidance),
+    )
+    return _response_from_state(request.thread_id, final_state)
+
+
+@router.get("/diagnose/threads", response_model=None)
+async def list_diagnosis_threads(
+    limit: int = Query(50, ge=1, le=200, description="Max threads to return."),
+) -> dict[str, Any]:
+    """List recent diagnosis threads from the checkpoint store.
+
+    Thin enabler for a frontend 'resume a paused diagnosis' list. Each entry
+    is the latest checkpoint for a thread:
+
+    - ``paused``: mid-graph (e.g. awaiting HITL guidance) -> resumable via
+      POST /api/diagnose/resume.
+    - ``completed``: reached END with a report.
+    - ``empty``: no values yet.
+
+    Paused threads are listed first.
+    """
+    graph = get_copilotkit_graph()
+    saver = getattr(graph, "checkpointer", None)
+    if saver is None:
+        return {"threads": []}
+
+    seen: dict[str, dict[str, Any]] = {}
+    # alist yields checkpoints latest-first across all threads; over-fetch
+    # then dedup to `limit` unique thread_ids.
+    async for tup in saver.alist(None, limit=limit * 10):
+        cfg = tup.config or {}
+        tid = cfg.get("configurable", {}).get("thread_id")
+        if not tid or tid in seen:
+            continue
+        seen[tid] = cfg
+        if len(seen) >= limit:
+            break
+
+    threads: list[dict[str, Any]] = []
+    for tid, cfg in seen.items():
+        snap = await graph.aget_state(cfg)
+        vals = snap.values or {}
+        is_paused = bool(snap.next)
+        report = vals.get("report")
+        status = "paused" if is_paused else ("completed" if report else "empty")
+        threads.append(
+            {
+                "thread_id": tid,
+                "case_id": vals.get("case_id"),
+                "status": status,
+                "early_stopped": bool(vals.get("early_stopped")),
+                "hitl_resumed": bool(vals.get("hitl_resumed")),
+                "findings_count": len(vals.get("findings") or []),
+                "has_report": bool(report),
+                "next": list(snap.next or []),
+            }
+        )
+    threads.sort(key=lambda t: (t["status"] != "paused",))
+    return {"threads": threads}

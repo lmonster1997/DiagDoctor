@@ -5,8 +5,9 @@ Covers the two halves of followup-plan #7:
    ``add`` reducers on ``findings`` / ``hypotheses`` / ``budget_ticks`` /
    ``total_cost`` actually accumulate across nodes (the old ``StateGraph(dict)``
    declared them but they were dead -- node returns did dict-overwrite).
-   ``messages`` is intentionally overwrite (preserves CopilotKit streaming
-   behaviour; ``add_messages`` deferred to #5 HITL-resume).
+   ``messages`` uses ``add_messages`` (#5 HITL-resume: the chat history
+   accumulates across the pause/resume boundary so pass-1 reasoning survives
+   into the resumed thread).
 2. **Persistent checkpointer**: ``_LazyAsyncSqliteSaver`` materialises an
    ``AsyncSqliteSaver`` on first use and persists checkpoints to SQLite, so a
    fresh graph+saver reading the same db file + thread_id recovers prior state
@@ -34,7 +35,7 @@ from src.engine.state import DoctorState, Finding
 
 
 async def _node_a(state: DoctorState) -> dict[str, Any]:
-    """First node: writes findings + total_cost (add) and messages (overwrite)."""
+    """First node: writes findings + total_cost (add) and messages (add_messages)."""
     return {
         "findings": [Finding(summary="f1", confidence=0.5)],
         "total_cost": 0.5,
@@ -43,7 +44,7 @@ async def _node_a(state: DoctorState) -> dict[str, Any]:
 
 
 async def _node_b(state: DoctorState) -> dict[str, Any]:
-    """Second node: appends findings + total_cost; overwrites messages."""
+    """Second node: appends findings + total_cost; appends messages (add_messages)."""
     return {
         "findings": [Finding(summary="f2", confidence=0.7)],
         "total_cost": 0.3,
@@ -86,20 +87,20 @@ class TestReducersRun:
 
         assert result["total_cost"] == pytest.approx(0.8)  # 0.5 + 0.3
 
-    async def test_messages_overwrite_not_accumulate(self, tmp_path: Any) -> None:
-        """messages has no reducer -> node b overwrites node a's messages.
+    async def test_messages_accumulate_via_add_messages(self, tmp_path: Any) -> None:
+        """messages uses add_messages -> node b appends to node a's messages.
 
-        Intentional: preserves CopilotKit streaming behaviour (the diagnosis
-        node's filtered AI/Tool messages become the final state). add_messages
-        is deferred to #5 HITL-resume.
+        #5 HITL-resume requires the chat history to accumulate across the
+        pause/resume boundary (both passes' visible messages persist in the
+        synced state) instead of the second pass clobbering the first.
         """
         saver = _LazyAsyncSqliteSaver(str(tmp_path / "ck.db"))
         graph = _build_test_graph(saver)
         result = await graph.ainvoke({}, {"configurable": {"thread_id": "t1"}})
 
         messages: list[Any] = result["messages"]
-        assert len(messages) == 1
-        assert messages[0].content == "msg-b"  # last write wins, not [msg-a, msg-b]
+        contents = [m.content for m in messages]
+        assert contents == ["msg-a", "msg-b"]  # add_messages -> accumulated
 
 
 # ═════════════════════════════════════════════════════════════════════

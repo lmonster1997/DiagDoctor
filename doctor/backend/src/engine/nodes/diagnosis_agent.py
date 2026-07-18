@@ -1,32 +1,47 @@
 """
-CopilotKit diagnosis graph — BugInfo → DiagnosisAgent.
+CopilotKit diagnosis graph - BugInfo -> DiagnosisAgent -> (HITL) -> END.
 
-This graph replaces the original single-subgraph approach for CopilotKit.
-Instead of wrapping only ``get_diagnosis_agent()``, it provides a 2-node
-pipeline:
+3-node pipeline with a Human-In-The-Loop (HITL) resume branch:
 
-    START → bug_info → diagnosis_agent → END
+    START -> bug_info -> diagnosis_agent -> [route_after_diagnosis]
+                                                 |
+                         early_stopped & !hitl_resumed -> human_input (interrupt)
+                         else                              -> END
+                                                 |
+                         (resumed w/ guidance) -> diagnosis_agent (pass 2) -> END
+                         (resumed w/ empty)    -> END (accept current report)
 
 **BugInfo node**: parses the user's free-text chat message, extracts
 structured bug info (description, trigger_time, trace_ids), auto-prefetches
 logs+traces from Loki/Tempo, and normalizes them into ``NormalizedEvidence``.
 
 **DiagnosisAgent node**: consumes the normalized evidence identically to
-the REST API path — formats it into a system+human message pair, invokes
-the ``create_agent`` subgraph (with all 5 middlewares), and produces a
-structured diagnosis report.
+the REST API path - formats it into a system+human message pair, invokes
+the ``create_agent`` subgraph (with all 6 middlewares), and produces a
+structured diagnosis report. On HITL resume (``human_guidance`` present),
+it builds a *continuation* message set (prior findings summary + operator
+guidance) and runs an informed second ReAct pass with a fresh budget.
 
-State schema: typed ``DoctorState`` (TypedDict) so the declared ``add`` reducers
-on findings/hypotheses/budget_ticks/total_cost actually run (``messages`` is
-overwrite - preserves CopilotKit streaming; add_messages deferred to #5 HITL).
-Compiled with a persistent SQLite checkpointer (``_LazyAsyncSqliteSaver`` ->
-``data/checkpoints.db``) instead of in-memory MemorySaver. See state.py +
-checkpointer.py.
+**HumanInput node**: the #5 HITL interrupt point. When budget exhausts
+before convergence (``early_stopped``), the graph pauses here via
+``interrupt()`` and waits for one operator guidance line. Resume with
+``Command(resume=<guidance>)`` (same ``thread_id``) - non-empty guidance
+re-enters ``diagnosis_agent`` for a second pass; empty guidance accepts
+the current best-effort report. One-shot: ``hitl_resumed`` gates a single
+HITL cycle (a second exhaustion routes straight to END).
+
+State schema: typed ``DoctorState`` (TypedDict) so the declared ``add``
+reducers on findings/hypotheses/budget_ticks/total_cost actually run, and
+``messages`` uses ``add_messages`` so the chat history persists across the
+pause/resume boundary. Compiled with a persistent SQLite checkpointer
+(``_LazyAsyncSqliteSaver`` -> ``data/checkpoints.db``) so a paused diagnosis
+survives process restarts and can be resumed later. See state.py +
+checkpointer.py + ``docs/followup-plan-20260715.md`` #5/#7.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from src.engine.agent import (
     _build_system_prompt,
@@ -38,10 +53,8 @@ from src.engine.run_context import (
     clear_run_context,
     set_run_context,
 )
+from src.engine.state import DoctorState
 from src.observability.logger import get_logger
-
-if TYPE_CHECKING:
-    from src.engine.state import DoctorState
 
 logger = get_logger(__name__)
 
@@ -109,10 +122,46 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
     )
 
     base_prompt = _build_system_prompt()
-    initial_messages: list[BaseMessage] = [
-        SystemMessage(content=base_prompt),
-        HumanMessage(content=evidence_text),
-    ]
+
+    # ── #5 HITL resume: if resuming with operator guidance, build a
+    #     continuation message set (prior findings summary + guidance)
+    #     instead of the fresh initial pair. The inner agent runs an
+    #     informed second ReAct pass with a fresh budget (a new
+    #     DiagnosisRunContext is constructed below). ──
+    human_guidance = state.get("human_guidance")
+    is_resume = bool(human_guidance and str(human_guidance).strip())
+
+    if is_resume:
+        prior_findings = state.get("findings", []) or []
+        prior_summary = (
+            "\n".join(
+                f"- {f.summary}"
+                for f in prior_findings
+                if getattr(f, "summary", "")
+            )
+            or "(暂无)"
+        )
+        continuation = (
+            "【续查模式】上一轮调查因预算耗尽未收敛。\n"
+            f"已收集发现:\n{prior_summary}\n\n"
+            f"操作员补充引导: {human_guidance}\n\n"
+            "请基于已有发现和引导继续调查,并输出最终诊断报告 JSON。"
+        )
+        initial_messages: list[BaseMessage] = [
+            SystemMessage(content=base_prompt),
+            HumanMessage(content=evidence_text),
+            HumanMessage(content=continuation),
+        ]
+        logger.info(
+            "copilotkit_diag_hitl_resume_pass",
+            case_id=case_id,
+            prior_findings=len(prior_findings),
+        )
+    else:
+        initial_messages = [
+            SystemMessage(content=base_prompt),
+            HumanMessage(content=evidence_text),
+        ]
 
     # ── Langfuse setup (graceful degradation) ────────────────────
     langfuse_handler = None
@@ -270,26 +319,97 @@ def _finalize_langfuse_trace(
 # Graph construction
 # ═════════════════════════════════════════════════════════════════════
 
+# ═════════════════════════════════════════════════════════════════════
+# #5 HITL - HumanInput node + routing
+# ═════════════════════════════════════════════════════════════════════
+
+
+async def human_input_node(state: DoctorState) -> dict[str, Any]:
+    """HITL interrupt point: pause for one operator guidance line.
+
+    Reached when ``diagnosis_agent`` exhausted its budget before converging
+    (``early_stopped``) and no HITL cycle has run yet (``not hitl_resumed``).
+    Pauses the graph via ``interrupt()``; the checkpoint is persisted so the
+    diagnosis can be resumed later (even after a process restart) by
+    re-invoking the graph with ``Command(resume=<guidance>)`` on the same
+    ``thread_id``.
+
+    Resume semantics:
+    - non-empty guidance -> re-enter ``diagnosis_agent`` for an informed
+      second pass (operator steers the investigation).
+    - empty guidance -> accept the current best-effort (early_stopped) report
+      and end (operator declines to steer).
+
+    ``hitl_resumed`` is set either way so a subsequent budget exhaustion
+    routes straight to END (one-shot HITL, no infinite pause loop).
+    """
+    from langgraph.types import interrupt
+
+    prior_findings = state.get("findings", []) or []
+    prior_summary = "; ".join(
+        f.summary for f in prior_findings if getattr(f, "summary", "")
+    )[:500]
+    prompt = (
+        "预算耗尽,诊断未收敛。"
+        f"已收集 {len(prior_findings)} 条发现"
+        f"{'(' + prior_summary + ')' if prior_summary else ''}。"
+        "请补充一句人工引导(如可疑方向/已知线索),agent 将据此续查;"
+        "留空则直接采纳当前 best-effort 结论。"
+    )
+    guidance = interrupt(
+        {
+            "type": "hitl_guidance_request",
+            "prompt": prompt,
+            "prior_findings_count": len(prior_findings),
+            "early_stopped": True,
+        }
+    )
+    guidance_str = str(guidance).strip() if guidance else ""
+    logger.info(
+        "copilotkit_hitl_human_input_resumed",
+        case_id=state.get("case_id") or "",
+        guidance_len=len(guidance_str),
+        accept_current=not guidance_str,
+    )
+    return {"human_guidance": guidance_str or None, "hitl_resumed": True}
+
+
+def _route_after_diagnosis(state: DoctorState) -> str:
+    """Route after diagnosis_agent: pause for HITL on first budget exhaustion.
+
+    - ``early_stopped`` and not yet resumed -> ``human_input`` (pause).
+    - otherwise (converged, or already resumed) -> ``end``.
+
+    One-shot: once ``hitl_resumed`` is True, a second exhaustion goes
+    straight to END instead of re-pausing.
+    """
+    early_stopped = bool(state.get("early_stopped"))
+    hitl_resumed = bool(state.get("hitl_resumed"))
+    if early_stopped and not hitl_resumed:
+        return "human_input"
+    return "end"
+
+
+def _route_after_human_input(state: DoctorState) -> str:
+    """Route after human_input: re-investigate only if guidance was provided."""
+    if state.get("human_guidance"):
+        return "diagnosis_agent"
+    return "end"
+
+
 _copilotkit_graph_instance: Any = None
 
 
-def build_copilotkit_graph() -> Any:
+def build_copilotkit_graph(checkpointer: Any = None) -> Any:
     """Build the CopilotKit diagnosis graph.
 
-    2-node linear pipeline:
-        START → bug_info → diagnosis_agent → END
+    3-node pipeline with a HITL resume branch (see module docstring).
 
-    State: typed ``DoctorState`` (TypedDict) so the declared ``add`` reducers
-    on ``findings`` / ``hypotheses`` / ``budget_ticks`` / ``total_cost`` actually
-    run (the old ``StateGraph(dict)`` declared them but they were dead — node
-    returns did dict-overwrite). See ``src/engine/state.py``.
-
-    Compiled with a persistent SQLite checkpointer (``_LazyAsyncSqliteSaver`` ->
-    ``data/checkpoints.db``) instead of the in-memory ``MemorySaver``: checkpoints
-    now survive process restarts, which is the foundation for #5 HITL
-    (``interrupt()`` + resume). The lazy proxy is required because the graph is
-    compiled at module-load (sync, no event loop) while ``AsyncSqliteSaver``
-    needs a running loop at construction. See ``src/engine/checkpointer.py``.
+    Args:
+        checkpointer: optional ``BaseCheckpointSaver``. Defaults to the
+            persistent ``_LazyAsyncSqliteSaver`` (``data/checkpoints.db``).
+            Tests pass an isolated temp-file saver to avoid cross-test
+            checkpoint leakage.
     """
     from langgraph.graph import END, StateGraph
 
@@ -300,12 +420,25 @@ def build_copilotkit_graph() -> Any:
 
     builder.add_node("bug_info", bug_info_node)
     builder.add_node("diagnosis_agent", _diagnosis_agent_node)
+    builder.add_node("human_input", human_input_node)
 
     builder.set_entry_point("bug_info")
     builder.add_edge("bug_info", "diagnosis_agent")
-    builder.add_edge("diagnosis_agent", END)
+    # #5 HITL: on first budget exhaustion (early_stopped, not yet resumed)
+    # pause at human_input; otherwise END. Empty guidance -> END (accept
+    # current); non-empty -> diagnosis_agent second pass. See _route_*.
+    builder.add_conditional_edges(
+        "diagnosis_agent",
+        _route_after_diagnosis,
+        {"human_input": "human_input", "end": END},
+    )
+    builder.add_conditional_edges(
+        "human_input",
+        _route_after_human_input,
+        {"diagnosis_agent": "diagnosis_agent", "end": END},
+    )
 
-    return builder.compile(checkpointer=make_checkpointer())
+    return builder.compile(checkpointer=checkpointer or make_checkpointer())
 
 
 def get_copilotkit_graph() -> Any:

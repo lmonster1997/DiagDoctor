@@ -48,13 +48,24 @@ class DiagDoctorAgent(LangGraphAGUIAgent):
             await asyncio.sleep(0)
 
     async def get_state(self, *, thread_id: str) -> dict[str, Any]:
-        """Smart resume: fresh if completed, resume if interrupted."""
+        """Smart resume: resume if paused/interrupted or no report; fresh if completed.
+
+        #5 HITL: a diagnosis paused at the ``human_input`` interrupt has
+        ``state.next`` non-empty (the graph is mid-execution). CopilotKit must
+        resume from that checkpoint, not start fresh -- otherwise the paused
+        HITL state (prior findings, the early_stopped report, the pending
+        guidance request) is lost and the operator can never steer the run.
+        """
         try:
             state = await self.graph.aget_state({"configurable": {"thread_id": thread_id}})
             values = state.values or {}
-            has_report = bool(values.get("report"))
-            if has_report:
+            # Paused mid-graph (e.g. at the human_input interrupt) -> resume.
+            if state.next:
+                return {"threadId": thread_id, "threadExists": True, "state": values}
+            # Completed run with a report -> fresh start.
+            if bool(values.get("report")):
                 return {"threadId": thread_id, "threadExists": False, "state": {}}
+            # No report and not paused -> resume whatever partial state exists.
             return {
                 "threadId": thread_id,
                 "threadExists": bool(values),
