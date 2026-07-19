@@ -182,21 +182,13 @@ P1 测试 case(体现效果,非 benchmark 跑分):
 > 本会话完成 #1(RAG 检索侧静态注入)+ #8(召回 ablation 评测,commit `a38f411` on `feat/RAG`)。
 > 跑 embed 见记忆 `bge-m3-local-model-setup`(HF 被 SSL 拦,走 ModelScope 下到 `D:/hf_cache`,带 `BGE_M3_LOCAL_PATH` + `HF_HUB_OFFLINE=1`)。
 > P0 基线(bge-m3, recall@3)已在 #8 行:①同根同症状 1.00 / ②同根异症状 0.50(天花板)/ ③异根同症状 0.80(过召回)/ ④异根异症状 0.16。
-> 下一步两块,按顺序:
+> 下一步:P1-a 双向量(B,见下)。A(§8.1 反馈回填)已完成 ✅,见下。
 
-#### A. 反馈回填(§8.1,~0.5d)-- 闭合"越用越准"闭环
+#### A. 反馈回填(§8.1)-- ✅ 已完成
 
-**问题**:#1 已把 `retrieved_case_ids` 捕获进 `DoctorState`(诊断时召回的 case 列表,持久到 checkpoint),但 👍 upvote 时只索引新 case(`maybe_index_diagnosis`),**没回填**被召回 case 的 effectiveness/hit_count -> `importance` 因子恒 = 0.5·confidence(case_retriever `_importance` 读 hit_count/effectiveness 默认 0),"越用越准"没真正成立。
+✅ 已实现(on `feat/RAG`):`case_store.backfill_effectiveness`(Qdrant retrieve->set_payload read-modify-write,effectiveness clamp[0,1]、hit_count +1 on 👍,异常降级返回更新数)+ `feedback.py` upvote(👍 delta=+0.1/hit=True)/downvote(👎 delta=-0.1/hit=False)接入,均 fire-and-forget;backfill 独立于新 case 索引成败(👍 认可诊断即认可召回参考);`_load_run_state` 增返 `retrieved_case_ids`;`_importance` 已读 hit_count/effectiveness -> 回填后自动生效。单测 `tests/memory/test_case_store.py`(8)+ `tests/test_feedback.py`(7)全绿。详见 `current-status.md` §2.6。设计 ref §8.1;关联 [[long-term-memory-design-doc]]。
 
-**做法**:
-1. `case_store.py` 加 `async def backfill_effectiveness(case_ids: list[str], *, delta: float, hit: bool = True) -> int`:Qdrant `set_payload` 把这些 case(按 case_id = point id)的 `effectiveness += delta`(clamp [0,1])、`hit_count += 1`。返回更新数。异常降级(记日志,不抛)。
-2. `api/feedback.py` upvote handler:索引新 case 后,从 checkpoint 取该 run 的 `retrieved_case_ids`(`_load_run_state` 已有 `graph.aget_state`,复用),调 `backfill_effectiveness(retrieved_case_ids, delta=+0.1)`。👎 下调(delta=-0.1)可选,留接口。
-3. 检索器 `_importance` 已读 hit_count/effectiveness -> 回填后自动生效,无需改。
-4. 单测:`backfill_effectiveness`(mock Qdrant set_payload,验 payload 值 + clamp + 异常降级)+ feedback 流程(mock checkpoint state 带 retrieved_case_ids)。
-
-**验证**:👍 一个 case -> 该 case 召回过的 case 的 effectiveness/hit_count +1;下次检索这些 case 的 importance 升、排序提前。
-
-**设计 ref**:§8.1;关联 [[long-term-memory-design-doc]]。
+> **2026-07-19 live 闭环修正**:上面 §8.1 此前按单测标 ✅,但 live CopilotKit 👍 路径被 case_id desync 卡着 404(`test_feedback.py` `_patch_graph` mock 图,未覆盖真实链路)。已修:`bug_info_node` 从 `config["configurable"]["thread_id"]` 设 `case_id`(图单一 owns,`_build_initial_state` 不再设),与 checkpointer 寻址同 key -> `case_id == checkpoint thread_id` 构造保证;CopilotKit live 👍 链路(写入+检索)已验证通过。详见 `current-status.md` §2.6。
 
 #### B. P1-a 双向量(~1.5d)-- 突破症状相似天花板
 

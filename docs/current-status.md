@@ -73,6 +73,8 @@ middleware 顺序:`AgentLifecycle -> ToolDedup -> LangfuseTracing -> ToolTruncat
 - ✅ `case_store.maybe_index_diagnosis` 写入侧(用户点赞触发);写侧三分离(embedding 只症状,诊断输出进 payload,§4)
 - ✅ 检索侧 `case_retriever.search_historical_cases`(三因子 relevance×recency×importance + 自排 + trace 去重 + 阈值 + 空召回/异常降级)+ `_diagnosis_agent_node` 首次 pass §6.5 静态注入;HITL resume 从 `similar_cases_text` 缓存重注入不 re-query;`rag_injection_enabled` 开关;`retrieved_case_ids`/`similar_cases_text` 入 DoctorState -> A5 done
 - ✅ 检索召回评测 `recall_ablation`(§9.1/§9.3):15 case 成对 symptom-cosine 四象限 recall@k,实证 P0 症状相似天花板(根因似症状异 BE-022↔FE-021 召回低 -> P1-a 突破基线);`recall_ablation.py` + `scripts/eval_recall_ablation.py` + 单测 -> #8 done
+- ✅ 反馈回填 §8.1 闭合"越用越准"环:`case_store.backfill_effectiveness`(Qdrant retrieve->set_payload read-modify-write,effectiveness clamp[0,1],hit_count +1 on 👍,异常降级返回更新数)+ `feedback.py` upvote(👍 delta=+0.1/hit=True)/downvote(👎 delta=-0.1/hit=False)接入,均 fire-and-forget;backfill 独立于新 case 索引成败(👍 认可诊断即认可召回参考);`_load_run_state` 增返 `retrieved_case_ids`;`_importance` 已读 hit_count/effectiveness -> 回填后自动生效;单测 backfill + feedback 流程 -> §8.1 done
+- ✅ case_id 注入修复(闭合 §8.1 **live** 环):`bug_info_node` 从 `config["configurable"]["thread_id"]` 设 `case_id`/`trace_id`/`session_id`(if 未设,与 checkpointer 寻址同 key -> `case_id == checkpoint thread_id` 构造保证);图单一 owns,`_build_initial_state` 不再设。修 CopilotKit 路径 `state.case_id=None`(前端 👍 fallback 到 desync 的 `useCopilotContext().threadId` -> `feedback._load_run_state` 404)。注:`test_feedback.py` `_patch_graph` mock 图 -> §8.1 单测早绿但 live 👍 路径此前是断的;本次 live 验证通过。新增 `test_bug_info_sets_case_id_from_config_thread_id`
 - (设计见 `long_term_memory_design.md`,权威)
 
 ### 2.7 security

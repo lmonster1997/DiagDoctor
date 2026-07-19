@@ -109,8 +109,14 @@ class DiagnoseResponse(BaseModel):
 # ── Internal helpers ────────────────────────────────────────────────
 
 
-def _build_initial_state(request: DiagnoseRequest, thread_id: str) -> dict[str, Any]:
-    """Build the initial DoctorState dict for the graph invocation (v2)."""
+def _build_initial_state(request: DiagnoseRequest) -> dict[str, Any]:
+    """Build the initial DoctorState dict for the graph invocation (v2).
+
+    case_id/trace_id/session_id are NOT set here -- the graph's entry node
+    (``bug_info_node``) owns them, deriving from ``config.thread_id`` so
+    case_id == checkpoint thread_id by construction (single source of truth,
+    works for both REST and CopilotKit paths). See ``bug_info.py``.
+    """
     # Inject trigger_time into evidence if provided at top level
     if request.trigger_time and not request.evidence.trigger_time:
         request.evidence.trigger_time = request.trigger_time
@@ -120,9 +126,6 @@ def _build_initial_state(request: DiagnoseRequest, thread_id: str) -> dict[str, 
 
     return {
         "raw_evidence": request.evidence,
-        "case_id": thread_id,
-        "trace_id": thread_id,
-        "session_id": thread_id,
         "langfuse_trace_id": request.langfuse_trace_id,
         "langfuse_session_id": request.langfuse_session_id,
     }
@@ -287,7 +290,7 @@ async def diagnose(
         )
 
     thread_id = request.thread_id or generate_thread_id()
-    initial_state = _build_initial_state(request, thread_id)
+    initial_state = _build_initial_state(request)
 
     logger.info("diagnose_request_start", thread_id=thread_id, stream=stream)
 
