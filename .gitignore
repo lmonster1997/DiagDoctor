@@ -41,3 +41,8 @@ benchmark/runs/
 # Bug-factory run outputs (generated evidence)
 # bug-factory/output/ is tracked — contains generated cases + evidence
 benchmark/output/
+
+# Debug/dump scripts (local 断点/dump 用,不入库)
+# verify_*.py / eval_*.py 仍跟踪(验证 + 评测脚本)
+doctor/backend/scripts/debug_*.py
+doctor/backend/scripts/dump_*.py
