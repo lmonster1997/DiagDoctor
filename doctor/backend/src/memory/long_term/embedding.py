@@ -24,6 +24,15 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+# 默认离线运行:TEI 不可用时 fallback 到本地 bge-m3,联网校验/下载会被 SSL
+# 拦且慢。setdefault 不覆盖用户显式设的值;TEI 路径不受影响(走 HTTP,不经
+# transformers/huggingface_hub)。hf_hub_cache 从 settings 读后注入 os.environ
+# (sentence-transformers 经 huggingface_hub 读这个 env 定位缓存根)。
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+if settings.hf_hub_cache:
+    os.environ.setdefault("HF_HUB_CACHE", settings.hf_hub_cache)
+
 # Expected dimension for bge-m3
 BGE_M3_DIM = 1024
 BGE_M3_MODEL = "BAAI/bge-m3"
@@ -38,14 +47,14 @@ def _get_local_model() -> SentenceTransformer:
     """Load (or return cached) bge-m3 via sentence-transformers.
 
     Priority:
-    1. ``BGE_M3_LOCAL_PATH`` env var — direct path to model directory
+    1. ``bge_m3_local_path`` (settings) — direct path to model directory
     2. HF Hub cache (``HF_HUB_CACHE`` / default ~/.cache/huggingface)
     """
     global _local_model
     if _local_model is None:
         from sentence_transformers import SentenceTransformer
 
-        model_path = os.environ.get("BGE_M3_LOCAL_PATH", BGE_M3_MODEL)
+        model_path = settings.bge_m3_local_path or BGE_M3_MODEL
         logger.info("loading_bge_m3", path=model_path)
         _local_model = SentenceTransformer(model_path)
         logger.info("bge_m3_loaded", device=str(_local_model.device))

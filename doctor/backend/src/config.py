@@ -53,6 +53,15 @@ class Settings(BaseSettings):
     # --- TEI (Text Embeddings Inference) — bge-m3 local embedding service ---
     tei_url: str = "http://localhost:8080"
 
+    # --- bge-m3 local model (fallback when TEI is unreachable) ---
+    # TEI 不可用时走本地 sentence-transformers。二选一(都不填则尝试 hub 下载,
+    # 会被 SSL 拦):
+    #   bge_m3_local_path: 直接指向模型目录(含 snapshot hash,机器特定)
+    #   hf_hub_cache: HF cache 根,让 ``SentenceTransformer("BAAI/bge-m3")`` 按
+    #                 refs/main 解析(推荐,不写死 hash,换机器只改根路径)
+    bge_m3_local_path: str = ""
+    hf_hub_cache: str = ""
+
     # --- Qdrant ---
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: SecretStr = SecretStr("")
