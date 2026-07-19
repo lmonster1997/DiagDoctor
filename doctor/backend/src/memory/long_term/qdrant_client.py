@@ -23,8 +23,10 @@ logger = get_logger(__name__)
 COLLECTION_NAME = "historical_cases"
 VECTOR_SIZE = 1024  # bge-m3
 DISTANCE = models.Distance.COSINE
-QUANTIZATION = models.ScalarQuantizationConfig(
-    type=models.ScalarType.INT8,
+QUANTIZATION = models.ScalarQuantization(
+    scalar=models.ScalarQuantizationConfig(
+        type=models.ScalarType.INT8,
+    ),
 )
 HNSW_CONFIG = models.HnswConfigDiff(m=16, ef_construct=200)
 
