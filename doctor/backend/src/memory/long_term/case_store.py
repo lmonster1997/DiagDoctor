@@ -3,6 +3,9 @@ Historical case store - index 👍-approved diagnosis reports into Qdrant.
 
 P0 scope:
 - ``maybe_index_diagnosis()``: validate -> embed -> upsert, async fire-and-forget
+- ``backfill_effectiveness()``: 👍/👎 write-back of ``effectiveness`` / ``hit_count``
+  on the cases recalled during a diagnosis (§8.1) -- closes the "越用越准" loop
+  that ``maybe_index_diagnosis`` alone leaves open.
 - ``build_symptom_passage()`` (from ``encoding``): the embedding passage --
   symptom-only, shared with the query side (recall/utilization 三分离, §4)
 - ``_dedup_exists()``: check trace_id duplicates (warn, don't reject)
@@ -206,3 +209,84 @@ async def maybe_index_diagnosis(
     except Exception:
         logger.error("qdrant_upsert_failed", exc_info=True)
         return False
+
+
+# ═════════════════════════════════════════════════════════════════════
+# Feedback backfill (design §8.1) - close the "越用越准" loop
+# ═════════════════════════════════════════════════════════════════════
+# #1 captures the case_ids recalled during diagnosis into ``DoctorState``
+# (``retrieved_case_ids``), but indexing the *new* case on 👍 alone doesn't
+# touch those recalled cases -- so ``_importance`` (case_retriever) keeps
+# reading ``hit_count`` / ``effectiveness`` = 0 and the loop never tightens.
+# This function is the write-back half: 👍 the diagnosis -> the cases that
+# were recalled (and helped) get credited.
+
+
+async def backfill_effectiveness(
+    case_ids: list[str],
+    *,
+    delta: float,
+    hit: bool = True,
+) -> int:
+    """Backfill ``effectiveness`` / ``hit_count`` on recalled cases (§8.1).
+
+    - 👍 (``hit=True``, ``delta>0``): the recalled cases helped reach a
+      diagnosis the user endorsed -> ``effectiveness += delta`` (clamped to
+      ``[0, 1]``) and ``hit_count += 1``.
+    - 👎 (``hit=False``, ``delta<0``): ``effectiveness`` is decremented
+      (clamped); ``hit_count`` is left unchanged -- a 👎 is not a confirming
+      hit (it's still a *retrieval* hit, but ``hit_count`` here is the
+      "useful retrieval" counter the importance formula rewards).
+
+    Qdrant ``set_payload`` overwrites with a literal value (no native
+    increment), so this is a read-modify-write: retrieve current payloads by
+    point id (``case_id == point id`` by design §3.10), compute the new
+    values, then ``set_payload`` per point. A ``case_id`` no longer present
+    (deleted / never indexed) is silently skipped -- ``retrieve`` just omits
+    it from the result.
+
+    Returns the number of points actually updated. Any failure degrades to a
+    logged warning and returns 0 (or a partial count): feedback is a gain,
+    not a dependency -- mirrors ``case_retriever`` / ``maybe_index_diagnosis``.
+    """
+    if not case_ids:
+        return 0
+
+    try:
+        client = await get_qdrant_client()
+        records = await client.retrieve(
+            collection_name=COLLECTION_NAME,
+            ids=case_ids,
+            with_payload=True,
+            with_vectors=False,
+        )
+    except Exception:
+        logger.warning("backfill_retrieve_failed", case_ids=case_ids, exc_info=True)
+        return 0
+
+    updated = 0
+    for record in records:
+        payload = dict(record.payload or {})
+        old_eff = float(payload.get("effectiveness", 0.0) or 0.0)
+        old_hits = int(payload.get("hit_count", 0) or 0)
+        new_eff = max(0.0, min(1.0, old_eff + delta))
+        new_hits = old_hits + 1 if hit else old_hits
+        try:
+            await client.set_payload(
+                collection_name=COLLECTION_NAME,
+                payload={"effectiveness": new_eff, "hit_count": new_hits},
+                points=[record.id],
+            )
+            updated += 1
+        except Exception:
+            logger.warning("backfill_set_payload_failed", point_id=str(record.id), exc_info=True)
+
+    logger.info(
+        "backfill_effectiveness_done",
+        requested=len(case_ids),
+        found=len(records),
+        updated=updated,
+        delta=delta,
+        hit=hit,
+    )
+    return updated
