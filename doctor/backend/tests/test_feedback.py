@@ -9,7 +9,7 @@ Covers: upvote indexes the new case AND backfills recalled cases; backfill
 runs even when indexing is hard-guard-skipped (the §8.1 invariant -- a 👍
 endorses the diagnosis, which validates the references regardless of whether
 the new case landed); upvote with no recalled cases skips backfill; 404 when
-no report; downvote backfills with delta=-0.1 / hit=False and never indexes.
+no report; downvote logs only and never backfills or indexes (design §8.1/§8.2).
 """
 
 from __future__ import annotations
@@ -186,7 +186,7 @@ async def test_upvote_404_when_no_report(monkeypatch: pytest.MonkeyPatch) -> Non
 # ── downvote ───────────────────────────────────────────────────────
 
 
-async def test_downvote_backfills_with_negative_delta_and_hit_false(
+async def test_downvote_logs_only_never_backfills_or_indexes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _patch_graph(monkeypatch, _state_values(retrieved_case_ids=["hist-1"]))
@@ -195,28 +195,9 @@ async def test_downvote_backfills_with_negative_delta_and_hit_false(
 
     resp = await feedback.downvote("run-1")
     assert resp == {"ok": True, "run_id": "run-1"}
-    assert len(coros) == 1
-    await coros[0]
-
-    # 👎 never indexes a new case
-    assert store.index_calls == []
-    # but downgrades effectiveness on the recalled cases
-    assert len(store.backfill_calls) == 1
-    assert store.backfill_calls[0]["case_ids"] == ["hist-1"]
-    assert store.backfill_calls[0]["delta"] == pytest.approx(-0.1)
-    assert store.backfill_calls[0]["hit"] is False
-
-
-async def test_downvote_with_no_recalled_cases_skips_backfill(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    _patch_graph(monkeypatch, _state_values(retrieved_case_ids=[]))
-    store = _patch_store(monkeypatch)
-    coros = _capture_tasks(monkeypatch)
-
-    await feedback.downvote("run-1")
-    # downvote only schedules a task when there are recalled cases
+    # 👎 logs only: no background task, no index, no backfill (design §8.1/§8.2)
     assert coros == []
+    assert store.index_calls == []
     assert store.backfill_calls == []
 
 

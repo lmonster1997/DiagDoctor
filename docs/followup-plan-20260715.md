@@ -159,20 +159,20 @@
 |---|---|---|---|---|
 | 15 | ✅ done **P1-a 双向量工具化检索** | P0 静态注入有症状相似天花板(查询端无根因)。`search_historical_cases` 包成 agent tool + collection 加 `root_cause` named vector;agent 形成根因假设后查根因向量拿根因相似。解决"症状似/根因似不可兼得"(§6.4)。**已实现(2026-07-19)**:named vectors(`symptom`+`root_cause`,per-vector INT8)+ `case_store` 批量双 embed + `case_retriever.search_by_root_cause`(`using=root_cause` 共享 `_search_named_vector`)+ agent tool `search_historical_root_cause`(`src/tools/memory_recall.py`,独立 `rag_root_cause_tool_enabled` 开关)+ eval `--vector both`。**before/after ablation(real bge-m3, recall@3)**:②0.50->**1.00**(突破天花板✓)/ ③0.80->1.00(未降,**已知限制**:根因文本相似按"根因领域"聚类如后端 500 三连 BE-020/021/022,粗于机械根因身份,区分需结构化信号非纯文本向量能解)/ ④0.16->0.15(无噪声✓) | ⭐⭐⭐⭐⭐ | 1.5d |
 | 16 | **P1-b semantic pattern(`bug_patterns`)** | 记忆只有 episodic 无跨案例学习。攒 N 个同类 case 后 LLM 反思提炼 pattern,双路注入(case 给具体、pattern 给规律)。对标 Generative Agents reflection,§3.2 标"最能拉开档次" | ⭐⭐⭐⭐ | 1d |
-| 17 | **P1-c failed-case 负样本 + 冲突检测** | 失败不进记忆=闭环缺一臂。👎 case 存 `agent_root_cause` 作负样本("曾走此方向未解决,请核查");同症状异根因 case 标冲突提示 agent | ⭐⭐⭐ | 0.5d |
+| 17 | **P1-c 冲突检测**(负样本注入已砍) | 同症状异根因 case 标冲突,注入时提示 agent"历史有 N 种方向,请核查",防单一历史 case 锚定(§7.2)。**砍失败负样本注入**:归因不清+ROI 低+上下文压力(设计 §8.2);👎 只留结构化日志作 P1-b 失败 pattern 数据源 | ⭐⭐⭐ | 0.3d |
 
 P1 测试 case(体现效果,非 benchmark 跑分):
 - **§9.3 双向量区分(P1-a 核心 demo)**:"症状似根因异"case 对(如"列表卡死"= N+1 / 前端大列表无虚拟化 / 死锁),症状向量 top-3 召回三者(噪声),根因向量(假设"前端渲染")精准命中前端那条。
 - **§9.2 变体召回(#8 载体,P0/P1 共用)**:变体 evidence 检索 top-3 召回同源原版,recall@3 ≥ 0.8。
 - **semantic pattern(定性)**:PERF 类 N+1 case 反思出"本库 N+1 多发于 selectinload",新 N+1 case 检索到 pattern 注入。
-- **failed-case / 冲突(定性)**:错判 case 作负样本注入;同症状异根因标冲突。
+- **冲突检测(定性)**:同症状异根因 case 对(§9.3)标冲突,注入提示"历史有 N 种方向,请核查";防 top-1 锚定。(负样本注入已砍,见 §8.2)
 
 > 专家手动入库通道(`source="expert_curated"`)不做(infra、不 demonstrable;👍 通道对简历够,selection bias 作已知限制讲)。
 
 ### 推荐执行顺序(故事深度优先 + 依赖)
 
 1. ~~**#7**~~(✅ done,commit `960d63b`)+ ~~**#5**~~(✅ done,2026-07-18):编排正确性地基 + 杀手级 demo(budget 耗尽 -> 暂停 -> 人工补一句 -> 恢复续查)已落地。+ ~~**#1**~~(✅ done,2026-07-18:RAG 检索闭环,三因子检索 + §6.5 静态注入 + 写侧三分离 + resume 缓存重注入 + `rag_injection_enabled` 开关)已落地。**下一步:#8**(RetrievalEvaluator,量化检索)。
-2. ~~**#1**~~(✅ done,1.5d)-> ~~**#8**~~(✅ done,成对召回 ablation,实证 P0 症状相似天花板):闭合记忆 LOOP + 量化检索。-> ~~**反馈回填**(§8.1,~0.5d,闭合"越用越准"闭环)~~✅ -> ~~**P1-a**(双向量,1.5d,突破天花板,before/after ablation)~~✅(②0.50->1.00 突破;③未降已知限制)-> **P1-c**(0.5d)-> **P1-b**(semantic pattern,1d):记忆系统进阶,P1-a 可控测试体现,P1-b 定性+叙事(效果需扩评测集证明)。
+2. ~~**#1**~~(✅ done,1.5d)-> ~~**#8**~~(✅ done,成对召回 ablation,实证 P0 症状相似天花板):闭合记忆 LOOP + 量化检索。-> ~~**反馈回填**(§8.1,~0.5d,闭合"越用越准"闭环)~~✅ -> ~~**P1-a**(双向量,1.5d,突破天花板,before/after ablation)~~✅(②0.50->1.00 突破;③未降已知限制)-> **P1-c**(冲突检测,0.3d;负样本注入已砍见 §8.2)-> **P1-b**(semantic pattern,1d):记忆系统进阶,P1-a 可控测试体现,P1-b 定性+叙事(效果需扩评测集证明)。
 3. **#2**(单一可信评测 + ablation,2.5d)-> **#3**(judge 加固,1.5d)-> **#4**(激活门禁+可复现,1d):eval-driven dev 支点--#2 让 #3/#4/#8 都可量化验证。
 4. **#6**(观测医生,1.5d)+ **#9/#10/#11**(便宜除雷,1.3d)穿插。
 5. T4 按需。
@@ -183,11 +183,13 @@ P1 测试 case(体现效果,非 benchmark 跑分):
 > 跑 embed 见记忆 `bge-m3-local-model-setup`(HF 被 SSL 拦,走 ModelScope 下到 `D:/hf_cache`,带 `BGE_M3_LOCAL_PATH` + `HF_HUB_OFFLINE=1`)。
 > P0 基线(bge-m3, recall@3)已在 #8 行:①同根同症状 1.00 / ②同根异症状 0.50(天花板)/ ③异根同症状 0.80(过召回)/ ④异根异症状 0.16。
 > P1-a after(bge-m3, recall@3):②0.50->**1.00**(突破✓)/ ③0.80->1.00(未降,已知限制:根因文本相似按领域聚类,粗于机械根因身份)/ ④0.16->0.15(无噪声✓)。详见 §B。
-> 下一步:P1-c(failed-case 负样本 + 冲突检测,0.5d)-> P1-b(semantic pattern,1d)。
+> 下一步:P1-c(冲突检测,0.3d;负样本注入已砍,见设计 §8.2)-> P1-b(semantic pattern,1d)。
 
 #### A. 反馈回填(§8.1)-- ✅ 已完成
 
 ✅ 已实现(on `feat/RAG`):`case_store.backfill_effectiveness`(Qdrant retrieve->set_payload read-modify-write,effectiveness clamp[0,1]、hit_count +1 on 👍,异常降级返回更新数)+ `feedback.py` upvote(👍 delta=+0.1/hit=True)/downvote(👎 delta=-0.1/hit=False)接入,均 fire-and-forget;backfill 独立于新 case 索引成败(👍 认可诊断即认可召回参考);`_load_run_state` 增返 `retrieved_case_ids`;`_importance` 已读 hit_count/effectiveness -> 回填后自动生效。单测 `tests/memory/test_case_store.py`(8)+ `tests/test_feedback.py`(7)全绿。详见 `current-status.md` §2.6。设计 ref §8.1;关联 [[long-term-memory-design-doc]]。
+
+> **2026-07-20 修订(👎 降权移除)**:`downvote` 的 `effectiveness` 降权(`delta=-0.1/hit=False`)已移除--👎 归因不清(召回不相关/agent 推理错/覆盖盲区),降权会冤枉好 case(设计 §8.1/§8.2)。downvote 现只留结构化日志(为 P1-b 失败 pattern 提炼留数据源);upvote 回填保留(归因方向正确)。
 
 > **2026-07-19 live 闭环修正**:上面 §8.1 此前按单测标 ✅,但 live CopilotKit 👍 路径被 case_id desync 卡着 404(`test_feedback.py` `_patch_graph` mock 图,未覆盖真实链路)。已修:`bug_info_node` 从 `config["configurable"]["thread_id"]` 设 `case_id`(图单一 owns,`_build_initial_state` 不再设),与 checkpointer 寻址同 key -> `case_id == checkpoint thread_id` 构造保证;CopilotKit live 👍 链路(写入+检索)已验证通过。详见 `current-status.md` §2.6。
 
@@ -238,7 +240,7 @@ P1 测试 case(体现效果,非 benchmark 跑分):
 
 **关联**:[[long-term-memory-design-doc]] §4.2(原 passage 设计,本次修订其内容);current-status §2.6 ⚠️ 行。
 
-#### 下一步顺序:C(hybrid 重构,0.5-1d)-> P1-c(failed-case 负样本 + 冲突检测,0.5d)-> P1-b(semantic pattern,1d)
+#### 下一步顺序:C(hybrid 重构,0.5-1d)-> P1-c(冲突检测,0.3d;负样本注入已砍见 §8.2)-> P1-b(semantic pattern,1d)
 
 ### 明确不做(过度工程 / 已决策)
 

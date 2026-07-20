@@ -4,8 +4,9 @@ Feedback API — user 👍/👎 on diagnosis reports.
 P0 scope:
 - ``POST /api/feedback/{run_id}/upvote`` → async index diagnosis into Qdrant
   + §8.1 backfill: credit ``effectiveness``/``hit_count`` on the recalled cases
-- ``POST /api/feedback/{run_id}/downvote`` → structured log + §8.1 effectiveness
-  downgrade on the recalled cases (P1: failed-case collection)
+- POST /api/feedback/{run_id}/downvote -> structured log only (no backfill:
+  👎 attribution is ambiguous, downgrading recalled cases would penalize good
+  cases -- see design §8.1/§8.2). P1: failure-pattern mining input.
 
 The ``run_id`` is the LangGraph ``thread_id``, which maps to the checkpoint
 state that holds ``report`` (DiagnosisReport) and ``evidence`` (NormalizedEvidence).
@@ -27,11 +28,11 @@ logger = get_logger(__name__)
 # ── §8.1 effectiveness backfill policy ──────────────────────────────
 # The *mechanism* (read-modify-write into Qdrant) lives in
 # ``case_store.backfill_effectiveness``; the *policy* -- how much a single
-# 👍/👎 moves a recalled case's effectiveness -- lives here, next to the
-# trigger. ±0.1 per vote (design §8.1: "如 +0.1, 上限 1.0"); effectiveness is
-# clamped to [0, 1] by the mechanism.
+# 👍 moves a recalled case's effectiveness -- lives here, next to the
+# trigger. +0.1 per 👍 (design §8.1: "如 +0.1, 上限 1.0"); effectiveness is
+# clamped to [0, 1] by the mechanism. 👎 does NOT backfill (attribution
+# ambiguous -- see design §8.1/§8.2).
 EFFECTIVENESS_UPVOTE_DELTA = 0.1
-EFFECTIVENESS_DOWNVOTE_DELTA = -0.1
 
 
 # ── Internal helpers ────────────────────────────────────────────────
@@ -156,13 +157,14 @@ async def upvote(run_id: str) -> dict[str, object]:
 
 @router.post("/{run_id}/downvote", status_code=200)
 async def downvote(run_id: str) -> dict[str, object]:
-    """User 👎: log structured feedback for future failed-case analysis.
+    """User 👎: log structured feedback only -- no effectiveness backfill.
 
-    P0: structured logging + §8.1 effectiveness downgrade on the recalled
-    cases (a 👎 means the diagnosis was wrong, which reflects on the cases
-    that were retrieved to support it).  No failed-case indexing yet.
-    P1: failed-case collection — store *why* the diagnosis was wrong
-    (agent_root_cause, user_correction) for retrieval-based "曾走过此方向" hints.
+    A 👎 means the diagnosis was wrong, but the failure attribution is
+    ambiguous (the recalled cases may be correct-but-inapplicable, the agent
+    may have reasoned wrong, or the root cause may be a coverage gap).
+    Downgrading the recalled cases would penalize good cases, so we do NOT
+    backfill effectiveness on 👎 (design §8.1/§8.2). The structured log is
+    kept as input for future P1-b failure-pattern mining.
     """
     report, evidence, trace_id, retrieved_case_ids = await _load_run_state(run_id)
 
@@ -172,37 +174,18 @@ async def downvote(run_id: str) -> dict[str, object]:
             detail=f"No diagnosis report found for run_id={run_id}.",
         )
 
+    # Structured log only -- no effectiveness backfill on 👎 (design §8.1/§8.2:
+    # failure attribution is ambiguous; downgrading recalled cases would
+    # penalize good cases). retrieved_case_ids is logged for future P1-b
+    # failure-pattern mining but not consumed for backfill.
     logger.info(
         "user_downvote",
         run_id=run_id,
         trace_id=trace_id,
+        retrieved_case_ids=retrieved_case_ids,
         root_cause=(report.root_cause[:200] if report.root_cause else ""),
         primary_category=report.primary_category,
         confidence=report.confidence,
     )
-
-    # §8.1: downgrade effectiveness on the recalled cases (fire-and-forget,
-    # same as upvote's index path). hit=False -- a 👎 is not a confirming hit,
-    # so hit_count stays; only effectiveness moves (down, clamped to 0).
-    if retrieved_case_ids:
-        async def _backfill() -> None:
-            from src.memory.long_term.case_store import backfill_effectiveness
-
-            try:
-                updated = await backfill_effectiveness(
-                    retrieved_case_ids,
-                    delta=EFFECTIVENESS_DOWNVOTE_DELTA,
-                    hit=False,
-                )
-                logger.info(
-                    "downvote_backfilled",
-                    run_id=run_id,
-                    requested=len(retrieved_case_ids),
-                    updated=updated,
-                )
-            except Exception:
-                logger.error("downvote_backfill_failed", run_id=run_id, exc_info=True)
-
-        asyncio.create_task(_backfill())
 
     return {"ok": True, "run_id": run_id}

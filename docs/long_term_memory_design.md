@@ -185,7 +185,7 @@ score = relevance × recency × importance
 
 - **relevance**：cosine(查询症状向量, 索引症状向量)。
 - **recency**：`exp(-Δt / τ)`，Δt = 距 `created_at` 天数，τ 按代码库变更频率调（默认 90 天）。代码库在演进，旧 case 过期风险，新 case 优先。
-- **importance**：`0.5·confidence + 0.3·normalize(hit_count) + 0.2·effectiveness`。被检索命中多、被 👍 多的 case 更重要。
+- **importance**：`0.5·confidence + 0.3·normalize(hit_count) + 0.2·effectiveness`。`effectiveness` 是**被 👍 验证的有用复用累积分（只升，§8.1）**--case 被召回且该会话最终 👍 时 +0.1 累积；不设降权（👎 不回填，归因不清，见 §8.1）。被召回且帮到诊断的 case 更重要。
 
 > 三因子的权重和 relevance 阈值**用 gold case 对标定**（见 §9.1），不再是拍脑袋的 0.75。
 
@@ -278,15 +278,19 @@ recency 因子已承担时间衰减；持续低 `effectiveness` 的 case 由 §8
 下次检索 importance 因子纳入 effectiveness → 低效 case 降权
 ```
 
-### 8.1 effectiveness 回填
+### 8.1 effectiveness 回填（只升不降）
 
-- 检索时：把命中的 `case_id` 列表写入 `DoctorState`（新增 `retrieved_case_ids` 字段）。
-- 诊断后 👍：这些 case 的 `effectiveness` 上调（如 +0.1，上限 1.0），`hit_count` +1。
-- 诊断后 👎 或失败：`effectiveness` 下调；持续低于阈值（如 0.3）的 case 进入"待复核"队列。
+- 检索时：把命中的 `case_id` 列表写入 `DoctorState`（`retrieved_case_ids` 字段）。
+- 诊断后 👍：命中的 case `effectiveness` 上调（+0.1，上限 1.0），`hit_count` +1。归因：👍 时 case 至少参与了被认可的诊断，加权方向正确。
+- 诊断后 👎：**不回填**（见下）。`effectiveness` 只靠 👍 单调累积，无降权机制。
 
-### 8.2 failed case 负样本（P1）
+> **为什么不降权**：👎 的失败归因不清--可能是召回的 case 症状似根因异（对当前不适用，但 case 本身没错）、agent 推理错、或根因不在库（覆盖盲区），一刀切降权会冤枉好 case。👎 只记结构化日志（为未来失败 pattern 提炼留数据源），不影响 case 质量分。"越用越准"因此弱化为"越用越丰富 + 有效 case 被强化"，不声称"低效 case 被淘汰"。
 
-👎 case 存 `agent_root_cause`（+ 可选 `why_wrong`）。检索到高相似时注入："曾走过此方向但未解决，请核查"——把失败也变成记忆。
+### 8.2 failed case 处理（搁置，不做负样本注入）
+
+**不做**：👎 case 不存为负样本直接注入。原因：① 归因不清（见 §8.1）；② 失败负样本单位价值密度低（给"别这样"的警告，需 agent 二次推理，ROI 低于正样本和 pattern）；③ 持续积累增加上下文压力。
+
+**保留数据源**：👎 只写结构化日志（`agent_root_cause` / `category` / `confidence`），为未来"P1-b 失败 pattern 提炼"留数据（从多个同类失败聚类出"易错点 pattern"，以 pattern 形态注入，而非存原始失败）。这是 P1-b 的镜像，属 P1-b 范畴，不单列。
 
 ### 8.3 写入门控（平衡 selection bias）
 
@@ -333,6 +337,7 @@ P0 仍以 👍 为唯一自动触发，但 **acknowledged 👍 的 selection bia
 | 隐私 / 访问控制 | passage 含私有代码细节 | Qdrant 限定内网访问，已知 |
 | 检索可观测性 | 无仪表盘 | 仅结构化日志（`rag_empty_recall` 等），不做仪表盘 |
 | 多租户 / 生产部署 | 超出项目定位 | 不做 |
+| effectiveness 降权 | 👎 归因不清,降权冤枉好 case | §8.1,只 👍 单调累积 |
 
 > 这些是**生产级能力**，对简历项目做了反而是过度工程（显得不会范围控制）。面试时作为"已知限制 + 演进方向"讲即可。
 
@@ -357,8 +362,9 @@ P0 仍以 👍 为唯一自动触发，但 **acknowledged 👍 的 selection bia
 |---|---|
 | semantic pattern 反思提炼 + `bug_patterns` collection | 新建 `pattern_store.py` |
 | 工具化双向量检索（root_cause_vector） | `case_retriever` 做 tool + named vector |
-| failed case 负样本注入 | `feedback.py` downvote 扩展 |
 | 冲突检测 + 专家手动入库通道 | `case_store` |
+
+> P1-b 只做**正向** pattern(从 👍 case 提炼);失败 pattern(👎 镜像)随 👎 通道搁置(§8.2)。
 
 ### 不做
 
@@ -372,7 +378,7 @@ P0 仍以 👍 为唯一自动触发，但 **acknowledged 👍 的 selection bia
 > ① **编码上做召回/利用三分离**——embedding 只承载查询可对齐的症状语义，诊断输出走 payload，避免诊断输出污染召回向量得到混合相似度；
 > ② **检索用 recency × importance × relevance 三因子**，不是纯 cosine，阈值用 gold case 对标定；
 > ③ **记忆分 episodic case 和 semantic pattern 两层**，pattern 由同类 case 反思提炼，让记忆能跨案例学习；
-> ④ **👍/👎 和诊断成败回填 case 有效性**，形成'越用越准'的闭环；
+> ④ **👍 回填命中的 case 有效性**（被复用且帮到诊断的 case 加权）；👎 **不降权**--失败归因不清（召回不相关/agent 推理错/覆盖盲区），降权会冤枉好 case，主动砍掉，失败信号只留作 pattern 提炼输入；
 > ⑤ P1 把检索工具化，agent 带根因假设查独立的根因向量，拿根因相似而非症状相似。
 > 核心取舍是砍掉 llm_judge auto 通道——真实诊断无金标，llm_judge 评的是报告质量不是诊断正确性，筛出来'报告漂亮但根因浅'会污染库，所以 P0 只走 👍 一条 gold standard。"
 
