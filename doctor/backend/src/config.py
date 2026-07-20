@@ -111,6 +111,17 @@ class Settings(BaseSettings):
     # Also the toggle for #2 ablation (RAG on vs off on the same case set).
     rag_injection_enabled: bool = True
 
+    # --- P1-a root-cause recall tool (design §6.4) ---
+    # Independent switch for the ``search_historical_root_cause`` agent tool,
+    # which queries the ``root_cause`` named vector once the agent has formed a
+    # root-cause hypothesis (breaks the P0 symptom-similarity ceiling, #8).
+    # ``rag_injection_enabled`` gates the P0 *symptom* static injection (node-
+    # side, pre-agent); this gates the *root-cause* tool (agent-side, on-demand)
+    # -- two independent mechanisms, two independent switches. When False the
+    # tool is still registered (stable schema) but returns a graceful "未启用"
+    # string without hitting Qdrant (RAG is a gain, not a dependency).
+    rag_root_cause_tool_enabled: bool = True
+
     # --- OpenTelemetry ---
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
     otel_service_name: str = "doctor-api"

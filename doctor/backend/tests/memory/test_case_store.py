@@ -15,7 +15,9 @@ from typing import Any
 
 import pytest
 
+from src.engine.state import DiagnosisReport, NormalizedEvidence, Signal
 from src.memory.long_term import case_store
+from src.memory.long_term.qdrant_client import VECTOR_NAME_ROOT_CAUSE, VECTOR_NAME_SYMPTOM
 
 
 # ── Fixtures / helpers ──────────────────────────────────────────────
@@ -175,3 +177,131 @@ async def test_backfill_skips_missing_case_ids(monkeypatch: pytest.MonkeyPatch) 
     assert updated == 1
     assert len(harness.calls) == 1
     assert str(harness.calls[0]["points"][0]) == "c1"
+
+
+# ── P1-a: dual-embed + named-vector PointStruct (§5.1/§6.4) ─────────
+
+
+def _report(root_cause: str = "N+1: list_tasks 逐条查 comments") -> DiagnosisReport:
+    return DiagnosisReport(
+        primary_category="performance",
+        categories=["performance"],
+        symptom_tier="frontend",
+        root_cause_tier="backend",
+        root_cause=root_cause,
+        affected_file="app/api/tasks.py",
+        affected_function="list_tasks",
+        fix_suggestion="恢复 selectinload(Task.comments) 预加载",
+        confidence=0.85,
+    )
+
+
+def _evidence() -> NormalizedEvidence:
+    return NormalizedEvidence(
+        user_report="任务看板打开很慢",
+        golden_signals=[Signal(signal_type="slow_span", service_tier="backend", summary="SELECT 重复 47 次")],
+        trigger_trace_ids=["trace-1"],
+    )
+
+
+def test_build_point_uses_named_vectors() -> None:
+    """P1-a: point carries both symptom + root_cause named vectors."""
+    symptom_vec = [0.1] * 8
+    root_cause_vec = [0.2] * 8
+    point = case_store._build_point(
+        _report(), _evidence(), symptom_vec, root_cause_vec,
+        source="user_upvote", case_id="c1", trace_id="trace-1",
+    )
+    assert point.id == "c1"
+    # named-vector dict, NOT a flat list
+    assert isinstance(point.vector, dict)
+    assert point.vector[VECTOR_NAME_SYMPTOM] == symptom_vec
+    assert point.vector[VECTOR_NAME_ROOT_CAUSE] == root_cause_vec
+    # payload still carries root_cause text (utilization side, §4 三分离)
+    assert point.payload["root_cause"].startswith("N+1")
+
+
+async def test_maybe_index_diagnosis_embeds_both_vectors_in_one_batch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """maybe_index_diagnosis batch-embeds [symptom_passage, root_cause] and
+    upserts a point with both named vectors."""
+    embed_inputs: list[list[str]] = []
+
+    async def fake_embed_texts(texts: list[str]) -> list[list[float]]:
+        embed_inputs.append(texts)
+        return [[0.1] * 4, [0.2] * 4]  # symptom_vec, root_cause_vec
+
+    upserted: list[Any] = []
+
+    async def fake_upsert(**kwargs: Any) -> None:
+        upserted.extend(kwargs["points"])
+
+    client = SimpleNamespace(upsert=fake_upsert)
+
+    async def fake_get_client() -> SimpleNamespace:
+        return client
+
+    async def fake_dedup(*, trace_id: str) -> bool:
+        return False
+
+    monkeypatch.setattr(case_store, "embed_texts", fake_embed_texts)
+    monkeypatch.setattr(case_store, "get_qdrant_client", fake_get_client)
+    monkeypatch.setattr(case_store, "_dedup_exists", fake_dedup)
+
+    ok = await case_store.maybe_index_diagnosis(
+        report=_report(), evidence=_evidence(), trace_id="trace-1", case_id="c1"
+    )
+
+    assert ok is True
+    # single batched embed call with [symptom passage, root_cause text]
+    assert len(embed_inputs) == 1
+    assert len(embed_inputs[0]) == 2
+    assert "N+1" in embed_inputs[0][1]  # root_cause text is the 2nd input
+    # upserted point has both named vectors
+    assert len(upserted) == 1
+    assert isinstance(upserted[0].vector, dict)
+    assert upserted[0].vector[VECTOR_NAME_SYMPTOM] == [0.1] * 4
+    assert upserted[0].vector[VECTOR_NAME_ROOT_CAUSE] == [0.2] * 4
+
+
+async def test_maybe_index_diagnosis_skips_on_embed_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Embedding failure -> skip indexing (RAG indexing is a gain, not a dep)."""
+
+    async def boom(_texts: list[str]) -> list[list[float]]:
+        raise RuntimeError("TEI down")
+
+    async def fake_get_client() -> Any:
+        raise AssertionError("should not reach qdrant on embed failure")
+
+    async def fake_dedup(*, trace_id: str) -> bool:
+        return False
+
+    monkeypatch.setattr(case_store, "embed_texts", boom)
+    monkeypatch.setattr(case_store, "get_qdrant_client", fake_get_client)
+    monkeypatch.setattr(case_store, "_dedup_exists", fake_dedup)
+
+    ok = await case_store.maybe_index_diagnosis(
+        report=_report(), evidence=_evidence(), trace_id="trace-1", case_id="c1"
+    )
+    assert ok is False
+
+
+async def test_maybe_index_diagnosis_rejects_incomplete_report(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Hard guard: missing root_cause / affected_file / fix -> skip before embed."""
+
+    async def boom(_texts: list[str]) -> list[list[float]]:
+        raise AssertionError("should not embed an incomplete report")
+
+    monkeypatch.setattr(case_store, "embed_texts", boom)
+    # root_cause present but affected_file missing
+    report = _report()
+    report.affected_file = None
+    ok = await case_store.maybe_index_diagnosis(
+        report=report, evidence=_evidence(), trace_id="trace-1", case_id="c1"
+    )
+    assert ok is False

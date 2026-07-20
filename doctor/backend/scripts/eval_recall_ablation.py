@@ -1,22 +1,33 @@
-"""Recall ablation eval (design §9.1/§9.3) - P0 symptom-cosine recall per quadrant.
+"""Recall ablation eval (design §9.1/§9.3) - P1-a before/after dual-vector ablation.
 
-Loads the 15 bug-factory cases, ingests each case's evidence into
-``NormalizedEvidence``, embeds the symptom passage (``build_symptom_passage``),
-computes the pairwise symptom-cosine matrix, and reports P0 recall@k per
-quadrant (same/diff root-cause × same/diff symptom).
+Loads the 15 bug-factory cases and computes pairwise-cosine recall@k per
+quadrant (same/diff root-cause × same/diff symptom), under either vector:
 
-Demonstrates P0's symptom-similarity ceiling:
+- ``--vector symptom``   (P0 "before"): embed each case's symptom passage
+  (``build_symptom_passage``) -> symptom-cosine. Demonstrates P0's symptom-
+  similarity ceiling.
+- ``--vector root_cause`` (P1-a "after"): embed each case's
+  ``expected.root_cause_summary`` -> root_cause-cosine. The named vector the
+  agent's ``search_historical_root_cause`` tool queries.
+- ``--vector both``       (default ablation): runs before + after and prints a
+  side-by-side delta table. The breakthrough = quadrant ② (same-root-diff-
+  symptom) recall UP + quadrant ③ (diff-root-same-symptom) recall DOWN.
+
+P0 ceiling (the "before" story):
 - same-root + diff-symptom  -> LOW recall (the ceiling P1-a breaks)
 - diff-root + same-symptom  -> HIGH recall (over-recall P1-a fixes)
-This is the "before" baseline; P1-a's ``root_cause_vector`` re-runs the same
-quadrants by root-cause cosine for the before/after ablation.
+P1-a flips both: same-root -> root_cause text similar -> recalled;
+diff-root -> root_cause text dissimilar -> not recalled.
 
 Integration: needs ``embed_single`` (TEI or local bge-m3). No Qdrant, no full
-doctor run (in-memory cosine over the 15 cases' pre-collected evidence).
+doctor run (in-memory cosine over the 15 cases' pre-collected evidence /
+root_cause text).
 
 Usage::
 
-    cd doctor/backend && uv run python scripts/eval_recall_ablation.py
+    cd doctor/backend && uv run python scripts/eval_recall_ablation.py            # both (before/after ablation)
+    cd doctor/backend && uv run python scripts/eval_recall_ablation.py --vector symptom
+    cd doctor/backend && uv run python scripts/eval_recall_ablation.py --vector root_cause --mock-embed
 """
 
 from __future__ import annotations
@@ -40,6 +51,11 @@ from src.memory.long_term.embedding import embed_single  # noqa: E402
 from src.memory.long_term.encoding import build_symptom_passage, derive_tier  # noqa: E402
 from src.memory.long_term.recall_ablation import (  # noqa: E402
     CaseLabel,
+    Q_DIFF_ROOT_DIFF_SYM,
+    Q_DIFF_ROOT_SAME_SYM,
+    Q_SAME_ROOT_DIFF_SYM,
+    Q_SAME_ROOT_SAME_SYM,
+    QUADRANT_DESCRIPTIONS,
     build_rankings,
     format_quadrant_report,
     recall_at_k_per_quadrant,
@@ -49,6 +65,14 @@ PROJECT_ROOT = DOCTOR_BACKEND.parent.parent  # DiagDoctor/
 BUG_FACTORY_OUTPUT = PROJECT_ROOT / "bug-factory" / "output"
 
 K_VALUES = (3, 5)
+
+# Quadrant display order + the two ceiling-breaker quadrants P1-a targets.
+_QUADRANT_ORDER = (
+    Q_SAME_ROOT_SAME_SYM,
+    Q_SAME_ROOT_DIFF_SYM,
+    Q_DIFF_ROOT_SAME_SYM,
+    Q_DIFF_ROOT_DIFF_SYM,
+)
 
 # Manual root-cause-type per case. Cases sharing a type have the same underlying
 # root-cause PATTERN (e.g. PERF-020/021 both N+1; BE-022/FE-021 both
@@ -94,8 +118,10 @@ SYMPTOM_TYPE: dict[str, str] = {
 
 CASE_IDS = list(ROOT_CAUSE_TYPE.keys())
 
+VECTOR_MODES = ("symptom", "root_cause", "both")
 
-# ── Evidence loading + format conversion (mirrors benchmark runner) ───
+
+# ── Evidence / text loading (mirrors benchmark runner) ───────────────
 
 
 def _load_json(path: Path) -> list[dict[str, Any]]:
@@ -158,6 +184,24 @@ def _load_case_evidence(case_id: str) -> NormalizedEvidence | None:
     return ingest({"user_report": user_report, "logs": logs, "traces": traces})
 
 
+def _load_case_root_cause(case_id: str) -> str | None:
+    """Load a case's gold root-cause text (``expected.root_cause_summary``).
+
+    This is what the index side (``case_store``) embeds into the ``root_cause``
+    named vector in production (``report.root_cause``); the eval uses the gold
+    text so the ablation is faithful to the live dual-vector retrieval.
+    """
+    case_yaml = BUG_FACTORY_OUTPUT / case_id / "case.yaml"
+    if not case_yaml.is_file():
+        return None
+    try:
+        raw = yaml.safe_load(case_yaml.read_text(encoding="utf-8")) or {}
+    except (yaml.YAMLError, OSError):
+        return None
+    text = str((raw.get("expected") or {}).get("root_cause_summary") or "")
+    return text or None
+
+
 def _symptom_type(evidence: NormalizedEvidence) -> str:
     """Canonical symptom type: ``tier:{sorted signal_types}``."""
     tier = derive_tier(evidence)
@@ -178,12 +222,13 @@ _MOCK_DIM = 256
 def _mock_embed(text: str) -> list[float]:
     """Deterministic content-based stand-in for bge-m3 (no network needed).
 
-    Character-bigram hashing: passages sharing bigrams (e.g. the symptom anchor
-    ``信号: slow_span | 层级: backend``) get higher cosine. It approximates
-    *lexical* symptom similarity, so same-symptom cases tend to rank together -
-    enough to demonstrate the four-quadrant mechanism + the P0 ceiling pattern
-    without the real bge-m3 model. NOT the real embedding - real numbers need
-    TEI or a cached bge-m3 (``embed_single``).
+    Character-bigram hashing: passages sharing bigrams get higher cosine. It
+    approximates *lexical* similarity, so same-root cases (whose root_cause
+    texts share mechanism words, e.g. "assignee_id"/"N+1") tend to rank together
+    under root_cause mode, and same-symptom cases under symptom mode -- enough to
+    demonstrate the four-quadrant mechanism + the ceiling-flip pattern without
+    the real bge-m3 model. NOT the real embedding - real numbers need TEI or a
+    cached bge-m3 (``embed_single``).
     """
     vec: list[float] = [0.0] * _MOCK_DIM
     for i in range(max(0, len(text) - 1)):
@@ -194,59 +239,75 @@ def _mock_embed(text: str) -> list[float]:
     return [v / norm for v in vec] if norm else vec
 
 
-# ── Main ─────────────────────────────────────────────────────────────
+# ── Embedding + quadrant computation per vector mode ─────────────────
 
 
-async def main(mock_embed: bool = False) -> None:
-    print("=" * 60)
-    print("  Recall ablation (P0 symptom-cosine) over 15 gold cases")
-    if mock_embed:
-        mode = "MOCK embed (content-based bigram hash; pipeline verify only)"
-    else:
-        mode = "REAL bge-m3 embed"
-    print(f"  embed mode: {mode}")
-    print("=" * 60)
+async def _embed_cases(
+    mock_embed: bool, vector_mode: str
+) -> tuple[dict[str, list[float]], dict[str, CaseLabel]]:
+    """Load + embed each case's text for ``vector_mode``.
 
-    passages: dict[str, str] = {}
+    ``symptom`` -> ``build_symptom_passage(evidence)`` (P0 before).
+    ``root_cause`` -> ``expected.root_cause_summary`` (P1-a after).
+    Returns (case_id -> vector, case_id -> CaseLabel).
+    """
     vectors: dict[str, list[float]] = {}
     labels: dict[str, CaseLabel] = {}
 
     for case_id in CASE_IDS:
-        evidence = _load_case_evidence(case_id)
-        if evidence is None:
+        if vector_mode == "root_cause":
+            text = _load_case_root_cause(case_id)
+            evidence = None
+        else:  # symptom
+            evidence = _load_case_evidence(case_id)
+            if evidence is None:
+                continue
+            text = build_symptom_passage(evidence)
+
+        if not text:
+            print(f"  [SKIP] {case_id}: no {vector_mode} text")
             continue
-        passage = build_symptom_passage(evidence)
         try:
-            vec = _mock_embed(passage) if mock_embed else await embed_single(passage)
+            vec = _mock_embed(text) if mock_embed else await embed_single(text)
         except Exception as exc:
             print(f"  [SKIP] {case_id}: embed failed: {exc}")
             continue
-        passages[case_id] = passage
+
         vectors[case_id] = vec
         labels[case_id] = CaseLabel(
             case_id=case_id,
             root_cause_type=ROOT_CAUSE_TYPE[case_id],
             symptom_type=SYMPTOM_TYPE[case_id],
         )
-        print(
-            f"  [OK] {case_id}: root={ROOT_CAUSE_TYPE[case_id]} "
-            f"symptom={SYMPTOM_TYPE[case_id]} "
-            f"ingest={_symptom_type(evidence)} signals={len(evidence.golden_signals)}"
-        )
+        if vector_mode == "root_cause":
+            preview = text[:50].replace("\n", " ")
+            print(
+                f"  [OK] {case_id}: root={ROOT_CAUSE_TYPE[case_id]} "
+                f"symptom={SYMPTOM_TYPE[case_id]} rc={preview!r}"
+            )
+        else:
+            assert evidence is not None
+            print(
+                f"  [OK] {case_id}: root={ROOT_CAUSE_TYPE[case_id]} "
+                f"symptom={SYMPTOM_TYPE[case_id]} "
+                f"ingest={_symptom_type(evidence)} signals={len(evidence.golden_signals)}"
+            )
 
-    if len(vectors) < 2:
-        print("\n[FAIL] Need ≥2 embedded cases. Is TEI/local bge-m3 available?")
-        return
+    return vectors, labels
 
-    # Pairwise symptom-cosine relevance matrix.
-    relevance: dict[str, dict[str, float]] = {}
-    for q in vectors:
-        relevance[q] = {c: _cosine(vectors[q], vectors[c]) for c in vectors if c != q}
 
+def _quadrant_results(
+    vectors: dict[str, list[float]], labels: dict[str, CaseLabel], k: int
+) -> list:
+    """Build cosine matrix + rankings + per-quadrant recall@k."""
+    relevance: dict[str, dict[str, float]] = {
+        q: {c: _cosine(vectors[q], vectors[c]) for c in vectors if c != q} for q in vectors
+    }
     rankings = build_rankings(relevance)
+    return recall_at_k_per_quadrant(rankings, labels, k)
 
-    print(f"\n{'=' * 60}")
-    print(f"  Embedded {len(vectors)} cases. Symptom-type distribution:")
+
+def _print_distribution(labels: dict[str, CaseLabel]) -> None:
     sym_counts: dict[str, int] = {}
     root_counts: dict[str, int] = {}
     for lbl in labels.values():
@@ -255,24 +316,163 @@ async def main(mock_embed: bool = False) -> None:
     print(f"  root_cause_type: {root_counts}")
     print(f"  symptom_type:    {sym_counts}")
 
+
+def _recall_map(results: list) -> dict[str, float]:
+    return {r.quadrant: r.recall_at_k for r in results}
+
+
+def _print_comparison(
+    before: dict[int, list], after: dict[int, list]
+) -> None:
+    """before/after delta table (P0 symptom -> P1-a root_cause) per k.
+
+    The ablation verdict: ② same_root_diff_symptom should go UP (root-cause
+    vector recalls same-root cases P0 missed), ③ diff_root_same_symptom should
+    go DOWN (root-cause vector distinguishes different roots P0 conflated).
+    """
     for k in K_VALUES:
-        print()
-        results = recall_at_k_per_quadrant(rankings, labels, k)
-        print(format_quadrant_report(results, k))
+        b = _recall_map(before[k])
+        a = _recall_map(after[k])
+        print(f"\n{'=' * 72}")
+        print(f"  before/after ablation @ recall@{k}  (P0 symptom  ->  P1-a root_cause)")
+        print(f"{'=' * 72}")
+        print(f"  {'象限':<30} {'P0(symptom)':>14} {'P1-a(root_cause)':>18} {'Δ':>9}")
+        print(f"  {'-' * 30} {'-' * 14} {'-' * 18} {'-' * 9}")
+        for q in _QUADRANT_ORDER:
+            bv, av = b.get(q, 0.0), a.get(q, 0.0)
+            delta = av - bv
+            sign = "+" if delta >= 0 else ""
+            desc = QUADRANT_DESCRIPTIONS.get(q, q).split(" - ")[0]
+            print(f"  {desc:<30} {bv:>14.2f} {av:>18.2f} {sign}{delta:>8.2f}")
+        # Verdict on the two ceiling-breaker quadrants.
+        d2 = a.get(Q_SAME_ROOT_DIFF_SYM, 0.0) - b.get(Q_SAME_ROOT_DIFF_SYM, 0.0)
+        d3 = a.get(Q_DIFF_ROOT_SAME_SYM, 0.0) - b.get(Q_DIFF_ROOT_SAME_SYM, 0.0)
+        v2 = "✓ 突破天花板" if d2 > 0 else "✗ 未升"
+        v3 = "✓ 区分根因" if d3 < 0 else "✗ 未降"
+        print(
+            f"\n  ② same_root_diff_symptom: {b.get(Q_SAME_ROOT_DIFF_SYM, 0.0):.2f} -> "
+            f"{a.get(Q_SAME_ROOT_DIFF_SYM, 0.0):.2f}  (期望升, {v2})"
+        )
+        print(
+            f"  ③ diff_root_same_symptom: {b.get(Q_DIFF_ROOT_SAME_SYM, 0.0):.2f} -> "
+            f"{a.get(Q_DIFF_ROOT_SAME_SYM, 0.0):.2f}  (期望降, {v3})"
+        )
+        # Honest verdict: ② is the primary win (same root cause recalled across
+        # differing symptoms -- exactly what the symptom vector missed). ③ not
+        # dropping is a real limitation, not a calibration gap: root-cause TEXT
+        # similarity clusters by "root-cause area" (e.g. the three backend-500
+        # regressions BE-020/021/022 share text semantics despite different
+        # mechanical roots), which is coarser than mechanical-root identity.
+        if d2 > 0:
+            print("  => ② 突破:根因向量召回同根因异症状 case(P0 症状天花板被打破)✓")
+        else:
+            print("  => ② 未升:P1-a 未达成主目标,需复查 root_cause 文本/向量")
+        if d3 < 0:
+            print("  => ③ 区分:根因向量降低异根因同症状过召回 ✓")
+        else:
+            print(
+                "  => ③ 未降(已知限制):根因文本相似按'根因领域'聚类(如后端 500 三连 "
+                "BE-020/021/022 文本语义相近),粗于机械根因身份;同领域异根因仍相似。"
+                "区分需结构化信号,非纯文本向量能解。"
+            )
+
+
+def _print_interpretation(vector_mode: str) -> None:
+    print(f"\n{'=' * 60}")
+    if vector_mode == "root_cause":
+        print("  Interpretation (P1-a root_cause vector):")
+        print("  - same_root_diff_symptom should be HIGH (root-cause text similar)")
+        print("  - diff_root_same_symptom should be LOW  (root-cause text dissimilar)")
+        print("  -> compare to `--vector symptom` (P0 ceiling) for the ablation.")
+    else:  # symptom
+        print("  Interpretation (P0 ceiling):")
+        print("  - same_root_diff_symptom LOW  = P0 misses same-root-diff-symptom (ceiling)")
+        print("  - diff_root_same_symptom HIGH = P0 over-recalls diff-root-same-symptom")
+        print("  -> P1-a (root_cause_vector) flips both: run `--vector both` for the ablation.")
+    print(f"{'=' * 60}")
+
+
+# ── Main ─────────────────────────────────────────────────────────────
+
+
+async def main(mock_embed: bool, vector_mode: str) -> None:
+    print("=" * 60)
+    title = {
+        "symptom": "P0 symptom-cosine recall (before)",
+        "root_cause": "P1-a root_cause-cosine recall (after)",
+        "both": "P1-a dual-vector before/after ablation",
+    }[vector_mode]
+    print(f"  {title} over 15 gold cases")
+    mode = "MOCK embed (content-based bigram hash; pipeline verify only)" if mock_embed else "REAL bge-m3 embed"
+    print(f"  embed mode: {mode}")
+    print("=" * 60)
+
+    if vector_mode == "both":
+        # ── before: symptom (P0) ──
+        print("\n[before] P0 symptom vector:")
+        sv, sl = await _embed_cases(mock_embed, "symptom")
+        if len(sv) < 2:
+            print("\n[FAIL] Need ≥2 embedded cases for symptom mode.")
+            return
+        print(f"\n  Embedded {len(sv)} cases.")
+        _print_distribution(sl)
+        before = {k: _quadrant_results(sv, sl, k) for k in K_VALUES}
+        for k in K_VALUES:
+            print()
+            print(format_quadrant_report(before[k], k, title="P0 symptom-cosine recall (before)"))
+
+        # ── after: root_cause (P1-a) ──
+        print("\n[after] P1-a root_cause vector:")
+        rv, rl = await _embed_cases(mock_embed, "root_cause")
+        if len(rv) < 2:
+            print("\n[FAIL] Need ≥2 embedded cases for root_cause mode.")
+            return
+        print(f"\n  Embedded {len(rv)} cases.")
+        _print_distribution(rl)
+        after = {k: _quadrant_results(rv, rl, k) for k in K_VALUES}
+        for k in K_VALUES:
+            print()
+            print(format_quadrant_report(after[k], k, title="P1-a root_cause-cosine recall (after)"))
+
+        # ── before/after delta ──
+        _print_comparison(before, after)
+        return
+
+    # ── single-mode (symptom or root_cause) ──
+    vectors, labels = await _embed_cases(mock_embed, vector_mode)
+    if len(vectors) < 2:
+        print("\n[FAIL] Need ≥2 embedded cases. Is TEI/local bge-m3 available?")
+        return
 
     print(f"\n{'=' * 60}")
-    print("  Interpretation (P0 ceiling):")
-    print("  - same_root_diff_symptom LOW  = P0 misses same-root-diff-symptom (ceiling)")
-    print("  - diff_root_same_symptom HIGH = P0 over-recalls diff-root-same-symptom")
-    print("  -> P1-a (root_cause_vector) flips both: the before/after ablation.")
-    print(f"{'=' * 60}")
+    print(f"  Embedded {len(vectors)} cases. Type distribution:")
+    _print_distribution(labels)
+
+    report_title = {
+        "symptom": "P0 symptom-cosine recall",
+        "root_cause": "P1-a root_cause-cosine recall",
+    }[vector_mode]
+    for k in K_VALUES:
+        print()
+        results = _quadrant_results(vectors, labels, k)
+        print(format_quadrant_report(results, k, title=report_title))
+
+    _print_interpretation(vector_mode)
 
 
 if __name__ == "__main__":
     import argparse
     import asyncio
 
-    parser = argparse.ArgumentParser(description="Recall ablation eval (§9.1/§9.3)")
+    parser = argparse.ArgumentParser(description="Recall ablation eval (§9.1/§9.3) - P1-a dual-vector")
+    parser.add_argument(
+        "--vector",
+        choices=VECTOR_MODES,
+        default="both",
+        help=(
+            "symptom=P0 before / root_cause=P1-a after / both=before+after 对比表(默认)"
+        ),
+    )
     parser.add_argument(
         "--mock-embed",
         action="store_true",
@@ -285,4 +485,4 @@ if __name__ == "__main__":
     # Windows GBK console can't encode ✓/✗/部分中文; force utf-8 stdout.
     with contextlib.suppress(Exception):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
-    asyncio.run(main(mock_embed=args.mock_embed))
+    asyncio.run(main(mock_embed=args.mock_embed, vector_mode=args.vector))

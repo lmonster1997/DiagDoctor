@@ -36,6 +36,10 @@ from src.tools.frontend_tools import (
     extract_stack_trace,
     parse_browser_errors,
 )
+from src.tools.memory_recall import (
+    ROOT_CAUSE_RECALL_TOOL,
+    search_historical_root_cause,
+)
 from src.tools.observability_tools import (
     query_loki_logs,
     query_tempo_trace,
@@ -172,24 +176,25 @@ TRACE_ANALYSIS_TOOL = StructuredTool.from_function(
     ),
 )
 
-# ── V3 统一工具集 (5 tools for DiagnosisAgent) ────────────────────────
+# ── V3 统一工具集 (6 tools for DiagnosisAgent) ────────────────────────
 
 _ALL_TOOLS_CACHE: list[StructuredTool] | None = None
 
 
 def _build_all_tools() -> list[StructuredTool]:
-    """Build the V3 ALL_TOOLS list."""
+    """Build the V3 ALL_TOOLS list (6 tools: 5 observability/code + P1-a memory recall)."""
     return [
-        SEARCH_OBSERVABILITY_TOOL,  # 新：统一可观测性查询
-        CODE_SEARCH_TOOL,  # 保留：语义代码搜索
-        DB_QUERY_TOOL,  # 保留：只读数据库查询
-        INSPECT_FRONTEND_ERROR_TOOL,  # 新：一站式前端分析
-        GET_FILE_CONTENT_TOOL,  # 新：文件读取
+        SEARCH_OBSERVABILITY_TOOL,  # 统一可观测性查询
+        CODE_SEARCH_TOOL,  # 语义代码搜索
+        DB_QUERY_TOOL,  # 只读数据库查询
+        INSPECT_FRONTEND_ERROR_TOOL,  # 一站式前端分析
+        GET_FILE_CONTENT_TOOL,  # 文件读取
+        ROOT_CAUSE_RECALL_TOOL,  # P1-a: 根因向量检索历史相似 bug (§6.4)
     ]
 
 
 def get_all_tools() -> list[StructuredTool]:
-    """Get the V3 unified tool set (5 tools). Cached after first call."""
+    """Get the V3 unified tool set (6 tools). Cached after first call."""
     global _ALL_TOOLS_CACHE
     if _ALL_TOOLS_CACHE is None:
         _ALL_TOOLS_CACHE = _build_all_tools()
@@ -227,6 +232,7 @@ __all__ = [
     "get_file_content",
     "parse_browser_errors",
     "extract_stack_trace",
+    "search_historical_root_cause",
     # Trace query / tree analysis (shared tools)
     "build_cross_tier_tree",
     "detect_n_plus_one",
@@ -244,6 +250,7 @@ __all__ = [
     "INSPECT_FRONTEND_ERROR_TOOL",  # V3 一站式前端分析
     "LOKI_QUERY_TOOL",  # DEPRECATED: 使用 SEARCH_OBSERVABILITY_TOOL 替代
     "PARSE_BROWSER_ERRORS_TOOL",
+    "ROOT_CAUSE_RECALL_TOOL",  # P1-a: 根因向量历史检索 (§6.4)
     "SEARCH_OBSERVABILITY_TOOL",  # V3 统一可观测性入口
     "SHARED_TOOLS",  # V2 兼容 (7 tools)
     "SOURCE_MAP_RESOLVE_TOOL",

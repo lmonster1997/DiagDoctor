@@ -6,9 +6,9 @@ here and injected into the diagnosis agent as a few-shot reference.
 
 P0 scope (static injection, design §6.2/§6.5):
 - ``search_historical_cases(evidence, k_final=3)``: embed the symptom query
-  -> Qdrant search (overfetch ``OVERFETCH``) -> exclude self (ALL
-  ``trigger_trace_ids``) -> three-factor score -> dedup by trace_id ->
-  relevance threshold -> top-k.
+  -> Qdrant search over the ``symptom`` named vector (overfetch ``OVERFETCH``)
+  -> exclude self (ALL ``trigger_trace_ids``) -> three-factor score -> dedup by
+  trace_id -> relevance threshold -> top-k.
 - Three-factor score ``relevance × recency × importance`` (design §6.1), NOT
   pure cosine. Threshold / weights need gold-case calibration (design §9.1,
   deferred to RetrievalEvaluator #8) -- constants here are placeholders with
@@ -17,8 +17,17 @@ P0 scope (static injection, design §6.2/§6.5):
   gain, not a dependency. Structured logs ``rag_empty_recall`` /
   ``rag_retrieval_failed``.
 
-P1 (NOT here): tool-ification + dual ``root_cause_vector`` (§6.4), semantic
-pattern (§3.2), failed-case negative (§8.2).
+P1-a (design §6.4, breaks the #8 symptom-similarity ceiling):
+- ``search_by_root_cause(hypothesis, k_final=3)``: embed the agent's
+  root-cause hypothesis -> Qdrant search over the ``root_cause`` named vector
+  (same three-factor / dedup / threshold pipeline). The agent forms a root-cause
+  hypothesis mid-investigation, then queries root-cause similarity -- getting
+  "same root cause" recalls that symptom-similarity misses (same-root-diff-
+  symptom) and avoiding "same symptom, different root" over-recall. Exposed as
+  an agent tool (``src/tools/memory_recall.py``); P0 symptom static injection
+  stays on its own ``rag_injection_enabled`` switch.
+
+P1 (NOT here): semantic pattern (§3.2), failed-case negative (§8.2).
 """
 
 from __future__ import annotations
@@ -31,7 +40,12 @@ from typing import Any
 from src.engine.state import NormalizedEvidence
 from src.memory.long_term.embedding import embed_single
 from src.memory.long_term.encoding import build_symptom_passage
-from src.memory.long_term.qdrant_client import COLLECTION_NAME, get_qdrant_client
+from src.memory.long_term.qdrant_client import (
+    COLLECTION_NAME,
+    VECTOR_NAME_ROOT_CAUSE,
+    VECTOR_NAME_SYMPTOM,
+    get_qdrant_client,
+)
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)
@@ -131,48 +145,47 @@ def _dedup_by_trace(scored: list[ScoredCase]) -> list[ScoredCase]:
 
 
 # ═════════════════════════════════════════════════════════════════════
-# Main entry point
+# Shared search pipeline (design §6.2) - symptom & root_cause share this
 # ═════════════════════════════════════════════════════════════════════
 
 
-async def search_historical_cases(
-    evidence: NormalizedEvidence,
-    k_final: int = 3,
+async def _search_named_vector(
     *,
-    now: datetime | None = None,
+    query_vec: list[float],
+    vector_name: str,
+    exclude_trace_ids: list[str] | tuple[str, ...] | set[str],
+    k_final: int,
+    now: datetime,
 ) -> list[ScoredCase]:
-    """Retrieve the top-k most relevant historical cases for ``evidence``.
+    """Shared retrieval pipeline over a named vector (symptom or root_cause).
 
     Pipeline (design §6.2):
-    1. embed the symptom query (``build_symptom_passage``)
-    2. Qdrant search (overfetch ``OVERFETCH``)
-    3. exclude self (ALL ``evidence.trigger_trace_ids``, not just the first)
-    4. three-factor score
-    5. dedup by trace_id (keep best)
-    6. relevance-threshold filter
-    7. top-k by three-factor score
+    1. Qdrant ``query_points`` over ``vector_name`` (overfetch ``OVERFETCH``)
+    2. exclude self (ALL ``exclude_trace_ids``, not just the first)
+    3. three-factor score
+    4. dedup by trace_id (keep best)
+    5. relevance-threshold filter
+    6. top-k by three-factor score
 
-    Empty recall (0 hits after filtering) -> ``[]`` + ``rag_empty_recall`` log.
-    Any error (embed / Qdrant) -> ``[]`` + ``rag_retrieval_failed`` log. RAG is
-    a gain, not a dependency: the caller proceeds without historical reference.
+    Any Qdrant error -> ``[]`` + ``rag_retrieval_failed`` log (RAG is a gain,
+    not a dependency). Embedding errors are handled by the caller (it has the
+    context to log which vector / query failed).
     """
-    now = now or datetime.now(UTC)
-
     try:
-        query_vec = await embed_single(build_symptom_passage(evidence))
         client = await get_qdrant_client()
         result = await client.query_points(
             collection_name=COLLECTION_NAME,
             query=query_vec,
+            using=vector_name,  # P1-a: pick the named vector
             limit=OVERFETCH,
             with_payload=True,
         )
         hits = result.points
     except Exception:
-        logger.warning("rag_retrieval_failed", exc_info=True)
+        logger.warning("rag_retrieval_failed", vector=vector_name, exc_info=True)
         return []
 
-    self_ids = {str(t) for t in evidence.trigger_trace_ids if t}
+    self_ids = {str(t) for t in exclude_trace_ids if t}
     scored = [
         _score_hit(h, now)
         for h in hits
@@ -185,6 +198,7 @@ async def search_historical_cases(
     if not scored:
         logger.info(
             "rag_empty_recall",
+            vector=vector_name,
             k_final=k_final,
             raw_hits=len(hits),
             self_excluded=len(self_ids),
@@ -192,12 +206,87 @@ async def search_historical_cases(
     else:
         logger.info(
             "rag_retrieved",
+            vector=vector_name,
             k_final=k_final,
             returned=len(scored),
             top_score=scored[0].score,
         )
 
     return scored
+
+
+# ═════════════════════════════════════════════════════════════════════
+# Public entry points
+# ═════════════════════════════════════════════════════════════════════
+
+
+async def search_historical_cases(
+    evidence: NormalizedEvidence,
+    k_final: int = 3,
+    *,
+    now: datetime | None = None,
+) -> list[ScoredCase]:
+    """Retrieve the top-k symptom-similar historical cases for ``evidence`` (P0).
+
+    Embeds the symptom query (``build_symptom_passage``) and searches the
+    ``symptom`` named vector, excluding self (ALL ``evidence.trigger_trace_ids``).
+    Used for the §6.5 static injection in ``_diagnosis_agent_node``.
+    """
+    now = now or datetime.now(UTC)
+
+    try:
+        query_vec = await embed_single(build_symptom_passage(evidence))
+    except Exception:
+        logger.warning("rag_retrieval_failed", vector=VECTOR_NAME_SYMPTOM, exc_info=True)
+        return []
+
+    return await _search_named_vector(
+        query_vec=query_vec,
+        vector_name=VECTOR_NAME_SYMPTOM,
+        exclude_trace_ids=evidence.trigger_trace_ids,
+        k_final=k_final,
+        now=now,
+    )
+
+
+async def search_by_root_cause(
+    hypothesis: str,
+    k_final: int = 3,
+    *,
+    now: datetime | None = None,
+    exclude_trace_ids: list[str] | tuple[str, ...] | set[str] | None = None,
+) -> list[ScoredCase]:
+    """Retrieve the top-k root-cause-similar historical cases (P1-a, §6.4).
+
+    Embeds the agent's root-cause ``hypothesis`` and searches the ``root_cause``
+    named vector -- getting "same root cause" recalls that symptom-similarity
+    misses. This is the tool-ified half: the agent calls it (via
+    ``search_historical_root_cause`` tool) after forming a root-cause hypothesis,
+    breaking the #8 symptom-similarity ceiling.
+
+    Self-exclusion is OPTIONAL here (defaults to none): the current case isn't
+    indexed yet (👍 hasn't happened), so it can't be recalled; and a prior
+    diagnosis of the same bug (same ``trace_id``) being recalled is the *ideal*
+    "越用越准" case (the system remembers solving this exact root cause). Callers
+    that want to exclude specific traces (e.g. tests) may pass ``exclude_trace_ids``.
+
+    Empty recall / any failure -> ``[]`` (RAG is a gain, not a dependency).
+    """
+    now = now or datetime.now(UTC)
+
+    try:
+        query_vec = await embed_single(hypothesis)
+    except Exception:
+        logger.warning("rag_retrieval_failed", vector=VECTOR_NAME_ROOT_CAUSE, exc_info=True)
+        return []
+
+    return await _search_named_vector(
+        query_vec=query_vec,
+        vector_name=VECTOR_NAME_ROOT_CAUSE,
+        exclude_trace_ids=exclude_trace_ids or [],
+        k_final=k_final,
+        now=now,
+    )
 
 
 # ═════════════════════════════════════════════════════════════════════

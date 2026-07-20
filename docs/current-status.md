@@ -37,11 +37,12 @@ middleware 顺序:`AgentLifecycle -> ToolDedup -> LangfuseTracing -> ToolTruncat
 - ✅ graph 测试套件已修(`src.graph.*`->`src.engine.*`;reorg 后无法修复的旧集成测试以 `_` 前缀禁用,CI 全绿)-> A2 done
 - ⚠️ `MAX_TOOL_CALLS` 实计 model_call 数,且 constants/ContextBudget/config 三处上限不一致;commit 称"flailing 检测"实未实现(仅硬上限 + 语法去重)-> B8
 
-### 2.2 tools(5 个活跃:search_observability / code_search / db_query / inspect_frontend_error / get_file_content)
+### 2.2 tools(6 个活跃:search_observability / code_search / db_query / inspect_frontend_error / get_file_content / search_historical_root_cause)
 - ✅ **code_search**:ripgrep 精确匹配,无匹配时返回结构化"下一步建议"(非假向量结果)
 - ✅ **search_observability** auto 模式:Loki -> 提 trace_id -> Tempo -> 跨层 span 树 -> N+1/bottleneck/error span/cascade/timeout 检测 -> 因果链 -> insights;含 stale-window 自动纠正(防 agent 用 prompt 里的硬编码示例日期)
 - ✅ **db_query**:app 层 sql_guard(sqlparse token walk + raw-regex 兜底 + 多语句拒绝 + first-keyword 检查)
 - ✅ file_reader、inspect_frontend_error(浏览器错误分类 + 组件名抽取)
+- ✅ **search_historical_root_cause**(P1-a,§6.4):根因向量检索历史相似 bug,agent 形成根因假设后主动调,独立 `rag_root_cause_tool_enabled` 开关;优雅降级(空库/无匹配/失败均返字符串不抛)
 - ⚠️ **source_map_resolve 是 stub**(原样返回 input + "passthrough"),却默认被 inspect_frontend_error 调用、工具描述宣传"Source map 还原" -> A8
 - ⚠️ 无统一工具返回/错误契约(5 种不兼容错误形态)-> B6
 - ⚠️ 三个 observability 模块(observability_tools / observability_unified / trace_query)+ deprecated 工具仍导出;`frontend_tools` 死但被 import 私有 helper(耦合)
@@ -70,9 +71,11 @@ middleware 顺序:`AgentLifecycle -> ToolDedup -> LangfuseTracing -> ToolTruncat
 - ⚠️ trace_id 作 Loki stream label(高基数反模式);Langfuse v2(legacy);`record_llm_generation` 死代码
 
 ### 2.6 memory(长期记忆)
-- ✅ `case_store.maybe_index_diagnosis` 写入侧(用户点赞触发);写侧三分离(embedding 只症状,诊断输出进 payload,§4)
-- ✅ 检索侧 `case_retriever.search_historical_cases`(三因子 relevance×recency×importance + 自排 + trace 去重 + 阈值 + 空召回/异常降级)+ `_diagnosis_agent_node` 首次 pass §6.5 静态注入;HITL resume 从 `similar_cases_text` 缓存重注入不 re-query;`rag_injection_enabled` 开关;`retrieved_case_ids`/`similar_cases_text` 入 DoctorState -> A5 done
-- ✅ 检索召回评测 `recall_ablation`(§9.1/§9.3):15 case 成对 symptom-cosine 四象限 recall@k,实证 P0 症状相似天花板(根因似症状异 BE-022↔FE-021 召回低 -> P1-a 突破基线);`recall_ablation.py` + `scripts/eval_recall_ablation.py` + 单测 -> #8 done
+- ✅ `case_store.maybe_index_diagnosis` 写入侧(用户点赞触发);写侧三分离(embedding 只症状/根因语义,诊断输出进 payload,§4);**P1-a 双向量**:point 带 named vectors `symptom`+`root_cause`(批量 `embed_texts([symptom_passage, root_cause])` 单次往返)
+- ✅ 检索侧 `case_retriever.search_historical_cases`(三因子 relevance×recency×importance + 自排 + trace 去重 + 阈值 + 空召回/异常降级,`using=symptom`)+ `_diagnosis_agent_node` 首次 pass §6.5 静态注入;HITL resume 从 `similar_cases_text` 缓存重注入不 re-query;`rag_injection_enabled` 开关;`retrieved_case_ids`/`similar_cases_text` 入 DoctorState -> A5 done
+- ✅ **P1-a 双向量工具化检索**(§6.4,突破 #8 症状相似天花板):`case_retriever.search_by_root_cause(hypothesis)` 查 `root_cause` named vector(共享 `_search_named_vector` 管线,`using=root_cause`);包成 agent tool `search_historical_root_cause`(`src/tools/memory_recall.py`,agent 形成根因假设后主动调);独立开关 `rag_root_cause_tool_enabled`(与症状静态注入 `rag_injection_enabled` 解耦);Qdrant collection named vectors(`qdrant_client.NAMED_VECTORS`,per-vector INT8 quant,旧 schema 自动重建);`tools_reference.md`+`diagnosis_agent.j2` 加工具说明;注册成第 6 个工具。**before/after ablation(real bge-m3, recall@3)**:①1.00→1.00 / ②0.50→**1.00**(突破天花板✓,同根因异症状被召回)/ ③0.80→1.00(未降,已知限制:根因文本相似按"根因领域"聚类如后端 500 三连 BE-020/021/022,粗于机械根因身份)/ ④0.16→0.15(无噪声注入✓)。`scripts/eval_recall_ablation.py --vector both`。-> P1-a done
+- ⚠️ **P1-a 已知设计张力(明日重构,见 followup-plan §C)**:`build_symptom_passage` 把 `golden_signals.summary`(日志/trace 提取摘要,含 `SELECT * FROM tasks` 这类代码标识符)塞进症状语义向量,与项目自己的 `code_search` 原则("语义向量对代码标识符不可靠",§2.2)**不一致**;§4.2 理由偏薄、未隔离验证 log 摘要净贡献。重构方向(hybrid):症状向量只编码 `user_report`(自然语言),`signal_types`/`tier` 改 Qdrant payload filter,log 摘要留 payload 不进向量。P1-a 的 root_cause 向量(编码 `report.root_cause` 自然语言)不受影响、不在此次重构范围。
+- ✅ 检索召回评测 `recall_ablation`(§9.1/§9.3):15 case 成对 cosine 四象限 recall@k,实证 P0 症状相似天花板(根因似症状异 BE-022↔FE-021 召回低 -> P1-a 突破基线);`recall_ablation.py` + `scripts/eval_recall_ablation.py`(`--vector {symptom,root_cause,both}`)+ 单测 -> #8 done
 - ✅ 反馈回填 §8.1 闭合"越用越准"环:`case_store.backfill_effectiveness`(Qdrant retrieve->set_payload read-modify-write,effectiveness clamp[0,1],hit_count +1 on 👍,异常降级返回更新数)+ `feedback.py` upvote(👍 delta=+0.1/hit=True)/downvote(👎 delta=-0.1/hit=False)接入,均 fire-and-forget;backfill 独立于新 case 索引成败(👍 认可诊断即认可召回参考);`_load_run_state` 增返 `retrieved_case_ids`;`_importance` 已读 hit_count/effectiveness -> 回填后自动生效;单测 backfill + feedback 流程 -> §8.1 done
 - ✅ case_id 注入修复(闭合 §8.1 **live** 环):`bug_info_node` 从 `config["configurable"]["thread_id"]` 设 `case_id`/`trace_id`/`session_id`(if 未设,与 checkpointer 寻址同 key -> `case_id == checkpoint thread_id` 构造保证);图单一 owns,`_build_initial_state` 不再设。修 CopilotKit 路径 `state.case_id=None`(前端 👍 fallback 到 desync 的 `useCopilotContext().threadId` -> `feedback._load_run_state` 404)。注:`test_feedback.py` `_patch_graph` mock 图 -> §8.1 单测早绿但 live 👍 路径此前是断的;本次 live 验证通过。新增 `test_bug_info_sets_case_id_from_config_thread_id`
 - (设计见 `long_term_memory_design.md`,权威)

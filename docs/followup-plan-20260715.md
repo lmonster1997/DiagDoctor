@@ -157,7 +157,7 @@
 
 | # | 方向 | 解决的架构/设计问题 | 信号 | 成本 |
 |---|---|---|---|---|
-| 15 | **P1-a 双向量工具化检索** | P0 静态注入有症状相似天花板(查询端无根因)。`search_historical_cases` 包成 agent tool + collection 加 `root_cause` named vector;agent 形成根因假设后查根因向量拿根因相似。解决"症状似/根因似不可兼得"(§6.4) | ⭐⭐⭐⭐⭐ | 1.5d |
+| 15 | ✅ done **P1-a 双向量工具化检索** | P0 静态注入有症状相似天花板(查询端无根因)。`search_historical_cases` 包成 agent tool + collection 加 `root_cause` named vector;agent 形成根因假设后查根因向量拿根因相似。解决"症状似/根因似不可兼得"(§6.4)。**已实现(2026-07-19)**:named vectors(`symptom`+`root_cause`,per-vector INT8)+ `case_store` 批量双 embed + `case_retriever.search_by_root_cause`(`using=root_cause` 共享 `_search_named_vector`)+ agent tool `search_historical_root_cause`(`src/tools/memory_recall.py`,独立 `rag_root_cause_tool_enabled` 开关)+ eval `--vector both`。**before/after ablation(real bge-m3, recall@3)**:②0.50->**1.00**(突破天花板✓)/ ③0.80->1.00(未降,**已知限制**:根因文本相似按"根因领域"聚类如后端 500 三连 BE-020/021/022,粗于机械根因身份,区分需结构化信号非纯文本向量能解)/ ④0.16->0.15(无噪声✓) | ⭐⭐⭐⭐⭐ | 1.5d |
 | 16 | **P1-b semantic pattern(`bug_patterns`)** | 记忆只有 episodic 无跨案例学习。攒 N 个同类 case 后 LLM 反思提炼 pattern,双路注入(case 给具体、pattern 给规律)。对标 Generative Agents reflection,§3.2 标"最能拉开档次" | ⭐⭐⭐⭐ | 1d |
 | 17 | **P1-c failed-case 负样本 + 冲突检测** | 失败不进记忆=闭环缺一臂。👎 case 存 `agent_root_cause` 作负样本("曾走此方向未解决,请核查");同症状异根因 case 标冲突提示 agent | ⭐⭐⭐ | 0.5d |
 
@@ -172,17 +172,18 @@ P1 测试 case(体现效果,非 benchmark 跑分):
 ### 推荐执行顺序(故事深度优先 + 依赖)
 
 1. ~~**#7**~~(✅ done,commit `960d63b`)+ ~~**#5**~~(✅ done,2026-07-18):编排正确性地基 + 杀手级 demo(budget 耗尽 -> 暂停 -> 人工补一句 -> 恢复续查)已落地。+ ~~**#1**~~(✅ done,2026-07-18:RAG 检索闭环,三因子检索 + §6.5 静态注入 + 写侧三分离 + resume 缓存重注入 + `rag_injection_enabled` 开关)已落地。**下一步:#8**(RetrievalEvaluator,量化检索)。
-2. ~~**#1**~~(✅ done,1.5d)-> ~~**#8**~~(✅ done,成对召回 ablation,实证 P0 症状相似天花板):闭合记忆 LOOP + 量化检索。-> **反馈回填**(§8.1,~0.5d,闭合"越用越准"闭环)-> **P1-a**(双向量,1.5d,突破天花板,before/after ablation)-> **P1-c**(0.5d)-> **P1-b**(semantic pattern,1d):记忆系统进阶,P1-a 可控测试体现,P1-b 定性+叙事(效果需扩评测集证明)。
+2. ~~**#1**~~(✅ done,1.5d)-> ~~**#8**~~(✅ done,成对召回 ablation,实证 P0 症状相似天花板):闭合记忆 LOOP + 量化检索。-> ~~**反馈回填**(§8.1,~0.5d,闭合"越用越准"闭环)~~✅ -> ~~**P1-a**(双向量,1.5d,突破天花板,before/after ablation)~~✅(②0.50->1.00 突破;③未降已知限制)-> **P1-c**(0.5d)-> **P1-b**(semantic pattern,1d):记忆系统进阶,P1-a 可控测试体现,P1-b 定性+叙事(效果需扩评测集证明)。
 3. **#2**(单一可信评测 + ablation,2.5d)-> **#3**(judge 加固,1.5d)-> **#4**(激活门禁+可复现,1d):eval-driven dev 支点--#2 让 #3/#4/#8 都可量化验证。
 4. **#6**(观测医生,1.5d)+ **#9/#10/#11**(便宜除雷,1.3d)穿插。
 5. T4 按需。
 
 ### 下一步任务交接(新窗口接手)
 
-> 本会话完成 #1(RAG 检索侧静态注入)+ #8(召回 ablation 评测,commit `a38f411` on `feat/RAG`)。
+> 本会话完成 P1-a(双向量工具化检索,突破 #8 症状相似天花板)。前一窗口已完成 #1(RAG 检索侧静态注入)+ #8(召回 ablation 评测,commit `a38f411` on `feat/RAG`)+ §8.1 反馈回填(含 live 闭环修正)。
 > 跑 embed 见记忆 `bge-m3-local-model-setup`(HF 被 SSL 拦,走 ModelScope 下到 `D:/hf_cache`,带 `BGE_M3_LOCAL_PATH` + `HF_HUB_OFFLINE=1`)。
 > P0 基线(bge-m3, recall@3)已在 #8 行:①同根同症状 1.00 / ②同根异症状 0.50(天花板)/ ③异根同症状 0.80(过召回)/ ④异根异症状 0.16。
-> 下一步:P1-a 双向量(B,见下)。A(§8.1 反馈回填)已完成 ✅,见下。
+> P1-a after(bge-m3, recall@3):②0.50->**1.00**(突破✓)/ ③0.80->1.00(未降,已知限制:根因文本相似按领域聚类,粗于机械根因身份)/ ④0.16->0.15(无噪声✓)。详见 §B。
+> 下一步:P1-c(failed-case 负样本 + 冲突检测,0.5d)-> P1-b(semantic pattern,1d)。
 
 #### A. 反馈回填(§8.1)-- ✅ 已完成
 
@@ -190,20 +191,54 @@ P1 测试 case(体现效果,非 benchmark 跑分):
 
 > **2026-07-19 live 闭环修正**:上面 §8.1 此前按单测标 ✅,但 live CopilotKit 👍 路径被 case_id desync 卡着 404(`test_feedback.py` `_patch_graph` mock 图,未覆盖真实链路)。已修:`bug_info_node` 从 `config["configurable"]["thread_id"]` 设 `case_id`(图单一 owns,`_build_initial_state` 不再设),与 checkpointer 寻址同 key -> `case_id == checkpoint thread_id` 构造保证;CopilotKit live 👍 链路(写入+检索)已验证通过。详见 `current-status.md` §2.6。
 
-#### B. P1-a 双向量(~1.5d)-- 突破症状相似天花板
+#### B. P1-a 双向量(~1.5d)-- ✅ 已完成(2026-07-19,突破症状相似天花板)
 
 **问题**:P0 单向量(症状)有天花板(#8 基线 ②0.50 漏召回 / ③0.80 过召回)。P1-a 加 `root_cause_vector`,agent 形成根因假设后查根因向量,拿根因相似(§6.4)。
 
-**做法**:
-1. `qdrant_client.py`:collection 改 **named vectors**(`symptom` + `root_cause`,都 1024/cosine/int8)。重建 collection(库冷启动,重灌即可;`ensure_collection` 加 named-vector 分支)。
-2. `case_store._build_point`:加 `root_cause_vector = await embed_single(report.root_cause)`。point 用 `{vector: {"symptom": ..., "root_cause": ...}}`。`maybe_index_diagnosis` 改为 embed 两个向量。
-3. `case_retriever.py`:加 `search_by_root_cause(hypothesis: str, k_final=3)`(embed 假设 -> query `root_cause` named vector,复用三因子/去重/阈值)。或给 `search_historical_cases` 加 `vector: Literal["symptom","root_cause"] = "symptom"` 参数。
-4. agent:把根因检索做成 **tool**(§6.4 工具化,非静态注入)注册到 tools,agent 调查中形成根因假设后主动调。`rag_injection_enabled` 门控症状静态注入保留;工具单独开关。
-5. eval:`eval_recall_ablation.py` 加 `--vector root_cause`(15 case 的 root_cause 文本两两 cosine,跑 after 四象限表)。对比 P0 before(②0.50/③0.80),期望 **②升(同根因->根因向量似->召回)、③降(异根因->根因向量不似->不召回)**。
+**做法(均已落地)**:
+1. ✅ `qdrant_client.py`:collection 改 named vectors(`symptom`+`root_cause`,都 1024/cosine/int8,per-vector quantization 进 `VectorParams`);`ensure_collection` 加 named-vector 检测分支(旧单向量 schema 自动重建,库冷启动重灌)。
+2. ✅ `case_store._build_point`:point 用 `{vector: {"symptom": ..., "root_cause": ...}}`;`maybe_index_diagnosis` 批量 `embed_texts([symptom_passage, report.root_cause])` 单次往返拿双向量。
+3. ✅ `case_retriever.py`:抽 `_search_named_vector` 共享管线(`using=` 选 named vector);`search_historical_cases` 传 `using=symptom`;新增 `search_by_root_cause(hypothesis, exclude_trace_ids=None)` 传 `using=root_cause`(默认不自排:当前 case 未入库,同 trace 历史召回是"越用越准"理想态)。
+4. ✅ agent tool:新建 `src/tools/memory_recall.py` 把根因检索做成 tool `search_historical_root_cause`(§6.4 工具化),注册成第 6 个工具;`rag_injection_enabled` 门控症状静态注入保留,工具独立开关 `rag_root_cause_tool_enabled`(runtime check,优雅降级)。
+5. ✅ eval:`eval_recall_ablation.py` 加 `--vector {symptom,root_cause,both}`;`both` 打 before/after 对比表。
 
-**验证**:after 表 ② > 0.50、③ < 0.80 = 突破天花板。before(P0)/ after(P1-a) 四象限对比表 = 完整 ablation 叙事。
+**验证(real bge-m3, recall@3)**:
 
-**设计 ref**:§6.4、§5.1。
+| 象限 | P0 before(symptom) | P1-a after(root_cause) | Δ | 结论 |
+|---|---|---|---|---|
+| ① same_root_same_symptom | 1.00 | 1.00 | 0.00 | ✓ 本就高 |
+| ② same_root_diff_symptom | 0.50 | **1.00** | **+0.50** | ✓ **突破天花板**(同根因异症状被召回) |
+| ③ diff_root_same_symptom | 0.80 | 1.00 | +0.20 | ✗ 未降(已知限制,见下) |
+| ④ diff_root_diff_symptom | 0.16 | 0.15 | -0.01 | ✓ 无噪声注入 |
+
+**主目标达成**:② 0.50 -> 1.00,根因向量召回同根因异症状 case(P0 症状天花板被打破)。
+
+**诚实限制(③ 未降)**:预测"③降"未兑现。根因**文本**相似度(bge-m3)按"根因领域"聚类--BE-020(missing-fk-check)/BE-021(scalar-type-error)/BE-022(null-check)三例症状都是 http_500、根因都是"后端代码改动引发 500",文本语义相近,故根因向量仍互相召回。即文本向量区分的是"根因领域"而非"机械根因身份"。区分同领域异根因需结构化信号(如 affected_file/操作类型 filter),非纯文本向量能解--留作后续(可结合 P1-c 冲突检测或 category filter 探索)。before/after 对比表仍是完整 ablation 叙事(② 突破 + ④ 无噪声 + ③ 限制讲清)。
+
+**设计 ref**:§6.4、§5.1。关联 [[long-term-memory-design-doc]]。
+
+#### C. P1-a 后续:症状向量 hybrid 重构(deferred,明日做,~0.5-1d)
+
+**背景(为何做)**:P1-a review 时发现 `encoding.build_symptom_passage` 把 `golden_signals.summary`(日志/trace 提取的摘要,含 `SELECT * FROM tasks`、表名、栈帧这类**代码标识符/结构化内容**)塞进了症状语义向量。这与项目自己的 `code_search` 原则(current-status §2.2 / followup-plan 对标 §2.2:"语义向量对代码标识符不可靠,宁可引导换工具也不返回低质命中")**不一致**--一边说语义向量对代码不可靠,一边把日志摘要往语义向量里塞。设计文档 §4.2 的理由("structured signals 比 vague user_report 更精确,且两端都有")是工程直觉,**非文献支撑**,且**未隔离验证** log 摘要的净贡献(可能正:比 vague user_report 精确;也可能负:高熵 case-specific 内容让向量过拟合、把同根因不同表 case 推远,可能是 ② 天花板 0.50 的一部分成因)。
+
+> 注:P1-a 的 `root_cause` 向量(编码 `report.root_cause`,自然语言)**不在此次重构范围**--它本来就是 NL,无此张力。本次只改症状向量侧。
+
+**做法(hybrid,对齐 code_search 的"NL 进向量、结构化走精确匹配"分工)**:
+
+1. `encoding.build_symptom_passage(evidence)`:症状向量**只编码 `user_report`(自然语言)**。移除 `signal_types` / `tier` / `golden_signals.summary` 出向量(保留函数签名,索引/查询两端仍共用,§4.2 对称性不变)。
+2. `signal_types` + tier -> **Qdrant payload filter**(精确匹配)。两字段**已在 payload**(`_build_point`:`signal_types`、`symptom_tier`)。在 `case_retriever._search_named_vector`(症状分支)的 `query_points` 加 `query_filter=models.Filter(must=[FieldCondition(key="symptom_tier", match=MatchValue(...)), ...])`。
+   - **filter 松紧需标定**:tier 硬筛(粗,frontend/backend/cross_layer);signal_types 软匹配(细,防过严漏召回--同根因 case 的信号集可能略异)。可先只 filter tier,signal_types 留 payload 不筛。
+   - **tier 源统一**:`build_symptom_passage` 原用 `derive_tier(evidence)`,payload 存 `report.symptom_tier`,两者可能不一致(agent 设的 vs evidence 派生的)。filter 用哪个需统一--建议 query 端用 `derive_tier(evidence)` 保持与(原)passage 对称,payload 端也改存 `derive_tier(evidence)`(而非 `report.symptom_tier`)。
+3. `golden_signals.summary`:**留 payload 不进向量**(可选:payload 加 `signal_summaries` 字段供溯源;`format_similar_cases` 目前不用它,注入展示用 `user_report_snippet`/`root_cause`/`fix_suggestion`)。
+4. **collection 重建**:症状向量内容变了(老 point 的 symptom 向量是 full passage 编的,新的是 user_report 编的,向量空间语义变了)-> 重建 + 重灌(冷启动,同 P1-a `ensure_collection` schema-mismatch 重建机制;但这次 schema 没变,是向量内容变了,重建不会自动触发,**需手动 `delete_collection` + `ensure_collection`** 或写迁移脚本从 payload 重编 symptom 向量)。
+5. **验证(验收门)**:`eval_recall_ablation.py --vector both` 重跑 before/after 四象限,**不回归**:② 不应低于 0.50、③ 不应高于 0.80、④ 不应显著升(无噪声)。理想:user_report 语义更纯 + tier filter 更准 -> ② 升或 ③ 降。**若 user_report-only 召回严重掉(vague 文本)-> 回退或转 A(先隔离测 log 摘要净贡献再决定)**。
+6. **eval 同步**:`eval_recall_ablation.py` 的 symptom 模式现在 embed `build_symptom_passage(evidence)`,改后自动跟随新 passage;但若加 payload filter,eval 是纯内存余弦(无 Qdrant filter),要么在 eval 里模拟 filter(按 tier 预筛 candidate),要么承认 eval 测的是"无 filter 的纯向量召回"(上界)、filter 效果另测。**需决定**:eval 是否纳入 filter 模拟。
+
+**成本**:0.5-1d。**顺序**:**先于 P1-c/P1-b**--它是检索基础(P1-c 冲突检测、P1-b pattern 都建在召回之上),基础先正。
+
+**关联**:[[long-term-memory-design-doc]] §4.2(原 passage 设计,本次修订其内容);current-status §2.6 ⚠️ 行。
+
+#### 下一步顺序:C(hybrid 重构,0.5-1d)-> P1-c(failed-case 负样本 + 冲突检测,0.5d)-> P1-b(semantic pattern,1d)
 
 ### 明确不做(过度工程 / 已决策)
 

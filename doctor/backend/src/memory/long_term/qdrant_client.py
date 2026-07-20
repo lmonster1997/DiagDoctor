@@ -3,9 +3,16 @@ Qdrant client singleton + historical_cases collection lifecycle.
 
 Handles:
 - AsyncQdrantClient creation (lazy singleton)
-- Collection creation with migration (v2 → rename)
+- Collection creation with migration (v2 -> rename)
 - INT8 scalar quantization
 - Payload indexes
+
+P1-a (design §5.1/§6.4): the collection carries **named vectors** --
+``symptom`` (P0, query-alignable symptom semantics) + ``root_cause`` (P1-a,
+root-cause text). Index side stores both per point; query side picks one via
+``query_points(using=...)``. INT8 quantization is configured **per vector**
+inside each ``VectorParams`` (cleaner than a global config once vectors are
+named).
 """
 
 from __future__ import annotations
@@ -23,7 +30,19 @@ logger = get_logger(__name__)
 COLLECTION_NAME = "historical_cases"
 VECTOR_SIZE = 1024  # bge-m3
 DISTANCE = models.Distance.COSINE
-QUANTIZATION = models.ScalarQuantization(
+
+# Named vectors (P1-a, design §5.1). ``symptom`` = P0 symptom semantics
+# (recall/utilization 三分离, §4); ``root_cause`` = root-cause text, queried
+# by the agent after it forms a root-cause hypothesis (§6.4 tool-ification,
+# breaks the symptom-similarity ceiling demonstrated by #8).
+VECTOR_NAME_SYMPTOM = "symptom"
+VECTOR_NAME_ROOT_CAUSE = "root_cause"
+NAMED_VECTORS: tuple[str, ...] = (VECTOR_NAME_SYMPTOM, VECTOR_NAME_ROOT_CAUSE)
+
+# Per-vector INT8 scalar quantization (~50% memory, 2-5% precision loss).
+# Configured inside each VectorParams at creation time (P1-a: named vectors ->
+# per-vector quantization is unambiguous, no global update_collection step).
+PER_VECTOR_QUANTIZATION = models.ScalarQuantization(
     scalar=models.ScalarQuantizationConfig(
         type=models.ScalarType.INT8,
     ),
@@ -69,41 +88,66 @@ async def _collection_exists(name: str) -> bool:
         return False
 
 
-async def _get_collection_vector_size(name: str) -> int | None:
-    """Return the vector size of an existing collection, or None."""
+def _vector_params() -> models.VectorParams:
+    """A named vector's config: 1024 / COSINE / INT8 (P1-a per-vector quant)."""
+    return models.VectorParams(
+        size=VECTOR_SIZE,
+        distance=DISTANCE,
+        quantization_config=PER_VECTOR_QUANTIZATION,
+    )
+
+
+async def _get_collection_vector_names(name: str) -> set[str]:
+    """Return the set of vector names in an existing collection.
+
+    - Named vectors -> ``{"symptom", "root_cause", ...}``
+    - Single unnamed vector -> ``{""}`` (the P0 schema, pre-P1-a)
+    - Missing / unreadable -> ``set()``
+
+    ``CollectionParams.vectors`` is ``Union[VectorParams, Dict[str, VectorParams],
+    None]``: a bare ``VectorParams`` has ``.size`` (unnamed), a dict has
+    ``.keys()`` (named).
+    """
     client = await get_qdrant_client()
     try:
         info = await client.get_collection(name)
-        config = info.config
-        if config and config.params and config.params.vectors:
-            return config.params.vectors.size  # type: ignore[union-attr]
-        return None
+        vectors = info.config and info.config.params and info.config.params.vectors
     except (UnexpectedResponse, Exception):
-        return None
+        return set()
+    if not vectors:
+        return set()
+    if hasattr(vectors, "size"):
+        return {""}  # single unnamed vector (P0 schema)
+    try:
+        return set(vectors.keys())  # type: ignore[union-attr]
+    except Exception:
+        return set()
 
 
 async def _create_collection_internal(name: str) -> None:
-    """Create a collection with the canonical P0 config (1024 / COSINE / INT8)."""
+    """Create a collection with named vectors (symptom + root_cause, §5.1).
+
+    Both vectors: 1024 / COSINE / INT8 (per-vector quantization in VectorParams).
+    Global HNSW config applies to all named vectors.
+    """
     client = await get_qdrant_client()
+
+    vectors_config = {name_: _vector_params() for name_ in NAMED_VECTORS}
 
     await client.create_collection(
         collection_name=name,
-        vectors_config=models.VectorParams(
-            size=VECTOR_SIZE,
-            distance=DISTANCE,
-        ),
+        vectors_config=vectors_config,  # type: ignore[arg-type]
         hnsw_config=HNSW_CONFIG,
     )
-    logger.info("qdrant_collection_created", collection=name, size=VECTOR_SIZE)
-
-    # INT8 scalar quantization: ~50% memory reduction, 2-5% precision loss
-    await client.update_collection(
-        collection_name=name,
-        quantization_config=QUANTIZATION,  # type: ignore[arg-type]
+    logger.info(
+        "qdrant_collection_created",
+        collection=name,
+        size=VECTOR_SIZE,
+        vectors=list(NAMED_VECTORS),
     )
-    logger.info("qdrant_quantization_applied", collection=name, type="int8")
 
-    # Payload indexes for filtering
+    # Payload indexes for filtering (quantization is per-vector above, no
+    # global update_collection step needed).
     for field, kind in PAYLOAD_INDEXES:
         await client.create_payload_index(
             collection_name=name,
@@ -118,7 +162,7 @@ async def _create_collection_internal(name: str) -> None:
 
 
 async def _migrate_if_needed(old_name: str, new_name: str) -> None:
-    """Migrate via v2 → rename: create new, delete old, rename new to final."""
+    """Migrate via v2 -> rename: create new, delete old, rename new to final."""
     client = await get_qdrant_client()
 
     # Create the v2 collection with correct config
@@ -129,7 +173,7 @@ async def _migrate_if_needed(old_name: str, new_name: str) -> None:
         await client.delete_collection(old_name)
         logger.info("qdrant_old_collection_deleted", collection=old_name)
 
-    # Rename v2 → canonical name (Qdrant has no rename API — recreate)
+    # Rename v2 -> canonical name (Qdrant has no rename API - recreate)
     # Strategy: we already created new_name with correct config.
     # If old_name == target and new_name is temp, recreate as target.
     # This is a simplified approach for the "library is empty" P0 reality.
@@ -137,12 +181,16 @@ async def _migrate_if_needed(old_name: str, new_name: str) -> None:
 
 
 async def ensure_collection() -> str:
-    """Ensure ``historical_cases`` exists with correct config (1024 / COSINE / INT8).
+    """Ensure ``historical_cases`` exists with named vectors (symptom + root_cause).
 
-    Migration logic:
-    1. If collection doesn't exist → create fresh
-    2. If collection exists but wrong vector size → migrate (v2 → rename)
-    3. If collection exists with correct config → no-op
+    Migration logic (P1-a):
+    1. If collection doesn't exist -> create fresh with named vectors.
+    2. If collection exists with BOTH named vectors (symptom + root_cause) at
+       size 1024 -> no-op.
+    3. Otherwise (old single-vector P0 schema, or missing root_cause named
+       vector, or size mismatch) -> **rebuild**: delete + recreate. The memory
+       is 👍-sourced episodic log; on a dev library this is a cold re-ingest
+       (design §5.1: "P1 可在 historical_cases 上加 named vector … 库冷启动重灌即可").
 
     Returns:
         The collection name (always ``historical_cases``).
@@ -155,31 +203,29 @@ async def ensure_collection() -> str:
         await _create_collection_internal(target)
         return target
 
-    # Check existing config
-    existing_size = await _get_collection_vector_size(target)
-    if existing_size == VECTOR_SIZE:
-        logger.info("qdrant_collection_ok", collection=target, size=VECTOR_SIZE)
+    # Existing collection: does it already have the P1-a named-vector schema?
+    existing_names = await _get_collection_vector_names(target)
+    if NAMED_VECTORS and existing_names == set(NAMED_VECTORS):
+        logger.info(
+            "qdrant_collection_ok",
+            collection=target,
+            size=VECTOR_SIZE,
+            vectors=sorted(existing_names),
+        )
         return target
 
-    # Dimension mismatch → migrate
+    # Schema mismatch (old single-vector schema, or named-vector set drifted)
+    # -> rebuild. Library is upvote-sourced; re-ingest on next upvote cycle.
+    # (note kept ASCII / CJK only -- structlog prints to stdout, which on a
+    # Windows GBK console can't encode emoji; emojis stay in comments/docs.)
     logger.warning(
-        "qdrant_dimension_mismatch",
+        "qdrant_schema_mismatch_rebuild",
         collection=target,
-        existing=existing_size,
-        expected=VECTOR_SIZE,
+        existing_vectors=sorted(existing_names) if existing_names else None,
+        expected_vectors=list(NAMED_VECTORS),
+        note="P1-a named-vector rebuild; re-ingest upvote cases (library cold-start)",
     )
-
-    temp_name = f"{target}_v2"
-    if await _collection_exists(temp_name):
-        await client.delete_collection(temp_name)
-
-    await _create_collection_internal(temp_name)
     await client.delete_collection(target)
-    logger.info("qdrant_old_collection_deleted", collection=target)
-
-    # Qdrant has no rename API → recreate as target name
     await _create_collection_internal(target)
-    await client.delete_collection(temp_name)
-
-    logger.info("qdrant_migration_complete", collection=target, new_size=VECTOR_SIZE)
+    logger.info("qdrant_migration_complete", collection=target, vectors=list(NAMED_VECTORS))
     return target

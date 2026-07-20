@@ -43,14 +43,20 @@ async def verify_qdrant_collection() -> bool:
         collection_name = await ensure_collection()
         print(f"  ✅ Collection '{collection_name}' 就绪")
 
-        # Verify config
+        # Verify config (P1-a: named vectors symptom + root_cause)
         client = await get_qdrant_client()
         info = await client.get_collection(collection_name)
         config = info.config
         vectors = config.params.vectors if config and config.params else None
-        vec_size = vectors.size if vectors else "?"
-        distance = vectors.distance if vectors else "?"
-        print(f"  ✅ 向量维度: {vec_size}, 距离: {distance}")
+        if vectors and hasattr(vectors, "size"):
+            # Legacy single unnamed vector
+            print(f"  ✅ 向量维度: {vectors.size}, 距离: {vectors.distance} (单向量)")
+        elif vectors:
+            # Named vectors (dict[str, VectorParams])
+            for vname, vparams in vectors.items():
+                print(f"  ✅ 向量 '{vname}': dim={vparams.size}, 距离: {vparams.distance}")
+        else:
+            print("  ⚠️  未能读取向量配置")
 
         # Check payload indexes
         print("  Payload 索引:")

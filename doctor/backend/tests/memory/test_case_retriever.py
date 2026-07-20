@@ -107,7 +107,12 @@ def _hit(
 def _patch_retriever(
     monkeypatch: pytest.MonkeyPatch, hits: list[SimpleNamespace]
 ) -> SimpleNamespace:
-    """Patch embed_single + get_qdrant_client to serve ``hits``."""
+    """Patch embed_single + get_qdrant_client to serve ``hits``.
+
+    Records each ``query_points`` call's ``using`` kwarg (named-vector selector)
+    on ``client.using_calls`` so tests can assert the right named vector is
+    queried (symptom vs root_cause).
+    """
 
     async def fake_embed(_text: str) -> list[float]:
         return [0.1] * 8
@@ -115,13 +120,15 @@ def _patch_retriever(
     client = SimpleNamespace(
         points=hits,
         query_calls=0,
+        using_calls=[],
     )
 
     async def fake_get_client() -> Any:
         return client
 
-    async def fake_query_points(**_kwargs: Any) -> SimpleNamespace:
+    async def fake_query_points(**kwargs: Any) -> SimpleNamespace:
         client.query_calls += 1
+        client.using_calls.append(kwargs.get("using"))
         return SimpleNamespace(points=client.points)
 
     client.query_points = fake_query_points
@@ -315,6 +322,108 @@ def test_relevance_threshold_is_a_calibrated_placeholder() -> None:
     # Design §9.1: must be calibrated with gold cases (deferred to #8).
     # Guard against silently drifting the placeholder.
     assert RELEVANCE_THRESHOLD == 0.75
+
+
+# ── named-vector selection (P1-a: symptom vs root_cause using=) ─────
+
+
+async def test_search_historical_cases_uses_symptom_vector(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """P0 symptom search must query the ``symptom`` named vector (using=)."""
+    client = _patch_retriever(monkeypatch, [_hit(score=0.9, trace_id="t1", case_id="c1")])
+    await search_historical_cases(_evidence(), now=NOW)
+    assert client.using_calls == ["symptom"]
+
+
+# ── search_by_root_cause (P1-a, §6.4) ───────────────────────────────
+
+
+async def test_search_by_root_cause_uses_root_cause_vector(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Root-cause search must query the ``root_cause`` named vector (using=)."""
+    client = _patch_retriever(monkeypatch, [_hit(score=0.9, trace_id="t1", case_id="c1")])
+    result = await case_retriever.search_by_root_cause("N+1 in list_tasks", now=NOW)
+    assert client.using_calls == ["root_cause"]
+    assert [c.case_id for c in result] == ["c1"]
+
+
+async def test_search_by_root_cause_exclude_trace_ids(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Optional self-exclusion via exclude_trace_ids (tool doesn't pass it, but
+    callers/tests may)."""
+    own = _hit(score=0.95, trace_id="self-t", case_id="self")
+    other = _hit(score=0.85, trace_id="other-t", case_id="other")
+    _patch_retriever(monkeypatch, [own, other])
+    result = await case_retriever.search_by_root_cause(
+        "hyp", now=NOW, exclude_trace_ids=["self-t"]
+    )
+    assert [c.case_id for c in result] == ["other"]
+
+
+async def test_search_by_root_cause_no_self_exclusion_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without exclude_trace_ids, nothing is excluded (the current case isn't
+    indexed yet; a prior same-trace recall is the desirable '越用越准' case)."""
+    same = _hit(score=0.9, trace_id="same-t", case_id="c1")
+    _patch_retriever(monkeypatch, [same])
+    result = await case_retriever.search_by_root_cause("hyp", now=NOW)
+    assert [c.case_id for c in result] == ["c1"]
+
+
+async def test_search_by_root_cause_threshold_filters_low_relevance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    good = _hit(score=0.9, trace_id="t-good", case_id="good")
+    bad = _hit(score=0.3, trace_id="t-bad", case_id="bad")  # below threshold
+    _patch_retriever(monkeypatch, [good, bad])
+    result = await case_retriever.search_by_root_cause("hyp", now=NOW)
+    assert [c.case_id for c in result] == ["good"]
+
+
+async def test_search_by_root_cause_empty_recall_returns_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_retriever(monkeypatch, [_hit(score=0.1, trace_id="t", case_id="c")])
+    result = await case_retriever.search_by_root_cause("hyp", now=NOW)
+    assert result == []
+
+
+async def test_search_by_root_cause_graceful_degradation_on_embed_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def boom(_text: str) -> list[float]:
+        raise RuntimeError("TEI down")
+
+    async def fake_get_client() -> Any:
+        raise AssertionError("should not reach qdrant on embed failure")
+
+    monkeypatch.setattr(case_retriever, "embed_single", boom)
+    monkeypatch.setattr(case_retriever, "get_qdrant_client", fake_get_client)
+    result = await case_retriever.search_by_root_cause("hyp", now=NOW)
+    assert result == []
+
+
+async def test_search_by_root_cause_graceful_degradation_on_qdrant_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_embed(_text: str) -> list[float]:
+        return [0.1] * 8
+
+    async def fake_get_client() -> Any:
+        client = SimpleNamespace()
+
+        async def boom(**_kwargs: Any) -> Any:
+            raise RuntimeError("qdrant 500")
+
+        client.query_points = boom
+        return client
+
+    monkeypatch.setattr(case_retriever, "embed_single", fake_embed)
+    monkeypatch.setattr(case_retriever, "get_qdrant_client", fake_get_client)
+    result = await case_retriever.search_by_root_cause("hyp", now=NOW)
+    assert result == []
 
 
 # ── injection formatter (§6.5) ──────────────────────────────────────

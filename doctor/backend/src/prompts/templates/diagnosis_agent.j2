@@ -24,6 +24,7 @@
 | 需要看具体代码行 | get_file_content(file_path="...", start_line=N, end_line=M) |
 | 有前端报错 | inspect_frontend_error(browser_errors="...") |
 | 需验证数据状态 | db_query(sql="SELECT ... LIMIT 10") |
+| 已形成根因假设、想参考历史相似 bug | search_historical_root_cause(hypothesis="<一句话根因假设，说清机制>") |
 
 关键原则：
 - 如果连续 2 次调用同一工具无新信息，停止并输出当前结论

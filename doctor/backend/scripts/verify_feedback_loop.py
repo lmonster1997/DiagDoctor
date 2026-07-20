@@ -208,10 +208,19 @@ async def main() -> None:
     print("\n[6] 实证 point-id 雷:diag-<hex>(非 UUID)当 point id")
     client = await get_qdrant_client()
     bad_id = "diag-a1b2c3d4e5f6"  # generate_thread_id() 实际产出的格式
+    # P1-a: collection 用 named vectors,upsert 必须给 {symptom, root_cause} 字典,
+    # 否则 Qdrant 会因向量格式(而非 id)先报错,污染本测试。这里给全 named 向量,
+    # 让 id 校验成为唯一失败点。
     try:
         await client.upsert(
             collection_name=COLLECTION_NAME,
-            points=[PointStruct(id=bad_id, vector=[0.0] * 1024, payload={"case_id": bad_id})],
+            points=[
+                PointStruct(
+                    id=bad_id,
+                    vector={"symptom": [0.0] * 1024, "root_cause": [0.0] * 1024},
+                    payload={"case_id": bad_id},
+                )
+            ],
         )
         print(f"  ⚠️  diag- id 居然被 Qdrant 接受了?unexpected")
     except Exception as e:
@@ -225,4 +234,11 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    # Windows GBK console can't encode ✓/✗/👍/部分中文; force utf-8 stdout
+    # (mirrors eval_recall_ablation.py -- this script's prints carry emoji).
+    import contextlib
+    import sys
+
+    with contextlib.suppress(Exception):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
     asyncio.run(main())

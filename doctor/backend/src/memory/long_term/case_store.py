@@ -11,6 +11,12 @@ P0 scope:
 - ``_dedup_exists()``: check trace_id duplicates (warn, don't reject)
 - ``_build_point()``: construct Qdrant PointStruct with full payload
 
+P1-a (design §5.1/§6.4): ``maybe_index_diagnosis`` embeds BOTH the symptom
+passage and the root_cause text into two named vectors per point
+(``symptom`` + ``root_cause``). The query side (``case_retriever``) picks one
+via ``query_points(using=...)``; the ``root_cause`` vector is what the agent's
+root-cause-hypothesis tool queries to break the symptom-similarity ceiling (#8).
+
 P0 does NOT include: auto-silence channel, failed-case collection, llm_judge gating.
 """
 
@@ -22,10 +28,12 @@ from datetime import UTC, datetime
 from qdrant_client.models import PointStruct
 
 from src.engine.state import DiagnosisReport, NormalizedEvidence
-from src.memory.long_term.embedding import embed_single
+from src.memory.long_term.embedding import embed_texts
 from src.memory.long_term.encoding import build_symptom_passage
 from src.memory.long_term.qdrant_client import (
     COLLECTION_NAME,
+    VECTOR_NAME_ROOT_CAUSE,
+    VECTOR_NAME_SYMPTOM,
     get_qdrant_client,
 )
 from src.observability.logger import get_logger
@@ -64,17 +72,27 @@ def _resolve_affected_files(report: DiagnosisReport) -> list[str]:
 def _build_point(
     report: DiagnosisReport,
     evidence: NormalizedEvidence,
-    vector: list[float],
+    symptom_vector: list[float],
+    root_cause_vector: list[float],
     source: str,
     case_id: str,
     trace_id: str,
 ) -> PointStruct:
-    """Construct a Qdrant PointStruct with indexed payload."""
+    """Construct a Qdrant PointStruct with indexed payload + named vectors.
+
+    P1-a (design §5.1/§6.4): the point carries two named vectors --
+    ``symptom`` (P0, query-alignable symptom semantics) and ``root_cause``
+    (P1-a, root-cause text). The query side picks one via
+    ``query_points(using=...)``; symptom breaks the symptom-similarity ceiling.
+    """
     now = datetime.now(UTC).isoformat()
 
     return PointStruct(
         id=case_id,  # UUID -> upsert 天然幂等
-        vector=vector,
+        vector={
+            VECTOR_NAME_SYMPTOM: symptom_vector,
+            VECTOR_NAME_ROOT_CAUSE: root_cause_vector,
+        },
         payload={
             # ── 去重 / 溯源 ──
             "trace_id": trace_id,
@@ -182,19 +200,32 @@ async def maybe_index_diagnosis(
     if trace_id and await _dedup_exists(trace_id=trace_id):
         logger.info("duplicate_trace_id_upvote", trace_id=trace_id)
 
-    # ── Build passage & embed ──
-    # Symptom-only passage (shared with the query side); root_cause / fix
-    # stay in the payload, NOT in the vector (recall/utilization 三分离, §4).
-    passage = build_symptom_passage(evidence)
+    # ── Build passages & embed both vectors (single batch call) ──
+    # symptom passage (shared with the query side); root_cause text (P1-a).
+    # Both are root-cause/symptom semantics only -- diagnosis outputs stay in
+    # the payload, NOT in the vectors (recall/utilization 三分离, §4 + §5.1).
+    # Batched so a single embed round-trip produces both; if it fails, the
+    # case is skipped (mirrors P0 -- RAG indexing is a gain, not a dependency).
+    symptom_passage = build_symptom_passage(evidence)
+    root_cause_text = report.root_cause
     try:
-        vector = await embed_single(passage)
+        vectors = await embed_texts([symptom_passage, root_cause_text])
+        symptom_vector, root_cause_vector = vectors[0], vectors[1]
     except Exception:
         logger.error("embedding_failed_during_index", exc_info=True)
         return False
 
     # ── Build point & upsert ──
     resolved_case_id = case_id or str(uuid.uuid4())
-    point = _build_point(report, evidence, vector, source, resolved_case_id, trace_id)
+    point = _build_point(
+        report,
+        evidence,
+        symptom_vector,
+        root_cause_vector,
+        source,
+        resolved_case_id,
+        trace_id,
+    )
 
     try:
         client = await get_qdrant_client()
