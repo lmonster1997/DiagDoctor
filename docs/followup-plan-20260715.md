@@ -159,7 +159,7 @@
 |---|---|---|---|---|
 | 15 | ✅ done **P1-a 双向量工具化检索** | P0 静态注入有症状相似天花板(查询端无根因)。`search_historical_cases` 包成 agent tool + collection 加 `root_cause` named vector;agent 形成根因假设后查根因向量拿根因相似。解决"症状似/根因似不可兼得"(§6.4)。**已实现(2026-07-19)**:named vectors(`symptom`+`root_cause`,per-vector INT8)+ `case_store` 批量双 embed + `case_retriever.search_by_root_cause`(`using=root_cause` 共享 `_search_named_vector`)+ agent tool `search_historical_root_cause`(`src/tools/memory_recall.py`,独立 `rag_root_cause_tool_enabled` 开关)+ eval `--vector both`。**before/after ablation(real bge-m3, recall@3)**:②0.50->**1.00**(突破天花板✓)/ ③0.80->1.00(未降,**已知限制**:根因文本相似按"根因领域"聚类如后端 500 三连 BE-020/021/022,粗于机械根因身份,区分需结构化信号非纯文本向量能解)/ ④0.16->0.15(无噪声✓) | ⭐⭐⭐⭐⭐ | 1.5d |
 | 16 | **P1-b semantic pattern(`bug_patterns`)** | 记忆只有 episodic 无跨案例学习。攒 N 个同类 case 后 LLM 反思提炼 pattern,双路注入(case 给具体、pattern 给规律)。对标 Generative Agents reflection,§3.2 标"最能拉开档次" | ⭐⭐⭐⭐ | 1d |
-| 17 | **P1-c 冲突检测**(负样本注入已砍) | 同症状异根因 case 标冲突,注入时提示 agent"历史有 N 种方向,请核查",防单一历史 case 锚定(§7.2)。**砍失败负样本注入**:归因不清+ROI 低+上下文压力(设计 §8.2);👎 只留结构化日志作 P1-b 失败 pattern 数据源 | ⭐⭐⭐ | 0.3d |
+| 17 | ✅ done **P1-c 冲突检测**(负样本注入已砍) | 同症状异根因 case 标冲突,注入时提示 agent"历史有 N 种方向,请核查",防单一历史 case 锚定(§7.2)。**已实现(2026-07-21)**:`detect_conflict` 在召回集(注入 top-k)上检测 ≥2 distinct root_cause(文本归一化),`format_similar_cases` 注入"⚠️ 冲突提示:N 种不同根因,请勿锚定单一 case"防 top-1 锚定;覆盖症状静态注入 + 根因工具两路径(`format_similar_cases` 共用)。**冲突键决策**:选 `root_cause` 文本 distinctness--category 太粗(BE-020/021/022 全 backend_error 漏 §7.2 demo)、根因向量受 §C ③ 限制(同领域异根因同簇),唯文本能触发 §9.3 demo 且忠实"不同 root_cause";"同类别异 bug 触发"非误报(修复点不同,锚定会抄错)。**限制**:同 bug 异表述误报,靠 trace_id 去重+归一化缓解,提示低成本。单测 8 例。**砍失败负样本注入**:归因不清+ROI 低+上下文压力(设计 §8.2);👎 只留结构化日志作 P1-b 失败 pattern 数据源 | ⭐⭐⭐ | 0.3d |
 
 P1 测试 case(体现效果,非 benchmark 跑分):
 - **§9.3 双向量区分(P1-a 核心 demo)**:"症状似根因异"case 对(如"列表卡死"= N+1 / 前端大列表无虚拟化 / 死锁),症状向量 top-3 召回三者(噪声),根因向量(假设"前端渲染")精准命中前端那条。
@@ -275,7 +275,7 @@ P1 测试 case(体现效果,非 benchmark 跑分):
 
 3. **live 验证**(rebuild 后,可选):跑个诊断看检索正常注入(tier filter 生效:只召回同 tier case)。
 
-#### 下一步顺序:~~C(hybrid 重构)~~ ✅(2026-07-20)-> P1-c(冲突检测,0.3d;负样本注入已砍见 §8.2)-> P1-b(semantic pattern,1d)
+#### 下一步顺序:~~C(hybrid 重构)~~ ✅(2026-07-20)-> ~~P1-c(冲突检测)~~ ✅(2026-07-21,负样本注入已砍见 §8.2)-> **P1-b**(semantic pattern,1d)
 
 ### 明确不做(过度工程 / 已决策)
 

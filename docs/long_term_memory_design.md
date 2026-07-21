@@ -248,9 +248,11 @@ payload 存 `code_fingerprint`：`affected_files` 的关键符号 hash（函数�
 
 与 §6.1 的 recency 衰减合流：recency 软衰减（时间）+ fingerprint 硬校验（代码变更）。
 
-### 7.2 冲突检测（P1）
+### 7.2 冲突检测（P1，已实现 P1-c）
 
 同症状但不同 `root_cause` 的 case 标记冲突。注入时若命中冲突 case，提示 agent："历史上有 N 种不同诊断方向，请核查"。避免单一历史 case 误导。
+
+> **P1-c 实现注（冲突键 = `root_cause` 文本 distinctness）**：冲突在**召回集**上注入时检测（冲突是关系性的——case A 与 B 在症状 S 下冲突，非单 case 属性，不预存 payload）。冲突键三选一实测：① `category` 太粗（BE-020/021/022 全 `backend_error` -> 漏掉 §7.2 典型 demo）；② `root_cause` 向量聚类受 §C ③ 限制（同领域异根因同簇）；③ `root_cause` **文本** distinctness（归一化后）——**唯一能触发 §9.3 demo 且忠实"不同 root_cause"**，故选之。"同类别异 bug 触发冲突"非误报：根因文本不同→修复点不同，锚定 top-1 会抄错修复（如 list_tasks N+1 的 `selectinload(Task.comments)` 套到 list_projects N+1 上）。**限制**：同 bug 异表述会误报，靠 trace_id 去重 + 文本归一化缓解，提示低成本（agent 多核查非数据污染）。检测放进 `format_similar_cases`，覆盖症状静态注入 + 根因工具两路径。
 
 ### 7.3 衰减
 

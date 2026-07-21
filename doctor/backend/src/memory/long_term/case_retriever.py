@@ -72,6 +72,53 @@ class ScoredCase:
     payload: dict[str, Any]  # full Qdrant payload, for injection display
 
 
+@dataclass(frozen=True)
+class ConflictReport:
+    """P1-c (design §7.2): does the retrieved set span multiple root causes?
+
+    Same-symptom-different-root-cause cases are a de-anchoring risk: the agent
+    might copy top-1's diagnosis/fix when history actually points several ways.
+    Conflict is relational (case A vs B under symptom S), so it is detected on
+    the retrieved SET at injection time, not stored per case.
+
+    Conflict key = ``root_cause`` TEXT distinctness (normalized), NOT ``category``
+    and NOT the ``root_cause`` vector: category is too coarse (BE-020/021/022 all
+    ``backend_error`` -> would miss the §7.2 canonical demo) and the root_cause
+    vector clusters same-area roots together (the §C ③ limitation, can't split
+    same-area-different-mechanism). Only text distinctness fires on the §9.3
+    "same symptom, different root" pairs AND is faithful to §7.2's "不同 root_cause".
+    """
+
+    is_conflict: bool
+    n_directions: int  # count of distinct non-empty normalized root_cause texts
+
+
+def _normalize_root_cause(text: str) -> str:
+    """Collapse whitespace (incl. newlines) + strip, for root_cause comparison.
+
+    root_cause texts may embed newlines (e.g. FE-020's multi-line summary); we
+    compare on content, not formatting.
+    """
+    return " ".join((text or "").split())
+
+
+def detect_conflict(cases: list[ScoredCase]) -> ConflictReport:
+    """Detect whether ``cases`` span ≥2 distinct root causes (design §7.2).
+
+    Returns a ``ConflictReport``; ``is_conflict`` is True when the retrieved set
+    contains ≥2 distinct (normalized, non-empty) ``root_cause`` values -- i.e.
+    history points multiple diagnostic directions and the agent must not anchor
+    on top-1. Cases with empty root_cause don't count as a direction.
+    """
+    distinct: set[str] = set()
+    for case in cases:
+        norm = _normalize_root_cause(str(case.payload.get("root_cause") or ""))
+        if norm:
+            distinct.add(norm)
+    n = len(distinct)
+    return ConflictReport(is_conflict=n >= 2, n_directions=n)
+
+
 # ═════════════════════════════════════════════════════════════════════
 # Three-factor scoring (design §6.1)
 # ═════════════════════════════════════════════════════════════════════
@@ -329,6 +376,19 @@ def format_similar_cases(cases: list[ScoredCase]) -> str:
         "以下是与当前问题相似的已解决 Bug,仅供参考其诊断思路,请勿机械套用:",
         "",
     ]
+
+    # P1-c (design §7.2): conflict warning when the retrieved set spans ≥2
+    # distinct root causes (same symptom, different roots). De-anchors the agent
+    # from top-1 -- history is ambiguous here, judge independently. Omitted when
+    # all retrieved cases share one root cause (no ambiguity).
+    conflict = detect_conflict(cases)
+    if conflict.is_conflict:
+        lines.append(
+            f"⚠️ 冲突提示:历史相似症状对应 {conflict.n_directions} 种不同根因,"
+            "请勿锚定单一 case 的诊断,基于当前实际证据独立核查。"
+        )
+        lines.append("")
+
     for i, case in enumerate(cases, 1):
         pl = case.payload
         category = pl.get("category") or "?"

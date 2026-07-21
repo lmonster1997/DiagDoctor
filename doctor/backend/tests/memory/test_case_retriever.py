@@ -25,6 +25,7 @@ from src.memory.long_term.case_retriever import (
     _importance,
     _recency,
     _score_hit,
+    detect_conflict,
     format_similar_cases,
     search_historical_cases,
 )
@@ -456,7 +457,12 @@ async def test_search_by_root_cause_graceful_degradation_on_qdrant_failure(
 # ── injection formatter (§6.5) ──────────────────────────────────────
 
 
-def _scored(case_id: str = "hist-1", score: float = 0.82) -> ScoredCase:
+def _scored(
+    case_id: str = "hist-1",
+    score: float = 0.82,
+    *,
+    root_cause: str = "TaskResponse schema missing tags field",
+) -> ScoredCase:
     return ScoredCase(
         case_id=case_id,
         score=score,
@@ -468,7 +474,7 @@ def _scored(case_id: str = "hist-1", score: float = 0.82) -> ScoredCase:
             "category": "frontend_crash",
             "symptom_tier": "frontend",
             "is_cross_layer": True,
-            "root_cause": "TaskResponse schema missing tags field",
+            "root_cause": root_cause,
             "fix_suggestion": "add tags: list[TagResponse] = [] to TaskResponse",
             "confidence": 0.85,
             "source": "user_upvote",
@@ -492,3 +498,92 @@ def test_format_similar_cases_renders_section_65_block() -> None:
     assert "add tags: list[TagResponse] = [] to TaskResponse" in text
     assert "请勿机械套用" in text
     assert "请基于当前实际证据独立判断" in text
+    # single case -> single root cause -> no conflict warning
+    assert "冲突提示" not in text
+
+
+# ── P1-c conflict detection (§7.2) ──────────────────────────────────
+
+
+def test_detect_conflict_single_root_cause_no_conflict() -> None:
+    cases = [
+        _scored(case_id="a", root_cause="N+1 in list_tasks"),
+        _scored(case_id="b", root_cause="N+1 in list_tasks"),  # same text
+    ]
+    report = detect_conflict(cases)
+    assert report.is_conflict is False
+    assert report.n_directions == 1
+
+
+def test_detect_conflict_two_distinct_root_causes_is_conflict() -> None:
+    # §9.3 pair: same symptom (http_500), different roots (FK vs null-deref)
+    cases = [
+        _scored(case_id="be-020", root_cause="外键约束违反 IntegrityError"),
+        _scored(case_id="be-022", root_cause="assignee_id 为 None 调 .hex 抛 AttributeError"),
+    ]
+    report = detect_conflict(cases)
+    assert report.is_conflict is True
+    assert report.n_directions == 2
+
+
+def test_detect_conflict_three_distinct_counts_all() -> None:
+    # BE-020/021/022: 3 distinct roots under http_500
+    cases = [
+        _scored(case_id="be-020", root_cause="外键约束违反"),
+        _scored(case_id="be-021", root_cause="NoResultFound"),
+        _scored(case_id="be-022", root_cause="AttributeError"),
+    ]
+    report = detect_conflict(cases)
+    assert report.is_conflict is True
+    assert report.n_directions == 3
+
+
+def test_detect_conflict_normalizes_whitespace() -> None:
+    # same root_cause, different whitespace/newlines -> not a conflict
+    cases = [
+        _scored(case_id="a", root_cause="N+1 查询\nlist_tasks 逐条查 comments"),
+        _scored(case_id="b", root_cause="N+1 查询 list_tasks 逐条查 comments"),
+    ]
+    report = detect_conflict(cases)
+    assert report.is_conflict is False
+    assert report.n_directions == 1
+
+
+def test_detect_conflict_ignores_empty_root_cause() -> None:
+    # one real root + one empty -> single direction, no conflict
+    cases = [
+        _scored(case_id="a", root_cause="N+1 in list_tasks"),
+        _scored(case_id="b", root_cause=""),
+    ]
+    report = detect_conflict(cases)
+    assert report.is_conflict is False
+    assert report.n_directions == 1
+
+
+def test_detect_conflict_empty_cases_no_conflict() -> None:
+    assert detect_conflict([]).is_conflict is False
+    assert detect_conflict([]).n_directions == 0
+
+
+def test_format_similar_cases_warns_on_conflict() -> None:
+    """§7.2: when the retrieved set spans ≥2 root causes, the injection block
+    carries a de-anchoring warning so the agent doesn't copy top-1."""
+    cases = [
+        _scored(case_id="be-020", root_cause="外键约束违反 IntegrityError"),
+        _scored(case_id="be-022", root_cause="assignee_id None 调 .hex"),
+    ]
+    text = format_similar_cases(cases)
+    assert "冲突提示" in text
+    assert "2 种不同根因" in text
+    assert "请勿锚定单一 case" in text
+    # warning sits before the per-case listing
+    assert text.index("冲突提示") < text.index("Case 1")
+
+
+def test_format_similar_cases_no_warning_when_single_direction() -> None:
+    cases = [
+        _scored(case_id="a", root_cause="N+1 in list_tasks"),
+        _scored(case_id="b", root_cause="N+1 in list_tasks"),
+    ]
+    text = format_similar_cases(cases)
+    assert "冲突提示" not in text
