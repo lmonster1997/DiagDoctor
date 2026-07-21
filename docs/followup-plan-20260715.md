@@ -219,7 +219,7 @@ P1 测试 case(体现效果,非 benchmark 跑分):
 
 **设计 ref**:§6.4、§5.1。关联 [[long-term-memory-design-doc]]。
 
-#### C. P1-a 后续:症状向量 hybrid 重构(deferred,明日做,~0.5-1d)
+#### C. P1-a 后续:症状向量 hybrid 重构(✅ 已完成 + eval 验收过,代码 2026-07-20 / eval 2026-07-21)
 
 **背景(为何做)**:P1-a review 时发现 `encoding.build_symptom_passage` 把 `golden_signals.summary`(日志/trace 提取的摘要,含 `SELECT * FROM tasks`、表名、栈帧这类**代码标识符/结构化内容**)塞进了症状语义向量。这与项目自己的 `code_search` 原则(current-status §2.2 / followup-plan 对标 §2.2:"语义向量对代码标识符不可靠,宁可引导换工具也不返回低质命中")**不一致**--一边说语义向量对代码不可靠,一边把日志摘要往语义向量里塞。设计文档 §4.2 的理由("structured signals 比 vague user_report 更精确,且两端都有")是工程直觉,**非文献支撑**,且**未隔离验证** log 摘要的净贡献(可能正:比 vague user_report 精确;也可能负:高熵 case-specific 内容让向量过拟合、把同根因不同表 case 推远,可能是 ② 天花板 0.50 的一部分成因)。
 
@@ -238,9 +238,44 @@ P1 测试 case(体现效果,非 benchmark 跑分):
 
 **成本**:0.5-1d。**顺序**:**先于 P1-c/P1-b**--它是检索基础(P1-c 冲突检测、P1-b pattern 都建在召回之上),基础先正。
 
-**关联**:[[long-term-memory-design-doc]] §4.2(原 passage 设计,本次修订其内容);current-status §2.6 ⚠️ 行。
+**关联**:[[long-term-memory-design-doc]] §4.2(原 passage 设计,本次修订其内容);current-status §2.6 ✅ 行。
 
-#### 下一步顺序:C(hybrid 重构,0.5-1d)-> P1-c(冲突检测,0.3d;负样本注入已砍见 §8.2)-> P1-b(semantic pattern,1d)
+**验证(✅ eval 验收门已跑通,2026-07-21;rebuild/live 留部署期)**:
+
+> **实测结果(real bge-m3, recall@3,2026-07-21)**:
+>
+> | 象限 | 旧 P0 基线(full-passage symptom) | C 后(user_report-only symptom) | root_cause(P1-a sanity) |
+> |---|---|---|---|
+> | ① same_root_same_symptom | 1.00 | 1.00 | 1.00 |
+> | ② same_root_diff_symptom | 0.50 | **1.00**(+0.50) | 1.00 |
+> | ③ diff_root_same_symptom | 0.80 | 0.80(无回归) | 1.00 |
+> | ④ diff_root_diff_symptom | 0.16 | 0.16(无噪声) | 0.15 |
+>
+> - **验收门全过**:② 1.00 ≥ 0.50 ✓ / ③ 0.80 ≤ 0.80 ✓ / ④ 0.16 ≈ 0.16 ✓。
+> - **达"理想 ②升" bonus**:② 0.50 -> 1.00。移除 `golden_signals.summary`(代码标识符)后,同根因异症状 case 对(BE-022/FE-021 null-check)不再被 `SELECT *`/栈帧这类 case-specific 内容推远,NL 症状语义更对齐--**实证 C 核心假设**(旧 passage 的代码标识符是 ② 天花板 0.50 的成因,非"vague user_report 更弱")。
+> - **③ 未降(eval 内)**:预期内--eval 纯内存余弦无 Qdrant filter;且 tier filter 对"同症状异根因"(多为同 tier,如 http_500 都是 backend)无助,③ 降幅本就弱(同 P1-a 已知限制,需结构化信号非 tier 能解)。
+> - **root_cause sanity**:after 列复现 P1-a(②1.00/③1.00/④0.15),C 未动 root_cause 向量、eval 管线正确。
+
+1. **eval 验收门**(先跑,验证向量语义不回归 -- 纯内存余弦,不依赖 Qdrant 数据):
+   ```bash
+   cd doctor/backend && uv run python scripts/eval_recall_ablation.py --vector both
+   ```
+   - symptom 模式自动用新 passage(user_report-only);`--mock-embed` 可先验管线(无数值意义)。
+   - bge-m3 走本地(`.env` 已配 `BGE_M3_LOCAL_PATH`,首次加载 ~7s CPU)。
+   - **验收门**:② same_root_diff_symptom ≥ 0.50、③ diff_root_same_symptom ≤ 0.80、④ 不显著升。理想 ②升或③降(user_report 语义更纯 + tier filter 更准)。
+   - **若 ② 严重掉**(user_report vague)-> 回退或转 A(隔离测 log 摘要净贡献再决定)。
+   - 注:eval 纯内存余弦无 Qdrant filter,测"无 filter 纯向量召回上界";tier filter 效果 live 另测。
+
+2. **rebuild collection**(部署前,数据迁移 -- 旧 point symptom 向量是 full passage 编码,和新 query 不一致):
+   ```bash
+   cd doctor/backend && uv run python scripts/rebuild_collection.py
+   ```
+   - 需 Qdrant 起。**清空** historical_cases(冷启动重灌),之后重新 👍 积累或 seed。
+   - schema 没变(ensure_collection 不自动触发),必须手动跑此脚本。
+
+3. **live 验证**(rebuild 后,可选):跑个诊断看检索正常注入(tier filter 生效:只召回同 tier case)。
+
+#### 下一步顺序:~~C(hybrid 重构)~~ ✅(2026-07-20)-> P1-c(冲突检测,0.3d;负样本注入已砍见 §8.2)-> P1-b(semantic pattern,1d)
 
 ### 明确不做(过度工程 / 已决策)
 

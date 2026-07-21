@@ -37,9 +37,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from qdrant_client import models
+
 from src.engine.state import NormalizedEvidence
 from src.memory.long_term.embedding import embed_single
-from src.memory.long_term.encoding import build_symptom_passage
+from src.memory.long_term.encoding import build_symptom_passage, derive_tier
 from src.memory.long_term.qdrant_client import (
     COLLECTION_NAME,
     VECTOR_NAME_ROOT_CAUSE,
@@ -156,6 +158,7 @@ async def _search_named_vector(
     exclude_trace_ids: list[str] | tuple[str, ...] | set[str],
     k_final: int,
     now: datetime,
+    query_filter: models.Filter | None = None,
 ) -> list[ScoredCase]:
     """Shared retrieval pipeline over a named vector (symptom or root_cause).
 
@@ -177,6 +180,7 @@ async def _search_named_vector(
             collection_name=COLLECTION_NAME,
             query=query_vec,
             using=vector_name,  # P1-a: pick the named vector
+            query_filter=query_filter,  # C: tier payload filter (symptom branch only)
             limit=OVERFETCH,
             with_payload=True,
         )
@@ -240,12 +244,27 @@ async def search_historical_cases(
         logger.warning("rag_retrieval_failed", vector=VECTOR_NAME_SYMPTOM, exc_info=True)
         return []
 
+    # C: tier payload filter (precise match, not semantic guess). Structured
+    # signal moved out of the vector (§4.2 hybrid); tier is now a hard filter
+    # -- same tier only. signal_types left in payload (not filtered) to avoid
+    # over-tightening recall (§C: same-root cases may have slightly different
+    # signal sets).
+    query_filter = models.Filter(
+        must=[
+            models.FieldCondition(
+                key="symptom_tier",
+                match=models.MatchValue(value=derive_tier(evidence)),
+            )
+        ]
+    )
+
     return await _search_named_vector(
         query_vec=query_vec,
         vector_name=VECTOR_NAME_SYMPTOM,
         exclude_trace_ids=evidence.trigger_trace_ids,
         k_final=k_final,
         now=now,
+        query_filter=query_filter,
     )
 
 

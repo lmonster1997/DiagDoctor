@@ -29,7 +29,7 @@ from qdrant_client.models import PointStruct
 
 from src.engine.state import DiagnosisReport, NormalizedEvidence
 from src.memory.long_term.embedding import embed_texts
-from src.memory.long_term.encoding import build_symptom_passage
+from src.memory.long_term.encoding import build_symptom_passage, derive_tier
 from src.memory.long_term.qdrant_client import (
     COLLECTION_NAME,
     VECTOR_NAME_ROOT_CAUSE,
@@ -99,7 +99,9 @@ def _build_point(
             "case_id": case_id,
             # ── 结构化锚 (filter / rerank / injection label, §5.2) ──
             "category": report.primary_category,
-            "symptom_tier": report.symptom_tier,
+            # C: payload tier 与 query 端 filter 同源 (derive_tier, §4.3),不再用
+            # report.symptom_tier (agent 设的 vs evidence 派生可能不一致)。
+            "symptom_tier": derive_tier(evidence),
             "is_cross_layer": bool(evidence.correlations),
             "root_cause_tier": report.root_cause_tier,
             "signal_types": [s.signal_type for s in evidence.golden_signals],

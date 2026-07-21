@@ -90,16 +90,13 @@ BugPattern(
 ### 4.2 Embedding passage（索引端 = 查询端，真正对称）
 
 ```
-[症状] 信号: {signal_types} | 层级: {tier}
 {user_report}
-{golden_signals.summary 串联}
 ```
 
-- 两端都从 `evidence` 取字段，**完全同模板**，向量在同一症状子空间可比。
-- 加 `golden_signals.summary`：user_report 可能模糊，结构化信号（如 `slow_span: SELECT * FROM tasks 重复 47 次`）语义更精准，且查询端同样可得。
-- **移出 embedding**：`root_cause`、`fix_suggestion`、`category`、`affected_files`（诊断输出或查询时不可得字段）。
-- 元数据锚放前面的理由是**"结构化锚点让分类信号稳定参与语义匹配"**（bge-m3 是双向 encoder，无"前缀位置权重"特性——初版此论据有误，已改正）。
-
+- 两端都从 `evidence.user_report` 取，**完全同模板**，向量在同一症状子空间可比。
+- **C（hybrid 重构）**：向量只装 `user_report`（自然语言，bge-m3 可靠）。结构化信号（`signal_types`/`tier`）走 Qdrant payload **filter**（精确匹配，不进向量）；`golden_signals.summary`（含 `SELECT * FROM tasks` 等代码标识符）留 payload 不进向量--对齐项目 `code_search` 原则（"语义向量对代码标识符不可靠"）。
+- **移出 embedding**：`root_cause`、`fix_suggestion`、`category`、`affected_files`（诊断输出或查询时不可得字段）；`signal_types`、`tier`、`golden_signals.summary`（结构化/代码标识符，走 filter 或 payload）。
+- tier filter 源：`derive_tier(evidence)`，索引端 payload 与查询端 filter 同源（§4.3 对称）。
 ### 4.3 tier 推算（索引/查询统一逻辑，消除对称性坑）
 
 `symptom_tier` 原始类型只有 `frontend`/`backend`，`cross_layer` 是派生量。两端统一用：

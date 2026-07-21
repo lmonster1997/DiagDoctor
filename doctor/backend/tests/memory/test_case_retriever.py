@@ -161,17 +161,28 @@ def test_derive_tier_default_backend_when_no_signals() -> None:
     assert derive_tier(ev) == "backend"
 
 
-def test_build_symptom_passage_carries_symptoms_only() -> None:
+def test_build_symptom_passage_carries_user_report_only() -> None:
+    """C (hybrid refactor): the vector carries ONLY user_report (NL).
+
+    Structured signals (signal_types / tier) moved to Qdrant payload filter;
+    golden_signals.summary (code identifiers) stays in payload only -- aligning
+    with the code_search principle ("semantic vectors unreliable for code
+    identifiers"). The passage is just the user_report text.
+    """
     ev = _evidence(
         user_report="页面卡死",
-        signals=[_signal(signal_type="slow_span", tier="backend", summary="SELECT * FROM tasks 重复 47 次")],
+        signals=[
+            _signal(
+                signal_type="slow_span", tier="backend", summary="SELECT * FROM tasks 重复 47 次"
+            )
+        ],
     )
     passage = build_symptom_passage(ev)
-    # symptom anchors present
-    assert "信号: slow_span" in passage
-    assert "层级: backend" in passage
-    assert "页面卡死" in passage
-    assert "SELECT * FROM tasks 重复 47 次" in passage
+    # ONLY user_report -- no structured meta, no log summary
+    assert passage == "页面卡死"
+    assert "信号" not in passage
+    assert "层级" not in passage
+    assert "SELECT * FROM tasks" not in passage
 
 
 def test_build_symptom_passage_is_index_query_symmetric() -> None:
@@ -226,8 +237,22 @@ def test_score_hit_combines_three_factors() -> None:
 
 
 def test_dedup_by_trace_keeps_best() -> None:
-    low = ScoredCase(case_id="a", score=0.3, relevance=0.3, recency=1.0, importance=1.0, payload={"trace_id": "t1"})
-    high = ScoredCase(case_id="b", score=0.8, relevance=0.8, recency=1.0, importance=1.0, payload={"trace_id": "t1"})
+    low = ScoredCase(
+        case_id="a",
+        score=0.3,
+        relevance=0.3,
+        recency=1.0,
+        importance=1.0,
+        payload={"trace_id": "t1"},
+    )
+    high = ScoredCase(
+        case_id="b",
+        score=0.8,
+        relevance=0.8,
+        recency=1.0,
+        importance=1.0,
+        payload={"trace_id": "t1"},
+    )
     kept = _dedup_by_trace([low, high])
     assert len(kept) == 1
     assert kept[0].case_id == "b"
@@ -286,7 +311,9 @@ async def test_search_dedups_same_trace(monkeypatch: pytest.MonkeyPatch) -> None
     assert result[0].case_id == "high"  # higher importance -> higher score
 
 
-async def test_search_graceful_degradation_on_embed_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_search_graceful_degradation_on_embed_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     async def boom(_text: str) -> list[float]:
         raise RuntimeError("TEI down")
 
@@ -299,7 +326,9 @@ async def test_search_graceful_degradation_on_embed_failure(monkeypatch: pytest.
     assert result == []
 
 
-async def test_search_graceful_degradation_on_qdrant_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_search_graceful_degradation_on_qdrant_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     async def fake_embed(_text: str) -> list[float]:
         return [0.1] * 8
 
@@ -355,9 +384,7 @@ async def test_search_by_root_cause_exclude_trace_ids(monkeypatch: pytest.Monkey
     own = _hit(score=0.95, trace_id="self-t", case_id="self")
     other = _hit(score=0.85, trace_id="other-t", case_id="other")
     _patch_retriever(monkeypatch, [own, other])
-    result = await case_retriever.search_by_root_cause(
-        "hyp", now=NOW, exclude_trace_ids=["self-t"]
-    )
+    result = await case_retriever.search_by_root_cause("hyp", now=NOW, exclude_trace_ids=["self-t"])
     assert [c.case_id for c in result] == ["other"]
 
 
