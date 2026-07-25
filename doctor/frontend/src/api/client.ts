@@ -7,6 +7,8 @@
 
 // 默认相对路径 -> 经 vite dev 代理(/api -> :8001)同源无 CORS,与 CopilotKit 的
 // runtimeUrl="/api/copilotkit"(相对)一致。生产分源时设 VITE_DOCTOR_API_URL。
+import type { CaseFeedbackResponse } from "./types";
+
 const BASE_URL = import.meta.env.VITE_DOCTOR_API_URL || "";
 
 interface RequestOptions extends Omit<RequestInit, "body"> {
@@ -80,4 +82,24 @@ export interface ThreadsResponse {
 /** List recent diagnosis threads (paused first). Enabler for the F3 history list. */
 export function listThreads(limit = 50): Promise<ThreadsResponse> {
   return apiFetch<ThreadsResponse>(`/api/diagnose/threads?limit=${limit}`);
+}
+
+// ── Diagnosis case-level feedback (§8.1 path 2) ──────────────────
+
+/**
+ * Mark a referenced historical case helpful/not-helpful (§8.1 path 2).
+ * POST /api/feedback/{run_id}/case -- backend validates `case_id ∈
+ * report.referenced_case_ids` (404 no report / 422 not referenced).
+ * `runId` is the backend LangGraph thread_id (= `state.case_id` in the
+ * CopilotKit flow, NOT `useCopilotContext().threadId` which is out of sync).
+ */
+export function postCaseFeedback(
+  runId: string,
+  caseId: string,
+  helpful: boolean,
+): Promise<CaseFeedbackResponse> {
+  return apiFetch<CaseFeedbackResponse>(`/api/feedback/${runId}/case`, {
+    method: "POST",
+    body: { case_id: caseId, helpful },
+  });
 }

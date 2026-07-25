@@ -110,6 +110,37 @@ def _build(tmp_path: pytest.TempPathFactory, db_name: str = "cp.db") -> Any:
     return diag_mod.build_copilotkit_graph(checkpointer=saver)
 
 
+# ── case_id ownership (bug_info_node derives it from config.thread_id) ──
+
+
+async def test_bug_info_sets_case_id_from_config_thread_id(
+    tmp_path: pytest.Path, fake_agent: _FakeAgent
+) -> None:
+    """bug_info_node (entry) owns case_id: derives it from config.thread_id
+    when the caller didn't supply one.
+
+    This is what lets the CopilotKit path -- which never injects case_id --
+    still expose ``state.case_id == checkpoint thread_id`` to the frontend /
+    👍 feedback loop. Without it state.case_id is None and feedback falls
+    back to a desynced hook id (404). case_id == thread_id by construction:
+    the checkpointer addresses the checkpoint by the same
+    config.configurable.thread_id (see bug_info.py).
+    """
+    graph = _build(tmp_path)
+    tid = "caseid-from-config-1"
+    cfg: dict[str, Any] = {"configurable": {"thread_id": tid}}
+    # Initial state WITHOUT case_id/trace_id/session_id (mimics the CopilotKit
+    # path, where nobody injects them). raw_evidence -> REST branch skips LLM.
+    state = {"raw_evidence": Evidence(user_report="comments 接口能改别人的评论(IDOR)")}
+
+    await graph.ainvoke(state, cfg)
+
+    vals = (await graph.aget_state(cfg)).values or {}
+    assert vals.get("case_id") == tid
+    assert vals.get("trace_id") == tid
+    assert vals.get("session_id") == tid
+
+
 # ── pause ────────────────────────────────────────────────────────────
 
 

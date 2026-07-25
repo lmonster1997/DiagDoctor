@@ -723,7 +723,7 @@ class TestStructuredToolWrappers:
 
 
 class TestV3UnifiedTools:
-    """Verify that the V3 unified tool set (5 tools) is correctly configured."""
+    """Verify that the V3 unified tool set (6 tools) is correctly configured."""
 
     def test_search_observability_tool_exists(self) -> None:
         """SEARCH_OBSERVABILITY_TOOL is importable and has correct metadata."""
@@ -749,11 +749,19 @@ class TestV3UnifiedTools:
         assert "读取 demo-app 代码库" in GET_FILE_CONTENT_TOOL.description
         assert GET_FILE_CONTENT_TOOL.coroutine is not None
 
-    def test_all_tools_has_exactly_five(self) -> None:
-        """ALL_TOOLS must contain exactly 5 tools."""
+    def test_root_cause_recall_tool_exists(self) -> None:
+        """ROOT_CAUSE_RECALL_TOOL (P1-a) is importable and has correct metadata."""
+        from src.tools import ROOT_CAUSE_RECALL_TOOL
+
+        assert ROOT_CAUSE_RECALL_TOOL.name == "search_historical_root_cause"
+        assert "根因" in ROOT_CAUSE_RECALL_TOOL.description
+        assert ROOT_CAUSE_RECALL_TOOL.coroutine is not None
+
+    def test_all_tools_has_exactly_six(self) -> None:
+        """ALL_TOOLS must contain exactly 6 tools (5 observability/code + P1-a root-cause recall)."""
         from src.tools import ALL_TOOLS
 
-        assert len(ALL_TOOLS) == 5
+        assert len(ALL_TOOLS) == 6
         tool_names = {t.name for t in ALL_TOOLS}
         assert tool_names == {
             "search_observability",
@@ -761,6 +769,7 @@ class TestV3UnifiedTools:
             "db_query",
             "inspect_frontend_error",
             "get_file_content",
+            "search_historical_root_cause",
         }
 
     def test_all_tools_are_structured_tools(self) -> None:

@@ -78,6 +78,7 @@ def parse_diagnosis_report(agent_result: dict[str, Any]) -> DiagnosisReport | No
                 fix_suggestion=str(report_data.get("fix_suggestion", "")),
                 evidence_chain=_ensure_str_list(report_data.get("evidence_chain", [])),
                 confidence=float(report_data.get("confidence", 0.5)),
+                referenced_case_ids=_ensure_str_list(report_data.get("referenced_case_ids", [])),
             )
             logger.info(
                 "diagnosis_report_parsed",
@@ -253,3 +254,28 @@ def _ensure_str_list(value: Any) -> list[str]:
     if value and isinstance(value, str):
         return [value]
     return []
+
+
+def clamp_referenced_case_ids(referenced: list[str], retrieved: list[str]) -> list[str]:
+    """Clamp agent-declared ``referenced_case_ids`` to ⊆ ``retrieved`` (§8.1).
+
+    The agent outputs ``referenced_case_ids`` in its final JSON, but it may
+    hallucinate ids it was never given (or copy a stale id from elsewhere).
+    The diagnosis_agent node passes the cases actually retrieved this run
+    (``retrieved_case_ids``) and this function discards any referenced id not
+    in that set -- the agent can only cite cases it was shown. Order is
+    preserved (agent's ordering) and duplicates are dropped.
+
+    Called in the node (NOT in ``parse_diagnosis_report``): parsing stays a
+    pure JSON->object step; the trust-boundary clamp is an orchestration
+    policy that needs ``retrieved_case_ids``, which the parser doesn't have.
+    """
+    allowed = set(retrieved)
+    seen: set[str] = set()
+    out: list[str] = []
+    for case_id in referenced:
+        cid = str(case_id) if case_id is not None else ""
+        if cid and cid in allowed and cid not in seen:
+            seen.add(cid)
+            out.append(cid)
+    return out

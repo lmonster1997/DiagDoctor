@@ -98,6 +98,10 @@ class DiagnoseResponse(BaseModel):
     primary_category: str | None = None
     categories: list[str] = Field(default_factory=list)
     findings_count: int = 0
+    # §8.1 path 2: cases the agent declared it referenced (top-level convenience
+    # for the frontend "本次参考了 [X,Y,Z]" display + the case-level feedback
+    # prompt). Also present nested in ``report.referenced_case_ids``.
+    referenced_case_ids: list[str] = Field(default_factory=list)
 
     # ── Phase 2: evidence chain payload ──
     budget: BudgetState | None = None
@@ -109,8 +113,14 @@ class DiagnoseResponse(BaseModel):
 # ── Internal helpers ────────────────────────────────────────────────
 
 
-def _build_initial_state(request: DiagnoseRequest, thread_id: str) -> dict[str, Any]:
-    """Build the initial DoctorState dict for the graph invocation (v2)."""
+def _build_initial_state(request: DiagnoseRequest) -> dict[str, Any]:
+    """Build the initial DoctorState dict for the graph invocation (v2).
+
+    case_id/trace_id/session_id are NOT set here -- the graph's entry node
+    (``bug_info_node``) owns them, deriving from ``config.thread_id`` so
+    case_id == checkpoint thread_id by construction (single source of truth,
+    works for both REST and CopilotKit paths). See ``bug_info.py``.
+    """
     # Inject trigger_time into evidence if provided at top level
     if request.trigger_time and not request.evidence.trigger_time:
         request.evidence.trigger_time = request.trigger_time
@@ -120,9 +130,6 @@ def _build_initial_state(request: DiagnoseRequest, thread_id: str) -> dict[str, 
 
     return {
         "raw_evidence": request.evidence,
-        "case_id": thread_id,
-        "trace_id": thread_id,
-        "session_id": thread_id,
         "langfuse_trace_id": request.langfuse_trace_id,
         "langfuse_session_id": request.langfuse_session_id,
     }
@@ -253,6 +260,11 @@ async def _stream_graph(thread_id: str, state: dict[str, Any]) -> AsyncIterator[
             "findings": findings_dump,
             "evidence": evidence_dump,
             "correlations": correlations_dump,
+            # §8.1 path 2: top-level mirror of report.referenced_case_ids for
+            # the frontend "本次参考了 [X,Y,Z]" display + case-level feedback.
+            "referenced_case_ids": (
+                report_dump.get("referenced_case_ids", []) if isinstance(report_dump, dict) else []
+            ),
         }
         yield f"data: {json.dumps(final_data, default=str)}\n\n"
     except Exception as exc:
@@ -287,7 +299,7 @@ async def diagnose(
         )
 
     thread_id = request.thread_id or generate_thread_id()
-    initial_state = _build_initial_state(request, thread_id)
+    initial_state = _build_initial_state(request)
 
     logger.info("diagnose_request_start", thread_id=thread_id, stream=stream)
 
@@ -325,11 +337,14 @@ def _response_from_state(thread_id: str, final_state: dict[str, Any]) -> Diagnos
     # NOT in triage (triage node was removed in V3).
     primary_category: str | None = None
     categories: list[str] = []
+    referenced_case_ids: list[str] = []
     if report is not None:
         if hasattr(report, "primary_category"):
             primary_category = report.primary_category
         if hasattr(report, "categories"):
             categories = list(report.categories) if report.categories else []
+        if hasattr(report, "referenced_case_ids"):
+            referenced_case_ids = list(report.referenced_case_ids or [])
     findings = final_state.get("findings", [])
     payload = _extract_evidence_payload(final_state)
     return DiagnoseResponse(
@@ -338,6 +353,7 @@ def _response_from_state(thread_id: str, final_state: dict[str, Any]) -> Diagnos
         primary_category=primary_category,
         categories=categories,
         findings_count=len(findings),
+        referenced_case_ids=referenced_case_ids,
         budget=payload["budget"],
         findings=payload["findings"],
         evidence=payload["evidence"],

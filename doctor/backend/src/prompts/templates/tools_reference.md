@@ -1,6 +1,6 @@
 ## 工具速查
 
-> DiagDoctor V3 统一工具集。共 5 个工具，覆盖日志/ Trace/代码搜索/前端分析/文件读取。
+> DiagDoctor V3 统一工具集。共 6 个工具，覆盖日志/ Trace/代码搜索/前端分析/文件读取 + 历史根因检索。
 
 ---
 
@@ -126,6 +126,29 @@ get_file_content(file_path="app/services/task_service.py", start_line=40, end_li
 
 ---
 
+### search_historical_root_cause - 历史根因检索（知识库）
+
+按**根因假设**检索该项目知识库里 👍 入库的已解决历史 Bug（走独立的根因向量，**非症状相似**）。当你已经形成一个**具体根因假设**时调用，拿回根因相似的历史诊断思路作参考。
+
+```
+search_historical_root_cause(hypothesis="N+1 查询: list_tasks 对每个 task 单独查 comments")
+search_historical_root_cause(hypothesis="空值未判空: assignee_id 为 null 时调 .hex 报 AttributeError")
+search_historical_root_cause(hypothesis="IDOR 越权: get_project 缺 owner_id 过滤")
+```
+
+| 参数 | 说明 |
+|------|------|
+| `hypothesis` | 一句话根因假设（中文即可）。**说清机制而非症状**——"N+1 查询"优于"页面慢"；"空值未判空"优于"500 错误" |
+| `k` | 返回结果数（默认 3） |
+
+**何时调用**：调查中段、你已经对根因有了一个具体假设（不是刚起步只看到症状时）。它和系统自动注入的「症状相似历史 case」互补——症状相似帮你找表面像的，根因相似帮你找**同一个坑**。
+
+**返回**：历史相似 case 列表（根因/修复/类别/综合分）。空库或无匹配会明确告知（如 "未找到与该根因假设相似的历史 case"），此时正常继续调查即可。
+
+⚠️ 仅为历史参考，请基于当前实际证据独立判断，勿机械套用。
+
+---
+
 ## 工具选择决策表
 
 | 你有的线索 | 应该调用的工具 |
@@ -137,3 +160,4 @@ get_file_content(file_path="app/services/task_service.py", start_line=40, end_li
 | 有前端报错 | `inspect_frontend_error(browser_errors="...")` |
 | 需验证数据库状态 | `db_query(sql="SELECT ... LIMIT 10")` |
 | 需要看 Trace 分析 | `search_observability(source="tempo", query="<trace_id>", analysis="full")` |
+| 已形成根因假设，想参考历史相似 bug | `search_historical_root_cause(hypothesis="<一句话根因假设>")` |

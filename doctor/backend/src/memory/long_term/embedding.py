@@ -1,11 +1,17 @@
 """
-bge-m3 embedding — dual backend: TEI (fast, async) → local sentence-transformers (fallback).
+Embedding - primary DashScope API, legacy TEI/local bge-m3 fallback.
 
 Priority:
-1. TEI container (``tei_url``) — if reachable, use HTTP /embed
-2. Local sentence-transformers — loads bge-m3 into memory (~2 GB, first call slow)
+1. DashScope (Alibaba) OpenAI-compatible API (``embedding_base_url`` +
+   ``dashscope_api_key``) - when configured, used exclusively. No silent
+   fallback to a different model: mixing embedders in one Qdrant collection
+   would corrupt the vector space.
+2. Legacy offline path (only when ``embedding_base_url`` is empty): TEI
+   container (``tei_url``) -> local sentence-transformers (bge-m3).
 
-Both produce 1024-dim COSINE-compatible vectors from the same model.
+API + legacy produce 1024-dim COSINE-compatible vectors (legacy from bge-m3;
+API via ``dimensions=1024``). They are NOT interchangeable on the same
+collection - config picks one deterministically.
 """
 
 from __future__ import annotations
@@ -20,9 +26,19 @@ from src.config import settings
 from src.observability.logger import get_logger
 
 if TYPE_CHECKING:
+    from openai import AsyncOpenAI
     from sentence_transformers import SentenceTransformer
 
 logger = get_logger(__name__)
+
+# 默认离线运行:TEI 不可用时 fallback 到本地 bge-m3,联网校验/下载会被 SSL
+# 拦且慢。setdefault 不覆盖用户显式设的值;TEI 路径不受影响(走 HTTP,不经
+# transformers/huggingface_hub)。hf_hub_cache 从 settings 读后注入 os.environ
+# (sentence-transformers 经 huggingface_hub 读这个 env 定位缓存根)。
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+if settings.hf_hub_cache:
+    os.environ.setdefault("HF_HUB_CACHE", settings.hf_hub_cache)
 
 # Expected dimension for bge-m3
 BGE_M3_DIM = 1024
@@ -38,14 +54,14 @@ def _get_local_model() -> SentenceTransformer:
     """Load (or return cached) bge-m3 via sentence-transformers.
 
     Priority:
-    1. ``BGE_M3_LOCAL_PATH`` env var — direct path to model directory
+    1. ``bge_m3_local_path`` (settings) — direct path to model directory
     2. HF Hub cache (``HF_HUB_CACHE`` / default ~/.cache/huggingface)
     """
     global _local_model
     if _local_model is None:
         from sentence_transformers import SentenceTransformer
 
-        model_path = os.environ.get("BGE_M3_LOCAL_PATH", BGE_M3_MODEL)
+        model_path = settings.bge_m3_local_path or BGE_M3_MODEL
         logger.info("loading_bge_m3", path=model_path)
         _local_model = SentenceTransformer(model_path)
         logger.info("bge_m3_loaded", device=str(_local_model.device))
@@ -68,16 +84,69 @@ async def _tei_reachable() -> bool:
 # ── Public API ───────────────────────────────────────────────────────
 
 
-async def embed_texts(texts: list[str]) -> list[list[float]]:
-    """Embed a batch of texts via bge-m3.
+# ── DashScope API backend (primary when configured) ─────────────────
 
-    Uses TEI if reachable, otherwise falls back to local sentence-transformers.
-    Both produce identical 1024-dim vectors from the same BAAI/bge-m3 model.
+_api_client: AsyncOpenAI | None = None
+_api_client_lock = asyncio.Lock()
+
+
+async def _get_api_client() -> AsyncOpenAI:
+    """Lazy singleton for the DashScope OpenAI-compatible client."""
+    global _api_client
+    if _api_client is None:
+        async with _api_client_lock:
+            if _api_client is None:
+                from openai import AsyncOpenAI
+
+                _api_client = AsyncOpenAI(
+                    base_url=settings.embedding_base_url,
+                    api_key=settings.dashscope_api_key.get_secret_value(),
+                )
+    return _api_client
+
+
+async def _embed_via_api(texts: list[str]) -> list[list[float]]:
+    """Embed via DashScope OpenAI-compatible /embeddings endpoint.
+
+    No silent fallback: if the API fails the exception propagates (callers
+    like ``case_store.maybe_index_diagnosis`` already try/except and skip).
+    """
+    client = await _get_api_client()
+    resp = await client.embeddings.create(
+        model=settings.embedding_model,
+        input=texts,
+        dimensions=settings.embedding_dimensions,
+        encoding_format="float",
+    )
+    # OpenAI shape: resp.data is a list of {index, embedding}; sort by index
+    # to guarantee alignment with the input order.
+    ordered = sorted(resp.data, key=lambda d: d.index)
+    embeddings = [d.embedding for d in ordered]
+    logger.debug(
+        "api_embed_success",
+        count=len(embeddings),
+        model=settings.embedding_model,
+        dim=settings.embedding_dimensions,
+    )
+    return embeddings
+
+
+async def embed_texts(texts: list[str]) -> list[list[float]]:
+    """Embed a batch of texts.
+
+    Routes to the DashScope API when ``embedding_base_url`` +
+    ``dashscope_api_key`` are configured (primary); otherwise falls back to
+    the legacy TEI / local bge-m3 path. The two paths use different models
+    and are NOT interchangeable on the same Qdrant collection.
     """
     if not texts:
         return []
 
-    # ── Try TEI first ──
+    # ── Primary: DashScope API (no fallback -- avoid mixing models) ──
+    if settings.embedding_base_url and settings.dashscope_api_key.get_secret_value():
+        return await _embed_via_api(texts)
+
+    # ── Legacy offline path (embedding_base_url empty): TEI -> local bge-m3 ──
     if await _tei_reachable():
         url = f"{settings.tei_url.rstrip('/')}/embed"
         try:

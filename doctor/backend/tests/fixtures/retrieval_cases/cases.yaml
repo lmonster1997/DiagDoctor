@@ -1,0 +1,712 @@
+meta:
+  description: 'Synthetic (symptom+root_cause) cases for retrieval-side testing. Slim schema: no bug-factory
+    baggage. Separate test collection only. All root_cause_summary / user_report texts UNIQUE (templates
+    × entities, assigned without replacement) -> no cosine≈1.0 verbatim clusters.'
+  seed: 20260723
+  schema:
+  - case_id
+  - user_report
+  - root_cause_summary
+  - root_cause_type
+  - symptom_type
+  - tier
+  - cross_tier
+  distribution:
+    total_cases: 96
+    unique_root_cause_texts: 96
+    unique_user_report_texts: 96
+    root_cause_type_counts:
+      n-plus-1: 12
+      null-check: 12
+      idor: 12
+      missing-field: 12
+      fk-violation: 12
+      race-condition: 12
+      config-error: 12
+      silent-data-loss: 12
+    symptom_type_counts:
+      http-500: 16
+      frontend-crash: 16
+      slow-query: 16
+      access-anomaly: 16
+      silent-loss: 16
+      intermittent: 16
+    cross_tier_cases: 32
+    pairs:
+      P1_same_root_same_sym: 48
+      P2_same_root_diff_sym: 480
+      P3_diff_root_same_sym: 672
+      P4_diff_root_diff_sym: 3360
+cases:
+- case_id: RTC-001-n-plus-1-http-500
+  user_report: 提交提交表单请求后服务器报内部错误，什么都没成功也没提示
+  root_cause_summary: ORM 懒加载在序列化 orders 时被触发，N 条 orders 触发 N 次查 items 的额外查询
+  root_cause_type: n-plus-1
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-002-n-plus-1-http-500
+  user_report: 创建订单 时后端抛错，页面卡住，网络面板看到 500 响应
+  root_cause_summary: 返回 tasks 列表前对每个 tasks 单独发子查询取 comments，查询数随数据量线性增长
+  root_cause_type: n-plus-1
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-003-n-plus-1-frontend
+  user_report: 页面打开就白屏，控制台报 TypeError 读取 表单 的 undefined 属性
+  root_cause_summary: 返回 orders 列表前对每个 orders 单独发子查询取 items，查询数随数据量线性增长
+  root_cause_type: n-plus-1
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-004-n-plus-1-frontend
+  user_report: 页面打开就白屏，控制台报 TypeError 读取 详情面板 的 undefined 属性
+  root_cause_summary: list_orders 删了 selectinload 预加载，循环里逐条查 items，N 条记录 N 次 DB 往返
+  root_cause_type: n-plus-1
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-005-n-plus-1-slow-que
+  user_report: 仪表盘加载越来越慢，数据多了之后要转圈等一两分钟才出来
+  root_cause_summary: list_tasks 删了 selectinload 预加载，循环里逐条查 comments，N 条记录 N 次 DB 往返
+  root_cause_type: n-plus-1
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-006-n-plus-1-slow-que
+  user_report: 搜索接口偶发超时，数据量大时几乎卡死，明显是查询性能问题
+  root_cause_summary: list_projects 删了 selectinload 预加载，循环里逐条查 tags，N 条记录 N 次 DB 往返
+  root_cause_type: n-plus-1
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-007-n-plus-1-access-a
+  user_report: 发现能看到别人的任务，权限似乎没生效，越权访问
+  root_cause_summary: 返回 projects 列表前对每个 projects 单独发子查询取 tags，查询数随数据量线性增长
+  root_cause_type: n-plus-1
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-008-n-plus-1-access-a
+  user_report: 列表里混入了其他用户的订单，隔离没做好
+  root_cause_summary: ORM 懒加载在序列化 tasks 时被触发，N 条 tasks 触发 N 次查 comments 的额外查询
+  root_cause_type: n-plus-1
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-009-n-plus-1-silent-l
+  user_report: 更新后标签消失，没有任何错误提示，业务对不上
+  root_cause_summary: 返回 users 列表前对每个 users 单独发子查询取 posts，查询数随数据量线性增长
+  root_cause_type: n-plus-1
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-010-n-plus-1-silent-l
+  user_report: 编辑保存后标签莫名变空了，也没报错，数据悄悄丢了
+  root_cause_summary: list_users 删了 selectinload 预加载，循环里逐条查 posts，N 条记录 N 次 DB 往返
+  root_cause_type: n-plus-1
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-011-n-plus-1-intermit
+  user_report: 偶发表单提交卡死，刷新后恢复，问题不稳定难定位
+  root_cause_summary: ORM 懒加载在序列化 projects 时被触发，N 条 projects 触发 N 次查 tags 的额外查询
+  root_cause_type: n-plus-1
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-012-n-plus-1-intermit
+  user_report: 间歇性搜索报错，大多数时候正常，少数情况下崩
+  root_cause_summary: ORM 懒加载在序列化 users 时被触发，N 条 users 触发 N 次查 posts 的额外查询
+  root_cause_type: n-plus-1
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-013-null-che-http-500
+  user_report: 提交表单 后页面直接报错，接口返回 500 内部服务器错误
+  root_cause_summary: 接口访问 user.assignee_id 前未判空，user 为 None 时 .hex 抛 AttributeError
+  root_cause_type: null-check
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-014-null-che-http-500
+  user_report: 功能用着用着就报服务端异常，创建订单 请求失败状态码 500
+  root_cause_summary: 序列化时直接读取 comment 的 parent_id，关系为空时解引用报错
+  root_cause_type: null-check
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-015-null-che-frontend
+  user_report: 操作后界面直接挂掉，表单 抛未捕获异常白屏
+  root_cause_summary: 序列化时直接读取 user 的 assignee_id，关系为空时解引用报错
+  root_cause_type: null-check
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-016-null-che-frontend
+  user_report: 页面打开就白屏，控制台报 TypeError 读取 图表 的 undefined 属性
+  root_cause_summary: 序列化时直接读取 task 的 owner，关系为空时解引用报错
+  root_cause_type: null-check
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-017-null-che-slow-que
+  user_report: 列表页变卡，刷新要等很久，监控里看到大量慢 SQL
+  root_cause_summary: 序列化时直接读取 order 的 shipping_address，关系为空时解引用报错
+  root_cause_type: null-check
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-018-null-che-slow-que
+  user_report: 报表页加载越来越慢，数据多了之后要转圈等一两分钟才出来
+  root_cause_summary: 返回前读取可能为 null 的 assignee_id，没有 None 检查导致崩溃
+  root_cause_type: null-check
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-019-null-che-access-a
+  user_report: 凭 id 改了不属于我的任务居然成功了，疑似越权
+  root_cause_summary: 接口访问 comment.parent_id 前未判空，comment 为 None 时 .id 抛 AttributeError
+  root_cause_type: null-check
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-020-null-che-access-a
+  user_report: 用普通账号点开不该看的订单居然能打开，访问控制异常
+  root_cause_summary: 接口访问 order.shipping_address 前未判空，order 为 None 时 .city 抛 AttributeError
+  root_cause_type: null-check
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-021-null-che-silent-l
+  user_report: 更新后元数据消失，没有任何错误提示，业务对不上
+  root_cause_summary: 返回前读取可能为 null 的 parent_id，没有 None 检查导致崩溃
+  root_cause_type: null-check
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-022-null-che-silent-l
+  user_report: 改完发现描述数据没了，静默丢失，很难察觉
+  root_cause_summary: 返回前读取可能为 null 的 shipping_address，没有 None 检查导致崩溃
+  root_cause_type: null-check
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-023-null-che-intermit
+  user_report: 偶发性列表卡顿/闪退，复现不稳定，时好时坏
+  root_cause_summary: 返回前读取可能为 null 的 owner，没有 None 检查导致崩溃
+  root_cause_type: null-check
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-024-null-che-intermit
+  user_report: 导航偶尔失效，多试几次又好了，规律难抓
+  root_cause_summary: 接口访问 task.owner 前未判空，task 为 None 时 .name 抛 AttributeError
+  root_cause_type: null-check
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-025-idor-http-500
+  user_report: 提交表单 时后端抛错，页面卡住，网络面板看到 500 响应
+  root_cause_summary: get_order 没限制查询范围到当前用户，导致跨用户 订单 数据泄露
+  root_cause_type: idor
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-026-idor-http-500
+  user_report: 功能用着用着就报服务端异常，导出报表 请求失败状态码 500
+  root_cause_summary: update_comment 没限制查询范围到当前用户，导致跨用户 评论 数据泄露
+  root_cause_type: idor
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-027-idor-frontend
+  user_report: 操作后界面直接挂掉，列表 抛未捕获异常白屏
+  root_cause_summary: delete_task 删了 owner_id == current_user 的过滤，凭 id 即可操作他人 任务，越权
+  root_cause_type: idor
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-028-idor-frontend
+  user_report: 渲染表单时崩溃，前端报 Cannot read properties of undefined，整页空白
+  root_cause_summary: list_invoices 没限制查询范围到当前用户，导致跨用户 发票 数据泄露
+  root_cause_type: idor
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-029-idor-slow-que
+  user_report: 打开仪表盘响应明显变慢，后端查询耗时随数据量飙升
+  root_cause_summary: 接口缺少 评论 归属校验，未鉴权所有者就按请求 id 返回/更新，IDOR 越权
+  root_cause_type: idor
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-030-idor-slow-que
+  user_report: 打开列表页响应明显变慢，后端查询耗时随数据量飙升
+  root_cause_summary: 接口缺少 发票 归属校验，未鉴权所有者就按请求 id 返回/更新，IDOR 越权
+  root_cause_type: idor
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-031-idor-access-a
+  user_report: 凭 id 改了不属于我的订单居然成功了，疑似越权
+  root_cause_summary: get_order 删了 owner_id == current_user 的过滤，凭 id 即可操作他人 订单，越权
+  root_cause_type: idor
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-032-idor-access-a
+  user_report: 用普通账号点开不该看的任务居然能打开，访问控制异常
+  root_cause_summary: delete_task 没限制查询范围到当前用户，导致跨用户 任务 数据泄露
+  root_cause_type: idor
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-033-idor-silent-l
+  user_report: 更新后附件消失，没有任何错误提示，业务对不上
+  root_cause_summary: update_comment 删了 owner_id == current_user 的过滤，凭 id 即可操作他人 评论，越权
+  root_cause_type: idor
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-034-idor-silent-l
+  user_report: 改完发现附件数据没了，静默丢失，很难察觉
+  root_cause_summary: list_invoices 删了 owner_id == current_user 的过滤，凭 id 即可操作他人 发票，越权
+  root_cause_type: idor
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-035-idor-intermit
+  user_report: 间歇性导航报错，大多数时候正常，少数情况下崩
+  root_cause_summary: 接口缺少 订单 归属校验，未鉴权所有者就按请求 id 返回/更新，IDOR 越权
+  root_cause_type: idor
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-036-idor-intermit
+  user_report: 间歇性列表报错，大多数时候正常，少数情况下崩
+  root_cause_summary: 接口缺少 任务 归属校验，未鉴权所有者就按请求 id 返回/更新，IDOR 越权
+  root_cause_type: idor
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-037-missing--http-500
+  user_report: 导出报表 时后端抛错，页面卡住，网络面板看到 500 响应
+  root_cause_summary: 响应 schema 漏返了前端依赖的 tags，前端读到 undefined 后解构报错
+  root_cause_type: missing-field
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-038-missing--http-500
+  user_report: 提交导出报表请求后服务器报内部错误，什么都没成功也没提示
+  root_cause_summary: 后端返回体缺少约定的 status，前端按非空假设访问触发 TypeError
+  root_cause_type: missing-field
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-039-missing--frontend
+  user_report: 操作后界面直接挂掉，图表 抛未捕获异常白屏
+  root_cause_summary: 响应 schema 漏返了前端依赖的 due_date，前端读到 undefined 后解构报错
+  root_cause_type: missing-field
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-040-missing--frontend
+  user_report: 操作后界面直接挂掉，详情面板 抛未捕获异常白屏
+  root_cause_summary: 后端返回体缺少约定的 tags，前端按非空假设访问触发 TypeError
+  root_cause_type: missing-field
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-041-missing--slow-que
+  user_report: 列表页加载越来越慢，数据多了之后要转圈等一两分钟才出来
+  root_cause_summary: 响应 schema 漏返了前端依赖的 assignee_name，前端读到 undefined 后解构报错
+  root_cause_type: missing-field
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-042-missing--slow-que
+  user_report: 仪表盘变卡，刷新要等很久，监控里看到大量慢 SQL
+  root_cause_summary: 序列化模型未包含 tags，前端拿到空值崩在渲染逻辑
+  root_cause_type: missing-field
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-043-missing--access-a
+  user_report: 凭 id 改了不属于我的评论居然成功了，疑似越权
+  root_cause_summary: 响应 schema 漏返了前端依赖的 status，前端读到 undefined 后解构报错
+  root_cause_type: missing-field
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-044-missing--access-a
+  user_report: 凭 id 改了不属于我的发票居然成功了，疑似越权
+  root_cause_summary: 序列化模型未包含 assignee_name，前端拿到空值崩在渲染逻辑
+  root_cause_type: missing-field
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-045-missing--silent-l
+  user_report: 提交后附件没了，数据库里是空值，但操作显示成功
+  root_cause_summary: 序列化模型未包含 due_date，前端拿到空值崩在渲染逻辑
+  root_cause_type: missing-field
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-046-missing--silent-l
+  user_report: 提交后标签没了，数据库里是空值，但操作显示成功
+  root_cause_summary: 后端返回体缺少约定的 assignee_name，前端按非空假设访问触发 TypeError
+  root_cause_type: missing-field
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-047-missing--intermit
+  user_report: 偶发导航卡死，刷新后恢复，问题不稳定难定位
+  root_cause_summary: 序列化模型未包含 status，前端拿到空值崩在渲染逻辑
+  root_cause_type: missing-field
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-048-missing--intermit
+  user_report: 偶发性导航卡顿/闪退，复现不稳定，时好时坏
+  root_cause_summary: 后端返回体缺少约定的 due_date，前端按非空假设访问触发 TypeError
+  root_cause_type: missing-field
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-049-fk-viola-http-500
+  user_report: 提交创建订单请求后服务器报内部错误，什么都没成功也没提示
+  root_cause_summary: 接口未验证 project_id 有效性就落库 task，外键约束违反返回服务端错误
+  root_cause_type: fk-violation
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-050-fk-viola-http-500
+  user_report: 功能用着用着就报服务端异常，上传文件 请求失败状态码 500
+  root_cause_summary: 创建 article 未校验关联 category 是否存在，违反外键约束导致数据库报错
+  root_cause_type: fk-violation
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-051-fk-viola-frontend
+  user_report: 列表组件加载到一半报错，界面卡死，控制台一堆红色异常
+  root_cause_summary: 写入删除了 order 存在性校验，对不存在的 order_id 直接插 item 触发 IntegrityError 返回 500
+  root_cause_type: fk-violation
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-052-fk-viola-frontend
+  user_report: 渲染列表时崩溃，前端报 Cannot read properties of undefined，整页空白
+  root_cause_summary: 接口未验证 order_id 有效性就落库 item，外键约束违反返回服务端错误
+  root_cause_type: fk-violation
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-053-fk-viola-slow-que
+  user_report: 仪表盘接口偶发超时，数据量大时几乎卡死，明显是查询性能问题
+  root_cause_summary: 接口未验证 user_id 有效性就落库 post，外键约束违反返回服务端错误
+  root_cause_type: fk-violation
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-054-fk-viola-slow-que
+  user_report: 打开报表页响应明显变慢，后端查询耗时随数据量飙升
+  root_cause_summary: 写入删除了 category 存在性校验，对不存在的 category_id 直接插 article 触发 IntegrityError 返回 500
+  root_cause_type: fk-violation
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-055-fk-viola-access-a
+  user_report: 列表里混入了其他用户的评论，隔离没做好
+  root_cause_summary: 创建 task 未校验关联 project 是否存在，违反外键约束导致数据库报错
+  root_cause_type: fk-violation
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-056-fk-viola-access-a
+  user_report: 用普通账号点开不该看的发票居然能打开，访问控制异常
+  root_cause_summary: 写入删除了 user 存在性校验，对不存在的 user_id 直接插 post 触发 IntegrityError 返回 500
+  root_cause_type: fk-violation
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-057-fk-viola-silent-l
+  user_report: 提交后描述没了，数据库里是空值，但操作显示成功
+  root_cause_summary: 写入删除了 project 存在性校验，对不存在的 project_id 直接插 task 触发 IntegrityError 返回 500
+  root_cause_type: fk-violation
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-058-fk-viola-silent-l
+  user_report: 改完发现标签数据没了，静默丢失，很难察觉
+  root_cause_summary: 接口未验证 category_id 有效性就落库 article，外键约束违反返回服务端错误
+  root_cause_type: fk-violation
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-059-fk-viola-intermit
+  user_report: 偶发性搜索卡顿/闪退，复现不稳定，时好时坏
+  root_cause_summary: 创建 item 未校验关联 order 是否存在，违反外键约束导致数据库报错
+  root_cause_type: fk-violation
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-060-fk-viola-intermit
+  user_report: 列表偶尔失效，多试几次又好了，规律难抓
+  root_cause_summary: 创建 post 未校验关联 user 是否存在，违反外键约束导致数据库报错
+  root_cause_type: fk-violation
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-061-race-con-http-500
+  user_report: 提交上传文件请求后服务器报内部错误，什么都没成功也没提示
+  root_cause_summary: 更新 状态机 用了先读后写模式，并发下读到旧值再覆盖，状态错乱
+  root_cause_type: race-condition
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-062-race-con-http-500
+  user_report: 功能用着用着就报服务端异常，提交表单 请求失败状态码 500
+  root_cause_summary: 更新 余额 用了先读后写模式，并发下读到旧值再覆盖，状态错乱
+  root_cause_type: race-condition
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-063-race-con-frontend
+  user_report: 图表组件加载到一半报错，界面卡死，控制台一堆红色异常
+  root_cause_summary: check-then-act 没有事务保护，并发请求对 计数器 竞态导致状态不一致
+  root_cause_type: race-condition
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-064-race-con-frontend
+  user_report: 详情面板组件加载到一半报错，界面卡死，控制台一堆红色异常
+  root_cause_summary: check-then-act 没有事务保护，并发请求对 余额 竞态导致状态不一致
+  root_cause_type: race-condition
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-065-race-con-slow-que
+  user_report: 列表页接口偶发超时，数据量大时几乎卡死，明显是查询性能问题
+  root_cause_summary: 余额 更新缺乏行锁/版本控制，并发更新同一资源互相覆盖，偶尔丢更新
+  root_cause_type: race-condition
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-066-race-con-slow-que
+  user_report: 搜索加载越来越慢，数据多了之后要转圈等一两分钟才出来
+  root_cause_summary: check-then-act 没有事务保护，并发请求对 库存 竞态导致状态不一致
+  root_cause_type: race-condition
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-067-race-con-access-a
+  user_report: 列表里混入了其他用户的任务，隔离没做好
+  root_cause_summary: 库存 更新缺乏行锁/版本控制，并发更新同一资源互相覆盖，偶尔丢更新
+  root_cause_type: race-condition
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-068-race-con-access-a
+  user_report: 列表里混入了其他用户的发票，隔离没做好
+  root_cause_summary: 更新 计数器 用了先读后写模式，并发下读到旧值再覆盖，状态错乱
+  root_cause_type: race-condition
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-069-race-con-silent-l
+  user_report: 编辑保存后描述莫名变空了，也没报错，数据悄悄丢了
+  root_cause_summary: check-then-act 没有事务保护，并发请求对 状态机 竞态导致状态不一致
+  root_cause_type: race-condition
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-070-race-con-silent-l
+  user_report: 提交后元数据没了，数据库里是空值，但操作显示成功
+  root_cause_summary: 计数器 更新缺乏行锁/版本控制，并发更新同一资源互相覆盖，偶尔丢更新
+  root_cause_type: race-condition
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-071-race-con-intermit
+  user_report: 搜索偶尔失效，多试几次又好了，规律难抓
+  root_cause_summary: 状态机 更新缺乏行锁/版本控制，并发更新同一资源互相覆盖，偶尔丢更新
+  root_cause_type: race-condition
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-072-race-con-intermit
+  user_report: 表单提交偶尔失效，多试几次又好了，规律难抓
+  root_cause_summary: 更新 库存 用了先读后写模式，并发下读到旧值再覆盖，状态错乱
+  root_cause_type: race-condition
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-073-config-e-http-500
+  user_report: 创建订单 后页面直接报错，接口返回 500 内部服务器错误
+  root_cause_summary: 连接池大小 单位/默认值设错，运行时行为偏离预期
+  root_cause_type: config-error
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-074-config-e-http-500
+  user_report: 导出报表 后页面直接报错，接口返回 500 内部服务器错误
+  root_cause_summary: 关键 重试次数 值错误，触发非预期行为
+  root_cause_type: config-error
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-075-config-e-frontend
+  user_report: 表单组件加载到一半报错，界面卡死，控制台一堆红色异常
+  root_cause_summary: 关键 过期时间 值错误，触发非预期行为
+  root_cause_type: config-error
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-076-config-e-frontend
+  user_report: 渲染详情面板时崩溃，前端报 Cannot read properties of undefined，整页空白
+  root_cause_summary: 超时阈值 单位/默认值设错，运行时行为偏离预期
+  root_cause_type: config-error
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-077-config-e-slow-que
+  user_report: 报表页接口偶发超时，数据量大时几乎卡死，明显是查询性能问题
+  root_cause_summary: 重试次数 被设成 0（误以为 0 表永久），导致令牌/缓存立即失效
+  root_cause_type: config-error
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-078-config-e-slow-que
+  user_report: 搜索变卡，刷新要等很久，监控里看到大量慢 SQL
+  root_cause_summary: 过期时间 被设成 0（误以为 0 表永久），导致令牌/缓存立即失效
+  root_cause_type: config-error
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-079-config-e-access-a
+  user_report: 用普通账号点开不该看的评论居然能打开，访问控制异常
+  root_cause_summary: 关键 超时阈值 值错误，触发非预期行为
+  root_cause_type: config-error
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-080-config-e-access-a
+  user_report: 发现能看到别人的订单，权限似乎没生效，越权访问
+  root_cause_summary: 超时阈值 被设成 0（误以为 0 表永久），导致令牌/缓存立即失效
+  root_cause_type: config-error
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-081-config-e-silent-l
+  user_report: 编辑保存后元数据莫名变空了，也没报错，数据悄悄丢了
+  root_cause_summary: 关键 连接池大小 值错误，触发非预期行为
+  root_cause_type: config-error
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-082-config-e-silent-l
+  user_report: 更新后描述消失，没有任何错误提示，业务对不上
+  root_cause_summary: 连接池大小 被设成 0（误以为 0 表永久），导致令牌/缓存立即失效
+  root_cause_type: config-error
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-083-config-e-intermit
+  user_report: 间歇性表单提交报错，大多数时候正常，少数情况下崩
+  root_cause_summary: 过期时间 单位/默认值设错，运行时行为偏离预期
+  root_cause_type: config-error
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-084-config-e-intermit
+  user_report: 偶发列表卡死，刷新后恢复，问题不稳定难定位
+  root_cause_summary: 重试次数 单位/默认值设错，运行时行为偏离预期
+  root_cause_type: config-error
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-085-silent-d-http-500
+  user_report: 上传文件 后页面直接报错，接口返回 500 内部服务器错误
+  root_cause_summary: 创建时 description 未传就直接落 None，业务上该字段应保留旧值或默认值
+  root_cause_type: silent-data-loss
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-086-silent-d-http-500
+  user_report: 上传文件 时后端抛错，页面卡住，网络面板看到 500 响应
+  root_cause_summary: 创建时 tags 未传就直接落 None，业务上该字段应保留旧值或默认值
+  root_cause_type: silent-data-loss
+  symptom_type: http-500
+  tier: backend
+  cross_tier: false
+- case_id: RTC-087-silent-d-frontend
+  user_report: 页面打开就白屏，控制台报 TypeError 读取 列表 的 undefined 属性
+  root_cause_summary: 更新前把 metadata 从 payload 里 pop 掉，metadata 被静默置空/丢失
+  root_cause_type: silent-data-loss
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-088-silent-d-frontend
+  user_report: 渲染图表时崩溃，前端报 Cannot read properties of undefined，整页空白
+  root_cause_summary: patch 用全量覆盖而非部分更新，未传的 metadata 被清空，数据悄悄丢失
+  root_cause_type: silent-data-loss
+  symptom_type: frontend-crash
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-089-silent-d-slow-que
+  user_report: 打开搜索响应明显变慢，后端查询耗时随数据量飙升
+  root_cause_summary: patch 用全量覆盖而非部分更新，未传的 description 被清空，数据悄悄丢失
+  root_cause_type: silent-data-loss
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-090-silent-d-slow-que
+  user_report: 报表页变卡，刷新要等很久，监控里看到大量慢 SQL
+  root_cause_summary: 更新前把 tags 从 payload 里 pop 掉，tags 被静默置空/丢失
+  root_cause_type: silent-data-loss
+  symptom_type: slow-query
+  tier: backend
+  cross_tier: false
+- case_id: RTC-091-silent-d-access-a
+  user_report: 发现能看到别人的评论，权限似乎没生效，越权访问
+  root_cause_summary: 创建时 metadata 未传就直接落 None，业务上该字段应保留旧值或默认值
+  root_cause_type: silent-data-loss
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-092-silent-d-access-a
+  user_report: 发现能看到别人的发票，权限似乎没生效，越权访问
+  root_cause_summary: 创建时 attachments 未传就直接落 None，业务上该字段应保留旧值或默认值
+  root_cause_type: silent-data-loss
+  symptom_type: access-anomaly
+  tier: backend
+  cross_tier: false
+- case_id: RTC-093-silent-d-silent-l
+  user_report: 改完发现元数据数据没了，静默丢失，很难察觉
+  root_cause_summary: 更新前把 description 从 payload 里 pop 掉，description 被静默置空/丢失
+  root_cause_type: silent-data-loss
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-094-silent-d-silent-l
+  user_report: 编辑保存后附件莫名变空了，也没报错，数据悄悄丢了
+  root_cause_summary: 更新前把 attachments 从 payload 里 pop 掉，attachments 被静默置空/丢失
+  root_cause_type: silent-data-loss
+  symptom_type: silent-loss
+  tier: backend
+  cross_tier: false
+- case_id: RTC-095-silent-d-intermit
+  user_report: 偶发搜索卡死，刷新后恢复，问题不稳定难定位
+  root_cause_summary: patch 用全量覆盖而非部分更新，未传的 attachments 被清空，数据悄悄丢失
+  root_cause_type: silent-data-loss
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true
+- case_id: RTC-096-silent-d-intermit
+  user_report: 偶发性表单提交卡顿/闪退，复现不稳定，时好时坏
+  root_cause_summary: patch 用全量覆盖而非部分更新，未传的 tags 被清空，数据悄悄丢失
+  root_cause_type: silent-data-loss
+  symptom_type: intermittent
+  tier: frontend
+  cross_tier: true

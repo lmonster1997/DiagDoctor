@@ -226,6 +226,13 @@ class DiagnosisReport(BaseModel):
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     early_stopped: bool = False
     notes: str = ""
+    # §8.1 path 2: case_ids the agent declares it actually referenced from the
+    # §6.5 injection block (a subset of retrieved_case_ids). Parsed from the
+    # agent's final JSON, then clamped to ⊆ retrieved_case_ids by the
+    # diagnosis_agent node (anti-hallucination: the agent can only cite cases
+    # it was given). Consumed by the case-level feedback endpoint to validate
+    # which cases may be marked "有帮助".
+    referenced_case_ids: list[str] = Field(default_factory=list)
 
 
 # ── Budget guard ────────────────────────────────────────────────────
@@ -323,6 +330,15 @@ class DoctorState(TypedDict, total=False):
     # routes straight to END instead of re-pausing (no infinite HITL loop).
     human_guidance: str | None
     hitl_resumed: bool
+
+    # ── RAG: retrieved historical cases (#1 episodic retrieval) ────────
+    # ``retrieved_case_ids``: case_ids recalled on pass 1 -- consumed by the
+    # feedback loop (#8 / §8.1) to backfill ``effectiveness`` on 👍.
+    # ``similar_cases_text``: the formatted §6.5 injection block, cached on
+    # pass 1 so the HITL resume pass re-injects WITHOUT re-querying Qdrant
+    # (design §6.5: "only first pass" = don't re-QUERY, not don't re-inject).
+    retrieved_case_ids: list[str]
+    similar_cases_text: str
 
     # ── Metadata ──
     trace_id: str

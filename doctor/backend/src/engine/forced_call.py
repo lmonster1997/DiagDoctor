@@ -115,6 +115,13 @@ class ForcedDiagnosisReport(BaseModel):
         le=1.0,
         description="置信度 0.0-1.0",
     )
+    referenced_case_ids: list[str] = Field(
+        default_factory=list,
+        description=(
+            "本次诊断实际参考了哪些召回历史 case 的 id--从上方'历史相似诊断参考'"
+            "注入块的 [id: ...] 中取,只列真正用到的,未引用则填空数组 []"
+        ),
+    )
 
 
 _FORCED_FINAL_JSON_SCHEMA_HINT = (
@@ -129,7 +136,8 @@ _FORCED_FINAL_JSON_SCHEMA_HINT = (
     '  "fix_suggestion": "【文件】...\\n【位置】第 N 行\\n【改前】...\\n'
     '【改后】...\\n【原因】...",\n'
     '  "evidence_chain": ["sig-xxx"],\n'
-    '  "confidence": 0.85\n'
+    '  "confidence": 0.85,\n'
+    '  "referenced_case_ids": ["hist-1"]\n'
     "}"
 )
 

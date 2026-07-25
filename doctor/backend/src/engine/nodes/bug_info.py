@@ -23,6 +23,7 @@ import json
 from datetime import UTC
 from typing import Any
 
+from langchain_core.runnables import RunnableConfig
 from pydantic import BaseModel, Field
 
 from src.config import settings
@@ -189,7 +190,7 @@ def _empty_prefetch() -> dict[str, Any]:
 # ═════════════════════════════════════════════════════════════════════
 
 
-async def bug_info_node(state: DoctorState) -> dict[str, Any]:
+async def bug_info_node(state: DoctorState, config: RunnableConfig) -> dict[str, Any]:
     """BugInfo node: ingest → auto-prefetch → normalize.
 
     Supports two input paths:
@@ -202,6 +203,28 @@ async def bug_info_node(state: DoctorState) -> dict[str, Any]:
     normalization pipeline, producing ``NormalizedEvidence`` for downstream.
     """
     # ── Step 0: Detect input path ────────────────────────────────
+    # ── Case identity: graph owns case_id from the checkpoint thread_id ──
+    # case_id/trace_id/session_id are set HERE (the entry node) from
+    # ``config["configurable"]["thread_id"]`` -- the SAME value the sqlite
+    # checkpointer addresses the checkpoint by (it reads this exact key in
+    # put()). So case_id == checkpoint thread_id BY CONSTRUCTION, regardless
+    # of which entry point (REST /api/diagnose or CopilotKit run endpoint)
+    # started the run. Single source of truth: this is what the CopilotKit
+    # path was missing -> state.case_id was None -> the 👍 feedback flow
+    # (frontend reads state.case_id) fell back to a desynced hook id and 404'd.
+    #
+    # Why couple case_id to thread_id? 1:1 (one diagnosis = one thread = one
+    # case) holds, and it buys idempotent Qdrant upsert (point id = case_id)
+    # plus one correlating id across checkpoint/Qdrant/frontend. Decoupling
+    # (case_id = own uuid) would need a case_id->thread_id index so the 👍
+    # flow can still fetch the checkpoint (it keys on thread_id). Guard:
+    # never overwrite a caller-supplied case_id (none today; keeps the
+    # contract explicit and lets tests pin a specific id).
+    tid = (config.get("configurable") or {}).get("thread_id") or ""
+    id_updates: dict[str, Any] = {}
+    if tid and not state.get("case_id"):
+        id_updates = {"case_id": tid, "trace_id": tid, "session_id": tid}
+
     raw_evidence: Any = state.get("raw_evidence")
     messages: list[Any] = state.get("messages", [])
 
@@ -227,7 +250,7 @@ async def bug_info_node(state: DoctorState) -> dict[str, Any]:
 
         if not user_message.strip():
             logger.warning("buginfo_empty_user_message")
-            return {"evidence": NormalizedEvidence()}
+            return {"evidence": NormalizedEvidence(), **id_updates}
 
         bug_info = await _extract_bug_info(user_message)
         user_report = bug_info.get("bug_description", user_message)
@@ -338,4 +361,6 @@ async def bug_info_node(state: DoctorState) -> dict[str, Any]:
         # (defense against LangGraph dict-state merge silently dropping unknown keys).
         "langfuse_trace_id": state.get("langfuse_trace_id"),
         "langfuse_session_id": state.get("langfuse_session_id"),
+        # case_id/trace_id/session_id from the checkpoint thread_id (see top).
+        **id_updates,
     }

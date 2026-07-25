@@ -36,6 +36,9 @@ export interface DiagnosisReport {
   confidence: number; // 0.0 – 1.0
   early_stopped: boolean;
   notes: string;
+  /** §8.1 path 2: historical case_ids the agent declared it referenced (clamped
+   *  to ⊆ retrieved_case_ids server-side). Drives the per-case "有帮助" UI. */
+  referenced_case_ids: string[];
 }
 
 // ── Budget ───────────────────────────────────────────────────────
@@ -209,6 +212,8 @@ export interface DiagnoseResponse {
   primary_category: string | null;
   categories: string[];
   findings_count: number;
+  /** §8.1 path 2: top-level mirror of report.referenced_case_ids. */
+  referenced_case_ids: string[];
   budget: BudgetState | null;
   findings: Finding[];
   evidence: NormalizedEvidence | null;
@@ -238,6 +243,8 @@ export interface SSEFinalEvent {
   evidence: NormalizedEvidence | null;
   correlations: Correlation[];
   timeline: TimelineEvent[];
+  /** §8.1 path 2: top-level mirror of report.referenced_case_ids. */
+  referenced_case_ids: string[];
 }
 
 export interface SSEErrorEvent {
@@ -288,4 +295,21 @@ export interface FeedbackRequest {
 export interface FeedbackResponse {
   status: string;
   feedback_id: string;
+}
+
+// ── Diagnosis case-level feedback (§8.1 path 2) ──────────────────
+
+/** Body for POST /api/feedback/{run_id}/case -- mark a referenced case. */
+export interface CaseFeedbackRequest {
+  case_id: string;
+  /** true = 有帮助 (backfill effectiveness +delta); false = 没帮助 (log only). */
+  helpful: boolean;
+}
+
+/** Response from POST /api/feedback/{run_id}/case. */
+export interface CaseFeedbackResponse {
+  ok: boolean;
+  run_id: string;
+  case_id: string;
+  helpful: boolean;
 }

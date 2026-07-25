@@ -49,9 +49,24 @@ class Settings(BaseSettings):
     # --- Embedding ---
     embedding_base_url: str = ""
     embedding_model: str = "text-embedding-3-small"
+    embedding_dimensions: int = 1024  # must match qdrant_client.VECTOR_SIZE
+    # DashScope (Alibaba) OpenAI-compatible API key. When embedding_base_url +
+    # this key are set, embedding.py routes to the API exclusively (no silent
+    # fallback -- mixing embedders corrupts the vector space). Legacy TEI/local
+    # bge-m3 below only activates when embedding_base_url is empty.
+    dashscope_api_key: SecretStr = SecretStr("")
 
     # --- TEI (Text Embeddings Inference) — bge-m3 local embedding service ---
     tei_url: str = "http://localhost:8080"
+
+    # --- bge-m3 local model (fallback when TEI is unreachable) ---
+    # TEI 不可用时走本地 sentence-transformers。二选一(都不填则尝试 hub 下载,
+    # 会被 SSL 拦):
+    #   bge_m3_local_path: 直接指向模型目录(含 snapshot hash,机器特定)
+    #   hf_hub_cache: HF cache 根,让 ``SentenceTransformer("BAAI/bge-m3")`` 按
+    #                 refs/main 解析(推荐,不写死 hash,换机器只改根路径)
+    bge_m3_local_path: str = ""
+    hf_hub_cache: str = ""
 
     # --- Qdrant ---
     qdrant_url: str = "http://localhost:6333"
@@ -93,6 +108,25 @@ class Settings(BaseSettings):
     #   1. engine.context.truncation.truncate_tool_result —— 入 context 前的字符上限
     #   2. observability_unified.search_observability —— 8000 字符 JSON 截断
     tool_result_truncation_enabled: bool = True
+
+    # --- RAG Injection (episodic memory retrieval) ---
+    # When False, the diagnosis agent skips historical-case retrieval entirely
+    # (no Qdrant query, no injection). Demo/interactive keeps True; benchmark/CI
+    # set RAG_INJECTION_ENABLED=false for reproducibility + speed (an empty
+    # library is already neutral, but this avoids the embed/Qdrant round-trip).
+    # Also the toggle for #2 ablation (RAG on vs off on the same case set).
+    rag_injection_enabled: bool = True
+
+    # --- P1-a root-cause recall tool (design §6.4) ---
+    # Independent switch for the ``search_historical_root_cause`` agent tool,
+    # which queries the ``root_cause`` named vector once the agent has formed a
+    # root-cause hypothesis (breaks the P0 symptom-similarity ceiling, #8).
+    # ``rag_injection_enabled`` gates the P0 *symptom* static injection (node-
+    # side, pre-agent); this gates the *root-cause* tool (agent-side, on-demand)
+    # -- two independent mechanisms, two independent switches. When False the
+    # tool is still registered (stable schema) but returns a graceful "未启用"
+    # string without hitting Qdrant (RAG is a gain, not a dependency).
+    rag_root_cause_tool_enabled: bool = True
 
     # --- OpenTelemetry ---
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
