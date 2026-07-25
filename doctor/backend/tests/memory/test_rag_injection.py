@@ -33,7 +33,8 @@ CONVERGED_JSON = """```json
   "affected_function": "update_comment",
   "fix_suggestion": "加 owner 校验",
   "evidence_chain": ["sig-1"],
-  "confidence": 0.85
+  "confidence": 0.85,
+  "referenced_case_ids": ["hist-1"]
 }
 ```"""
 
@@ -41,12 +42,13 @@ CONVERGED_JSON = """```json
 class _RecordingAgent:
     """Replaces the inner create_agent; records the messages it was invoked with."""
 
-    def __init__(self) -> None:
+    def __init__(self, response: str = CONVERGED_JSON) -> None:
         self.received_messages: list[BaseMessage] | None = None
+        self._response = response
 
     async def ainvoke(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
         self.received_messages = list(state.get("messages", []))
-        return {"messages": [AIMessage(content=CONVERGED_JSON)]}
+        return {"messages": [AIMessage(content=self._response)]}
 
 
 def _evidence() -> NormalizedEvidence:
@@ -85,13 +87,10 @@ def _scored(case_id: str = "hist-1") -> ScoredCase:
         importance=0.4,
         payload={
             "case_id": case_id,
-            "category": "frontend_crash",
-            "symptom_tier": "frontend",
-            "is_cross_layer": True,
+            "affected_files": ["app/schemas/task.py"],
             "root_cause": "TaskResponse schema missing tags field",
             "fix_suggestion": "add tags to TaskResponse",
             "confidence": 0.85,
-            "source": "user_upvote",
             "user_report_snippet": "page crash on tags",
         },
     )
@@ -102,8 +101,10 @@ def _human_message_contents(agent: _RecordingAgent) -> list[str]:
     return [str(m.content) for m in agent.received_messages if isinstance(m, HumanMessage)]
 
 
-def _patch_agent(monkeypatch: pytest.MonkeyPatch) -> _RecordingAgent:
-    agent = _RecordingAgent()
+def _patch_agent(
+    monkeypatch: pytest.MonkeyPatch, response: str = CONVERGED_JSON
+) -> _RecordingAgent:
+    agent = _RecordingAgent(response=response)
     monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: agent)
     return agent
 
@@ -117,7 +118,9 @@ async def test_first_pass_injects_similar_cases_and_caches(
     agent = _patch_agent(monkeypatch)
     calls: list[NormalizedEvidence] = []
 
-    async def fake_search(ev: NormalizedEvidence, k_final: int = 3, *, now: Any = None) -> list[ScoredCase]:
+    async def fake_search(
+        ev: NormalizedEvidence, k_final: int = 3, *, now: Any = None
+    ) -> list[ScoredCase]:
         calls.append(ev)
         return [_scored()]
 
@@ -132,6 +135,9 @@ async def test_first_pass_injects_similar_cases_and_caches(
     # state updates cached the retrieved ids + formatted text
     assert result["retrieved_case_ids"] == ["hist-1"]
     assert "历史相似诊断参考" in result["similar_cases_text"]
+    # §8.1 path 2: agent's referenced_case_ids (["hist-1"]) flows through to
+    # the report, clamped to the retrieved set.
+    assert result["report"].referenced_case_ids == ["hist-1"]
 
 
 async def test_first_pass_empty_recall_injects_nothing_but_caches_empty(
@@ -139,7 +145,9 @@ async def test_first_pass_empty_recall_injects_nothing_but_caches_empty(
 ) -> None:
     agent = _patch_agent(monkeypatch)
 
-    async def fake_search(ev: NormalizedEvidence, k_final: int = 3, *, now: Any = None) -> list[ScoredCase]:
+    async def fake_search(
+        ev: NormalizedEvidence, k_final: int = 3, *, now: Any = None
+    ) -> list[ScoredCase]:
         return []
 
     monkeypatch.setattr(diag_mod, "search_historical_cases", fake_search)
@@ -161,14 +169,18 @@ async def test_resume_reinjects_from_cache_without_requery(
     agent = _patch_agent(monkeypatch)
     calls: list[NormalizedEvidence] = []
 
-    async def fake_search(ev: NormalizedEvidence, k_final: int = 3, *, now: Any = None) -> list[ScoredCase]:
+    async def fake_search(
+        ev: NormalizedEvidence, k_final: int = 3, *, now: Any = None
+    ) -> list[ScoredCase]:
         calls.append(ev)
         return [_scored()]
 
     monkeypatch.setattr(diag_mod, "search_historical_cases", fake_search)
 
     cached_text = "## 历史相似诊断参考(来自知识库)\n\ncached-from-pass-1 block"
-    state = _state(_evidence(), human_guidance="check the ORM layer", similar_cases_text=cached_text)
+    state = _state(
+        _evidence(), human_guidance="check the ORM layer", similar_cases_text=cached_text
+    )
 
     result = await _run(state)
 
@@ -188,7 +200,9 @@ async def test_flag_off_skips_retrieval_entirely(monkeypatch: pytest.MonkeyPatch
     agent = _patch_agent(monkeypatch)
     calls: list[NormalizedEvidence] = []
 
-    async def fake_search(ev: NormalizedEvidence, k_final: int = 3, *, now: Any = None) -> list[ScoredCase]:
+    async def fake_search(
+        ev: NormalizedEvidence, k_final: int = 3, *, now: Any = None
+    ) -> list[ScoredCase]:
         calls.append(ev)
         return [_scored()]
 
@@ -202,6 +216,9 @@ async def test_flag_off_skips_retrieval_entirely(monkeypatch: pytest.MonkeyPatch
     # no rag state written
     assert "retrieved_case_ids" not in result
     assert "similar_cases_text" not in result
+    # §8.1 path 2: RAG off -> agent never saw cases -> referenced forced empty
+    # (fail-closed, even though the agent's JSON cites ["hist-1"]).
+    assert result["report"].referenced_case_ids == []
 
 
 # ── graceful degradation ────────────────────────────────────────────
@@ -210,7 +227,9 @@ async def test_flag_off_skips_retrieval_entirely(monkeypatch: pytest.MonkeyPatch
 async def test_retrieval_failure_degrades_gracefully(monkeypatch: pytest.MonkeyPatch) -> None:
     agent = _patch_agent(monkeypatch)
 
-    async def fake_search(ev: NormalizedEvidence, k_final: int = 3, *, now: Any = None) -> list[ScoredCase]:
+    async def fake_search(
+        ev: NormalizedEvidence, k_final: int = 3, *, now: Any = None
+    ) -> list[ScoredCase]:
         raise RuntimeError("qdrant down")
 
     monkeypatch.setattr(diag_mod, "search_historical_cases", fake_search)
@@ -223,3 +242,35 @@ async def test_retrieval_failure_degrades_gracefully(monkeypatch: pytest.MonkeyP
     # cached as empty
     assert result["retrieved_case_ids"] == []
     assert result["similar_cases_text"] == ""
+
+
+# ── §8.1 path 2: referenced_case_ids clamping (anti-hallucination) ──
+
+
+async def test_referenced_case_ids_clamped_to_retrieved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Agent-declared referenced_case_ids are clamped to ⊆ retrieved.
+
+    The agent cites ["hist-1", "FAKE-ID"] but only "hist-1" was retrieved; the
+    hallucinated "FAKE-ID" is dropped by the node's clamp before the report
+    is written to state. The agent can only cite cases it was actually given.
+    """
+    hallucinated_json = CONVERGED_JSON.replace(
+        '"referenced_case_ids": ["hist-1"]',
+        '"referenced_case_ids": ["hist-1", "FAKE-ID"]',
+    )
+    _patch_agent(monkeypatch, response=hallucinated_json)
+
+    async def fake_search(
+        ev: NormalizedEvidence, k_final: int = 3, *, now: Any = None
+    ) -> list[ScoredCase]:
+        return [_scored()]  # retrieved_case_ids == ["hist-1"]
+
+    monkeypatch.setattr(diag_mod, "search_historical_cases", fake_search)
+
+    result = await _run(_state(_evidence()))
+
+    assert result["retrieved_case_ids"] == ["hist-1"]
+    # FAKE-ID dropped; only the genuinely-retrieved id survives.
+    assert result["report"].referenced_case_ids == ["hist-1"]

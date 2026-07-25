@@ -98,6 +98,10 @@ class DiagnoseResponse(BaseModel):
     primary_category: str | None = None
     categories: list[str] = Field(default_factory=list)
     findings_count: int = 0
+    # §8.1 path 2: cases the agent declared it referenced (top-level convenience
+    # for the frontend "本次参考了 [X,Y,Z]" display + the case-level feedback
+    # prompt). Also present nested in ``report.referenced_case_ids``.
+    referenced_case_ids: list[str] = Field(default_factory=list)
 
     # ── Phase 2: evidence chain payload ──
     budget: BudgetState | None = None
@@ -256,6 +260,11 @@ async def _stream_graph(thread_id: str, state: dict[str, Any]) -> AsyncIterator[
             "findings": findings_dump,
             "evidence": evidence_dump,
             "correlations": correlations_dump,
+            # §8.1 path 2: top-level mirror of report.referenced_case_ids for
+            # the frontend "本次参考了 [X,Y,Z]" display + case-level feedback.
+            "referenced_case_ids": (
+                report_dump.get("referenced_case_ids", []) if isinstance(report_dump, dict) else []
+            ),
         }
         yield f"data: {json.dumps(final_data, default=str)}\n\n"
     except Exception as exc:
@@ -328,11 +337,14 @@ def _response_from_state(thread_id: str, final_state: dict[str, Any]) -> Diagnos
     # NOT in triage (triage node was removed in V3).
     primary_category: str | None = None
     categories: list[str] = []
+    referenced_case_ids: list[str] = []
     if report is not None:
         if hasattr(report, "primary_category"):
             primary_category = report.primary_category
         if hasattr(report, "categories"):
             categories = list(report.categories) if report.categories else []
+        if hasattr(report, "referenced_case_ids"):
+            referenced_case_ids = list(report.referenced_case_ids or [])
     findings = final_state.get("findings", [])
     payload = _extract_evidence_payload(final_state)
     return DiagnoseResponse(
@@ -341,6 +353,7 @@ def _response_from_state(thread_id: str, final_state: dict[str, Any]) -> Diagnos
         primary_category=primary_category,
         categories=categories,
         findings_count=len(findings),
+        referenced_case_ids=referenced_case_ids,
         budget=payload["budget"],
         findings=payload["findings"],
         evidence=payload["evidence"],

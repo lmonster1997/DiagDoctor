@@ -1,11 +1,10 @@
-"""Unit tests for case_store backfill (design §8.1) - the "越用越准" write-back.
+"""Unit tests for case_store backfill (design §8.2) - the "越用越准" write-back.
 
 Mocks ``get_qdrant_client`` so no real Qdrant is needed. Exercises
-``backfill_effectiveness``: happy path (effectiveness += delta, hit_count +1),
-clamp to [0, 1] on both ends, ``hit=False`` leaves hit_count, empty input
-short-circuits, retrieve failure -> 0, per-point set_payload failure -> partial
-count, and skipping case_ids that retrieve no longer returns (deleted / never
-indexed).
+``backfill_effectiveness``: happy path (effectiveness += delta), clamp to [0, 1]
+on the upper end, empty input short-circuits, retrieve failure -> 0, per-point
+set_payload failure -> partial count, and skipping case_ids that retrieve no
+longer returns (deleted / never indexed).
 """
 
 from __future__ import annotations
@@ -19,17 +18,14 @@ from src.engine.state import DiagnosisReport, NormalizedEvidence, Signal
 from src.memory.long_term import case_store
 from src.memory.long_term.qdrant_client import VECTOR_NAME_ROOT_CAUSE, VECTOR_NAME_SYMPTOM
 
-
 # ── Fixtures / helpers ──────────────────────────────────────────────
 
 
-def _record(
-    case_id: str, *, effectiveness: float = 0.0, hit_count: int = 0
-) -> SimpleNamespace:
+def _record(case_id: str, *, effectiveness: float = 0.0) -> SimpleNamespace:
     """A minimal Qdrant Record stand-in (only the fields backfill reads)."""
     return SimpleNamespace(
         id=case_id,
-        payload={"case_id": case_id, "effectiveness": effectiveness, "hit_count": hit_count},
+        payload={"case_id": case_id, "effectiveness": effectiveness},
     )
 
 
@@ -80,60 +76,41 @@ async def test_backfill_empty_case_ids_returns_zero_without_qdrant(
         raise AssertionError("should not reach qdrant for empty input")
 
     monkeypatch.setattr(case_store, "get_qdrant_client", boom)
-    assert await case_store.backfill_effectiveness([], delta=0.1, hit=True) == 0
+    assert await case_store.backfill_effectiveness([], delta=0.1) == 0
 
 
-# ── happy path: 👍 credits effectiveness + hit_count ───────────────
+# ── happy path: 👍 credits effectiveness ────────────────────────────
 
 
-async def test_backfill_upvote_increments_effectiveness_and_hit_count(
+async def test_backfill_upvote_increments_effectiveness(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     records = [
-        _record("c1", effectiveness=0.2, hit_count=1),
-        _record("c2", effectiveness=0.5, hit_count=0),
+        _record("c1", effectiveness=0.2),
+        _record("c2", effectiveness=0.5),
     ]
     harness = _patch_client(monkeypatch, records)
 
-    updated = await case_store.backfill_effectiveness(["c1", "c2"], delta=0.1, hit=True)
+    updated = await case_store.backfill_effectiveness(["c1", "c2"], delta=0.1)
 
     assert updated == 2
     assert len(harness.calls) == 2
     by_id = {str(c["points"][0]): c["payload"] for c in harness.calls}
     assert by_id["c1"]["effectiveness"] == pytest.approx(0.3)
-    assert by_id["c1"]["hit_count"] == 2
     assert by_id["c2"]["effectiveness"] == pytest.approx(0.6)
-    assert by_id["c2"]["hit_count"] == 1
+    # hit_count dropped (§6.1) -> only effectiveness is written back
+    assert "hit_count" not in by_id["c1"]
+    assert "hit_count" not in by_id["c2"]
 
 
 # ── clamp to [0, 1] ────────────────────────────────────────────────
 
 
 async def test_backfill_clamps_effectiveness_to_one(monkeypatch: pytest.MonkeyPatch) -> None:
-    harness = _patch_client(monkeypatch, [_record("c1", effectiveness=0.95, hit_count=3)])
-    await case_store.backfill_effectiveness(["c1"], delta=0.1, hit=True)
+    harness = _patch_client(monkeypatch, [_record("c1", effectiveness=0.95)])
+    await case_store.backfill_effectiveness(["c1"], delta=0.1)
     assert harness.calls[0]["payload"]["effectiveness"] == 1.0
-    assert harness.calls[0]["payload"]["hit_count"] == 4
-
-
-async def test_backfill_clamps_effectiveness_to_zero(monkeypatch: pytest.MonkeyPatch) -> None:
-    harness = _patch_client(monkeypatch, [_record("c1", effectiveness=0.05, hit_count=2)])
-    await case_store.backfill_effectiveness(["c1"], delta=-0.1, hit=False)
-    assert harness.calls[0]["payload"]["effectiveness"] == 0.0
-    # hit=False -> hit_count unchanged
-    assert harness.calls[0]["payload"]["hit_count"] == 2
-
-
-# ── 👎: effectiveness down, hit_count unchanged ────────────────────
-
-
-async def test_backfill_downvote_leaves_hit_count_unchanged(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    harness = _patch_client(monkeypatch, [_record("c1", effectiveness=0.4, hit_count=5)])
-    await case_store.backfill_effectiveness(["c1"], delta=-0.1, hit=False)
-    assert harness.calls[0]["payload"]["effectiveness"] == pytest.approx(0.3)
-    assert harness.calls[0]["payload"]["hit_count"] == 5
+    assert "hit_count" not in harness.calls[0]["payload"]
 
 
 # ── graceful degradation ───────────────────────────────────────────
@@ -162,7 +139,7 @@ async def test_backfill_set_payload_failure_skips_point_but_continues(
     records = [_record("c1", effectiveness=0.2), _record("c2", effectiveness=0.2)]
     harness = _patch_client(monkeypatch, records, fail_points={"c1"})
 
-    updated = await case_store.backfill_effectiveness(["c1", "c2"], delta=0.1, hit=True)
+    updated = await case_store.backfill_effectiveness(["c1", "c2"], delta=0.1)
 
     # c1 failed -> only c2 updated; c1 failure does not abort the loop
     assert updated == 1
@@ -173,7 +150,7 @@ async def test_backfill_set_payload_failure_skips_point_but_continues(
 async def test_backfill_skips_missing_case_ids(monkeypatch: pytest.MonkeyPatch) -> None:
     # only c1 exists; c2 was deleted / never indexed -> retrieve omits it
     harness = _patch_client(monkeypatch, [_record("c1", effectiveness=0.2)])
-    updated = await case_store.backfill_effectiveness(["c1", "c2"], delta=0.1, hit=True)
+    updated = await case_store.backfill_effectiveness(["c1", "c2"], delta=0.1)
     assert updated == 1
     assert len(harness.calls) == 1
     assert str(harness.calls[0]["points"][0]) == "c1"
@@ -199,7 +176,9 @@ def _report(root_cause: str = "N+1: list_tasks 逐条查 comments") -> Diagnosis
 def _evidence() -> NormalizedEvidence:
     return NormalizedEvidence(
         user_report="任务看板打开很慢",
-        golden_signals=[Signal(signal_type="slow_span", service_tier="backend", summary="SELECT 重复 47 次")],
+        golden_signals=[
+            Signal(signal_type="slow_span", service_tier="backend", summary="SELECT 重复 47 次")
+        ],
         trigger_trace_ids=["trace-1"],
     )
 
@@ -209,8 +188,12 @@ def test_build_point_uses_named_vectors() -> None:
     symptom_vec = [0.1] * 8
     root_cause_vec = [0.2] * 8
     point = case_store._build_point(
-        _report(), _evidence(), symptom_vec, root_cause_vec,
-        source="user_upvote", case_id="c1", trace_id="trace-1",
+        _report(),
+        _evidence(),
+        symptom_vec,
+        root_cause_vec,
+        case_id="c1",
+        trace_id="trace-1",
     )
     assert point.id == "c1"
     # named-vector dict, NOT a flat list
@@ -219,6 +202,36 @@ def test_build_point_uses_named_vectors() -> None:
     assert point.vector[VECTOR_NAME_ROOT_CAUSE] == root_cause_vec
     # payload still carries root_cause text (utilization side, §4 三分离)
     assert point.payload["root_cause"].startswith("N+1")
+
+
+def test_build_point_payload_is_trimmed_to_core_fields() -> None:
+    """§5.2: payload carries only the 9 core fields; the 7 dead/display fields
+    are gone (category/source/is_cross_layer/symptom_tier/root_cause_tier/
+    signal_types/hit_count)."""
+    point = case_store._build_point(
+        _report(),
+        _evidence(),
+        [0.1] * 8,
+        [0.2] * 8,
+        case_id="c1",
+        trace_id="trace-1",
+    )
+    expected = {
+        "case_id",
+        "trace_id",
+        "root_cause",
+        "fix_suggestion",
+        "user_report_snippet",
+        "affected_files",
+        "confidence",
+        "effectiveness",
+        "created_at",
+    }
+    assert set(point.payload.keys()) == expected
+    # affected_files is populated from the report (§5.2 -- now used in injection)
+    assert point.payload["affected_files"] == ["app/api/tasks.py"]
+    # effectiveness starts at 0 (cold start; case-level "有帮助" writes it, §8.2)
+    assert point.payload["effectiveness"] == 0.0
 
 
 async def test_maybe_index_diagnosis_embeds_both_vectors_in_one_batch(

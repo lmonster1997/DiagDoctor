@@ -108,15 +108,19 @@ async def main() -> int:
     parser.add_argument("target", help="要删除的 case 标识(point id / case_id / 关键词)")
     parser.add_argument("--yes", action="store_true", help="真删(默认 dry-run 只查不删)")
     parser.add_argument(
-        "--limit", type=int, default=5,
+        "--limit",
+        type=int,
+        default=5,
         help="未匹配时,展示最近 N 个点辅助定位(按 created_at 倒序,默认 5)",
     )
     args = parser.parse_args()
 
     client = await get_qdrant_client()
     total = await _collection_count(client)
-    print(f"{SEP}\n collection={COLLECTION_NAME}  total_points={total}  target={args.target!r}  "
-          f"mode={'DELETE' if args.yes else 'dry-run'}\n{SEP}")
+    print(
+        f"{SEP}\n collection={COLLECTION_NAME}  total_points={total}  target={args.target!r}  "
+        f"mode={'DELETE' if args.yes else 'dry-run'}\n{SEP}"
+    )
 
     # ── 1. 精确按 point id retrieve(非 UUID 可能报错)──
     by_id: list[models.Record] = []
@@ -128,7 +132,10 @@ async def main() -> int:
             with_vectors=False,
         )
     except Exception as e:
-        print(f"\n[retrieve by id={args.target!r} 失败(非 UUID id 正常现象)] {type(e).__name__}: {str(e)[:120]}")
+        print(
+            f"\n[retrieve by id={args.target!r} 失败(非 UUID 正常)] "
+            f"{type(e).__name__}: {str(e)[:120]}"
+        )
     if by_id:
         print(f"\n[point-id 精确命中 {len(by_id)} 个]")
 
@@ -145,7 +152,7 @@ async def main() -> int:
     # 去重:by_id 命中的点可能也在 matched 里(若 point_id==target)
     seen_ids: set[str] = set()
     uniq: list[tuple[models.Record, list[str]]] = []
-    for p, r in ([ (p, [f"point_id={p.id}"]) for p in by_id ] + matched):
+    for p, r in [(p, [f"point_id={p.id}"]) for p in by_id] + matched:
         k = str(p.id)
         if k in seen_ids:
             continue
@@ -164,7 +171,7 @@ async def main() -> int:
             print(f"\n最近 {len(recent)} 个点(看有没有你印象中的那条):")
             for p in recent:
                 print(_fmt(p))
-        print(f"\n提示:target 可以是 point id / case_id / trace_id / root_cause 里的关键词。")
+        print("\n提示:target 可以是 point id / case_id / trace_id / root_cause 里的关键词。")
         return 0
 
     print(f"\n[匹配到 {len(uniq)} 个点]")
@@ -172,7 +179,7 @@ async def main() -> int:
         print(_fmt(p, r))
 
     if not args.yes:
-        print(f"\n[dry-run] 未删除。确认无误后加 --yes 真删:")
+        print("\n[dry-run] 未删除。确认无误后加 --yes 真删:")
         print(f"  uv run python scripts/delete_case.py {args.target} --yes")
         return 0
 
@@ -180,7 +187,7 @@ async def main() -> int:
     ids = [p.id for p, _ in uniq]
     print(f"\n[DELETE] 即将删除 {len(ids)} 个 point: {ids}")
     await client.delete(collection_name=COLLECTION_NAME, points_selector=ids)
-    print(f"[DELETE] 完成。删除后剩余(精确计数):")
+    print("[DELETE] 完成。删除后剩余(精确计数):")
     after = await _collection_count(client)
     print(f"  total_points={after}  (删除前={total})")
     return 0

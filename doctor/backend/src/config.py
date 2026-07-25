@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     # --- Embedding ---
     embedding_base_url: str = ""
     embedding_model: str = "text-embedding-3-small"
+    embedding_dimensions: int = 1024  # must match qdrant_client.VECTOR_SIZE
+    # DashScope (Alibaba) OpenAI-compatible API key. When embedding_base_url +
+    # this key are set, embedding.py routes to the API exclusively (no silent
+    # fallback -- mixing embedders corrupts the vector space). Legacy TEI/local
+    # bge-m3 below only activates when embedding_base_url is empty.
+    dashscope_api_key: SecretStr = SecretStr("")
 
     # --- TEI (Text Embeddings Inference) — bge-m3 local embedding service ---
     tei_url: str = "http://localhost:8080"

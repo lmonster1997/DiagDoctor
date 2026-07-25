@@ -187,9 +187,7 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
     #    pass queries + caches; resume re-injects the cached block without
     #    re-querying. Graceful degradation: None on failure / empty recall /
     #    disabled -> diagnosis proceeds without historical reference. ──
-    similar_msg, rag_updates = await _build_similar_cases_message(
-        state, evidence, is_resume
-    )
+    similar_msg, rag_updates = await _build_similar_cases_message(state, evidence, is_resume)
 
     if is_resume:
         prior_findings = state.get("findings", []) or []
@@ -279,8 +277,17 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
 
     budget_state = BudgetState()
 
+    # §8.1 path 2: the retrieved set used to clamp referenced_case_ids. Pass 1
+    # just fetched it (in rag_updates); resume reuses pass-1's cache (in state).
+    # RAG off / empty recall / retrieval failure -> empty -> referenced forced
+    # empty (the agent can't cite cases it never saw).
+    if "retrieved_case_ids" in rag_updates:
+        effective_retrieved = rag_updates["retrieved_case_ids"]
+    else:
+        effective_retrieved = list(state.get("retrieved_case_ids") or [])
+
     report, findings, budget_state, early_stopped = _finalize_report_for_dict_state(
-        final_messages, budget_exhausted
+        final_messages, budget_exhausted, effective_retrieved
     )
 
     _finalize_langfuse_trace(
@@ -313,11 +320,12 @@ def _get_langfuse_handler_for_dict_state(case_id: str, evidence_text: str) -> An
 
 
 def _finalize_report_for_dict_state(
-    messages: list[Any], budget_exhausted: bool
+    messages: list[Any], budget_exhausted: bool, retrieved_case_ids: list[str] | None = None
 ) -> tuple[Any, list[Any], Any, bool]:
     """Parse messages into report + findings (mirrors _finalize_report from node.py)."""
     from src.engine.budget.tracker import is_budget_exceeded, update_budget
     from src.engine.parsing import (
+        clamp_referenced_case_ids,
         extract_findings,
         parse_diagnosis_report,
     )
@@ -343,6 +351,15 @@ def _finalize_report_for_dict_state(
         report.early_stopped = True
         if not report.notes:
             report.notes = "预算超限，提前终止诊断"
+
+    # §8.1 path 2: clamp the agent's declared referenced_case_ids to the cases
+    # actually retrieved this run (anti-hallucination -- the agent can only
+    # cite cases it was shown in the §6.5 injection block). Fail-closed: when
+    # retrieved is unknown/empty, referenced is forced empty. ``retrieved`` is
+    # computed by the caller (pass 1: just-fetched; resume: pass-1 cache).
+    report.referenced_case_ids = clamp_referenced_case_ids(
+        report.referenced_case_ids, retrieved_case_ids or []
+    )
 
     return report, findings, budget_state, early_stopped
 

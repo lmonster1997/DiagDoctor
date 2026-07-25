@@ -28,13 +28,10 @@ def _scored(case_id: str = "hist-1") -> ScoredCase:
         importance=0.4,
         payload={
             "case_id": case_id,
-            "category": "performance",
-            "symptom_tier": "backend",
-            "is_cross_layer": False,
+            "affected_files": ["app/api/tasks.py"],
             "root_cause": "N+1: list_tasks 逐条查 comments",
             "fix_suggestion": "恢复 selectinload 预加载",
             "confidence": 0.85,
-            "source": "user_upvote",
             "user_report_snippet": "看板很慢",
         },
     )

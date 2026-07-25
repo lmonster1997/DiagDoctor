@@ -48,6 +48,9 @@ export interface RawAgentState {
   evidence?: NormalizedEvidence | null;
   budget?: unknown;
   budget_ticks?: unknown[];
+  /** §6.5 injection block (all retrieved cases w/ content + [id:...]) - synced
+   *  from DoctorState, surfaced in the UI so the user can see referenced cases. */
+  similar_cases_text?: string;
   [key: string]: unknown;
 }
 
@@ -202,6 +205,7 @@ function buildReport(data: Record<string, unknown>, fallbackText: string): Diagn
       confidence: 0.2,
       early_stopped: false,
       notes: "JSON 解析失败，使用原始输出作为 root_cause",
+      referenced_case_ids: [],
     };
   }
 
@@ -219,6 +223,12 @@ function buildReport(data: Record<string, unknown>, fallbackText: string): Diagn
     confidence: Math.max(0, Math.min(1, asNum(data.confidence, 0.5))),
     early_stopped: Boolean(data.early_stopped),
     notes: asStr(data.notes),
+    // §8.1 path 2: parsed raw from the agent JSON (unclamped here). When the
+    // outer-graph state.report is synced, parseAgentState returns THAT (server
+    // clamped) value directly; this messages-fallback path is only used when
+    // state.report is absent. The backend endpoint re-validates against the
+    // checkpoint's clamped set regardless.
+    referenced_case_ids: ensureStrList(data.referenced_case_ids),
   };
 }
 

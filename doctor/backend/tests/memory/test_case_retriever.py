@@ -18,18 +18,21 @@ import pytest
 from src.engine.state import Correlation, NormalizedEvidence, Signal
 from src.memory.long_term import case_retriever
 from src.memory.long_term.case_retriever import (
-    HIT_COUNT_CAP,
     RELEVANCE_THRESHOLD,
+    ROOT_CAUSE_RELEVANCE_THRESHOLD,
+    SYMPTOM_RELEVANCE_THRESHOLD,
     ScoredCase,
     _dedup_by_trace,
     _importance,
     _recency,
     _score_hit,
+    _select_mmr_topk,
     detect_conflict,
     format_similar_cases,
     search_historical_cases,
 )
 from src.memory.long_term.encoding import build_symptom_passage, derive_tier
+from src.memory.long_term.qdrant_client import VECTOR_NAME_ROOT_CAUSE
 
 NOW = datetime(2026, 7, 18, tzinfo=UTC)
 
@@ -79,29 +82,31 @@ def _hit(
     trace_id: str = "t1",
     case_id: str = "c1",
     confidence: float = 0.8,
-    hit_count: int = 0,
     effectiveness: float = 0.0,
     created_at: str | None = None,
-    is_cross_layer: bool = False,
+    root_cause: str = "N+1 in ORM relation",
+    root_cause_vector: list[float] | None = None,
 ) -> SimpleNamespace:
     return SimpleNamespace(
         payload={
             "trace_id": trace_id,
             "case_id": case_id,
-            "category": "performance",
-            "symptom_tier": "backend",
-            "is_cross_layer": is_cross_layer,
-            "root_cause": "N+1 in ORM relation",
+            "affected_files": ["app/api/tasks.py"],
+            "root_cause": root_cause,
             "fix_suggestion": "add selectinload",
             "confidence": confidence,
-            "hit_count": hit_count,
             "effectiveness": effectiveness,
-            "source": "user_upvote",
             "user_report_snippet": "page slow",
             "created_at": created_at if created_at is not None else NOW.isoformat(),
         },
         score=score,
         id=case_id,
+        # MMR (symptom layer) reads the root_cause named vector off the hit;
+        # None when the test doesn't exercise MMR (root_cause layer / non-MMR
+        # tests) -- _select_mmr_topk then degenerates to pure score.
+        vector={VECTOR_NAME_ROOT_CAUSE: root_cause_vector}
+        if root_cause_vector is not None
+        else None,
     )
 
 
@@ -122,6 +127,7 @@ def _patch_retriever(
         points=hits,
         query_calls=0,
         using_calls=[],
+        with_vectors_calls=[],
     )
 
     async def fake_get_client() -> Any:
@@ -130,6 +136,11 @@ def _patch_retriever(
     async def fake_query_points(**kwargs: Any) -> SimpleNamespace:
         client.query_calls += 1
         client.using_calls.append(kwargs.get("using"))
+        # record the with_vectors kwarg so tests can assert the symptom layer
+        # fetches root_cause vectors for MMR (and root_cause layer doesn't) --
+        # guards against the kwarg-name regression (with_vector vs with_vectors,
+        # which the real qdrant client rejects and the mock would otherwise hide).
+        client.with_vectors_calls.append(kwargs.get("with_vectors"))
         return SimpleNamespace(points=client.points)
 
     client.query_points = fake_query_points
@@ -216,17 +227,17 @@ def test_recency_missing_or_unparseable_is_one() -> None:
 
 
 def test_importance_degrades_to_confidence_without_feedback() -> None:
-    # hit_count / effectiveness default to 0 -> importance = 0.5 * confidence
+    # effectiveness defaults to 0 -> importance = 0.5 * confidence (§6.1 two-signal)
     assert _importance({"confidence": 0.8}) == pytest.approx(0.4)
 
 
 def test_importance_full_formula() -> None:
-    imp = _importance({"confidence": 1.0, "hit_count": HIT_COUNT_CAP, "effectiveness": 1.0})
-    assert imp == pytest.approx(0.5 * 1.0 + 0.3 * 1.0 + 0.2 * 1.0)
+    imp = _importance({"confidence": 1.0, "effectiveness": 1.0})
+    assert imp == pytest.approx(0.5 * 1.0 + 0.5 * 1.0)
 
 
 def test_score_hit_combines_three_factors() -> None:
-    hit = _hit(score=0.9, confidence=1.0, hit_count=HIT_COUNT_CAP, effectiveness=1.0)
+    hit = _hit(score=0.9, confidence=1.0, effectiveness=1.0)
     scored = _score_hit(hit, NOW)
     assert scored.relevance == 0.9
     assert scored.recency == pytest.approx(1.0)  # created_at == NOW
@@ -287,6 +298,8 @@ async def test_search_threshold_filters_low_relevance(monkeypatch: pytest.Monkey
 
 
 async def test_search_topk_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    # no vectors supplied -> MMR degenerates to pure score top-k (defensive
+    # path), so the limit + score-desc behavior is unchanged here.
     hits = [_hit(score=0.9 - i * 0.01, trace_id=f"t{i}", case_id=f"c{i}") for i in range(6)]
     _patch_retriever(monkeypatch, hits)
     result = await search_historical_cases(_evidence(), k_final=3, now=NOW)
@@ -348,10 +361,16 @@ async def test_search_graceful_degradation_on_qdrant_failure(
     assert result == []
 
 
-def test_relevance_threshold_is_a_calibrated_placeholder() -> None:
-    # Design §9.1: must be calibrated with gold cases (deferred to #8).
-    # Guard against silently drifting the placeholder.
-    assert RELEVANCE_THRESHOLD == 0.75
+def test_relevance_thresholds_calibrated() -> None:
+    # Design §9.1: two SEPARATE per-layer thresholds (symptom vs root_cause),
+    # each calibrated against its own label (same-symptom vs diff-symptom;
+    # same-root vs diff-root). First-pass calibration from the synthetic
+    # retrieval test (docs/retrieval_test_design.md §4) on DashScope
+    # qwen3.7-text-embedding; gold-case refinement pending.
+    assert SYMPTOM_RELEVANCE_THRESHOLD == 0.60
+    assert ROOT_CAUSE_RELEVANCE_THRESHOLD == 0.61
+    # back-compat alias points at the symptom threshold
+    assert RELEVANCE_THRESHOLD == SYMPTOM_RELEVANCE_THRESHOLD
 
 
 # ── named-vector selection (P1-a: symptom vs root_cause using=) ─────
@@ -364,6 +383,23 @@ async def test_search_historical_cases_uses_symptom_vector(
     client = _patch_retriever(monkeypatch, [_hit(score=0.9, trace_id="t1", case_id="c1")])
     await search_historical_cases(_evidence(), now=NOW)
     assert client.using_calls == ["symptom"]
+
+
+async def test_search_symptom_layer_fetches_vectors_for_mmr(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Symptom layer (MMR) passes ``with_vectors=True`` so _select_mmr_topk has
+    root_cause vectors for redundancy; root_cause layer passes False. Guards the
+    kwarg-name regression -- the real qdrant client rejects ``with_vector``
+    (singular) with AssertionError, which the **kwargs mock would otherwise hide
+    (silently returning [] via the try/except in _search_named_vector)."""
+    client = _patch_retriever(monkeypatch, [_hit(score=0.9, trace_id="t1", case_id="c1")])
+    await search_historical_cases(_evidence(), now=NOW)
+    assert client.with_vectors_calls == [True]  # symptom layer fetches vectors for MMR
+
+    client2 = _patch_retriever(monkeypatch, [_hit(score=0.9, trace_id="t1", case_id="c1")])
+    await case_retriever.search_by_root_cause("hyp", now=NOW)
+    assert client2.with_vectors_calls == [False]  # root_cause layer doesn't
 
 
 # ── search_by_root_cause (P1-a, §6.4) ───────────────────────────────
@@ -454,6 +490,191 @@ async def test_search_by_root_cause_graceful_degradation_on_qdrant_failure(
     assert result == []
 
 
+# ── MMR diversity selection (§7.2, task 4) ─────────────────────────
+
+
+def _vec(idx: int, dim: int = 8) -> list[float]:
+    """One-hot unit vector: same idx -> cosine 1.0, different idx -> 0.0.
+
+    Stands in for root_cause embeddings in unit tests -- MMR's redundancy term
+    only cares about inter-case cosine, so one-hot gives a clean signal
+    (identical root -> max redundancy; distinct root -> none).
+    """
+    v = [0.0] * dim
+    v[idx] = 1.0
+    return v
+
+
+def _sc(case_id: str, score: float, root_cause: str = "r") -> ScoredCase:
+    """Compact ScoredCase for direct MMR unit tests (only score + root_cause)."""
+    return ScoredCase(
+        case_id=case_id,
+        score=score,
+        relevance=score,
+        recency=1.0,
+        importance=1.0,
+        payload={"root_cause": root_cause},
+    )
+
+
+def test_select_mmr_elevates_distinct_root_over_redundant_dupes() -> None:
+    """3 same-root (high score, mutually redundant) + 1 distinct-root (lower
+    score): MMR picks the distinct one 2nd instead of a redundant same-root
+    dupe -- the core diversity behavior pure top-k lacks."""
+    cases = [
+        _sc("dupe1", 0.90, "N+1"),
+        _sc("dupe2", 0.88, "N+1"),
+        _sc("dupe3", 0.86, "N+1"),
+        _sc("distinct", 0.80, "FK"),
+    ]
+    vectors = {"dupe1": _vec(0), "dupe2": _vec(0), "dupe3": _vec(0), "distinct": _vec(1)}
+    result = _select_mmr_topk(cases, vectors, k_final=3, lam=0.5)
+    assert [c.case_id for c in result] == ["dupe1", "distinct", "dupe2"]
+    assert len({c.payload["root_cause"] for c in result}) == 2
+
+
+def test_select_mmr_fills_k_when_pool_lacks_diversity() -> None:
+    """All same-root: MMR still fills k (redundant-but-relevant, not noise).
+    Hard text-dedup would have collapsed this to 1; MMR soft-penalizes but
+    keeps all relevant cases."""
+    cases = [_sc("a", 0.9, "N+1"), _sc("b", 0.88, "N+1"), _sc("c", 0.86, "N+1")]
+    vectors = {"a": _vec(0), "b": _vec(0), "c": _vec(0)}
+    result = _select_mmr_topk(cases, vectors, k_final=3, lam=0.5)
+    assert [c.case_id for c in result] == ["a", "b", "c"]
+
+
+def test_select_mmr_lambda_zero_is_pure_score() -> None:
+    """lam=0 -> no diversity penalty -> pure score top-k (distinct NOT elevated)."""
+    cases = [
+        _sc("dupe1", 0.90, "N+1"),
+        _sc("dupe2", 0.88, "N+1"),
+        _sc("dupe3", 0.86, "N+1"),
+        _sc("distinct", 0.80, "FK"),
+    ]
+    vectors = {"dupe1": _vec(0), "dupe2": _vec(0), "dupe3": _vec(0), "distinct": _vec(1)}
+    result = _select_mmr_topk(cases, vectors, k_final=3, lam=0.0)
+    assert [c.case_id for c in result] == ["dupe1", "dupe2", "dupe3"]
+
+
+def test_select_mmr_distinct_roots_fill_k_by_score() -> None:
+    """4 distinct roots, k=3 -> top 3 by score (all mutually non-redundant)."""
+    cases = [
+        _sc("a", 0.9, "r0"),
+        _sc("b", 0.8, "r1"),
+        _sc("c", 0.7, "r2"),
+        _sc("d", 0.6, "r3"),
+    ]
+    vectors = {"a": _vec(0), "b": _vec(1), "c": _vec(2), "d": _vec(3)}
+    result = _select_mmr_topk(cases, vectors, k_final=3, lam=0.5)
+    assert [c.case_id for c in result] == ["a", "b", "c"]
+
+
+def test_select_mmr_missing_vectors_degenerates_to_score() -> None:
+    """No vectors -> redundancy 0 for all -> pure score order (defensive:
+    production always fetches vectors, but the function must not crash without)."""
+    cases = [_sc("a", 0.9, "x"), _sc("b", 0.8, "y"), _sc("c", 0.7, "z")]
+    result = _select_mmr_topk(cases, {}, k_final=3, lam=0.5)
+    assert [c.case_id for c in result] == ["a", "b", "c"]
+
+
+def test_select_mmr_empty_input() -> None:
+    assert _select_mmr_topk([], {}, k_final=3, lam=0.5) == []
+
+
+async def test_search_symptom_mmr_diversifies(monkeypatch: pytest.MonkeyPatch) -> None:
+    """§7.2 task 4: symptom layer MMR elevates a lower-scored distinct-root case
+    over redundant same-root dupes. 3 same-root (high score) + 1 distinct (lower
+    score) -> distinct is picked 2nd; result spans ≥2 roots."""
+    hits = [
+        _hit(
+            score=0.9,
+            trace_id="t1",
+            case_id="dupe1",
+            root_cause="N+1 in ORM",
+            root_cause_vector=_vec(0),
+        ),
+        _hit(
+            score=0.88,
+            trace_id="t2",
+            case_id="dupe2",
+            root_cause="N+1 in ORM",
+            root_cause_vector=_vec(0),
+        ),
+        _hit(
+            score=0.86,
+            trace_id="t3",
+            case_id="dupe3",
+            root_cause="N+1 in ORM",
+            root_cause_vector=_vec(0),
+        ),
+        _hit(
+            score=0.80,
+            trace_id="t4",
+            case_id="distinct",
+            root_cause="FK violation",
+            root_cause_vector=_vec(1),
+        ),
+    ]
+    _patch_retriever(monkeypatch, hits)
+    result = await search_historical_cases(_evidence(), k_final=3, now=NOW)
+    assert len(result) == 3
+    assert result[0].case_id == "dupe1"  # highest score selected first
+    assert "distinct" in {c.case_id for c in result}  # elevated despite lower score
+    assert len({c.payload["root_cause"] for c in result}) >= 2  # ≥2 root directions
+
+
+async def test_search_symptom_mmr_fills_k_when_single_root(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """§7.2: when the pool spans only 1 root-cause direction, MMR still fills k
+    with relevant cases (soft-penalized, not collapsed) -- redundant-but-relevant
+    is not noise (§6.6 is about irrelevant cases, already threshold-filtered)."""
+    hits = [
+        _hit(
+            score=0.9,
+            trace_id="t1",
+            case_id="c1",
+            root_cause="N+1 in ORM",
+            root_cause_vector=_vec(0),
+        ),
+        _hit(
+            score=0.88,
+            trace_id="t2",
+            case_id="c2",
+            root_cause="N+1 in ORM",
+            root_cause_vector=_vec(0),
+        ),
+        _hit(
+            score=0.86,
+            trace_id="t3",
+            case_id="c3",
+            root_cause="N+1 in ORM",
+            root_cause_vector=_vec(0),
+        ),
+    ]
+    _patch_retriever(monkeypatch, hits)
+    result = await search_historical_cases(_evidence(), k_final=3, now=NOW)
+    assert len(result) == 3  # fills k (not collapsed to 1)
+    assert len({c.payload["root_cause"] for c in result}) == 1
+
+
+async def test_search_by_root_cause_does_not_diversify(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """§6.3/§7.2: the root-cause (depth) layer keeps pure score top-k -- it WANTS
+    same-root recalls, so MMR must not run. 3 same-root hits -> 3 returned in
+    score order (vs the symptom layer, which would soft-penalize via MMR)."""
+    hits = [
+        _hit(score=0.9, trace_id="t1", case_id="c1", root_cause="N+1 in ORM"),
+        _hit(score=0.88, trace_id="t2", case_id="c2", root_cause="N+1 in ORM"),
+        _hit(score=0.86, trace_id="t3", case_id="c3", root_cause="N+1 in ORM"),
+    ]
+    _patch_retriever(monkeypatch, hits)
+    result = await case_retriever.search_by_root_cause("hyp", k_final=3, now=NOW)
+    assert len(result) == 3
+    assert [c.case_id for c in result] == ["c1", "c2", "c3"]
+
+
 # ── injection formatter (§6.5) ──────────────────────────────────────
 
 
@@ -462,6 +683,7 @@ def _scored(
     score: float = 0.82,
     *,
     root_cause: str = "TaskResponse schema missing tags field",
+    affected_files: list[str] | None = None,
 ) -> ScoredCase:
     return ScoredCase(
         case_id=case_id,
@@ -471,13 +693,12 @@ def _scored(
         importance=0.4,
         payload={
             "case_id": case_id,
-            "category": "frontend_crash",
-            "symptom_tier": "frontend",
-            "is_cross_layer": True,
+            "affected_files": affected_files
+            if affected_files is not None
+            else ["app/schemas/task.py"],
             "root_cause": root_cause,
             "fix_suggestion": "add tags: list[TagResponse] = [] to TaskResponse",
             "confidence": 0.85,
-            "source": "user_upvote",
             "user_report_snippet": "page crash on tags",
         },
     )
@@ -492,14 +713,26 @@ def test_format_similar_cases_renders_section_65_block() -> None:
     assert "历史相似诊断参考" in text
     assert "Case 1" in text
     assert "综合分: 0.82" in text
-    assert "来源: user_upvote" in text
-    assert "frontend_crash / cross_layer" in text  # is_cross_layer -> cross_layer
+    # §8.1 path 2: case_id is exposed in the block so the agent can cite it
+    # in referenced_case_ids (the whole reference->feedback chain depends on it)
+    assert "[id: hist-1]" in text
     assert "TaskResponse schema missing tags field" in text
     assert "add tags: list[TagResponse] = [] to TaskResponse" in text
+    # §5.2: affected_files now shown in the injection block
+    assert "涉及文件: app/schemas/task.py" in text
+    # §5.2: category / tier / source dropped from the block (root_cause text
+    # already carries category; tier filter reversed; source constant)
+    assert "类别:" not in text
+    assert "来源:" not in text
     assert "请勿机械套用" in text
     assert "请基于当前实际证据独立判断" in text
     # single case -> single root cause -> no conflict warning
     assert "冲突提示" not in text
+
+
+def test_format_similar_cases_shows_placeholder_when_no_affected_files() -> None:
+    text = format_similar_cases([_scored(affected_files=[])])
+    assert "涉及文件: (未记录)" in text
 
 
 # ── P1-c conflict detection (§7.2) ──────────────────────────────────

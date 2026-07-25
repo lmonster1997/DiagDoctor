@@ -40,6 +40,11 @@ export default function DiagnosePage() {
   const { messages: chatMessages } = useCopilotMessagesContext();
   const { threadId } = useCopilotContext();
 
+  // §8.1 path 2: backend thread_id for case-level feedback. Same id source as
+  // 👍/👎 below -- state.case_id is the backend LangGraph thread_id (execute
+  // injected); useCopilotContext().threadId is out of sync -> 404.
+  const runId = (state?.case_id as string | undefined) || threadId;
+
   // 👍/👎 -> §8.1 feedback loop: CopilotKit 的 thumbs 按钮默认只更新本地高亮
   // 状态、不发请求,这里转发到后端 /api/feedback/{id}/{upvote,downvote}
   // (索引新 case + 回填召回 case 的 effectiveness)。
@@ -269,6 +274,8 @@ export default function DiagnosePage() {
                   report={report}
                   onHighlightRef={handleHighlightRef}
                   highlightedRef={highlightedRef}
+                  runId={runId}
+                  similarCasesText={state?.similar_cases_text}
                 />
               ) : (
                 <EmptyState

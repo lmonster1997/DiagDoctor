@@ -63,7 +63,7 @@ async def verify_qdrant_collection() -> bool:
         if config and config.params:
             # Qdrant API doesn't easily expose payload indexes in get_collection
             # Just list what we expect
-            for field in ["category", "symptom_tier", "source", "created_at"]:
+            for field in ["trace_id", "created_at"]:
                 print(f"    - {field}")
         print("  ✅ Qdrant collection 验证通过")
         return True

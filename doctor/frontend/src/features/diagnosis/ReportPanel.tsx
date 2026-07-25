@@ -13,14 +13,24 @@ import {
   CheckCircle,
   MessageSquarePlus,
   ArrowRight,
+  Library,
+  ThumbsUp,
+  ThumbsDown,
+  ChevronDown,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { DiagnosisReport, ServiceTier, RootCauseTier } from "@/api/types";
+import { postCaseFeedback } from "@/api/client";
 
 interface ReportPanelProps {
   report: DiagnosisReport;
   onHighlightRef?: (ref: string) => void;
   highlightedRef?: string | null;
+  /** §8.1 path 2: backend thread_id (state.case_id) for POST /feedback/{run_id}/case. */
+  runId?: string;
+  /** §6.5 injection block (all retrieved cases w/ content + [id:...]) — shown
+   *  collapsed so the user can see what the agent was given before marking. */
+  similarCasesText?: string;
 }
 
 const TIER_LABEL: Record<ServiceTier | RootCauseTier, string> = {
@@ -38,9 +48,22 @@ function categoryColor(cat: string): string {
   return "#3b82f6";
 }
 
-export function ReportPanel({ report, onHighlightRef, highlightedRef }: ReportPanelProps) {
+export function ReportPanel({
+  report,
+  onHighlightRef,
+  highlightedRef,
+  runId,
+  similarCasesText,
+}: ReportPanelProps) {
   const confPct = Math.round(report.confidence * 100);
   const [copied, setCopied] = useState(false);
+
+  // §8.1 path 2: map case_id -> {Case N, 根因} parsed from the injection block,
+  // so the feedback rows show "Case 1 · <根因>" instead of a raw UUID.
+  const caseInfoMap = useMemo(
+    () => new Map(parseSimilarCases(similarCasesText ?? "").map((c) => [c.caseId, c])),
+    [similarCasesText],
+  );
 
   const affectedRef = report.affected_file
     ? `${report.affected_file}${report.affected_line != null ? `:${report.affected_line}` : ""}`
@@ -219,6 +242,18 @@ export function ReportPanel({ report, onHighlightRef, highlightedRef }: ReportPa
         </div>
       )}
 
+      {/* ── Retrieved historical cases (§6.5 injection block) ──── */}
+      {similarCasesText && <HistoryReferenceBlock text={similarCasesText} />}
+
+      {/* ── Referenced historical cases (§8.1 path 2 feedback) ── */}
+      {report.referenced_case_ids.length > 0 && (
+        <ReferencedCases
+          runId={runId}
+          caseIds={report.referenced_case_ids}
+          caseInfoMap={caseInfoMap}
+        />
+      )}
+
       {/* ── Notes ───────────────────────────────────────────────── */}
       {report.notes && (
         <div className="rounded-lg border border-white/[0.04] bg-white/[0.01] p-3">
@@ -271,6 +306,196 @@ export function ReportPanel({ report, onHighlightRef, highlightedRef }: ReportPa
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── §8.1 path 2: referenced historical cases + per-case feedback ──
+
+type CaseFeedbackStatus = "loading" | "helpful" | "not-helpful" | "error";
+
+/** A retrieved case parsed out of the §6.5 injection block (for friendly labels). */
+interface CaseInfo {
+  num: number;
+  caseId: string;
+  rootCause: string;
+}
+
+/**
+ * Parse `similar_cases_text` into structured cases so the feedback section can
+ * show "Case N · <根因摘要>" instead of a raw UUID. The block format is fixed
+ * by the backend (`format_similar_cases`): `### Case N [id: xxx](综合分: ...)`
+ * followed by `- 根因: ...`. Returns [] if the block is absent/unparseable
+ * (caller falls back to a truncated id).
+ */
+function parseSimilarCases(text: string): CaseInfo[] {
+  if (!text) return [];
+  const cases: CaseInfo[] = [];
+  let current: CaseInfo | null = null;
+  const headerRe = /^### Case (\d+) \[id: ([^\]]+)\]/;
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    const m = line.match(headerRe);
+    if (m) {
+      if (current) cases.push(current);
+      current = { num: Number(m[1]), caseId: m[2], rootCause: "" };
+    } else if (current && line.startsWith("- 根因:")) {
+      current.rootCause = line.slice("- 根因:".length).trim();
+    }
+  }
+  if (current) cases.push(current);
+  return cases;
+}
+
+function ReferencedCases({
+  runId,
+  caseIds,
+  caseInfoMap,
+}: {
+  runId?: string;
+  caseIds: string[];
+  caseInfoMap?: Map<string, CaseInfo>;
+}) {
+  // Per-case status. undefined = not yet marked. Once "helpful"/"not-helpful",
+  // the row locks (one mark per case; backend is non-idempotent +0.1).
+  const [status, setStatus] = useState<Record<string, CaseFeedbackStatus>>({});
+
+  const handle = async (caseId: string, helpful: boolean) => {
+    if (!runId || status[caseId]) return;
+    setStatus((s) => ({ ...s, [caseId]: "loading" }));
+    try {
+      await postCaseFeedback(runId, caseId, helpful);
+      setStatus((s) => ({ ...s, [caseId]: helpful ? "helpful" : "not-helpful" }));
+    } catch {
+      setStatus((s) => ({ ...s, [caseId]: "error" }));
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-white/[0.06] bg-white/[0.01] p-3">
+      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium text-[#5c6070] uppercase tracking-wider">
+        <ThumbsUp className="size-3" />
+        本次实际引用 ({caseIds.length})
+      </div>
+      <p className="mb-2 text-[10px] leading-relaxed text-[#5c6070]">
+        Agent 声明本次诊断参考了以上历史 case。哪个对你有帮助?反馈仅用于改进记忆检索质量。
+      </p>
+      <div className="flex flex-col gap-1.5">
+        {caseIds.map((cid) => {
+          const st = status[cid];
+          const locked = st === "helpful" || st === "not-helpful";
+          const info = caseInfoMap?.get(cid);
+          const label = info ? `Case ${info.num}` : cid.slice(0, 8);
+          return (
+            <div
+              key={cid}
+              title={cid}
+              className="flex items-center gap-2 rounded-md bg-white/[0.02] px-2 py-1.5"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[10px] font-medium text-[#e4e4ef]">
+                  {label}
+                </div>
+                {info?.rootCause && (
+                  <div className="truncate text-[10px] text-[#5c6070]">
+                    {info.rootCause}
+                  </div>
+                )}
+              </div>
+              {st === "error" ? (
+                <span className="text-[10px] text-red-400">标记失败</span>
+              ) : locked ? (
+                <span className="flex items-center gap-1 text-[10px] text-green-400">
+                  <CheckCircle className="size-3" />
+                  {st === "helpful" ? "已标记有帮助" : "已记录"}
+                </span>
+              ) : (
+                <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    disabled={!runId || st === "loading"}
+                    onClick={() => handle(cid, true)}
+                    className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-[#8a8fa3] transition-all hover:bg-green-500/10 hover:text-green-400 disabled:opacity-40"
+                    title="这个历史参考有帮助"
+                  >
+                    <ThumbsUp className="size-3" />
+                    有帮助
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!runId || st === "loading"}
+                    onClick={() => handle(cid, false)}
+                    className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-[#8a8fa3] transition-all hover:bg-white/[0.06] hover:text-[#e4e4ef] disabled:opacity-40"
+                    title="这个历史参考没帮助"
+                  >
+                    <ThumbsDown className="size-3" />
+                    没帮助
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── §6.5 injection block (all retrieved cases) - collapsible context ──
+
+function HistoryReferenceBlock({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const lines = text.split("\n");
+  return (
+    <div className="rounded-lg border border-white/[0.06] bg-white/[0.01] p-3">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-1.5 text-[10px] font-medium text-[#5c6070] uppercase tracking-wider"
+      >
+        <Library className="size-3" />
+        历史相似诊断(诊断前注入给 AI)
+        <ChevronDown
+          className={`ml-auto size-3 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="mt-2 flex flex-col gap-0.5">
+          {lines.map((line, i) => {
+            const t = line.trim();
+            if (!t) return <div key={i} className="h-1" />;
+            if (t.startsWith("### "))
+              return (
+                <div key={i} className="mt-1 text-[10px] font-semibold text-[#3b82f6]">
+                  {t.slice(4)}
+                </div>
+              );
+            if (t.startsWith("## "))
+              return (
+                <div key={i} className="mt-1 text-[11px] font-semibold text-[#e4e4ef]">
+                  {t.slice(3)}
+                </div>
+              );
+            if (t.startsWith("- "))
+              return (
+                <div key={i} className="pl-2 text-[10px] leading-relaxed text-[#8a8fa3]">
+                  · {t.slice(2)}
+                </div>
+              );
+            if (t.startsWith("⚠️"))
+              return (
+                <div key={i} className="mt-1 text-[10px] leading-relaxed text-amber-400">
+                  {t}
+                </div>
+              );
+            return (
+              <div key={i} className="text-[10px] leading-relaxed text-[#8a8fa3]">
+                {t}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

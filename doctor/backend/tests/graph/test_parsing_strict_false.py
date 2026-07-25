@@ -26,6 +26,7 @@ from langchain_core.messages import AIMessage
 from src.engine.parsing import (
     _extract_json_by_depth,
     _extract_json_from_text,
+    clamp_referenced_case_ids,
     parse_diagnosis_report,
 )
 
@@ -139,3 +140,60 @@ class TestRegressionNormalJson:
         data = _extract_json_from_text(text)
         assert data is not None
         assert data["root_cause"] == "line1\nline2"
+
+
+# ═════════════════════════════════════════════════════════════════════
+# §8.1 path 2: referenced_case_ids parsing + clamping (anti-hallucination)
+# ═════════════════════════════════════════════════════════════════════
+
+
+class TestClampReferencedCaseIds:
+    """clamp_referenced_case_ids: agent-declared ids -> ⊆ retrieved."""
+
+    def test_keeps_full_subset(self) -> None:
+        assert clamp_referenced_case_ids(["a", "b", "c"], ["a", "b", "c"]) == ["a", "b", "c"]
+
+    def test_drops_hallucinated_ids(self) -> None:
+        assert clamp_referenced_case_ids(["hist-1", "FAKE", "hist-2"], ["hist-1", "hist-2"]) == [
+            "hist-1",
+            "hist-2",
+        ]
+
+    def test_preserves_agent_ordering_not_retrieved_order(self) -> None:
+        # the agent's citation order is preserved (not reordered to match retrieved)
+        assert clamp_referenced_case_ids(["hist-2", "hist-1"], ["hist-1", "hist-2"]) == [
+            "hist-2",
+            "hist-1",
+        ]
+
+    def test_dedups(self) -> None:
+        assert clamp_referenced_case_ids(["hist-1", "hist-1"], ["hist-1"]) == ["hist-1"]
+
+    def test_empty_retrieved_empties_referenced(self) -> None:
+        # fail-closed: agent never saw cases -> referenced forced empty
+        assert clamp_referenced_case_ids(["hist-1"], []) == []
+
+    def test_empty_referenced_returns_empty(self) -> None:
+        assert clamp_referenced_case_ids([], ["hist-1"]) == []
+
+    def test_ignores_empty_and_nonstring_entries(self) -> None:
+        assert clamp_referenced_case_ids(["hist-1", "", None], ["hist-1"]) == ["hist-1"]
+
+
+class TestParseReferencedCaseIds:
+    """parse_diagnosis_report parses referenced_case_ids raw (no clamping)."""
+
+    def test_parses_referenced_case_ids(self) -> None:
+        text = (
+            '{"primary_category":"logic","root_cause":"x","confidence":0.5,'
+            '"referenced_case_ids":["hist-1","hist-2"]}'
+        )
+        report = parse_diagnosis_report({"messages": [AIMessage(content=text)]})
+        assert report is not None
+        assert report.referenced_case_ids == ["hist-1", "hist-2"]
+
+    def test_defaults_empty_when_absent(self) -> None:
+        text = '{"primary_category":"logic","root_cause":"x","confidence":0.5}'
+        report = parse_diagnosis_report({"messages": [AIMessage(content=text)]})
+        assert report is not None
+        assert report.referenced_case_ids == []

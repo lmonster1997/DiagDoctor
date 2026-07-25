@@ -25,9 +25,9 @@ root_cause text).
 
 Usage::
 
-    cd doctor/backend && uv run python scripts/eval_recall_ablation.py            # both (before/after ablation)
-    cd doctor/backend && uv run python scripts/eval_recall_ablation.py --vector symptom
-    cd doctor/backend && uv run python scripts/eval_recall_ablation.py --vector root_cause --mock-embed
+    uv run python scripts/eval_recall_ablation.py  # both (before/after)
+    uv run python scripts/eval_recall_ablation.py --vector symptom
+    uv run python scripts/eval_recall_ablation.py --vector root_cause --mock-embed
 """
 
 from __future__ import annotations
@@ -50,12 +50,12 @@ from src.evidence.normalizer import ingest  # noqa: E402
 from src.memory.long_term.embedding import embed_single  # noqa: E402
 from src.memory.long_term.encoding import build_symptom_passage, derive_tier  # noqa: E402
 from src.memory.long_term.recall_ablation import (  # noqa: E402
-    CaseLabel,
     Q_DIFF_ROOT_DIFF_SYM,
     Q_DIFF_ROOT_SAME_SYM,
     Q_SAME_ROOT_DIFF_SYM,
     Q_SAME_ROOT_SAME_SYM,
     QUADRANT_DESCRIPTIONS,
+    CaseLabel,
     build_rankings,
     format_quadrant_report,
     recall_at_k_per_quadrant,
@@ -321,9 +321,7 @@ def _recall_map(results: list) -> dict[str, float]:
     return {r.quadrant: r.recall_at_k for r in results}
 
 
-def _print_comparison(
-    before: dict[int, list], after: dict[int, list]
-) -> None:
+def _print_comparison(before: dict[int, list], after: dict[int, list]) -> None:
     """before/after delta table (P0 symptom -> P1-a root_cause) per k.
 
     The ablation verdict: ② same_root_diff_symptom should go UP (root-cause
@@ -403,7 +401,11 @@ async def main(mock_embed: bool, vector_mode: str) -> None:
         "both": "P1-a dual-vector before/after ablation",
     }[vector_mode]
     print(f"  {title} over 15 gold cases")
-    mode = "MOCK embed (content-based bigram hash; pipeline verify only)" if mock_embed else "REAL bge-m3 embed"
+    mode = (
+        "MOCK embed (content-based bigram hash; pipeline verify only)"
+        if mock_embed
+        else "REAL bge-m3 embed"
+    )
     print(f"  embed mode: {mode}")
     print("=" * 60)
 
@@ -432,7 +434,7 @@ async def main(mock_embed: bool, vector_mode: str) -> None:
         after = {k: _quadrant_results(rv, rl, k) for k in K_VALUES}
         for k in K_VALUES:
             print()
-            print(format_quadrant_report(after[k], k, title="P1-a root_cause-cosine recall (after)"))
+            print(format_quadrant_report(after[k], k, title="P1-a root_cause recall (after)"))
 
         # ── before/after delta ──
         _print_comparison(before, after)
@@ -464,14 +466,12 @@ if __name__ == "__main__":
     import argparse
     import asyncio
 
-    parser = argparse.ArgumentParser(description="Recall ablation eval (§9.1/§9.3) - P1-a dual-vector")
+    parser = argparse.ArgumentParser(description="Recall ablation (§9.1/§9.3) P1-a dual-vector")
     parser.add_argument(
         "--vector",
         choices=VECTOR_MODES,
         default="both",
-        help=(
-            "symptom=P0 before / root_cause=P1-a after / both=before+after 对比表(默认)"
-        ),
+        help=("symptom=P0 before / root_cause=P1-a after / both=before+after 对比表(默认)"),
     )
     parser.add_argument(
         "--mock-embed",

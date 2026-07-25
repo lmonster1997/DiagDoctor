@@ -3,7 +3,7 @@ Feedback API — user 👍/👎 on diagnosis reports.
 
 P0 scope:
 - ``POST /api/feedback/{run_id}/upvote`` → async index diagnosis into Qdrant
-  + §8.1 backfill: credit ``effectiveness``/``hit_count`` on the recalled cases
+  + §8.1 backfill: credit ``effectiveness`` on the recalled cases
 - POST /api/feedback/{run_id}/downvote -> structured log only (no backfill:
   👎 attribution is ambiguous, downgrading recalled cases would penalize good
   cases -- see design §8.1/§8.2). P1: failure-pattern mining input.
@@ -18,6 +18,7 @@ import asyncio
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from src.engine.state import DiagnosisReport, NormalizedEvidence
 from src.observability.logger import get_logger
@@ -28,11 +29,16 @@ logger = get_logger(__name__)
 # ── §8.1 effectiveness backfill policy ──────────────────────────────
 # The *mechanism* (read-modify-write into Qdrant) lives in
 # ``case_store.backfill_effectiveness``; the *policy* -- how much a single
-# 👍 moves a recalled case's effectiveness -- lives here, next to the
-# trigger. +0.1 per 👍 (design §8.1: "如 +0.1, 上限 1.0"); effectiveness is
-# clamped to [0, 1] by the mechanism. 👎 does NOT backfill (attribution
-# ambiguous -- see design §8.1/§8.2).
-EFFECTIVENESS_UPVOTE_DELTA = 0.1
+# case-level "有帮助" mark moves a referenced case's effectiveness -- lives
+# here, next to the trigger. +0.1 per helpful mark (design §8.1: "如 +0.1,
+# 上限 1.0"); effectiveness is clamped to [0, 1] by the mechanism.
+#
+# Only the case-level endpoint (path 2) backfills -- 👍 no longer touches
+# recalled cases (task 3c: 👍 endorses the *diagnosis*, crediting all recalled
+# cases was coarse attribution; 👍 now only indexes the new case). 👎 /
+# "没帮助" do NOT backfill (attribution ambiguous -- see design §8.1/§8.2,
+# 只升不降).
+EFFECTIVENESS_HELPFUL_DELTA = 0.1
 
 
 # ── Internal helpers ────────────────────────────────────────────────
@@ -95,7 +101,7 @@ async def upvote(run_id: str) -> dict[str, object]:
     This is the **only** P0 indexing trigger.  The write is async
     (``asyncio.create_task``) — the HTTP response returns immediately.
     """
-    report, evidence, trace_id, retrieved_case_ids = await _load_run_state(run_id)
+    report, evidence, trace_id, _retrieved_case_ids = await _load_run_state(run_id)
 
     if report is None:
         raise HTTPException(
@@ -112,16 +118,12 @@ async def upvote(run_id: str) -> dict[str, object]:
 
     # Fire-and-forget: don't block the HTTP response on Qdrant I/O
     async def _index() -> None:
-        from src.memory.long_term.case_store import (
-            backfill_effectiveness,
-            maybe_index_diagnosis,
-        )
+        from src.memory.long_term.case_store import maybe_index_diagnosis
 
         try:
             indexed = await maybe_index_diagnosis(
                 report=report,
                 evidence=evidence,
-                source="user_upvote",
                 trace_id=trace_id,
                 case_id=run_id,  # use thread_id as point id for idempotency
             )
@@ -131,24 +133,6 @@ async def upvote(run_id: str) -> dict[str, object]:
                 logger.info("upvote_skipped", run_id=run_id, reason="hard_guard")
         except Exception:
             logger.error("upvote_index_failed", run_id=run_id, exc_info=True)
-
-        # §8.1: credit the cases recalled during this diagnosis. Independent
-        # of new-case indexing -- a 👍 endorses the diagnosis, which validates
-        # the historical references regardless of whether the new case itself
-        # landed (e.g. hard-guard skip). backfill_effectiveness degrades
-        # internally, so this never throws.
-        if retrieved_case_ids:
-            updated = await backfill_effectiveness(
-                retrieved_case_ids,
-                delta=EFFECTIVENESS_UPVOTE_DELTA,
-                hit=True,
-            )
-            logger.info(
-                "upvote_backfilled",
-                run_id=run_id,
-                requested=len(retrieved_case_ids),
-                updated=updated,
-            )
 
     asyncio.create_task(_index())
 
@@ -189,3 +173,87 @@ async def downvote(run_id: str) -> dict[str, object]:
     )
 
     return {"ok": True, "run_id": run_id}
+
+
+# ═════════════════════════════════════════════════════════════════════
+# §8.1 path 2: case-level feedback (independent of diagnosis 👍/👎)
+# ═════════════════════════════════════════════════════════════════════
+
+
+class CaseFeedbackRequest(BaseModel):
+    """Request body for the case-level feedback endpoint (§8.1 path 2)."""
+
+    case_id: str = Field(..., description="The historical case_id being marked.")
+    helpful: bool = Field(
+        ...,
+        description="True = 有帮助 (backfill effectiveness +delta); "
+        "False = 没帮助 (log only, 只升不降).",
+    )
+
+
+@router.post("/{run_id}/case", status_code=200)
+async def case_feedback(run_id: str, request: CaseFeedbackRequest) -> dict[str, object]:
+    """Mark a referenced historical case helpful / not-helpful (§8.1 path 2).
+
+    Independent of diagnosis 👍/👎 (path 1). Validates ``case_id`` was actually
+    referenced by the agent (``case_id ∈ report.referenced_case_ids``) -- only
+    cases the agent cited can be marked, preventing arbitrary effectiveness
+    inflation. ``helpful=True`` -> ``backfill_effectiveness`` +delta (§8.2
+    认可关联分); ``helpful=False`` -> log only (只升不降, §8.2: "没帮助"
+    attribution is ambiguous).
+    """
+    report, _evidence, _trace_id, _retrieved = await _load_run_state(run_id)
+
+    if report is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No diagnosis report found for run_id={run_id}.",
+        )
+
+    referenced = list(getattr(report, "referenced_case_ids", None) or [])
+    if request.case_id not in referenced:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"case_id={request.case_id} was not referenced by this diagnosis "
+                f"(referenced: {referenced}). Only cases the agent actually "
+                "cited can be marked."
+            ),
+        )
+
+    if request.helpful:
+        # Fire-and-forget: don't block the HTTP response on Qdrant I/O. Not
+        # idempotent -- each helpful mark adds +delta (consistent with the
+        # pre-task-3 👍 backfill; the frontend prevents double-submit).
+        async def _backfill() -> None:
+            from src.memory.long_term.case_store import backfill_effectiveness
+
+            try:
+                updated = await backfill_effectiveness(
+                    [request.case_id], delta=EFFECTIVENESS_HELPFUL_DELTA
+                )
+                logger.info(
+                    "case_feedback_backfilled",
+                    run_id=run_id,
+                    case_id=request.case_id,
+                    updated=updated,
+                )
+            except Exception:
+                logger.error(
+                    "case_feedback_backfill_failed",
+                    run_id=run_id,
+                    case_id=request.case_id,
+                    exc_info=True,
+                )
+
+        asyncio.create_task(_backfill())
+    else:
+        # "没帮助" -> no backfill (只升不降, §8.2).
+        logger.info("case_feedback_not_helpful", run_id=run_id, case_id=request.case_id)
+
+    return {
+        "ok": True,
+        "run_id": run_id,
+        "case_id": request.case_id,
+        "helpful": request.helpful,
+    }

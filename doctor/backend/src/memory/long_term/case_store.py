@@ -3,9 +3,9 @@ Historical case store - index 👍-approved diagnosis reports into Qdrant.
 
 P0 scope:
 - ``maybe_index_diagnosis()``: validate -> embed -> upsert, async fire-and-forget
-- ``backfill_effectiveness()``: 👍/👎 write-back of ``effectiveness`` / ``hit_count``
-  on the cases recalled during a diagnosis (§8.1) -- closes the "越用越准" loop
-  that ``maybe_index_diagnosis`` alone leaves open.
+- ``backfill_effectiveness()``: case-level "有帮助" write-back of ``effectiveness``
+  on endorsed cases (§8.2) -- closes the "越用越准" loop that
+  ``maybe_index_diagnosis`` alone leaves open.
 - ``build_symptom_passage()`` (from ``encoding``): the embedding passage --
   symptom-only, shared with the query side (recall/utilization 三分离, §4)
 - ``_dedup_exists()``: check trace_id duplicates (warn, don't reject)
@@ -29,7 +29,7 @@ from qdrant_client.models import PointStruct
 
 from src.engine.state import DiagnosisReport, NormalizedEvidence
 from src.memory.long_term.embedding import embed_texts
-from src.memory.long_term.encoding import build_symptom_passage, derive_tier
+from src.memory.long_term.encoding import build_symptom_passage
 from src.memory.long_term.qdrant_client import (
     COLLECTION_NAME,
     VECTOR_NAME_ROOT_CAUSE,
@@ -42,8 +42,11 @@ logger = get_logger(__name__)
 
 # ── Constants ───────────────────────────────────────────────────────
 
-SOURCE_USER_UPVOTE = "user_upvote"
-# Retrieval threshold (RELEVANCE_THRESHOLD) lives in case_retriever.py (calibration TODO §9.1).
+# Retrieval thresholds (SYMPTOM_/ROOT_CAUSE_RELEVANCE_THRESHOLD) live in
+# case_retriever.py (calibration TODO §9.1, two separate per-layer thresholds).
+# ``source`` (user_upvote vs expert_curated) was dropped from the payload: the
+# expert channel is explicitly out of scope (design §5.2/§10), so source is
+# constant and carries no filter/dispatch signal.
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -74,7 +77,6 @@ def _build_point(
     evidence: NormalizedEvidence,
     symptom_vector: list[float],
     root_cause_vector: list[float],
-    source: str,
     case_id: str,
     trace_id: str,
 ) -> PointStruct:
@@ -84,6 +86,18 @@ def _build_point(
     ``symptom`` (P0, query-alignable symptom semantics) and ``root_cause``
     (P1-a, root-cause text). The query side picks one via
     ``query_points(using=...)``; symptom breaks the symptom-similarity ceiling.
+
+    Payload is trimmed to 9 core fields (design §5.2): identity
+    (``case_id``/``trace_id``), injection content (``root_cause``/
+    ``fix_suggestion``/``user_report_snippet``/``affected_files``), and
+    scoring inputs (``confidence``/``effectiveness``/``created_at``).
+    Display-only / dead fields were dropped: ``category``/``source``
+    (no filter/dispatch, root_cause text already carries category),
+    ``is_cross_layer``/``symptom_tier``/``root_cause_tier`` (tier filter
+    reversed, §附录 B), ``signal_types`` (filter never wired), ``hit_count``
+    (mathematically redundant with ``effectiveness``, §6.1).
+    ``derive_tier`` is retained in ``encoding`` for eval/unit tests but is no
+    longer stored in the payload.
     """
     now = datetime.now(UTC).isoformat()
 
@@ -94,28 +108,17 @@ def _build_point(
             VECTOR_NAME_ROOT_CAUSE: root_cause_vector,
         },
         payload={
-            # ── 去重 / 溯源 ──
-            "trace_id": trace_id,
+            # ── 身份 / 溯源 ──
             "case_id": case_id,
-            # ── 结构化锚 (filter / rerank / injection label, §5.2) ──
-            "category": report.primary_category,
-            # C: payload tier 与 query 端 filter 同源 (derive_tier, §4.3),不再用
-            # report.symptom_tier (agent 设的 vs evidence 派生可能不一致)。
-            "symptom_tier": derive_tier(evidence),
-            "is_cross_layer": bool(evidence.correlations),
-            "root_cause_tier": report.root_cause_tier,
-            "signal_types": [s.signal_type for s in evidence.golden_signals],
-            "affected_files": _resolve_affected_files(report),
-            # ── 诊断输出 (injection 利用,全文不截断,§5.2) ──
+            "trace_id": trace_id,
+            # ── 注入内容 (injection 利用,全文不截断,§5.2) ──
             "root_cause": report.root_cause,
             "fix_suggestion": report.fix_suggestion,
-            "confidence": report.confidence,
             "user_report_snippet": evidence.user_report[:200],
+            "affected_files": _resolve_affected_files(report),
             # ── 治理字段 (three-factor importance / feedback loop, §6.1/§8) ──
-            "hit_count": 0,  # 检索命中次数 (feedback loop 写入)
-            "effectiveness": 0.0,  # 回流有效性分 (feedback loop 写入)
-            # ── 元数据 ──
-            "source": source,
+            "confidence": report.confidence,
+            "effectiveness": 0.0,  # 认可关联分 (case 级"有帮助"写入,§8.2)
             "created_at": now,
         },
     )
@@ -168,7 +171,6 @@ async def maybe_index_diagnosis(
     report: DiagnosisReport,
     evidence: NormalizedEvidence,
     *,
-    source: str = SOURCE_USER_UPVOTE,
     trace_id: str = "",
     case_id: str | None = None,
 ) -> bool:
@@ -181,7 +183,6 @@ async def maybe_index_diagnosis(
     Args:
         report: The final DiagnosisReport from the agent.
         evidence: The NormalizedEvidence that went into diagnosis.
-        source: Always ``"user_upvote"`` in P0 - kept as param for P1 auto channel.
         trace_id: The W3C trace_id associated with this bug trigger.
         case_id: Point ID in Qdrant (UUID). Auto-generated if not provided.
 
@@ -224,7 +225,6 @@ async def maybe_index_diagnosis(
         evidence,
         symptom_vector,
         root_cause_vector,
-        source,
         resolved_case_id,
         trace_id,
     )
@@ -245,36 +245,32 @@ async def maybe_index_diagnosis(
 
 
 # ═════════════════════════════════════════════════════════════════════
-# Feedback backfill (design §8.1) - close the "越用越准" loop
+# Feedback backfill (design §8.2) - close the "越用越准" loop
 # ═════════════════════════════════════════════════════════════════════
-# #1 captures the case_ids recalled during diagnosis into ``DoctorState``
-# (``retrieved_case_ids``), but indexing the *new* case on 👍 alone doesn't
-# touch those recalled cases -- so ``_importance`` (case_retriever) keeps
-# reading ``hit_count`` / ``effectiveness`` = 0 and the loop never tightens.
-# This function is the write-back half: 👍 the diagnosis -> the cases that
-# were recalled (and helped) get credited.
+# The case-level "有帮助" endpoint (§8.1 path 2) credits ``effectiveness`` on
+# the specific cases the agent referenced AND the user endorsed. Indexing a
+# new case on 👍 alone doesn't touch those referenced cases -- this is the
+# write-back half. ``effectiveness`` is a "认可关联分" (acknowledged-affinity
+# score, §8.2): monotonic up only -- "没帮助"/👎 does NOT decrement
+# (attribution ambiguous), so ``delta`` is always >= 0 in practice.
 
 
 async def backfill_effectiveness(
     case_ids: list[str],
     *,
     delta: float,
-    hit: bool = True,
 ) -> int:
-    """Backfill ``effectiveness`` / ``hit_count`` on recalled cases (§8.1).
+    """Backfill ``effectiveness`` on endorsed cases (§8.2 认可关联分).
 
-    - 👍 (``hit=True``, ``delta>0``): the recalled cases helped reach a
-      diagnosis the user endorsed -> ``effectiveness += delta`` (clamped to
-      ``[0, 1]``) and ``hit_count += 1``.
-    - 👎 (``hit=False``, ``delta<0``): ``effectiveness`` is decremented
-      (clamped); ``hit_count`` is left unchanged -- a 👎 is not a confirming
-      hit (it's still a *retrieval* hit, but ``hit_count`` here is the
-      "useful retrieval" counter the importance formula rewards).
+    ``effectiveness += delta`` (clamped to ``[0, 1]``). Called with a positive
+    ``delta`` only when a user marks a referenced case "有帮助" (§8.1 path 2) --
+    "没帮助"/no-action does NOT call this (只升不降, §8.2). The clamp is
+    defensive (lower bound is trivially satisfied since delta >= 0).
 
     Qdrant ``set_payload`` overwrites with a literal value (no native
     increment), so this is a read-modify-write: retrieve current payloads by
-    point id (``case_id == point id`` by design §3.10), compute the new
-    values, then ``set_payload`` per point. A ``case_id`` no longer present
+    point id (``case_id == point id`` by design §3.10), compute the new value,
+    then ``set_payload`` per point. A ``case_id`` no longer present
     (deleted / never indexed) is silently skipped -- ``retrieve`` just omits
     it from the result.
 
@@ -301,13 +297,11 @@ async def backfill_effectiveness(
     for record in records:
         payload = dict(record.payload or {})
         old_eff = float(payload.get("effectiveness", 0.0) or 0.0)
-        old_hits = int(payload.get("hit_count", 0) or 0)
         new_eff = max(0.0, min(1.0, old_eff + delta))
-        new_hits = old_hits + 1 if hit else old_hits
         try:
             await client.set_payload(
                 collection_name=COLLECTION_NAME,
-                payload={"effectiveness": new_eff, "hit_count": new_hits},
+                payload={"effectiveness": new_eff},
                 points=[record.id],
             )
             updated += 1
@@ -320,6 +314,5 @@ async def backfill_effectiveness(
         found=len(records),
         updated=updated,
         delta=delta,
-        hit=hit,
     )
     return updated

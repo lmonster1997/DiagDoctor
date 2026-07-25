@@ -3,8 +3,8 @@
 验证链(回答"反馈有没有入库 / 下次 agent 能不能检索到 / 流程通了吗"):
   1. 索引 2 个历史 case(case_A/B,症状相似)入 Qdrant —— 👍 入库
   2. search_historical_cases(相似症状 evidence)—— agent 检索侧能否召回,记录回填前 importance
-  3. 模拟 👍:backfill_effectiveness([case_A], delta=+0.1, hit=True) —— §8.1 回填
-  4. 直接查 Qdrant case_A payload —— effectiveness/hit_count 真的变了
+  3. 模拟 👍:backfill_effectiveness([case_A], delta=+0.1) —— §8.1 回填
+  4. 直接查 Qdrant case_A payload —— effectiveness 真的变了
   5. 再 search —— importance 升;连 👍 10 次后 importance 显著提升(越用越准)
   6. 实证 point-id 雷:用 diag-<hex>(非 UUID)当 point id upsert —— Qdrant 拒绝
 
@@ -12,7 +12,7 @@
 每次跑前重建 historical_cases collection,保证干净起点。
 
 用法(在 doctor/backend 下):
-  BGE_M3_LOCAL_PATH=D:/hf_cache/models--BAAI--bge-m3/snapshots/5617a9f61b028005a4858fdac845db406aefb181 \
+  BGE_M3_LOCAL_PATH=D:/hf_cache/models--BAAI--bge-m3/snapshots/<hash> \
   HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
   uv run python scripts/verify_feedback_loop.py
 """
@@ -35,7 +35,6 @@ from qdrant_client.models import PointStruct  # noqa: E402
 
 from src.engine.state import DiagnosisReport, NormalizedEvidence, Signal  # noqa: E402
 from src.memory.long_term.case_retriever import (  # noqa: E402
-    HIT_COUNT_CAP,
     _importance,
     search_historical_cases,
 )
@@ -138,8 +137,10 @@ def _show_recall(scored, label: str) -> dict[str, float]:
     for c in scored:
         imp = _importance(c.payload)
         imp_map[c.case_id] = imp
-        tag = "case_A" if c.case_id == CASE_A["case_id"] else (
-            "case_B" if c.case_id == CASE_B["case_id"] else "?"
+        tag = (
+            "case_A"
+            if c.case_id == CASE_A["case_id"]
+            else ("case_B" if c.case_id == CASE_B["case_id"] else "?")
         )
         print(
             f"    - {tag} ({c.case_id[:8]})  "
@@ -161,7 +162,6 @@ async def main() -> None:
         ok = await maybe_index_diagnosis(
             report=case["report"],
             evidence=case["evidence"],
-            source="user_upvote",
             trace_id=case["evidence"].trigger_trace_ids[0],
             case_id=case["case_id"],
         )
@@ -175,14 +175,13 @@ async def main() -> None:
         return
     print(f"\n  case_A 回填前 importance = {imp_before[CASE_A['case_id']]:.4f}")
 
-    print("\n[3] 模拟 👍:对 case_A 回填 effectiveness(delta=+0.1, hit=True)")
-    n = await backfill_effectiveness([CASE_A["case_id"]], delta=0.1, hit=True)
+    print("\n[3] 模拟 👍:对 case_A 回填 effectiveness(delta=+0.1)")
+    n = await backfill_effectiveness([CASE_A["case_id"]], delta=0.1)
     print(f"  backfill 更新点数 = {n}")
 
     print("\n[4] 直接查 Qdrant case_A payload(验证真的写回)")
     pl = await _scroll_payload(CASE_A["case_id"])
     print(f"  effectiveness = {pl.get('effectiveness')}  (期望 0.1)")
-    print(f"  hit_count     = {pl.get('hit_count')}  (期望 1)")
 
     print("\n[5] 再检索 —— 单次 👍 后 importance 变化")
     scored2 = await search_historical_cases(QUERY)
@@ -193,17 +192,16 @@ async def main() -> None:
 
     print("\n[5b] 连续 👍 共 10 次(累积,验证'越用越准')")
     for _ in range(9):  # 已 +1 次,再 9 次到 10
-        await backfill_effectiveness([CASE_A["case_id"]], delta=0.1, hit=True)
+        await backfill_effectiveness([CASE_A["case_id"]], delta=0.1)
     pl10 = await _scroll_payload(CASE_A["case_id"])
-    print(
-        f"  10 次 👍 后:effectiveness={pl10.get('effectiveness')} "
-        f"hit_count={pl10.get('hit_count')} (HIT_COUNT_CAP={HIT_COUNT_CAP})"
-    )
+    print(f"  10 次 👍 后:effectiveness={pl10.get('effectiveness')} (上限 1.0)")
     scored3 = await search_historical_cases(QUERY)
     imp_10 = {c.case_id: _importance(c.payload) for c in scored3}
     a_10 = imp_10[CASE_A["case_id"]]
-    print(f"  case_A importance: {a_before:.4f}(初始) -> {a_10:.4f}(10 次 👍)  "
-          f"(理论上界 0.5·conf+0.3+0.2={0.5 * 0.85 + 0.5:.4f})")
+    print(
+        f"  case_A importance: {a_before:.4f}(初始) -> {a_10:.4f}(10 次 👍)  "
+        f"(理论上界 0.5·conf+0.5·eff={0.5 * 0.85 + 0.5 * 1.0:.4f})"
+    )
 
     print("\n[6] 实证 point-id 雷:diag-<hex>(非 UUID)当 point id")
     client = await get_qdrant_client()
@@ -222,7 +220,7 @@ async def main() -> None:
                 )
             ],
         )
-        print(f"  ⚠️  diag- id 居然被 Qdrant 接受了?unexpected")
+        print("  ⚠️  diag- id 居然被 Qdrant 接受了?unexpected")
     except Exception as e:
         print(f"  ✅ Qdrant 拒绝 diag- id(符合预期):{type(e).__name__}: {str(e)[:120]}")
 

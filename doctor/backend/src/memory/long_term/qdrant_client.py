@@ -49,12 +49,14 @@ PER_VECTOR_QUANTIZATION = models.ScalarQuantization(
 )
 HNSW_CONFIG = models.HnswConfigDiff(m=16, ef_construct=200)
 
-# Payload fields that need indexes for filtering
+# Payload fields that need indexes for filtering. Trimmed (design §5.2): only
+# fields actually used in a filter/scroll remain -- ``trace_id`` (dedup scroll +
+# retrieval self-exclusion, §5.3) and ``created_at`` (recency sort). The
+# ``category`` / ``symptom_tier`` / ``source`` indexes were dropped alongside
+# their payload fields (tier filter reversed §附录 B; category/source carry no
+# filter signal).
 PAYLOAD_INDEXES: list[tuple[str, str]] = [
-    ("category", "keyword"),
-    ("symptom_tier", "keyword"),
-    ("source", "keyword"),
-    ("trace_id", "keyword"),  # dedup scroll + retrieval self-exclusion (§5.2)
+    ("trace_id", "keyword"),  # dedup scroll + retrieval self-exclusion (§5.3)
     ("created_at", "datetime"),
 ]
 
@@ -119,7 +121,7 @@ async def _get_collection_vector_names(name: str) -> set[str]:
     if hasattr(vectors, "size"):
         return {""}  # single unnamed vector (P0 schema)
     try:
-        return set(vectors.keys())  # type: ignore[union-attr]
+        return set(vectors.keys())
     except Exception:
         return set()
 
@@ -136,7 +138,7 @@ async def _create_collection_internal(name: str) -> None:
 
     await client.create_collection(
         collection_name=name,
-        vectors_config=vectors_config,  # type: ignore[arg-type]
+        vectors_config=vectors_config,
         hnsw_config=HNSW_CONFIG,
     )
     logger.info(

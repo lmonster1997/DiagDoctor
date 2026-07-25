@@ -5,11 +5,12 @@ case_store write-back (``maybe_index_diagnosis`` / ``backfill_effectiveness``).
 The fire-and-forget ``asyncio.create_task`` is captured so the test can await
 the background coroutine deterministically.
 
-Covers: upvote indexes the new case AND backfills recalled cases; backfill
-runs even when indexing is hard-guard-skipped (the §8.1 invariant -- a 👍
-endorses the diagnosis, which validates the references regardless of whether
-the new case landed); upvote with no recalled cases skips backfill; 404 when
-no report; downvote logs only and never backfills or indexes (design §8.1/§8.2).
+Covers: upvote indexes the new case only (task 3c: no longer backfills recalled
+cases -- case-level "有帮助" is the sole effectiveness trigger); 404 when no
+report; downvote logs only and never backfills or indexes (design §8.1/§8.2);
+case-level POST /{run_id}/case (§8.1 path 2): helpful=True backfills the single
+referenced case, helpful=False logs only, 422 when case_id not in
+referenced_case_ids (anti-arbitrary-marking), 404 when no report.
 """
 
 from __future__ import annotations
@@ -29,12 +30,13 @@ from src.memory.long_term import case_store
 # ── Fixtures / helpers ──────────────────────────────────────────────
 
 
-def _report() -> DiagnosisReport:
+def _report(referenced_case_ids: list[str] | None = None) -> DiagnosisReport:
     return DiagnosisReport(
         root_cause="update_comment 未校验 owner",
         affected_file="app/services/comment_service.py",
         fix_suggestion="加 owner 校验",
         confidence=0.85,
+        referenced_case_ids=referenced_case_ids or [],
     )
 
 
@@ -61,9 +63,7 @@ def _patch_graph(monkeypatch: pytest.MonkeyPatch, values: dict[str, Any]) -> Non
     monkeypatch.setattr(diagnosis_agent, "get_copilotkit_graph", lambda: graph)
 
 
-def _patch_store(
-    monkeypatch: pytest.MonkeyPatch, *, index_return: bool = True
-) -> SimpleNamespace:
+def _patch_store(monkeypatch: pytest.MonkeyPatch, *, index_return: bool = True) -> SimpleNamespace:
     """Patch maybe_index_diagnosis + backfill_effectiveness; record calls."""
     index_calls: list[dict[str, Any]] = []
     backfill_calls: list[dict[str, Any]] = []
@@ -72,10 +72,8 @@ def _patch_store(
         index_calls.append(kwargs)
         return index_return
 
-    async def fake_backfill(
-        case_ids: list[str], *, delta: float, hit: bool
-    ) -> int:
-        backfill_calls.append({"case_ids": list(case_ids), "delta": delta, "hit": hit})
+    async def fake_backfill(case_ids: list[str], *, delta: float) -> int:
+        backfill_calls.append({"case_ids": list(case_ids), "delta": delta})
         return len(case_ids)
 
     monkeypatch.setattr(case_store, "maybe_index_diagnosis", fake_index)
@@ -110,9 +108,15 @@ def _state_values(
 # ── upvote ─────────────────────────────────────────────────────────
 
 
-async def test_upvote_indexes_new_case_and_backfills_recalled_cases(
+async def test_upvote_indexes_new_case_only_no_backfill(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Task 3c: upvote indexes the new case but does NOT backfill recalled cases.
+
+    Case-level "有帮助" (path 2) is the sole effectiveness trigger now; upvote
+    only endorses the diagnosis (indexes it). retrieved_case_ids is present in
+    state but ignored.
+    """
     _patch_graph(monkeypatch, _state_values(retrieved_case_ids=["hist-1", "hist-2"]))
     store = _patch_store(monkeypatch)
     coros = _capture_tasks(monkeypatch)
@@ -126,49 +130,9 @@ async def test_upvote_indexes_new_case_and_backfills_recalled_cases(
     # new case indexed with run_id as point id (idempotency)
     assert len(store.index_calls) == 1
     assert store.index_calls[0]["case_id"] == "run-1"
-    assert store.index_calls[0]["source"] == "user_upvote"
     assert store.index_calls[0]["trace_id"] == "t-1"
-    # recalled cases credited (§8.1)
-    assert len(store.backfill_calls) == 1
-    assert store.backfill_calls[0]["case_ids"] == ["hist-1", "hist-2"]
-    assert store.backfill_calls[0]["delta"] == pytest.approx(0.1)
-    assert store.backfill_calls[0]["hit"] is True
-
-
-async def test_upvote_with_no_recalled_cases_skips_backfill(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    _patch_graph(monkeypatch, _state_values(retrieved_case_ids=[]))
-    store = _patch_store(monkeypatch)
-    coros = _capture_tasks(monkeypatch)
-
-    await feedback.upvote("run-1")
-    await coros[0]
-
-    assert len(store.index_calls) == 1  # still indexes the new case
+    # task 3c: NO backfill on upvote (coarse attribution removed)
     assert store.backfill_calls == []
-
-
-async def test_upvote_backfills_even_when_indexing_skipped(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """§8.1 invariant: backfill is independent of new-case indexing.
-
-    A 👍 endorses the diagnosis -> the recalled references are validated
-    whether or not the new case itself landed (e.g. hard-guard skip).
-    """
-    _patch_graph(monkeypatch, _state_values(retrieved_case_ids=["hist-1"]))
-    store = _patch_store(monkeypatch, index_return=False)  # hard guard skipped
-    coros = _capture_tasks(monkeypatch)
-
-    await feedback.upvote("run-1")
-    await coros[0]
-
-    assert len(store.index_calls) == 1
-    assert store.index_calls[0]["case_id"] == "run-1"
-    # backfill still ran
-    assert len(store.backfill_calls) == 1
-    assert store.backfill_calls[0]["case_ids"] == ["hist-1"]
 
 
 async def test_upvote_404_when_no_report(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -208,5 +172,96 @@ async def test_downvote_404_when_no_report(monkeypatch: pytest.MonkeyPatch) -> N
 
     with pytest.raises(HTTPException) as exc:
         await feedback.downvote("run-1")
+    assert exc.value.status_code == 404
+    assert coros == []
+
+
+# ── case-level feedback (§8.1 path 2: POST /{run_id}/case) ─────────
+
+
+async def test_case_feedback_helpful_backfills_single_case(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_graph(
+        monkeypatch,
+        _state_values(report=_report(referenced_case_ids=["hist-1", "hist-2"])),
+    )
+    store = _patch_store(monkeypatch)
+    coros = _capture_tasks(monkeypatch)
+
+    resp = await feedback.case_feedback(
+        "run-1", feedback.CaseFeedbackRequest(case_id="hist-2", helpful=True)
+    )
+    assert resp == {"ok": True, "run_id": "run-1", "case_id": "hist-2", "helpful": True}
+    assert len(coros) == 1
+    await coros[0]
+
+    # only the marked case is credited (not all referenced, not all retrieved)
+    assert len(store.backfill_calls) == 1
+    assert store.backfill_calls[0]["case_ids"] == ["hist-2"]
+    assert store.backfill_calls[0]["delta"] == pytest.approx(0.1)
+    # case-level helpful does NOT index a new case (that's upvote's job)
+    assert store.index_calls == []
+
+
+async def test_case_feedback_not_helpful_no_backfill(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_graph(monkeypatch, _state_values(report=_report(referenced_case_ids=["hist-1"])))
+    store = _patch_store(monkeypatch)
+    coros = _capture_tasks(monkeypatch)
+
+    resp = await feedback.case_feedback(
+        "run-1", feedback.CaseFeedbackRequest(case_id="hist-1", helpful=False)
+    )
+    assert resp == {"ok": True, "run_id": "run-1", "case_id": "hist-1", "helpful": False}
+    # helpful=False -> no background task, no backfill (只升不降, §8.2)
+    assert coros == []
+    assert store.backfill_calls == []
+    assert store.index_calls == []
+
+
+async def test_case_feedback_422_when_case_not_referenced(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_graph(monkeypatch, _state_values(report=_report(referenced_case_ids=["hist-1"])))
+    store = _patch_store(monkeypatch)
+    coros = _capture_tasks(monkeypatch)
+
+    with pytest.raises(HTTPException) as exc:
+        await feedback.case_feedback(
+            "run-1", feedback.CaseFeedbackRequest(case_id="hist-2", helpful=True)
+        )
+    assert exc.value.status_code == 422
+    # nothing scheduled before the guard raised
+    assert coros == []
+    assert store.backfill_calls == []
+
+
+async def test_case_feedback_422_when_nothing_referenced(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """referenced empty (agent cited nothing) -> nothing can be marked -> 422."""
+    _patch_graph(monkeypatch, _state_values(report=_report(referenced_case_ids=[])))
+    _patch_store(monkeypatch)
+    coros = _capture_tasks(monkeypatch)
+
+    with pytest.raises(HTTPException) as exc:
+        await feedback.case_feedback(
+            "run-1", feedback.CaseFeedbackRequest(case_id="hist-1", helpful=True)
+        )
+    assert exc.value.status_code == 422
+    assert coros == []
+
+
+async def test_case_feedback_404_when_no_report(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_graph(monkeypatch, {"report": None, "evidence": _evidence()})
+    _patch_store(monkeypatch)
+    coros = _capture_tasks(monkeypatch)
+
+    with pytest.raises(HTTPException) as exc:
+        await feedback.case_feedback(
+            "run-1", feedback.CaseFeedbackRequest(case_id="hist-1", helpful=True)
+        )
     assert exc.value.status_code == 404
     assert coros == []
