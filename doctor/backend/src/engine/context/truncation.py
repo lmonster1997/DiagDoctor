@@ -75,7 +75,14 @@ def truncate_tool_result(tool_name: str, content: str) -> str:
     # - it would destroy the log/trace signal the tool preserved. The tool's
     # slimming is schema-aware; head/tail on the resulting JSON is not.
     if '"_truncated"' in content:
-        return content
+        # structurally-truncated result is preserved as-is *unless* still over
+        # the char limit. search_observability's slim drops per-span attribute
+        # bulk but keeps ALL spans; for N+1 / retry-storm (1000+ spans) the
+        # slimmed result is still huge. Fall through to the key-line/head-tail
+        # hard cap below rather than blow the context (a cut result beats a
+        # blowup). Under the limit, return as-is to keep the schema-aware slim.
+        if len(content) <= TOOL_CHAR_LIMITS.get(tool_name, _DEFAULT_CHAR_LIMIT):
+            return content
 
     char_limit = TOOL_CHAR_LIMITS.get(tool_name, _DEFAULT_CHAR_LIMIT)
 

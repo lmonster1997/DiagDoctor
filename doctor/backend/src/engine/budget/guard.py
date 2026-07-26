@@ -71,7 +71,15 @@ class BudgetGuardMiddleware(AgentMiddleware):
         if ctx is not None:
             try:
                 ctx.ctx_budget.add_tool_call(1)
+                tool_name = getattr(getattr(request, "tool", None), "name", "unknown")
                 content = str(getattr(result, "content", result))
+                # BudgetGuard 在 ToolTruncation 内层（middleware 顺序），拿到的是
+                # 截断前的原始 result（N+1/retry-storm 上千 span 仍巨大）。直接算
+                # 会让 ctx_budget.total_used 虚高、误触发 token early_stop（§6.1
+                # split-brain）。用截断后的 content 算，与 agent 实际收到的口径一致。
+                from src.engine.context.truncation import truncate_tool_result
+
+                content = truncate_tool_result(tool_name, content)
                 ctx.ctx_budget.add_tool_result(content)
             except Exception:
                 pass
