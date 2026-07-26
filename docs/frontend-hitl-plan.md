@@ -97,7 +97,7 @@
 - 前端:`cd doctor/frontend && pnpm build`(或 `pnpm lint`)。手测:启动后端 `uv run uvicorn src.main:app --port 8001 --reload` + 前端 `pnpm dev`,cap 调 4,聊天输 bug -> 见引导卡 -> 输引导续查 -> 收敛。
 
 ## 6. 已定决策(后端,勿改)
-- `messages` 用 `add_messages`(跨 pass 保历史)。续查=知情二次调查(非真 ReAct 续传)。一次性 HITL(`hitl_resumed` 门)。HITL 活在共享 graph(benchmark 中性)。未做:真 ReAct 续传、多轮 HITL、循环中插消息(off-framework)。
+- `messages` 用 `add_messages`(跨 pass 保历史)。续查=知情二次调查(非真 ReAct 续传)。一次性 HITL(`hitl_resumed` 门)。HITL 活在共享 graph(REST/CopilotKit 中性)。未做:真 ReAct 续传、多轮 HITL、循环中插消息(off-framework)。
 
 ## 7. 清理项
 - `DiagDoctorAgent.get_state`(死代码):删或注释(见 §1.4)。`execute` 同文件亦未被调,一并审视。

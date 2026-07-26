@@ -14,7 +14,7 @@
 | 谱系 | 代表 | 核心设计 | DiagDoctor 对应 |
 |---|---|---|---|
 | AIOps 图谱化 RCA | MicroRCA(Wu et al., CNSM 2020) | 服务依赖图 + 异常关联图 + 社区检测定位根因服务,**纯确定性** | evidence 管线 cross-layer `trace_id` 关联(简化版) |
-| 自动软件工程 agent | SWE-agent(Yang et al., NeurIPS 2024)+ SWE-bench | Agent-Computer Interface(ACI):工具输出简洁可信 / 反馈回路 / guardrail;ReAct over terminal;失败测试 grading | `create_agent`+middleware ReAct + 工具契约(部分)+ benchmark LLM-judge |
+| 自动软件工程 agent | SWE-agent(Yang et al., NeurIPS 2024)+ SWE-bench | Agent-Computer Interface(ACI):工具输出简洁可信 / 反馈回路 / guardrail;ReAct over terminal;失败测试 grading | `create_agent`+middleware ReAct + 工具契约(部分)+ Langfuse LLM-judge |
 | observability-driven 诊断 | Datadog Watchdog RCA / Amazon DevOps Guru | 建在 traces/logs/metrics 之上:异常检测 + 关联异常/部署/配置变更 -> probable causes | `search_observability` auto 模式(agent 主动查 OTel/Loki/Tempo) |
 | LangGraph 诊断范式 | LangGraph 官方 multi-agent / 诊断示例 | typed state+reducer / 持久 checkpointer / `interrupt()` HITL / streaming / tool node | 2-node graph+middleware(部分:dict 非 typed、`MemorySaver` 非持久、无 interrupt) |
 | 学术 bug 定位 | SBFL(Ochiai/Tarantula 谱法)/ IR-based(BugLocator、BLUiR 按 bug report 文本相似度排文件) | 测试谱 / 信息检索定位嫌疑文件 | `code_search`(ripgrep 精确匹配,**刻意不做**语义向量的 IR 近似) |
@@ -25,7 +25,7 @@
 2. **observability 即数据源**--Watchdog/DevOps Guru 的 RCA 建在自己的可观测栈上。DiagDoctor 让 agent 主动查同一套 OTel/Loki/Tempo = 把这一模式做成了 agent 工具(差异化)。
 3. **根因 = 关联异常社区的"中心"**--MicroRCA 社区检测、Datadog probable-cause 图。DiagDoctor 跨层 `trace_id` 关联是其简化实例。
 4. **agent loop guardrail + ACI**--SWE-agent ACI(输出简洁可信、反馈回路、guardrail)+ 预算/迭代上限。DiagDoctor BudgetGuard+ToolDedup+ForcedFinalCall+截断同此。
-5. **eval-driven dev + 单一可信 grading harness**--SWE-bench。DiagDoctor benchmark+LLM-judge 同此(但分裂,见 §2.4)。
+5. **eval-driven dev + 单一可信 grading harness**--SWE-bench。DiagDoctor Langfuse+LLM-judge 同此(曾分裂,benchmark 已移除,见 §2.4)。
 6. **结构化输出即契约**--SWE-agent diff、Datadog insight。DiagDoctor forced_call 同此。
 
 > **一句话定位**:DiagDoctor = 把 "observability-driven RCA(Datadog/DevOpsGuru)" + "SWE-agent ACI 式工具循环" 用 LangGraph 编排成单 agent,配 bug-factory 量产可评 case。对标位置清晰;**差距在「记忆闭环 / 评测单一可信 / 可观测自省 / HITL」四处的完成度,而非方向错误**。
@@ -62,7 +62,7 @@
 ### 2.4 评测
 
 - **方向对**:LLM-judge + structured output + cache + fallback;`score_process_quality` 用 evidence_coverage 而非调用数惩罚(不奖励偷懒少调工具但漏根因的 agent);`score_category_accuracy` 主动防 gold 泄漏;bug-factory recipe schema 丰富(多标签 + cross_layer + tier + retrieval_gold + expected_observation)+ traceparent 注入 + ui_reachable 门禁 = eval-data 工程真功夫。
-- **硬伤·三套评分打架**:benchmark 4 维 / langfuse 7 维 / `run_case.py` 5 维,维度权重 prompt 各不同。对标 SWE-bench = **单一可信 grading harness**。没有单一可信分数,就做不了 eval-driven dev--所有 ablation 都是空口。
+- **评分已单源**:langfuse 7 维(benchmark 4 维 + run_case.py 5 维已移除);ablation harness 仍缺。对标 SWE-bench = **单一可信 grading harness**。没有单一可信分数,就做不了 eval-driven dev--所有 ablation 都是空口。
 - **硬伤·judge 脆弱**:LLM judge 单次无自一致性 + 静默失败(`except: return 0.0`,与"诊断全错"不可区分)+ judge 模型隔离仅 local 路径(langfuse 路径回落到与 doctor 同模型)。judge 质量 = 评测质量的天花板。
 - **硬伤·ground truth 不可信**:`expected_observation`(log_patterns/trace_attributes)从不校验--**bug 没真触发也能产出合法 case**。+ 不可复现(trigger_trace_id 随机、user_report LLM 无 seed)。对标 eval integrity = 激活门禁 + 可复现是非谈判项。
 - **缺口·无 ablation**:截断 / RAG / budget 各机制到底有没有用,无法量化。
@@ -119,12 +119,12 @@
 | # | 方向 | 解决的架构/设计问题 | 信号 | 成本 |
 |---|---|---|---|---|
 | 1 | ✅ done **RAG 检索侧--闭合记忆 LOOP** | 记忆 write-only 无学习闭环;`case_retriever.search_historical_cases` 零调用点。实现检索 + top-k 相似 case 注入 diagnosis(结构化 few-shot "相似已解 bug 的诊断路径",非裸塞 `similar_cases`) | ⭐⭐⭐⭐⭐ | 1.5d |
-| 2 | **单一可信评测 + ablation harness** | 三套评分打架(benchmark 4 / langfuse 7 / run_case 5)无法 eval-driven dev。统一为 canonical harness + 同 case 集 × 配置开关(截断 / RAG / budget)对比,产"配置 X 让 overall ±Y、token ±Z"表 | ⭐⭐⭐⭐⭐ | 2.5d |
+| 2 | **单一可信评测 + ablation harness** | 评分已单源(langfuse 7 维);缺 ablation harness:同 case 集 × 配置开关对比 + 同 case 集 × 配置开关(截断 / RAG / budget)对比,产"配置 X 让 overall ±Y、token ±Z"表 | ⭐⭐⭐⭐⭐ | 2.5d |
 | 3 | **LLM judge 加固** | 单次 + 静默失败(`return 0.0` 不可区分)+ judge 不隔离。失败返 None;root_cause 维 k=3 自一致性;judge ≠ agent 强制隔离;5 case 人工一致性集报 judge-human agreement | ⭐⭐⭐⭐⭐ | 1.5d |
 | 4 | **评测完整性:激活门禁 + 可复现** | `expected_observation` 从不校验(bug 没触发也合法 case)+ 不可复现。取证后校验 log_patterns(缺失标 invalid 不入库);case metadata 记 `generator_model`/`temperature`/`generation_seed` | ⭐⭐⭐⭐ | 1d |
-| 5 | ✅ done **HITL interrupt + 持久 checkpointer(收窄版)** | 无 HITL / 不可恢复;LangGraph 诊断标配。scope 收窄:**中断点 + 一条人工引导消息 + 从 checkpoint 恢复续查**,非完整协同编辑。**已实现(2026-07-18)**:`human_input` 节点 `interrupt()` + `Command(resume=guidance)` 从持久 checkpoint 恢复;budget 耗尽 -> 暂停 -> 知情二次调查(全新 ReAct + 新预算);一次性门 `hitl_resumed`(二次耗尽直奔 END);`messages` 切 `add_messages` 跨 pass 保聊天历史;REST `POST /api/diagnose/resume` + `GET /api/diagnose/threads` + 流式 `hitl_interrupt` 事件;CopilotKit `get_state` 修暂停态 resume;`tests/graph/test_hitl.py` 6 case headless 全绿(聊天 UI 待浏览器 smoke-test)。benchmark 中性(不调 /resume 返回同一份 early_stopped 报告) | ⭐⭐⭐⭐⭐ | 2d |
+| 5 | ✅ done **HITL interrupt + 持久 checkpointer(收窄版)** | 无 HITL / 不可恢复;LangGraph 诊断标配。scope 收窄:**中断点 + 一条人工引导消息 + 从 checkpoint 恢复续查**,非完整协同编辑。**已实现(2026-07-18)**:`human_input` 节点 `interrupt()` + `Command(resume=guidance)` 从持久 checkpoint 恢复;budget 耗尽 -> 暂停 -> 知情二次调查(全新 ReAct + 新预算);一次性门 `hitl_resumed`(二次耗尽直奔 END);`messages` 切 `add_messages` 跨 pass 保聊天历史;REST `POST /api/diagnose/resume` + `GET /api/diagnose/threads` + 流式 `hitl_interrupt` 事件;CopilotKit `get_state` 修暂停态 resume;`tests/graph/test_hitl.py` 6 case headless 全绿(聊天 UI 待浏览器 smoke-test)。路径中性(不调 /resume 返回同一份 early_stopped 报告) | ⭐⭐⭐⭐⭐ | 2d |
 
-> HITL 诚实边界(讲清,免被当过度工程):15-case headless benchmark **无法量化** HITL 价值,价值在交互 demo + 面试叙事;走 CopilotKit 交互路径,与 benchmark headless 路径并存不冲突--与 RAG"边界判断"同理。
+> HITL 诚实边界(讲清,免被当过度工程):15-case headless 评测 **无法量化** HITL 价值,价值在交互 demo + 面试叙事;走 CopilotKit 交互路径,与 headless 评测路径并存不冲突--与 RAG"边界判断"同理。
 
 ### T2 深化已有(中高 ROI)
 
@@ -153,7 +153,7 @@
 ### P1 记忆系统进阶(episodic→semantic + 工具化双向量,在 #1/#8 之后)
 
 > 对标 Generative Agents reflection + MemGPT 工具化。P1 在 P0(#1 episodic 检索+注入)之上扩展,不替换:#1 的 collection 与 `search_historical_cases` 函数被 P1 复用。
-> **评估边界(讲清,同 HITL/RAG)**:P1 价值不在 15-case benchmark 数字(agent 可能不调工具、case 互不相关,设计 §9.5),靠 §9.2/§9.3 可控检索测试 + 叙事体现。semantic pattern 在 15 case 上偏薄,只能定性 demo。**面试讲法**:想证明 pattern 效果需扩充评测集,但 pattern 做法参考优秀记忆系统设计(Generative Agents reflection),能检索类似 bug 的诊断经验。
+> **评估边界(讲清,同 HITL/RAG)**:P1 价值不在 15-case 评测数字(agent 可能不调工具、case 互不相关,设计 §9.5),靠 §9.2/§9.3 可控检索测试 + 叙事体现。semantic pattern 在 15 case 上偏薄,只能定性 demo。**面试讲法**:想证明 pattern 效果需扩充评测集,但 pattern 做法参考优秀记忆系统设计(Generative Agents reflection),能检索类似 bug 的诊断经验。
 
 | # | 方向 | 解决的架构/设计问题 | 信号 | 成本 |
 |---|---|---|---|---|
@@ -161,7 +161,7 @@
 | 16 | **P1-b semantic pattern(`bug_patterns`)** | 记忆只有 episodic 无跨案例学习。攒 N 个同类 case 后 LLM 反思提炼 pattern,双路注入(case 给具体、pattern 给规律)。对标 Generative Agents reflection,§3.2 标"最能拉开档次" | ⭐⭐⭐⭐ | 1d |
 | 17 | ✅ done **P1-c 冲突检测**(负样本注入已砍) | 同症状异根因 case 标冲突,注入时提示 agent"历史有 N 种方向,请核查",防单一历史 case 锚定(§7.2)。**已实现(2026-07-21)**:`detect_conflict` 在召回集(注入 top-k)上检测 ≥2 distinct root_cause(文本归一化),`format_similar_cases` 注入"⚠️ 冲突提示:N 种不同根因,请勿锚定单一 case"防 top-1 锚定;覆盖症状静态注入 + 根因工具两路径(`format_similar_cases` 共用)。**冲突键决策**:选 `root_cause` 文本 distinctness--category 太粗(BE-020/021/022 全 backend_error 漏 §7.2 demo)、根因向量受 §C ③ 限制(同领域异根因同簇),唯文本能触发 §9.3 demo 且忠实"不同 root_cause";"同类别异 bug 触发"非误报(修复点不同,锚定会抄错)。**限制**:同 bug 异表述误报,靠 trace_id 去重+归一化缓解,提示低成本。单测 8 例。**砍失败负样本注入**:归因不清+ROI 低+上下文压力(设计 §8.2);👎 只留结构化日志作 P1-b 失败 pattern 数据源 | ⭐⭐⭐ | 0.3d |
 
-P1 测试 case(体现效果,非 benchmark 跑分):
+P1 测试 case(体现效果,非 Langfuse 跑分):
 - **§9.3 双向量区分(P1-a 核心 demo)**:"症状似根因异"case 对(如"列表卡死"= N+1 / 前端大列表无虚拟化 / 死锁),症状向量 top-3 召回三者(噪声),根因向量(假设"前端渲染")精准命中前端那条。
 - **§9.2 变体召回(#8 载体,P0/P1 共用)**:变体 evidence 检索 top-3 召回同源原版,recall@3 ≥ 0.8。
 - **semantic pattern(定性)**:PERF 类 N+1 case 反思出"本库 N+1 多发于 selectinload",新 N+1 case 检索到 pattern 注入。

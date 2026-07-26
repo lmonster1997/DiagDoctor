@@ -9,7 +9,7 @@
 
 ## 1. 系统概览
 
-DiagDoctor = LLM 诊断 agent:给定出错 Web 应用(demo-app/TaskFlow)+ 错误现象 + 日志/trace,编排工具定位根因并给修复建议,由 LLM-judge benchmark 评测。
+DiagDoctor = LLM 诊断 agent:给定出错 Web 应用(demo-app/TaskFlow)+ 错误现象 + 日志/trace,编排工具定位根因并给修复建议,由 Langfuse 评测。
 
 三个子系统:
 - **demo-app**:被诊断目标(TaskFlow,FastAPI + React)
@@ -101,12 +101,11 @@ middleware 顺序:`AgentLifecycle -> ToolDedup -> LangfuseTracing -> ToolTruncat
 
 ---
 
-## 4. benchmark + scripts
+## 4. 评测 + scripts
 
-- ✅ `benchmark/src/benchmark/`:runner + 4 evaluators(exact_match / keyword_match / efficiency / llm_judge)+ 2 reporters(html/markdown),完整保留(**未迁移**)
 - ✅ `scripts/langfuse_scorers.py`:7 维 scorer + process_quality(hosted,更丰富);`LLMJudgeEvaluator` 有 structured output + cache + fallback
 - ✅ `score_category_accuracy` 主动防 gold 泄漏;`score_process_quality` 用 evidence_coverage 而非惩罚调用数
-- ⚠️ **三套评分体系打架**(benchmark 4 维 / langfuse 7 维 / `run_case.py:evaluate_locally` 5 维,维度权重 prompt 各不同);README "已迁移至 Langfuse,仅保留导入脚本"不实 -> A10
+- ✅ 评分已单源(langfuse 7 维;benchmark 4 维 + run_case.py 5 维已移除)
 - ⚠️ LLM judge 无自一致性(单次)+ 静默失败 `except: return 0.0`(与"诊断全错"不可区分)-> B2
 - ⚠️ judge 模型隔离仅 local 路径(langfuse 路径回落到与 doctor 同模型)-> B2
 - ⚠️ `score_trace.py:53-66` 有复制粘贴重复块
@@ -134,7 +133,7 @@ middleware 顺序:`AgentLifecycle -> ToolDedup -> LangfuseTracing -> ToolTruncat
 - ✅ docker-compose(10 服务:demo-fe/be、doctor-api、postgres、redis、grafana、loki、tempo、otel-collector、qdrant)+ Makefile + 多阶段 Dockerfile + CI(ruff/mypy strict/pytest)
 - ⚠️ **无 K8s/Helm**(README 声称"K8s + Helm"不实)
 - ⚠️ Langfuse v2(legacy);`tempo/config.yaml` metrics_generator 死配置;`init-db.sql` 实际为空
-- ⚠️ `bug-factory/output/` 提交 9MB 生成证据(含全 traceback);`infra/tempo/data/`、`benchmark/output/` 已 gitignore
+- ⚠️ `bug-factory/output/` 提交 9MB 生成证据(含全 traceback);`infra/tempo/data/`
 
 ---
 

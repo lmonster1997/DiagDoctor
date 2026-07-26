@@ -111,7 +111,7 @@ class Settings(BaseSettings):
 
     # --- RAG Injection (episodic memory retrieval) ---
     # When False, the diagnosis agent skips historical-case retrieval entirely
-    # (no Qdrant query, no injection). Demo/interactive keeps True; benchmark/CI
+    # (no Qdrant query, no injection). Demo/interactive keeps True; headless/CI
     # set RAG_INJECTION_ENABLED=false for reproducibility + speed (an empty
     # library is already neutral, but this avoids the embed/Qdrant round-trip).
     # Also the toggle for #2 ablation (RAG on vs off on the same case set).

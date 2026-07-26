@@ -24,8 +24,8 @@ Usage::
     # 列出所有可用的 case
     uv run python scripts/debug_case.py --list-cases
 
-与 benchmark runner 的关键差异:
-    - benchmark  →  HTTP POST :8001/api/diagnose → FastAPI → _run_graph()
+与 experiment runner 的关键差异:
+    - experiment  →  HTTP POST :8001/api/diagnose → FastAPI → _run_graph()
     - debug_case  →  直接调用 _build_initial_state() + _run_graph()
     两者经过完全相同的 state 构建 + graph 执行逻辑，只是跳过 HTTP 层。
     因此在这里设断点 = 在 Doctor API 内部设断点。

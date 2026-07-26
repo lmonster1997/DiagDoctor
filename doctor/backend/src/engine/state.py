@@ -276,7 +276,7 @@ class DoctorState(TypedDict, total=False):
       old ``overwrite`` semantics, the second ``diagnosis_agent`` pass would
       clobber pass-1's visible messages from the synced state. ``add_messages``
       is the LangGraph idiom for an append-only message channel and is what
-      CopilotKit's ag-ui state sync expects. Safe for the REST/benchmark path:
+      CopilotKit's ag-ui state sync expects. Safe for the REST/headless path:
       that path carries no input chat messages, so accumulation == overwrite
       there (no regression). See ``docs/followup-plan-20260715.md`` #5/#7.
 

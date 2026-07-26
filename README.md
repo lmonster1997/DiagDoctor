@@ -393,7 +393,6 @@ DiagDoctor/
 │   │   └── security/          # 安全模块
 │   ├── seed_data/             # 初始知识 YAML
 │   └── tests/
-├── benchmark/                 # 评测系统（已迁移至 Langfuse，仅保留导入脚本）
 ├── infra/                     # 部署配置
 │   ├── docker-compose.yml
 │   ├── otel/collector.yaml
@@ -459,7 +458,7 @@ refactor(scope): description # 重构
 test(scope): description    # 测试
 ```
 
-Scope: `doctor`, `demo-app`, `bug-factory`, `benchmark`, `infra`
+Scope: `doctor`, `demo-app`, `bug-factory`, `infra`
 
 ---
 

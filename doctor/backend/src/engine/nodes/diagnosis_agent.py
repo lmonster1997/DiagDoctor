@@ -382,6 +382,8 @@ def _finalize_langfuse_trace(
                 "diagnosis_report": report_dict,
                 "early_stopped": early_stopped,
                 "tool_calls": budget_state.tool_calls,
+                "total_tokens": budget_state.total_tokens,
+                "elapsed_seconds": budget_state.elapsed_seconds,
                 "forced_final_json_call": forced_call_triggered,
             },
         )

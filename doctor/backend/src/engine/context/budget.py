@@ -57,9 +57,11 @@ class ContextPhase(StrEnum):
 class ContextBudget:
     """追踪 system_prompt / evidence / tool_result / agent_reasoning 的 token 使用。
 
-    S1.5：phase 现在同时考虑 token / iteration / tool_calls / time 四个维度，
-    取最严级别。对 15-case 规模，token 几乎到不了 80%，但 iteration 10-12
-    会触发 FINALIZING——让 phase 策略真正在 agent flail 之前 fire。
+    四维度取最严级别。单次诊断中 iteration/tool_calls 维度先于 token fire
+    （入口截断压小单次工具结果，累积 token 峰值 ~50k 远低于 100k 阈值），
+    token 阈值实际很少触及 80%，是兜底。详见 docs/context_engineering_design.md §5.2。
+
+    注：phase 字段当前仅导出（to_dict），未接回 prompt 调整策略（§5.1）。
     """
 
     model_context_window: int = 128_000
