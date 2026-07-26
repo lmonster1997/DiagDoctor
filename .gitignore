@@ -30,7 +30,10 @@ infra/loki/data/
 
 # Agent development learning notes (personal use, not for repo)
 docs/agent-dev-notes/
-.github/skills/
+
+# Local tooling configs (Claude Code, Copilot/skills/CI) - not for repo
+.claude/
+.github/
 
 # Auto-generated PR content
 PR_CONTENT.md

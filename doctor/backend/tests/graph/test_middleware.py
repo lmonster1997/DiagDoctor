@@ -174,17 +174,22 @@ class TestLangfuseTracingMiddleware:
         # Result passed through unchanged
         assert result is inner_result
 
-    async def test_after_agent_no_handler_does_not_raise(
-        self, no_langfuse_ctx: DiagnosisRunContext
+    async def test_after_agent_does_not_end_trace(
+        self, run_ctx: DiagnosisRunContext
     ) -> None:
-        # end_trace is owned by the node (_finalize_langfuse_trace), not this
-        # middleware — so there's no aafter_agent hook to test here. This stub
-        # keeps the test class structure; the node-level end_trace behavior is
-        # covered by TestForcedCallWiredIntoNode in test_forced_final_json_call.py.
+        # Regression: aafter_agent must NOT call end_trace. The trace output
+        # (diagnosis report) is owned by diagnosis_agent_node's
+        # _finalize_langfuse_trace, which runs AFTER agent.ainvoke returns.
+        # aafter_agent runs BEFORE that (inside agent.ainvoke). If it calls
+        # end_trace() here with no output, it resets handler._trace_id to None,
+        # so the node's later end_trace(output_data=report) hits
+        # ``if self._trace_id is None: return`` and the report is lost ->
+        # trace output stays empty (the exact bug this test guards against).
+        handler = MagicMock()
+        run_ctx.langfuse_handler = handler
         mw = LangfuseTracingMiddleware()
-        # Middleware has no aafter_agent — nothing to call. Just assert the
-        # middleware instance is usable.
-        assert mw is not None
+        await mw.aafter_agent(state={}, runtime=None)
+        handler.end_trace.assert_not_called()
 
 
 # ═════════════════════════════════════════════════════════════════════

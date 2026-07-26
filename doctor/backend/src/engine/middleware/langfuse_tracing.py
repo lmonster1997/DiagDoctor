@@ -85,10 +85,13 @@ class LangfuseTracingMiddleware(AgentMiddleware):
         return result
 
     async def aafter_agent(self, state: Any, runtime: Any) -> dict[str, Any] | None:
-        ctx = get_run_context_or_none()
-        if ctx is None:
-            return None
-        if ctx.langfuse_handler is not None:
-            with contextlib.suppress(Exception):
-                ctx.langfuse_handler.end_trace()
+        # 不在此 end_trace：trace 的 output（diagnosis report）由
+        # diagnosis_agent_node 在 agent.ainvoke 返回后生成，只有它能填。
+        # 此处若调 end_trace()（无 output）会把 handler._trace_id 重置为 None，
+        # 而 aafter_agent 在 agent.ainvoke 返回前执行，先于 node 的
+        # _finalize_langfuse_trace -> end_trace(output_data=report)，导致后者
+        # 命中 ``if self._trace_id is None: return`` 直接跳过 -> trace output
+        # 永远为空。故 trace 结束由 node 独占（正常 _finalize_langfuse_trace +
+        # 异常 except 两条路径都调 end_trace）；abefore_agent 的 start_trace
+        # 仍在此 middleware 负责（设 input）。
         return None

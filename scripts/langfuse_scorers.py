@@ -20,7 +20,7 @@
 | confidence_calibration    | Python | 0.05 |
 
 注：``expected_output`` schema 由 ``scripts/import_cases_to_langfuse.py`` 决定：
-``{primary_category, category: list, root_cause, affected_file, fix_suggestion, fix_keywords}``。
+``{primary_category, category: list, root_cause, affected_file, affected_function, affected_line, fix_suggestion, fix_keywords}``。
 ``diagnosis`` 是 ``DiagnoseResponse`` 与其内嵌 ``report`` 字段合并后的 dict
 （见 ``run_baseline_experiment.py`` 中的 ``diagnosis_for_scorer`` 构造）。
 """
