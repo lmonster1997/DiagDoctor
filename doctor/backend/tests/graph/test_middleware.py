@@ -16,9 +16,9 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from src.engine.budget.constants import (
+    MAX_MODEL_CALLS,
     MAX_TIME_SECONDS,
     MAX_TOKENS_BUDGET,
-    MAX_TOOL_CALLS,
 )
 from src.engine.context.budget import ContextBudget
 from src.engine.middleware import (
@@ -211,12 +211,12 @@ class TestBudgetGuardMiddleware:
     async def test_before_model_jumps_to_end_on_iteration_cap(
         self, run_ctx: DiagnosisRunContext
     ) -> None:
-        run_ctx.model_call_count = MAX_TOOL_CALLS  # already at cap; next call is over
+        run_ctx.model_call_count = MAX_MODEL_CALLS  # already at cap; next call is over
         mw = BudgetGuardMiddleware()
         result = await mw.abefore_model(state={}, runtime=None)
         assert result == {"jump_to": "end"}
         assert run_ctx.budget_exhausted is True
-        assert run_ctx.model_call_count == MAX_TOOL_CALLS + 1
+        assert run_ctx.model_call_count == MAX_MODEL_CALLS + 1
 
     async def test_before_model_jumps_to_end_on_token_cap(
         self, run_ctx: DiagnosisRunContext
@@ -255,6 +255,67 @@ class TestBudgetGuardMiddleware:
         state = {"messages": [HumanMessage(content="q")]}
         mw = BudgetGuardMiddleware()
         await mw.aafter_model(state=state, runtime=None)  # no AIMessage — skip
+
+    async def test_after_model_records_real_input_tokens(
+        self, run_ctx: DiagnosisRunContext
+    ) -> None:
+        """§7.3: aafter_model captures usage_metadata.input_tokens (peak context)."""
+        msg = AIMessage(
+            content="ok",
+            usage_metadata={"input_tokens": 5000, "output_tokens": 200, "total_tokens": 5200},
+        )
+        mw = BudgetGuardMiddleware()
+        await mw.aafter_model(state={"messages": [msg]}, runtime=None)
+        assert run_ctx.ctx_budget.real_input_tokens == 5000
+        # total_used follows real_input_tokens once a call has happened
+        assert run_ctx.ctx_budget.total_used == 5000
+
+    async def test_after_model_real_input_tokens_tracks_peak(
+        self, run_ctx: DiagnosisRunContext
+    ) -> None:
+        """real_input_tokens is the peak across calls, not the latest."""
+        mw = BudgetGuardMiddleware()
+        for inp in (5000, 3000, 9000):
+            msg = AIMessage(
+                content="x",
+                usage_metadata={"input_tokens": inp, "output_tokens": 1, "total_tokens": inp + 1},
+            )
+            await mw.aafter_model(state={"messages": [msg]}, runtime=None)
+        assert run_ctx.ctx_budget.real_input_tokens == 9000
+
+    async def test_real_input_tokens_drive_token_gate(
+        self, run_ctx: DiagnosisRunContext
+    ) -> None:
+        """Token gate fires on real_input_tokens >= MAX_TOKENS_BUDGET."""
+        run_ctx.ctx_budget.record_real_usage(MAX_TOKENS_BUDGET)
+        mw = BudgetGuardMiddleware()
+        result = await mw.abefore_model(state={}, runtime=None)
+        assert result == {"jump_to": "end"}
+        assert run_ctx.budget_exhausted is True
+
+    async def test_huge_tool_result_does_not_inflate_token_gate(
+        self, run_ctx: DiagnosisRunContext
+    ) -> None:
+        """§6.1 split-brain regression: a pre-truncation huge tool result must
+        NOT inflate total_used / trip the token gate. The gate uses
+        real_input_tokens (post-truncation); tool_result_tokens is telemetry-only.
+        """
+        huge = "x" * 600_000  # would far exceed MAX_TOKENS_BUDGET if it fed the gate
+        handler = AsyncMock(
+            return_value=ToolMessage(content=huge, tool_call_id="tc1", name="search_observability")
+        )
+        mw = BudgetGuardMiddleware()
+        await mw.awrap_tool_call(
+            _make_tool_call_request("search_observability", {}, "tc1"), handler
+        )
+        # tool_result_tokens recorded (telemetry) but gate's total_used NOT inflated
+        assert run_ctx.ctx_budget.tool_result_tokens > 0
+        assert run_ctx.ctx_budget.total_used == 0
+        # gate does not fire despite the huge tool result
+        run_ctx.model_call_count = 0  # avoid iteration cap
+        result = await mw.abefore_model(state={}, runtime=None)
+        assert result is None
+        assert run_ctx.budget_exhausted is False
 
 
 # ═════════════════════════════════════════════════════════════════════

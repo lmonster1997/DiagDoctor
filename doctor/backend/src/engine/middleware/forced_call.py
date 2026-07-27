@@ -40,7 +40,7 @@ class ForcedFinalCallMiddleware(AgentMiddleware):
         # test_forced_final_json_call.py::TestLastAiHasJson).
         # NOTE: budget exhaustion is intentionally NOT a skip condition -
         # the forced call exists to recover the mode-1 failure (loop hit
-        # MAX_TOOL_CALLS with content="" + tool_calls), so it must still fire.
+        # MAX_MODEL_CALLS with content="" + tool_calls), so it must still fire.
         if _last_ai_has_json(messages):
             logger.info("forced_call_skipped_last_ai_has_json", case_id=ctx.case_id)
             return None

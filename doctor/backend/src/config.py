@@ -96,11 +96,10 @@ class Settings(BaseSettings):
     ingest_time_window_minutes: int = 5  # Trigger time ± N minutes for Loki/Tempo queries
 
     # --- Agent Loop ---
-    agent_max_tool_calls: int = 12  # Max tool call iterations before forced termination
-    agent_model_context_window: int = 128_000  # Model context window (tokens)
-    agent_reserved_output_tokens: int = 4_000  # Reserved for final output
-    agent_context_warning_ratio: float = 0.6  # Start degradation at this budget usage
-    agent_context_critical_ratio: float = 0.8  # Force termination at this budget usage
+    # 预算硬上限（MAX_MODEL_CALLS / MAX_TOKENS_BUDGET / MAX_TIME_SECONDS）的单一来源
+    # 是 engine/budget/constants.py，此处不再另存副本（§6.1 split-brain 根治）。
+    # model_context_window / reserved_for_output / warning/critical ratio 等非上限
+    # 参数由 ContextBudget 自带默认值，不在此暴露。
 
     # --- Tool Result Truncation ---
     # 当为 False 时，禁用所有工具结果的截断/压缩（用于调试诊断效果）。

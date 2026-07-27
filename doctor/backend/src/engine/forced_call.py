@@ -2,7 +2,7 @@
 
 Baseline (Iteration 0) showed two failure modes accounting for all disaster
 cases:
-  mode 1 (3/4 disaster): loop hits MAX_TOOL_CALLS cap, last AIMessage has
+  mode 1 (3/4 disaster): loop hits MAX_MODEL_CALLS cap, last AIMessage has
     content="" + tool_calls=[...] → parse_diagnosis_report returns a
     low-confidence fallback with empty root_cause.
   mode 2 (1/4 disaster + 2 regression cases): agent natural-stops but

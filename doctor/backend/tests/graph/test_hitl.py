@@ -14,8 +14,8 @@ The inner ``create_agent`` ReAct loop is replaced by a ``_FakeAgent`` so the
 test is deterministic and exercises the REAL outer graph + REAL
 ``_diagnosis_agent_node`` / ``human_input_node`` / routing / checkpoint logic.
 The fake still drives the real ``update_budget`` / ``is_budget_exceeded`` /
-``parse_diagnosis_report`` code paths - pass 1 returns 15 tool-call messages
-(>= MAX_TOOL_CALLS=12 -> ``early_stopped``), pass 2 returns a converged JSON
+``parse_diagnosis_report`` code paths - pass 1 returns 17 tool-call messages
+(>= MAX_MODEL_CALLS=16 -> ``early_stopped``), pass 2 returns a converged JSON
 report. Only the LLM is faked; the HITL wiring is the real thing.
 """
 
@@ -54,7 +54,7 @@ class _FakeAgent:
     """Replaces the inner create_agent. Branches on the resume marker.
 
     - resume (continuation HumanMessage present): emit converged JSON report.
-    - else (pass 1): flail - 15 tool-call AIMessages, no JSON ->
+    - else (pass 1): flail - 17 tool-call AIMessages, no JSON ->
       ``is_budget_exceeded`` True -> ``early_stopped`` -> route to human_input.
     """
 
@@ -72,7 +72,7 @@ class _FakeAgent:
                 content="",
                 tool_calls=[{"name": "fake_tool", "args": {}, "id": f"tc{i}"}],
             )
-            for i in range(15)
+            for i in range(17)
         ]
         return {"messages": flail}
 
@@ -259,7 +259,7 @@ async def test_one_shot_hitl_no_loop(tmp_path: pytest.Path, fake_agent: _FakeAge
         fake_agent.calls += 1
         flail = [
             AIMessage(content="", tool_calls=[{"name": "f", "args": {}, "id": f"t{i}"}])
-            for i in range(15)
+            for i in range(17)
         ]
         return {"messages": flail}
 

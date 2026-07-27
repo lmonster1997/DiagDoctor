@@ -85,11 +85,11 @@
 
 ### 3.5 预算与收束层
 
-- **ContextBudget**(`engine/context/budget.py`):四维度追踪 token / iteration / tool_calls / time;`phase` 取最严级别(INITIAL->INVESTIGATING->CONVERGING->FINALIZING)。
-- **BudgetGuard**(`abefore_model`):`model_call_count > MAX_TOOL_CALLS` 或 `total_used >= MAX_TOKENS_BUDGET` 或 `elapsed >= MAX_TIME_SECONDS` -> `jump_to:end`。
+- **ContextBudget**(`engine/context/budget.py`):四维度追踪 token / iteration / tool_calls / time;`phase` 取最严级别(INITIAL->INVESTIGATING->CONVERGING->FINALIZING)。token 口径用真实 usage(`real_input_tokens` = peak `usage_metadata.input_tokens`),详见 §6.1/§7.3。
+- **BudgetGuard**(`abefore_model`):`model_call_count > MAX_MODEL_CALLS` 或 `total_used >= MAX_TOKENS_BUDGET` 或 `elapsed >= MAX_TIME_SECONDS` -> `jump_to:end`。`aafter_model` 记录真实 input_tokens;`total_used = max(静态估算, real_input_tokens)`。
 - **ForcedFinalCall**(`aafter_agent`):循环结束若最后一条 AI 消息无 JSON,强制一次 `with_structured_output` 兜底出报告。
-- 常量(`engine/budget/constants.py`):`MAX_TOOL_CALLS=12` / `MAX_TOKENS_BUDGET=100_000` / `MAX_TIME_SECONDS=300`。
-- ⚠️ 预算测量 split-brain,见 §6.1。
+- 常量(`engine/budget/constants.py`,**单一来源**):`MAX_MODEL_CALLS=16` / `MAX_TOKENS_BUDGET=100_000` / `MAX_TIME_SECONDS=300`。`MAX_MODEL_CALLS` 正名(实计 model_call);config.py / ContextBudget 不再存副本(§6.1 根治)。
+- ✅ 预算测量 split-brain 已彻底修(§7.3 真实 usage 口径)。
 
 ### 3.6 HITL 跨轮延续
 
@@ -176,7 +176,7 @@ BudgetGuard 硬停止 / ForcedFinalCall 强制 JSON / HITL 续查。
 - 分布(agent_react,排除 forced):P50=8 / P75=11 / P90=12 / max(收敛)=12;14/15 case 在 5-12 轮自然收敛。
 - 12 偏紧:P90 触顶 12。12cap 下 5 个触顶 case,18cap 重测后 4 个(BE-021/DATA-021/FE-020/LOGIC-022)其实 7-12 轮就自然收敛--12 是被非确定性 + forced 兜底偶尔截断。
 - FE-021 是 flail:18 轮没收敛(forced + early_stop @18),不是深度不足。加轮不解决,靠 §7.2 scratchpad。
-- split-brain(§6.1)已临时修(`guard.py` 算 budget 前先截断,与 agent 收到的裁后口径一致),§7.3 彻底修。
+- split-brain(§6.1)已彻底修(§7.3:gate 改用真实 `usage_metadata.input_tokens`,删 guard 里 truncate 临时 hack)。
 
 **结论**:`MAX_TOOL_CALLS=16`(P90=12 + 4 buffer,覆盖 14/15;FE-021 触顶 16 靠 forced 出报告 + §7.2 治本)。符合"拉到 16-18(不是 30)"。不拉到 18+:FE-021 已证 flail,再加是给 flail 开绿灯(理由 ②)。配套 §7.1 符号占位(16 cap 下跨轮累积防爆)。
 
@@ -207,13 +207,20 @@ BudgetGuard 硬停止 / ForcedFinalCall 强制 JSON / HITL 续查。
 
 ## 6. 已知限制与雷点
 
-### 6.1 预算测量 split-brain(雷,待修)
+### 6.1 预算测量 split-brain(已修,2026-07-27 §7.3)
 
-- `MAX_TOOL_CALLS` 实计 `model_call_count`(LLM 调用数),非工具调用数。
-- **三处上限不一致**:`constants.py`(`MAX_TOOL_CALLS=12`) / `ContextBudget`(`max_iterations=12`, `max_tool_calls=18`) / `config.py`(`agent_model_context_window=128_000`);`BudgetGuard` 实际只用 constants 那套。
-- `ContextBudget` 内的 `max_iterations`/`max_tool_calls`/`phase` 阈值是另一套,且 phase/is_critical 无消费方。
-- Langfuse trace 已补 total_tokens(本轮),但未接真实 usage callback(§7.3)。
-- 修:见 §7.3(followup-plan #10)。
+曾存在的雷:
+- `MAX_TOOL_CALLS` 实计 `model_call_count`(LLM 调用数),非工具调用数 -> 正名 `MAX_MODEL_CALLS`。
+- **三处上限不一致**:`constants.py` / `ContextBudget`(`max_iterations`/`max_tool_calls`/`max_time_seconds` 死值)/ `config.py`(`agent_max_tool_calls`/`agent_model_context_window` 死字段)-> 统一以 `constants.py` 为单一来源,删 ContextBudget + config 的副本。
+- BudgetGuard 拿截断前 tool result 算 tiktoken,与 agent 收到的裁后口径不一致,误触发 token early_stop -> 临时止血(guard 里先 truncate)。
+- Langfuse trace 的 `total_tokens` 是 tiktoken 估算,非真实 usage。
+
+**根治(§7.3)**:
+- gate 的 token 口径改用真实 `usage_metadata.input_tokens`(peak,截断后口径),`total_used = max(静态 system+evidence 估算, real_input_tokens)`。tool_result/agent_reasoning 的 tiktoken 估算降为 to_dict telemetry,不进 gate。
+- `guard.py awrap_tool_call` 删 `truncate_tool_result` 临时 hack(真实 usage 本就是裁后口径)。
+- `tracker.py update_budget` 改 sum `usage_metadata.total_tokens`(trace 的 total_tokens 变真实,无 usage_metadata 回退 tiktoken)。
+- `MAX_TOOL_CALLS` -> `MAX_MODEL_CALLS` 正名;config 死字段删;ContextBudget 死值删,phase 阈值接 constants。
+- 残留:`to_dict()` / `phase` / `is_warning` / `is_critical` 仍无消费方(§6.2/§7.5 待定);trace 的 `elapsed_seconds` 恒 0(事后 BudgetState 无 started_at,非运行时口径)。
 
 ### 6.2 phase 死代码(雷)
 
@@ -249,19 +256,20 @@ N 轮之前的 ToolMessage 替换成一行动态符号摘要(工具名+参数+to
 
 - **为什么做**:治 flail 本(§5.3 理由 2),让续查上下文结构化,可能让 case 收敛更快,反而降低对 iteration 的需求。
 
-### 7.3 预算单源化 + 接真实 usage(待做,followup-plan #10)
+### 7.3 预算单源化 + 接真实 usage(已完成,2026-07-27)
 
-- 统一常量源(去掉 constants/ContextBudget/config 三处不一致)。
-- `MAX_TOOL_CALLS` 正名(gate model_call 就叫 model_call,或改回 tool_call)。
-- 用 LLM callback 真实 `token_usage` 替 tiktoken 估算。
-- **前置**:§5.3 拉大 iteration 决策、§7.4 效果量化都依赖此条。
+- ✅ 统一常量源:`constants.py` 为单一来源;删 `ContextBudget` 的 `max_iterations`/`max_tool_calls`/`max_time_seconds` 死值 + `config.py` 的 `agent_max_tool_calls`/`agent_model_context_window`/`agent_reserved_output_tokens`/`agent_context_*_ratio` 死字段。
+- ✅ `MAX_TOOL_CALLS` -> `MAX_MODEL_CALLS` 正名(实计 `model_call_count`);phase 阈值接 constants。
+- ✅ 接真实 usage:gate 用 `usage_metadata.input_tokens`(peak),`total_used = max(静态估算, real)`;`tracker.py update_budget` 改 sum `usage_metadata.total_tokens`(trace total_tokens 变真实);删 `guard.py awrap_tool_call` 里 `truncate_tool_result` 临时 hack(§6.1 根治)。
+- 测试:`test_middleware.py` 加 real-usage gate test + split-brain 回归 test;修 `test_hitl.py` fake(15->17 tool calls 适配 16 cap,§5.3 标定遗留)。
 
-### 7.4 可观测性闭环:Langfuse trace budget 字段(部分已做)
+### 7.4 可观测性闭环:Langfuse trace budget 字段(已完成,2026-07-27)
 
 - ✅ doctor 侧 `_finalize_langfuse_trace` 已补 `total_tokens` + `elapsed_seconds` 到 trace output_data(与 `tool_calls`/`early_stopped` 并列)。
-- ⬜ 查询脚本 `scripts/analyze_budget.py`:从 Langfuse Dataset 拉 trace output_data,算分布(P50/P90 tool_calls、early_stop 率、token 峰值)。依赖 Langfuse 在线。
+- ✅ 查询脚本 `scripts/analyze_budget.py`:从 Langfuse `get_traces(session_id=...)` 拉 trace output_data,算分布(P50/P75/P90 tool_calls、early_stop 率、token 峰值、forced 率),支持 `--json`。已实测连通(5 trace 样本:FE-021 26 calls/early_stop,token 13-26k,与 §5.2/§6.3 一致)。
 - **为什么做**:上下文工程的效果量化闭环;§5.3 拉大 iteration 的数据依据;面试讲取舍的数字底气。
 - 与 §7.3 是同一件事的两面。
+- ⚠️ 残留:trace 的 `elapsed_seconds` 恒 0(事后 `BudgetState` 无 `started_at`,非运行时口径)--后续可把运行时 `ctx.ctx_budget.elapsed_seconds` 接进 `_finalize_langfuse_trace`。
 
 ### 7.5 phase 接回或删(待定)
 
@@ -292,7 +300,7 @@ N 轮之前的 ToolMessage 替换成一行动态符号摘要(工具名+参数+to
 
 **量化**:压缩率、token 节省、对轮次 / 诊断质量影响(依赖 §7.4 闭环)。
 
-**与现有项关系**:§7.1(符号占位)是跨轮那一环;§7.3(单源化)彻底解 BudgetGuard split-brain(现临时修);§7.4 提供量化。本项把工具结果压缩从"字段级 + keep all"升级到"数量级 + 语义感知"。
+**与现有项关系**:§7.1(符号占位)是跨轮那一环;§7.3(单源化+真实 usage,已完成)彻底解 BudgetGuard split-brain;§7.4(已完成)提供量化。本项把工具结果压缩从"字段级 + keep all"升级到"数量级 + 语义感知"。
 
 ---
 
@@ -301,7 +309,7 @@ N 轮之前的 ToolMessage 替换成一行动态符号摘要(工具名+参数+to
 | 不做 | 理由 |
 |---|---|
 | **运行时 LLM 摘要压缩(compaction)** | 成本高;iteration 先 fire 使其触发窗口几乎不来(§5.4);15-case 规模 ROI 不够 |
-| **拉大 iteration(当前)** | 无数据支撑 + 治标(§5.3);待 §7.3/§7.4 数据后再评估 |
+| **拉大 iteration(>16)** | §5.3 已标定 16(P90=12+4buffer);再大 = 给 flail 开绿灯(FE-021 已证),靠 §7.2 scratchpad 治本 |
 | **完整 working memory 系统** | 偏重;§7.2 scratchpad 已够治 flail 本 |
 | **工具结果小模型实时摘要** | 额外 LLM 调用成本;入口截断 + 符号占位已够 |
 | **sliding window** | 诊断早期证据不可丢(§5.6) |
@@ -311,19 +319,19 @@ N 轮之前的 ToolMessage 替换成一行动态符号摘要(工具名+参数+to
 
 ## 9. 面试讲法
 
-**主线**:分层上下文工程--入口压缩 -> 运行时占位(演进中)-> 预算收束 -> HITL 延续 -> 效果量化闭环(演进中)。
+**主线**:分层上下文工程--入口压缩 -> 运行时占位(演进中)-> 预算收束(真实 usage + 单源化)-> HITL 延续 -> 效果量化闭环(已固化)。
 
 **三个非 trivial 取舍点**:
 1. **压缩做在入口不做在运行时**:讲清 iteration 先 fire 的机制(§5.2 粗算),运行时压缩 ROI 不够。体现"知道上下文要管,但知道什么不管用、为什么"。
-2. **多维预算,iteration 为主**:诚实讲 token 到不了 80%,iteration/tool_calls 才是真收束维度;附 split-brain 雷(§6.1)和修法(§7.3),体现"知道自己系统的测量问题"。
+2. **多维预算,iteration 为主**:诚实讲 token 到不了 80%,iteration/tool_calls 才是真收束维度;讲 split-brain 雷(§6.1)的发现与根治(§7.3:gate 从 tiktoken 估算改真实 `usage_metadata.input_tokens`,三处常量单源化 + 正名),体现"知道自己系统的测量问题并修了"。
 3. **动态 prompt 放弃**:讲清四阶段提示词难评估+难展示,改成硬阈值收束(§5.5)。体现"评估过、有取舍"。
 
-**数据底气**(§7.4 完成后):P50/P90 tool_calls 分布、early_stop 率、token 峰值--用数字证明入口截断/去重的效果,而非空谈。
+**数据底气**(§7.4 已完成,`scripts/analyze_budget.py`):P50/P90 tool_calls 分布、early_stop 率、token 峰值--用数字证明入口截断/去重的效果,而非空谈。
 
 **防雷**:
 - 别说"15-case 规模 token 到不了 80%"--case 数与单次诊断 token 无关(§5.2),改说"iteration 先于 token fire"。
 - phase 字段要么讲清"用于前端可视化"要么别提,别让面试官追问"这字段干嘛的"(§6.2)。
-- `MAX_TOOL_CALLS` 别说成"工具调用上限",它实计 model_call(§6.1)。
+- `MAX_MODEL_CALLS` 已正名(曾叫 `MAX_TOOL_CALLS` 但实计 model_call);讲清"门的是 LLM 调用数 = iteration 粒度,非工具调用数"(§6.1)。
 
 ---
 
@@ -337,11 +345,11 @@ N 轮之前的 ToolMessage 替换成一行动态符号摘要(工具名+参数+to
 | 4 | 工具上下文 | 决策表 + 三层入口截断 + 去重 | 厚 | +§7.1/§7.6 |
 | 5 | 上下文生命周期管理 | 入口截断有 / 运行时无 | 薄 | §7.1 |
 | 6 | 工作记忆 / scratchpad | 无 | 薄 | §7.2 |
-| 7 | 预算 / 窗口管理 | 四维度 + 硬收束 | 中(split-brain) | §7.3 |
+| 7 | 预算 / 窗口管理 | 四维度 + 硬收束 + 真实 usage + 单源化 | 厚 | 完成(§7.3) |
 | 8 | HITL 跨轮延续 | findings.summary 注入 | 薄 | §7.2 |
 | 9 | 安全 / PII | sanitizer + sql_guard + 只读 db | 厚 | 完成 |
 | 10 | 结构化输出兜底 | ForcedFinalCall + referenced clamp | 厚 | 完成 |
-| 11 | 可观测性闭环 | budget_ticks 同步前端有 / Langfuse trace budget 字段已补、分布已拉取(§6.3,临时脚本) | 中(待固化) | §7.4 |
+| 11 | 可观测性闭环 | Langfuse trace budget 字段 + analyze_budget.py 固化查询(§6.3/§7.4) | 厚 | 完成(§7.4) |
 | 12 | Few-shot 输出示例 | schema 自然语言描述,无完整示例 | 薄(可选) | 可选,ROI 低 |
 
 **整体判断**:不是整体太薄,是薄的恰好在体现深度的位置(运行时管理 / scratchpad / HITL / 可观测性)。补完 §7.1-§7.4 后,薄的只剩 few-shot 和渐进披露(都可选),上下文工程的面即齐。

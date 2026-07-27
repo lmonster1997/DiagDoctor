@@ -2,7 +2,7 @@
 Unit tests for the Iteration 1 forced final JSON call mechanism.
 
 Covers the two failure modes observed in baseline (Iteration 0):
-- mode 1 (cap + empty content): loop hits MAX_TOOL_CALLS, last AIMessage
+- mode 1 (cap + empty content): loop hits MAX_MODEL_CALLS, last AIMessage
   has content="" + tool_calls=[...] → forced call should be made with
   natural_stop=False, and the resulting JSON should be parsed.
 - mode 2 (natural stop + narrative): agent natural-stops but emits prose
