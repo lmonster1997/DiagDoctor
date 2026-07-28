@@ -125,9 +125,9 @@
 | RAG 去冗余 | 症状层 MMR(distinct-roots 2.75->2.95) |
 | 工具调用去重 | `ToolDedup`:`(name,args)` 完全匹配跳过 |
 
-### 4.2 运行时生命周期管理(基本空 ❌,待补)
+### 4.2 运行时生命周期管理(符号占位已做 ✅,scratchpad 待补)
 
-对话历史层面**无压缩/无占位/无滑窗**。`compaction.py` + `dynamic_prompt.py` 曾存在,PR #34 删除后无替代。演进项见 §7.1(符号占位)、§7.2(scratchpad)。
+对话历史层面的**符号占位**已落地(`ContextElisionMiddleware`,§7.1):`abefore_model` 把 N 轮前的旧 ToolMessage 替换成带重取入口的一行占位(同 id 原位替换)。仍**无 LLM 摘要压缩/无滑窗**(§5.4/§5.6 否决)。`compaction.py` + `dynamic_prompt.py` 曾存在,PR #34 删除后无替代;§7.1 以 L2 可重取占位形态重做(非旧 compaction 复活)。演进项剩 §7.2(scratchpad)。
 
 ### 4.3 收束与兜底(已做 ✅)
 
@@ -241,19 +241,26 @@ BudgetGuard 硬停止 / ForcedFinalCall 强制 JSON / HITL 续查。
 
 ## 7. 演进项
 
-### 7.1 符号占位 / tool result elision(待做)
+### 7.1 符号占位 / tool result elision(已完成,2026-07-28;吸收 L2 可重取占位)
 
-N 轮之前的 ToolMessage 替换成一行动态符号摘要(工具名+参数+top1 结论),保留"调过什么+关键结论",丢原始大块 JSON。
+`ContextElisionMiddleware`(`engine/middleware/context_elision.py`)+ 占位构造(`engine/context/elision.py`)。`abefore_model` 把 N 轮前的旧 ToolMessage 替换成带**重取入口**的一行占位,保留"调过什么 + 关键结论 + 如何重取",丢原始大块 JSON。
 
-- **为什么做**:比全量压缩轻(规则替换,零 LLM 成本),比 sliding window 安全(不丢信息只换形式)。
-- **配套**:`search_observability` 已有 `analysis.summary` 字段,天然适合做占位摘要来源。
-- **待对齐**:① 触发时机(按轮次年龄 N vs 按 usage_ratio 阈值);② 占位字段来源(复用 `analysis.summary` vs 工具统一产 `elision_hint`)。
-- **与拉大 iteration 的关系**:不依赖拉大即可做(收益虽小但非零);若未来拉大 iteration(§5.3),符号占位收益放大。
+- **机制**:倒序按 ToolMessage 计数排名,`rank >= keep_recent`(默认 3)的替换;返回 `ToolMessage(id=原id, content=占位, tool_call_id=原, name=原)`,`add_messages` reducer **同 id 原位替换**(已验证,langchain 1.2.13:不重复)。只动 ToolMessage,不碰 SystemMessage/HumanMessage/AIMessage(保证据链 + tool_call 结构)。
+- **L2 可重取占位**(见 §10):DiagDoctor 工具结果可寻址、可无损重取(`search_observability` 同参同结果且返回已 echo `query`/`time_range`),故占位带重取句,agent 需要时一键重水合--比 Claude Code 保守保信息更激进,但**不丢信息只换形式**。
+- **占位字段来源**(原"待对齐"的答案):重取入口 = obs 结果 echo 的 `source`/`query`/`time_range` + `analysis.summary`/`insights` 作关键发现;非 obs 工具 = 前一条 AIMessage 的 `tool_calls` 参数(按 `tool_call_id` 匹配)+ 首条关键行。obs JSON 被 head/tail 截断破坏时(§7.6 worst case)退回用调用参数构造重取入口--仍可重取,不阻塞。
+- **为什么做**:比全量压缩轻(规则替换,零 LLM 成本),比 sliding window 安全(不丢信息只换形式);防爆 §7.6 超大工具结果跨轮累积 + 给 16-cap 留累积余地。
+- **2 档 vs 旧 3 档**:旧 `compaction.py`(PR #34 删)是 3 档(全留/首行/归档);占位已带重取入口,"中档首行"冗余,简化为 2 档(近 N 全留 / 更早占位)。
+- **未标定**:`keep_recent=3` 参考旧 compaction 4 + §5.3 P90=12;后续用 `scripts/analyze_budget.py` 看替换率/重取率再调。
+- **收益定位**(讲法防雷):是"防爆 §7.6 worst case + 16-cap 累积余地",**不是"省 token 预算"**--§5.2 标定峰值 ~50k 远低于 100k,iteration 先 fire,token 不紧。
+- 配置:`settings.context_elision_enabled`(默认 True)+ `context_elision_keep_recent`(默认 3)。测试:`tests/graph/test_elision.py`(20 例)。
 
-### 7.2 HITL 续查升级:scratchpad(待做)
+### 7.2 HITL 续查升级:scratchpad(待做;吸收 L4 假设树结构)
 
-当前续查只注入 `findings.summary` 一行列表。升级为结构化"已确认事实 / 已排除假设 / 待验证线索"三段。
+当前续查只注入 `findings.summary` 一行列表(`nodes/diagnosis_agent.py:192`)。升级为结构化"已确认事实 / 已排除假设 / 待验证线索"三段,每条带 `(假设, 证据, 是否被反例否决)`。
 
+- **吸收 L4 假设树**(见 §10):L1-L4 文档给 L4 摘要配的"结构化假设树"是好东西--强迫标注"是否被反例否决",避免未证伪假设(如一度把 `CalculatePixelSpacing` 当根因)被固化传下去污染后续判断。**不实现 L4 压缩**(§5.4/§8 否决),只偷其假设树结构给续查 scratchpad。
+- **scope = 续查注入的最小切片**:非全量运行时假设树(后者需 agent 每轮维护 + 触发纠偏,属子 agent 规模,已延后--见 §8)。续查 scratchpad 只在 HITL resume 时把 prior findings 重组成三段注入。
+- **落地待对齐**:① `Finding` schema 是否加 `status`(confirmed/excluded/pending)+ `refuted` 字段,还是从现有 `summary`/`confidence` 派生;② prompt 是否要求 agent 输出假设状态(决定"已排除"能否 populate);③ parsing 改动。
 - **为什么做**:治 flail 本(§5.3 理由 2),让续查上下文结构化,可能让 case 收敛更快,反而降低对 iteration 的需求。
 
 ### 7.3 预算单源化 + 接真实 usage(已完成,2026-07-27)
@@ -302,15 +309,26 @@ N 轮之前的 ToolMessage 替换成一行动态符号摘要(工具名+参数+to
 
 **与现有项关系**:§7.1(符号占位)是跨轮那一环;§7.3(单源化+真实 usage,已完成)彻底解 BudgetGuard split-brain;§7.4(已完成)提供量化。本项把工具结果压缩从"字段级 + keep all"升级到"数量级 + 语义感知"。
 
+**与 L1-L4 原生压缩互证**(见 §10):L1-L4 文档第四章的"聚合即压缩"(Loki `sum by ... count_over_time`)= 本项方向 1(重复折叠);"trace 树骨架 -> LLM 挑可疑 span -> 再拉单 span 日志"= 本项方向 3+4(聚合摘要前置 + drill-down 渐进披露);"查询时限量"= 已有 `limit` 参数。即 §7.6 的 7 点与 L1-L4 原生压缩手段同源--数据层压缩优先于 LLM 摘要,从源头控预算。
+
+### 7.7 贵查询物化缓存(待做,低优先;L3 收窄形态)
+
+L1-L4 文档把 L3(大结果落盘)收窄成"**昂贵查询物化缓存**":24h `count_over_time` 聚合、跨服务全量 trace 拉取等重跑很贵的查询,结果物化缓存,让重取是瞬时而非重查(见 §10)。
+
+- **为什么收窄**:本场景工具结果可重取,§7.1 的占位已带重取入口,普通查询重取 = 重跑一次(可接受);只有**昂贵查询**才值得真正物化缓存。L3 从"大输出兜底"收窄成"昂贵查询缓存",职责更窄更明确。
+- **挂点**:HITL 续查是主要复现场景(§3.6,`similar_cases_text` 已是这模式--续查不重查 Qdrant);把贵 observability 查询同样做缓存复用。
+- **优先级**:低于 §7.2/§7.6;15-case 单次窗口是 trigger±5min,跨诊断才复用,ROI 取决于续查/重跑频率。
+
 ---
 
 ## 8. 不做的(过度工程边界)
 
 | 不做 | 理由 |
 |---|---|
-| **运行时 LLM 摘要压缩(compaction)** | 成本高;iteration 先 fire 使其触发窗口几乎不来(§5.4);15-case 规模 ROI 不够 |
+| **运行时 LLM 摘要压缩(compaction / L4)** | 成本高;iteration 先 fire 使其触发窗口几乎不来(§5.4);15-case 规模 ROI 不够。L1-L4 文档亦把 L4 降为最后兜底(§10);只偷其假设树结构给 §7.2,不实现压缩层 |
 | **拉大 iteration(>16)** | §5.3 已标定 16(P90=12+4buffer);再大 = 给 flail 开绿灯(FE-021 已证),靠 §7.2 scratchpad 治本 |
 | **完整 working memory 系统** | 偏重;§7.2 scratchpad 已够治 flail 本 |
+| **独立证伪 sub-agent**(L1-L4 支柱之二) | 架构改动大(上下文隔离+合成+协调);§7.2 scratchpad 落地前不上,免地基空搭架构。待 §7.2 后若 flail 仍压不住且有 case 数据支撑再评估;届时可复用 §7.6 item6 子 agent 通道(一压缩、一证伪) |
 | **工具结果小模型实时摘要** | 额外 LLM 调用成本;入口截断 + 符号占位已够 |
 | **sliding window** | 诊断早期证据不可丢(§5.6) |
 | **阶段感知动态 prompt** | 效果难评估+难展示(§5.5) |
@@ -319,7 +337,7 @@ N 轮之前的 ToolMessage 替换成一行动态符号摘要(工具名+参数+to
 
 ## 9. 面试讲法
 
-**主线**:分层上下文工程--入口压缩 -> 运行时占位(演进中)-> 预算收束(真实 usage + 单源化)-> HITL 延续 -> 效果量化闭环(已固化)。
+**主线**:分层上下文工程--入口压缩 -> 运行时占位(§7.1 已落地,吸收 L2 可重取占位)-> 预算收束(真实 usage + 单源化)-> HITL 延续 -> 效果量化闭环(已固化)。
 
 **三个非 trivial 取舍点**:
 1. **压缩做在入口不做在运行时**:讲清 iteration 先 fire 的机制(§5.2 粗算),运行时压缩 ROI 不够。体现"知道上下文要管,但知道什么不管用、为什么"。
@@ -335,6 +353,29 @@ N 轮之前的 ToolMessage 替换成一行动态符号摘要(工具名+参数+to
 
 ---
 
+## 10. L1-L4 上下文管理机制映射
+
+> 来源:`docs/L1-L4_Loki_Tempo_适用性分析.md` -- 借鉴 Claude Code 的 L1-L4 机制 + 子 agent 隔离,评估在 DiagDoctor(Loki+Tempo 诊断工具)中的适用性。本节是对账结论(code-verified)。
+
+**核心前提(已验证)**:L1-L4 全文立论于"数据可寻址、可无损重取"。DiagDoctor 后端确为 Loki+Tempo(`config.py:tempo_url`、demo-app push Loki),`search_observability(source,query,start,end,...)` 同参同结果且返回已 echo `query`/`time_range`--前提成立。**但仅对工具结果层成立**:初始证据注入(golden_signals/correlations/similar_cases)是 ingest 管线预计算,非一次工具调用可重取。故"激进驱逐"只作用于工具结果,不碰初始证据--现状(§3.2 全量注入 vs §3.4 工具结果截断)已如此分层。
+
+| L1-L4 机制 | 在 DiagDoctor 的定位 | 状态 |
+|---|---|---|
+| **L2 可重取占位** | §7.1 支柱。占位带 query+time_range 一键重水合;obs 结果本就 echo 这些,近乎免费 | ✅ 已做(§7.1) |
+| **L1 裁调查分支** | §7.1 自然延伸(留结论丢证据,数据可重取故安全);折叠进 §7.1 的占位,不单列 | ✅ 随 §7.1 |
+| **L3 贵查询缓存** | 收窄为"昂贵查询物化缓存"(非大输出兜底);挂 HITL 续查复用 | ⬜ §7.7 低优 |
+| **L4 LLM 摘要** | 降级为最后兜底;**不采纳为运行时压缩层**(§5.4/§8 否决,iteration 先 fire)。偷其"假设树(假设/证据/是否被反例否决)"结构给 §7.2 | ❌ 压缩不做;结构 → §7.2 |
+| **子 agent 独立证伪** | 全文最差异化点(被动证伪→确定性能力);架构改动大,§7.2 scratchpad 落地前不上 | ⬜ §8 待评估 |
+| **原生压缩**(聚合/查询限量/trace 骨架) | 与 §7.6 互证(聚合即压缩=重复折叠;trace 骨架->钻取=渐进披露) | ⬜ §7.6 |
+
+**取舍重心转移**:从 Claude Code 的"保守保信息"(上下文丢了可能不可逆)移到本场景的"**激进驱逐旧工具结果 + 重取兜底**"--丢上下文代价是重跑一次查询,不是信息丢失。这是自研工具相对裸 Claude Code 的结构性优势。
+
+**真正超过裸 Claude Code 的两条能力**(数据可寻址才做得到):① L2 占位带重取入口(§7.1 已落地);② 数据层聚合压缩(§7.6,无损便宜源头控预算)。子 agent 独立证伪是潜在的第三条,但延后(§8)。
+
+**两个认知坑**(L1-L4 文档提出,适用):① 别把"上下文管理"(带多少上下文,L1-L4)和"调查策略"(往哪查,证伪/count-first/trace 骨架)混谈--两者正交,L1-L4 做好没调查纪律只会高效地错;② 默认手段是 L2 可重取占位,L4 摘要是最后兜底--顺序错了会把有损摘要的不准确放大。
+
+---
+
 ## 附录:全盘点速查表
 
 | # | 维度 | 现状 | 评价 | 计划 |
@@ -342,8 +383,8 @@ N 轮之前的 ToolMessage 替换成一行动态符号摘要(工具名+参数+to
 | 1 | System prompt 工程 | 静态 j2 + tools_reference | 薄(phase 断层) | §7.5 |
 | 2 | 证据注入 | 全量 HumanMessage | 中 | 渐进披露(可选) |
 | 3 | RAG 上下文 | 双向量 + MMR + 冲突检测 + clamp | 厚 | 完成 |
-| 4 | 工具上下文 | 决策表 + 三层入口截断 + 去重 | 厚 | +§7.1/§7.6 |
-| 5 | 上下文生命周期管理 | 入口截断有 / 运行时无 | 薄 | §7.1 |
+| 4 | 工具上下文 | 决策表 + 三层入口截断 + 去重 | 厚 | +§7.6 |
+| 5 | 上下文生命周期管理 | 入口截断 + 运行时符号占位(§7.1) | 中 | §7.2 |
 | 6 | 工作记忆 / scratchpad | 无 | 薄 | §7.2 |
 | 7 | 预算 / 窗口管理 | 四维度 + 硬收束 + 真实 usage + 单源化 | 厚 | 完成(§7.3) |
 | 8 | HITL 跨轮延续 | findings.summary 注入 | 薄 | §7.2 |
@@ -352,4 +393,4 @@ N 轮之前的 ToolMessage 替换成一行动态符号摘要(工具名+参数+to
 | 11 | 可观测性闭环 | Langfuse trace budget 字段 + analyze_budget.py 固化查询(§6.3/§7.4) | 厚 | 完成(§7.4) |
 | 12 | Few-shot 输出示例 | schema 自然语言描述,无完整示例 | 薄(可选) | 可选,ROI 低 |
 
-**整体判断**:不是整体太薄,是薄的恰好在体现深度的位置(运行时管理 / scratchpad / HITL / 可观测性)。补完 §7.1-§7.4 后,薄的只剩 few-shot 和渐进披露(都可选),上下文工程的面即齐。
+**整体判断**:不是整体太薄,是薄的恰好在体现深度的位置(scratchpad / HITL)。§7.1-§7.4 已补完(运行时管理 + 可观测闭环已落地);补完 §7.2 后,薄的只剩 few-shot 和渐进披露(都可选),上下文工程的面即齐。

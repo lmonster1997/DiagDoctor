@@ -108,6 +108,22 @@ class Settings(BaseSettings):
     #   2. observability_unified.search_observability —— 8000 字符 JSON 截断
     tool_result_truncation_enabled: bool = True
 
+    # --- Context Elision (§7.1 / L2 re-fetchable placeholder) ---
+    # Runtime context management: replace ToolMessages older than ``keep_recent``
+    # with a one-line re-fetchable placeholder (tool name + re-fetch handle +
+    # key finding), preserving "what was called + conclusion + how to re-fetch",
+    # dropping the raw JSON. Orthogonal to truncation (entry-time): elision runs
+    # at ``abefore_model`` on already-in-context messages. Data is addressable
+    # and losslessly re-fetchable (search_observability is same-args-same-result
+    # and echoes query/time_range), so evicting old tool results costs a re-query,
+    # not information loss. See docs/context_engineering_design.md §7.1 +
+    # docs/L1-L4_Loki_Tempo_适用性分析.md (L2).
+    context_elision_enabled: bool = True
+    # Number of most-recent ToolMessages kept full; older ones elided.
+    # Untuned default (ref: deleted compaction keep_recent=4 + §5.3 P90=12);
+    # revisit via scripts/analyze_budget.py elision/re-fetch rates.
+    context_elision_keep_recent: int = 3
+
     # --- RAG Injection (episodic memory retrieval) ---
     # When False, the diagnosis agent skips historical-case retrieval entirely
     # (no Qdrant query, no injection). Demo/interactive keeps True; headless/CI

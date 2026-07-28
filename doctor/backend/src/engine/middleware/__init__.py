@@ -1,17 +1,18 @@
 """Middleware pipeline sub-package.
 
-Re-exports the 6 create_agent middlewares + the per-run ContextVar helpers so
+Re-exports the 7 create_agent middlewares + the per-run ContextVar helpers so
 callers can ``from src.engine.middleware import BudgetGuardMiddleware, ...``
 without knowing each class's module path.
 
 Middleware registration order (see ``engine/agent.py: build_diagnosis_agent``):
     AgentLifecycle -> ToolDedup -> LangfuseTracing
-        -> ToolTruncation -> BudgetGuard -> ForcedFinalCall
+        -> ToolTruncation -> ContextElision -> BudgetGuard -> ForcedFinalCall
 """
 
 from __future__ import annotations
 
 from src.engine.budget.guard import BudgetGuardMiddleware
+from src.engine.middleware.context_elision import ContextElisionMiddleware
 from src.engine.middleware.forced_call import ForcedFinalCallMiddleware
 from src.engine.middleware.langfuse_tracing import LangfuseTracingMiddleware
 from src.engine.middleware.lifecycle import AgentLifecycleMiddleware
@@ -28,6 +29,7 @@ from src.engine.run_context import (
 __all__ = [
     "AgentLifecycleMiddleware",
     "BudgetGuardMiddleware",
+    "ContextElisionMiddleware",
     "DiagnosisRunContext",
     "ForcedFinalCallMiddleware",
     "LangfuseTracingMiddleware",

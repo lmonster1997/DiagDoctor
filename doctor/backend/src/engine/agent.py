@@ -58,7 +58,7 @@ def _build_system_prompt() -> str:
 
 
 def build_diagnosis_agent() -> Any:
-    """Build the DiagnosisAgent ReAct agent with 6 middlewares.
+    """Build the DiagnosisAgent ReAct agent with 7 middlewares.
 
     Middleware registration order (verified via verify_middleware_assumptions.py):
     - abefore_agent: runs in registration order
@@ -66,7 +66,7 @@ def build_diagnosis_agent() -> Any:
     - after_agent: reverse registration order
 
     Pipeline: AgentLifecycle → ToolDedup → LangfuseTracing
-              → ToolTruncation → BudgetGuard → ForcedFinalCall
+              → ToolTruncation → ContextElision → BudgetGuard → ForcedFinalCall
     """
     llm = _get_llm()
     tools = _get_tools()
@@ -80,6 +80,7 @@ def build_diagnosis_agent() -> Any:
     )
 
     from src.engine.budget.guard import BudgetGuardMiddleware
+    from src.engine.middleware.context_elision import ContextElisionMiddleware
     from src.engine.middleware.forced_call import ForcedFinalCallMiddleware
     from src.engine.middleware.langfuse_tracing import LangfuseTracingMiddleware
     from src.engine.middleware.lifecycle import AgentLifecycleMiddleware
@@ -91,6 +92,7 @@ def build_diagnosis_agent() -> Any:
         ToolDedupMiddleware(),
         LangfuseTracingMiddleware(),
         ToolTruncationMiddleware(),
+        ContextElisionMiddleware(),
         BudgetGuardMiddleware(),
         ForcedFinalCallMiddleware(),
     ]
