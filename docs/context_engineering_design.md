@@ -149,7 +149,7 @@ BudgetGuard 硬停止 / ForcedFinalCall 强制 JSON / HITL 续查。
 
 **纠正**:一次诊断的 token 消耗与"总共跑多少 case"无关。15 是 experiment 观测样本数(n=15),不是影响单次诊断 token 的变量。
 
-**真相**:单次诊断中,**iteration 维度(`MAX_TOOL_CALLS=12`)先于 token 维度(`MAX_TOKENS_BUDGET=100k`)fire**。粗估(4 chars/token):
+**真相**:单次诊断中,**iteration 维度(`MAX_MODEL_CALLS=16`)先于 token 维度(`MAX_TOKENS_BUDGET=100k`)fire**。粗估(4 chars/token):
 
 | 来源 | token |
 |---|---|
@@ -178,7 +178,7 @@ BudgetGuard 硬停止 / ForcedFinalCall 强制 JSON / HITL 续查。
 - FE-021 是 flail:18 轮没收敛(forced + early_stop @18),不是深度不足。加轮不解决,靠 §7.2 scratchpad。
 - split-brain(§6.1)已彻底修(§7.3:gate 改用真实 `usage_metadata.input_tokens`,删 guard 里 truncate 临时 hack)。
 
-**结论**:`MAX_TOOL_CALLS=16`(P90=12 + 4 buffer,覆盖 14/15;FE-021 触顶 16 靠 forced 出报告 + §7.2 治本)。符合"拉到 16-18(不是 30)"。不拉到 18+:FE-021 已证 flail,再加是给 flail 开绿灯(理由 ②)。配套 §7.1 符号占位(16 cap 下跨轮累积防爆)。
+**结论**:`MAX_MODEL_CALLS=16`(P90=12 + 4 buffer,覆盖 14/15;FE-021 触顶 16 靠 forced 出报告 + §7.2 治本)。符合"拉到 16-18(不是 30)"。不拉到 18+:FE-021 已证 flail,再加是给 flail 开绿灯(理由 ②)。配套 §7.1 符号占位(16 cap 下跨轮累积防爆)。
 
 ### 5.4 入口压缩 vs 运行时压缩(取舍)
 
@@ -254,14 +254,19 @@ BudgetGuard 硬停止 / ForcedFinalCall 强制 JSON / HITL 续查。
 - **收益定位**(讲法防雷):是"防爆 §7.6 worst case + 16-cap 累积余地",**不是"省 token 预算"**--§5.2 标定峰值 ~50k 远低于 100k,iteration 先 fire,token 不紧。
 - 配置:`settings.context_elision_enabled`(默认 True)+ `context_elision_keep_recent`(默认 3)。测试:`tests/graph/test_elision.py`(20 例)。
 
-### 7.2 HITL 续查升级:scratchpad(待做;吸收 L4 假设树结构)
+### 7.2 HITL 续查升级:scratchpad(已完成,2026-07-28;吸收 L4 假设树结构)
 
-当前续查只注入 `findings.summary` 一行列表(`nodes/diagnosis_agent.py:192`)。升级为结构化"已确认事实 / 已排除假设 / 待验证线索"三段,每条带 `(假设, 证据, 是否被反例否决)`。
+续查注入从扁平 `findings.summary` 列表升级为结构化假设树:`_format_scratchpad`(`nodes/diagnosis_agent.py`)按 `Finding.status` 分**已确认事实(✓) / 已排除假设(✗) / 待验证线索(?)** 三段,每条带证据或反例。空段省略。`human_input_node` 中断提示补"已排除 N 个假设"。
 
-- **吸收 L4 假设树**(见 §10):L1-L4 文档给 L4 摘要配的"结构化假设树"是好东西--强迫标注"是否被反例否决",避免未证伪假设(如一度把 `CalculatePixelSpacing` 当根因)被固化传下去污染后续判断。**不实现 L4 压缩**(§5.4/§8 否决),只偷其假设树结构给续查 scratchpad。
-- **scope = 续查注入的最小切片**:非全量运行时假设树(后者需 agent 每轮维护 + 触发纠偏,属子 agent 规模,已延后--见 §8)。续查 scratchpad 只在 HITL resume 时把 prior findings 重组成三段注入。
-- **落地待对齐**:① `Finding` schema 是否加 `status`(confirmed/excluded/pending)+ `refuted` 字段,还是从现有 `summary`/`confidence` 派生;② prompt 是否要求 agent 输出假设状态(决定"已排除"能否 populate);③ parsing 改动。
-- **为什么做**:治 flail 本(§5.3 理由 2),让续查上下文结构化,可能让 case 收敛更快,反而降低对 iteration 的需求。
+- **Finding 扩展**(`state.py`):加 `status: Literal["confirmed","excluded","pending"]`(默认 pending)+ `refuted: bool` + `refutation_evidence: str`。向后兼容(旧 finding = pending)。
+- **prompt 假设证伪纪律**(`diagnosis_agent.j2` 关键原则):形成根因假设后先找反例;确认/排除一个假设时在推理里输出 `{"hypothesis":..., "status":..., "evidence":..., "refuted":...}` 块。最终 `root_cause` 对应 confirmed。
+- **`extract_findings` 扩展**(`parsing.py`):不再跳过 tool-call AIMessage--扫所有 AIMessage 取 `hypothesis` 块(`_extract_all_json_objects` 提取全部 JSON,非只首个);`root_cause` -> confirmed;按 `summary` 去重保留**最新** status(pending->excluded 记为 excluded)。
+- **吸收 L4 假设树**(见 §10):强迫标注"是否被反例否决",避免未证伪假设(如一度把 `CalculatePixelSpacing` 当根因)被固化传下去污染续查判断。**不实现 L4 压缩**(§5.4/§8 否决),只偷其假设树结构。
+- **scope = 续查注入的最小切片**:非全量运行时假设树(后者需 agent 每轮维护 + 触发纠偏,属子 agent 规模,§8 延后)。续查 scratchpad 只在 HITL resume 时把 prior findings 重组成三段注入。
+- **优雅降级**:agent 不 emit 假设块时,findings 仍至少有最终 root_cause(confirmed),续查注入退化为"已确认 + 空 + 空"--不比现状差。后续用 `analyze_budget.py` 看假设块产出率。
+- **死代码清理**:删 `DiagnosisHypothesis` 类 + `DoctorState.hypotheses` 字段(从未写入/读取的 declared-but-dead reducer)+ docstring 引用。hypothesis 跟踪统一到活路径 `Finding`。
+- **为什么做**:治 flail 本(§5.3 理由 2),让续查上下文结构化(已排除的别再试),可能让 case 收敛更快,反而降低对 iteration 的需求。
+- 测试:`tests/graph/test_findings_hypothesis.py` 16 例(extract 假设块/去重/默认/降级 + scratchpad 3 段渲染)。
 
 ### 7.3 预算单源化 + 接真实 usage(已完成,2026-07-27)
 
@@ -337,12 +342,13 @@ L1-L4 文档把 L3(大结果落盘)收窄成"**昂贵查询物化缓存**":24h `
 
 ## 9. 面试讲法
 
-**主线**:分层上下文工程--入口压缩 -> 运行时占位(§7.1 已落地,吸收 L2 可重取占位)-> 预算收束(真实 usage + 单源化)-> HITL 延续 -> 效果量化闭环(已固化)。
+**主线**:分层上下文工程--入口压缩 -> 运行时占位(§7.1 已落地,吸收 L2 可重取占位)-> 预算收束(真实 usage + 单源化)-> HITL 延续(§7.2 scratchpad 假设树,吸收 L4 证伪纪律)-> 效果量化闭环(已固化)。
 
 **三个非 trivial 取舍点**:
 1. **压缩做在入口不做在运行时**:讲清 iteration 先 fire 的机制(§5.2 粗算),运行时压缩 ROI 不够。体现"知道上下文要管,但知道什么不管用、为什么"。
 2. **多维预算,iteration 为主**:诚实讲 token 到不了 80%,iteration/tool_calls 才是真收束维度;讲 split-brain 雷(§6.1)的发现与根治(§7.3:gate 从 tiktoken 估算改真实 `usage_metadata.input_tokens`,三处常量单源化 + 正名),体现"知道自己系统的测量问题并修了"。
-3. **动态 prompt 放弃**:讲清四阶段提示词难评估+难展示,改成硬阈值收束(§5.5)。体现"评估过、有取舍"。
+3. **L4 假设树偷结构不偷压缩**:讲清续查 scratchpad 用 L4 的"假设/证据/是否被反例否决"结构治 flail,但不做 L4 运行时 LLM 摘要(§5.4 iteration 先 fire,触发窗口不来);上下文管理(§7.1)与调查策略(§7.2)正交配对(§10 坑一)。体现"分清两类问题、知道哪个机制治哪个病"。
+4. **动态 prompt 放弃**:讲清四阶段提示词难评估+难展示,改成硬阈值收束(§5.5)。体现"评估过、有取舍"。
 
 **数据底气**(§7.4 已完成,`scripts/analyze_budget.py`):P50/P90 tool_calls 分布、early_stop 率、token 峰值--用数字证明入口截断/去重的效果,而非空谈。
 
@@ -364,8 +370,8 @@ L1-L4 文档把 L3(大结果落盘)收窄成"**昂贵查询物化缓存**":24h `
 | **L2 可重取占位** | §7.1 支柱。占位带 query+time_range 一键重水合;obs 结果本就 echo 这些,近乎免费 | ✅ 已做(§7.1) |
 | **L1 裁调查分支** | §7.1 自然延伸(留结论丢证据,数据可重取故安全);折叠进 §7.1 的占位,不单列 | ✅ 随 §7.1 |
 | **L3 贵查询缓存** | 收窄为"昂贵查询物化缓存"(非大输出兜底);挂 HITL 续查复用 | ⬜ §7.7 低优 |
-| **L4 LLM 摘要** | 降级为最后兜底;**不采纳为运行时压缩层**(§5.4/§8 否决,iteration 先 fire)。偷其"假设树(假设/证据/是否被反例否决)"结构给 §7.2 | ❌ 压缩不做;结构 → §7.2 |
-| **子 agent 独立证伪** | 全文最差异化点(被动证伪→确定性能力);架构改动大,§7.2 scratchpad 落地前不上 | ⬜ §8 待评估 |
+| **L4 LLM 摘要** | 降级为最后兜底;**不采纳为运行时压缩层**(§5.4/§8 否决,iteration 先 fire)。偷其"假设树(假设/证据/是否被反例否决)"结构给 §7.2 | ❌ 压缩不做;结构 → §7.2 ✅ |
+| **子 agent 独立证伪** | 全文最差异化点(被动证伪→确定性能力);架构改动大,§7.2 scratchpad 已落地,仍延后(需 case 数据支撑) | ⬜ §8 待评估 |
 | **原生压缩**(聚合/查询限量/trace 骨架) | 与 §7.6 互证(聚合即压缩=重复折叠;trace 骨架->钻取=渐进披露) | ⬜ §7.6 |
 
 **取舍重心转移**:从 Claude Code 的"保守保信息"(上下文丢了可能不可逆)移到本场景的"**激进驱逐旧工具结果 + 重取兜底**"--丢上下文代价是重跑一次查询,不是信息丢失。这是自研工具相对裸 Claude Code 的结构性优势。
@@ -384,13 +390,13 @@ L1-L4 文档把 L3(大结果落盘)收窄成"**昂贵查询物化缓存**":24h `
 | 2 | 证据注入 | 全量 HumanMessage | 中 | 渐进披露(可选) |
 | 3 | RAG 上下文 | 双向量 + MMR + 冲突检测 + clamp | 厚 | 完成 |
 | 4 | 工具上下文 | 决策表 + 三层入口截断 + 去重 | 厚 | +§7.6 |
-| 5 | 上下文生命周期管理 | 入口截断 + 运行时符号占位(§7.1) | 中 | §7.2 |
-| 6 | 工作记忆 / scratchpad | 无 | 薄 | §7.2 |
+| 5 | 上下文生命周期管理 | 入口截断 + 运行时符号占位(§7.1) | 中 | 完成(§7.1) |
+| 6 | 工作记忆 / scratchpad | 假设树 scratchpad(§7.2) | 中 | 完成(§7.2) |
 | 7 | 预算 / 窗口管理 | 四维度 + 硬收束 + 真实 usage + 单源化 | 厚 | 完成(§7.3) |
-| 8 | HITL 跨轮延续 | findings.summary 注入 | 薄 | §7.2 |
+| 8 | HITL 跨轮延续 | scratchpad 3 段注入(§7.2) | 中 | 完成(§7.2) |
 | 9 | 安全 / PII | sanitizer + sql_guard + 只读 db | 厚 | 完成 |
 | 10 | 结构化输出兜底 | ForcedFinalCall + referenced clamp | 厚 | 完成 |
 | 11 | 可观测性闭环 | Langfuse trace budget 字段 + analyze_budget.py 固化查询(§6.3/§7.4) | 厚 | 完成(§7.4) |
 | 12 | Few-shot 输出示例 | schema 自然语言描述,无完整示例 | 薄(可选) | 可选,ROI 低 |
 
-**整体判断**:不是整体太薄,是薄的恰好在体现深度的位置(scratchpad / HITL)。§7.1-§7.4 已补完(运行时管理 + 可观测闭环已落地);补完 §7.2 后,薄的只剩 few-shot 和渐进披露(都可选),上下文工程的面即齐。
+**整体判断**:不是整体太薄,是薄的恰好在体现深度的位置。§7.1-§7.4 + §7.2 已补完(运行时占位 + scratchpad 假设树 + 预算单源 + 量化闭环);薄的只剩 few-shot 和渐进披露(都可选),上下文工程的面即齐。§7.6 工具结果压缩是独立的诊断质量大项,不在此面。

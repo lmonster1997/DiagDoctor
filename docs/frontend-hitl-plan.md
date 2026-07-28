@@ -89,7 +89,7 @@
 - 入口:header 加"历史"nav,或诊断页右侧加 tab。v1 可只做"列表 + 复制 thread_id + 跳恢复",click-to-resume 作为 v2。
 
 ## 4. demo 触发(真实模型)
-真实模型多数 <12 calls 收敛不暂停。要可靠演示 F1,临时把 `doctor/backend/src/engine/budget/constants.py` `MAX_TOOL_CALLS` 调到 ~4(改完 uvicorn `--reload` 自动重载),demo 完恢复 12。
+真实模型多数 <12 calls 收敛不暂停。要可靠演示 F1,临时把 `doctor/backend/src/engine/budget/constants.py` `MAX_MODEL_CALLS` 调到 ~4(改完 uvicorn `--reload` 自动重载),demo 完恢复 16。
 - 注意:cap=4 时 pass2 也可能再耗尽 -> 一次性 END(照样展示 pause->resume->END 机制,只是不一定"引导后收敛")。确定性"引导后收敛"证明在 `tests/graph/test_hitl.py`。
 
 ## 5. 验证

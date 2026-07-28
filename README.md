@@ -197,7 +197,7 @@ make setup          # 首次初始化（启动 + 迁移 + 种子数据）
 | **OTel 追踪** | @traced 装饰器 + OpenTelemetry 集成 | ✅ |
 | **安全模块** | 路径沙箱、子进程参数校验、LLM 脱敏、SecretStr | ✅ |
 | **可观测性工具** | search_observability（Loki/Tempo，auto 模式异常检测 + 因果链）、code_search（ripgrep 精确匹配，不依赖向量检索） | ✅ |
-| **手动 ReAct 循环** | diagnosis_agent 包内 node.py + react_loop.py + forced_call.py，硬约束 MAX_TOOL_CALLS | ✅ |
+| **手动 ReAct 循环** | diagnosis_agent 包内 node.py + react_loop.py + forced_call.py，硬约束 MAX_MODEL_CALLS | ✅ |
 | **上下文工程** | context_engine.py：tool result 静态截断、历史消息降级、动态 system prompt | ✅ |
 | **Langfuse Tracing** | langfuse-langchain 集成，每次诊断 trace + score 上报 | ✅ |
 | **SQL 只读守卫** | db_query 工具强制 read-only，禁写保护 | ✅ |

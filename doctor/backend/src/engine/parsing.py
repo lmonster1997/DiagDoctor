@@ -111,17 +111,23 @@ def parse_diagnosis_report(agent_result: dict[str, Any]) -> DiagnosisReport | No
 
 
 def extract_findings(agent_result: dict[str, Any]) -> list[Finding]:
-    """
-    Extract Finding records from the agent's intermediate steps.
+    """Extract Finding records from the agent's messages.
 
-    Each AI message that contains a JSON block with finding-like fields
-    is parsed as a Finding. This captures the agent's incremental reasoning.
+    §7.2 hypothesis-tree support: scans ALL AIMessages (including tool-call
+    ones, which ReAct reasoning lives in) for ``{"hypothesis":..., "status":...,
+    "evidence":..., "refuted":...}`` blocks the agent emits as it
+    confirms/excludes hypotheses. The final report's ``root_cause`` becomes a
+    ``confirmed`` finding. Findings are deduplicated by summary, keeping the
+    latest status (so a hypothesis that goes pending -> excluded is recorded
+    as excluded). Pre-§7.2 output (no hypothesis blocks) degrades gracefully:
+    findings is just the final root_cause (confirmed), as before.
 
     Args:
         agent_result: The full state dict from ``agent.ainvoke()``.
 
     Returns:
-        List of Finding objects extracted from agent messages.
+        List of Finding objects (with ``status``/``refuted``/``refutation_evidence``
+        populated when the agent emitted hypothesis blocks).
     """
     messages: list[Any] = agent_result.get("messages", [])
     findings: list[Finding] = []
@@ -129,32 +135,84 @@ def extract_findings(agent_result: dict[str, Any]) -> list[Finding]:
     for msg in messages:
         if not isinstance(msg, AIMessage):
             continue
+        has_tool_calls = bool(getattr(msg, "tool_calls", None))
+        for data in _extract_all_json_objects(str(msg.content)):
+            finding = _finding_from_json(data, has_tool_calls)
+            if finding is not None:
+                findings.append(finding)
 
-        content = str(msg.content)
-        # Skip tool call messages (they have tool_calls, not meaningful findings)
-        if hasattr(msg, "tool_calls") and msg.tool_calls:
+    return _dedup_findings_by_summary(findings)
+
+
+_VALID_STATUSES = {"confirmed", "excluded", "pending"}
+
+
+def _finding_from_json(data: dict[str, Any], has_tool_calls: bool) -> Finding | None:
+    """Build a Finding from one parsed JSON object, or None if not finding-shaped.
+
+    - ``hypothesis`` key -> a hypothesis-block finding (with status/refuted).
+      Parsed from any message (tool-call reasoning or final report).
+    - ``root_cause`` key -> the final report's converged root cause (confirmed).
+      Only from non-tool-call messages (the final report) to avoid spurious
+      matches in reasoning text.
+    - ``summary`` key -> a generic finding (pending). Same non-tool-call guard.
+    """
+    # Hypothesis block (emitted mid-investigation per §7.2 prompt discipline).
+    if "hypothesis" in data:
+        status = str(data.get("status", "pending"))
+        if status not in _VALID_STATUSES:
+            status = "pending"
+        refuted = bool(data.get("refuted", status == "excluded"))
+        with contextlib.suppress(ValueError, TypeError):
+            return Finding(
+                agent="diagnosis_agent",
+                summary=str(data.get("hypothesis", "")),
+                status=status,  # type: ignore[arg-type]
+                refuted=refuted,
+                refutation_evidence=str(data.get("evidence", "")) if refuted else "",
+                evidence_refs=_ensure_str_list(data.get("evidence_refs", [])),
+                confidence=float(data.get("confidence", 0.5)),
+            )
+        return None
+
+    # Final-report fields only from non-tool-call messages (avoid picking up
+    # spurious summary/root_cause JSON in reasoning text).
+    if has_tool_calls:
+        return None
+    if not (data.get("summary") or data.get("root_cause")):
+        return None
+
+    is_root_cause = "root_cause" in data and data.get("root_cause")
+    with contextlib.suppress(ValueError, TypeError):
+        return Finding(
+            agent="diagnosis_agent",
+            summary=str(data.get("summary", data.get("root_cause", ""))),
+            evidence_refs=_ensure_str_list(
+                data.get("evidence_refs", data.get("evidence_chain", []))
+            ),
+            affected_files=_ensure_str_list(
+                data.get("affected_files", [data.get("affected_file", "")])
+            ),
+            fix_suggestion=str(data.get("fix_suggestion", "")),
+            confidence=float(data.get("confidence", 0.5)),
+            status="confirmed" if is_root_cause else "pending",
+        )
+    return None
+
+
+def _dedup_findings_by_summary(findings: list[Finding]) -> list[Finding]:
+    """Dedup by summary text, keeping the latest status (last occurrence wins).
+
+    Preserves first-occurrence order. A hypothesis that appears as ``pending``
+    then later ``excluded`` is recorded as ``excluded``.
+    """
+    by_summary: dict[str, Finding] = {}
+    for f in findings:
+        key = f.summary.strip()
+        if not key:
             continue
-
-        # Try to extract JSON from this message
-        data = _extract_json_from_text(content)
-        if data and ("summary" in data or "root_cause" in data):
-            with contextlib.suppress(ValueError, TypeError):
-                findings.append(
-                    Finding(
-                        agent="diagnosis_agent",
-                        summary=str(data.get("summary", data.get("root_cause", ""))),
-                        evidence_refs=_ensure_str_list(
-                            data.get("evidence_refs", data.get("evidence_chain", []))
-                        ),
-                        affected_files=_ensure_str_list(
-                            data.get("affected_files", [data.get("affected_file", "")])
-                        ),
-                        fix_suggestion=str(data.get("fix_suggestion", "")),
-                        confidence=float(data.get("confidence", 0.5)),
-                    )
-                )
-
-    return findings
+        by_summary[key] = f  # later overwrites -> latest status
+    return list(by_summary.values())
 
 
 def _extract_json_from_text(text: str) -> dict[str, Any] | None:
@@ -245,6 +303,54 @@ def _extract_json_by_depth(text: str) -> dict[str, Any] | None:
             continue
 
     return None
+
+
+def _extract_all_json_objects(text: str) -> list[dict[str, Any]]:
+    """Extract ALL top-level JSON objects from text (brace-depth tracking).
+
+    Unlike ``_extract_json_from_text`` (which returns one), this returns every
+    balanced ``{...}`` span that parses as a dict. Used by ``extract_findings``
+    to capture multiple §7.2 hypothesis blocks the agent may emit in one
+    reasoning turn. Same brace-depth approach as ``_extract_json_by_depth``
+    (handles arbitrary nesting + braces inside string values).
+    """
+    candidates: list[tuple[int, int]] = []  # (start, end) pairs
+    depth = 0
+    in_string = False
+    escape_next = False
+    start = -1
+
+    for i, ch in enumerate(text):
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == "\\":
+            escape_next = True
+            continue
+        if ch == '"' and not escape_next:
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0 and start != -1:
+                candidates.append((start, i + 1))
+                start = -1
+
+    results: list[dict[str, Any]] = []
+    for s, e in candidates:
+        try:
+            obj = json.loads(text[s:e], strict=False)
+            if isinstance(obj, dict):
+                results.append(obj)
+        except json.JSONDecodeError:
+            continue
+    return results
 
 
 def _ensure_str_list(value: Any) -> list[str]:

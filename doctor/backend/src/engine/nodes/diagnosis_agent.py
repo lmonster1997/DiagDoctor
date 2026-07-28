@@ -31,7 +31,7 @@ the current best-effort report. One-shot: ``hitl_resumed`` gates a single
 HITL cycle (a second exhaustion routes straight to END).
 
 State schema: typed ``DoctorState`` (TypedDict) so the declared ``add``
-reducers on findings/hypotheses/budget_ticks/total_cost actually run, and
+reducers on findings/budget_ticks/total_cost actually run, and
 ``messages`` uses ``add_messages`` so the chat history persists across the
 pause/resume boundary. Compiled with a persistent SQLite checkpointer
 (``_LazyAsyncSqliteSaver`` -> ``data/checkpoints.db``) so a paused diagnosis
@@ -77,6 +77,51 @@ def _filter_visible_messages(messages: list[Any]) -> list[Any]:
     from langchain_core.messages import AIMessage, ToolMessage
 
     return [m for m in messages if isinstance(m, (AIMessage, ToolMessage))]
+
+
+def _format_scratchpad(findings: list[Any]) -> str:
+    """§7.2: render prior findings as a 3-section hypothesis tree for续查 injection.
+
+    Groups by ``Finding.status`` into 已确认事实(✓) / 已排除假设(✗) / 待验证线索(?),
+    each line carrying evidence or the counterexample that excluded it. Empty
+    sections omitted. This is the L4 hypothesis-tree structure (minus the LLM
+    summary compression, which §5.4 rejects) -- it surfaces "what's been ruled
+    out" so the resumed agent doesn't re-walk dead branches (the FE-021 flail
+    root cause, §5.3 理由 2).
+
+    Falls back to "(暂无)" when there are no usable findings.
+    """
+    confirmed = [f for f in findings if getattr(f, "status", None) == "confirmed"]
+    excluded = [f for f in findings if getattr(f, "status", None) == "excluded"]
+    pending = [f for f in findings if getattr(f, "status", None) == "pending"]
+
+    sections: list[str] = []
+    if confirmed:
+        lines = "\n".join(
+            f"- [✓] {f.summary} | 证据: {', '.join(f.evidence_refs) or '无'}"
+            for f in confirmed
+            if getattr(f, "summary", "")
+        )
+        if lines:
+            sections.append(f"## 已确认事实(可依赖)\n{lines}")
+    if excluded:
+        lines = "\n".join(
+            f"- [✗] {f.summary} | 反例: {getattr(f, 'refutation_evidence', '') or '未记录'}"
+            for f in excluded
+            if getattr(f, "summary", "")
+        )
+        if lines:
+            sections.append(f"## 已排除假设(别再试)\n{lines}")
+    if pending:
+        lines = "\n".join(
+            f"- [?] {f.summary} | 证据: {', '.join(f.evidence_refs) or '无'}"
+            for f in pending
+            if getattr(f, "summary", "")
+        )
+        if lines:
+            sections.append(f"## 待验证线索(重点查)\n{lines}")
+
+    return "\n\n".join(sections) if sections else "(暂无)"
 
 
 async def _build_similar_cases_message(
@@ -191,15 +236,12 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
 
     if is_resume:
         prior_findings = state.get("findings", []) or []
-        prior_summary = (
-            "\n".join(f"- {f.summary}" for f in prior_findings if getattr(f, "summary", ""))
-            or "(暂无)"
-        )
+        scratchpad = _format_scratchpad(prior_findings)
         continuation = (
-            "【续查模式】上一轮调查因预算耗尽未收敛。\n"
-            f"已收集发现:\n{prior_summary}\n\n"
+            "【续查模式】上一轮调查因预算耗尽未收敛。\n\n"
+            f"{scratchpad}\n\n"
             f"操作员补充引导: {human_guidance}\n\n"
-            "请基于已有发现和引导继续调查,并输出最终诊断报告 JSON。"
+            "请基于已有发现和引导继续调查(别重复已排除的假设),并输出最终诊断报告 JSON。"
         )
         initial_messages: list[BaseMessage] = [SystemMessage(content=base_prompt)]
         if similar_msg is not None:
@@ -423,9 +465,11 @@ async def human_input_node(state: DoctorState) -> dict[str, Any]:
 
     prior_findings = state.get("findings", []) or []
     prior_summary = "; ".join(f.summary for f in prior_findings if getattr(f, "summary", ""))[:500]
+    excluded_count = sum(1 for f in prior_findings if getattr(f, "status", None) == "excluded")
     prompt = (
         "预算耗尽,诊断未收敛。"
         f"已收集 {len(prior_findings)} 条发现"
+        f"{f'(已排除 {excluded_count} 个假设)' if excluded_count else ''}"
         f"{'(' + prior_summary + ')' if prior_summary else ''}。"
         "请补充一句人工引导(如可疑方向/已知线索),agent 将据此续查;"
         "留空则直接采纳当前 best-effort 结论。"
