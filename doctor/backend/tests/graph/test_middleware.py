@@ -7,6 +7,7 @@ covered by TestForcedCallWiredIntoNode in test_forced_final_json_call.py.
 
 from __future__ import annotations
 
+import json
 import time
 from types import SimpleNamespace
 from typing import Any
@@ -14,6 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langgraph.graph.message import add_messages
 
 from src.engine.budget.constants import (
     MAX_MODEL_CALLS,
@@ -24,6 +26,7 @@ from src.engine.context.budget import ContextBudget
 from src.engine.middleware import (
     AgentLifecycleMiddleware,
     BudgetGuardMiddleware,
+    ContextElisionMiddleware,
     DiagnosisRunContext,
     ForcedFinalCallMiddleware,
     LangfuseTracingMiddleware,
@@ -98,7 +101,8 @@ class TestRunContext:
         ctx = DiagnosisRunContext()
         assert ctx.case_id == ""
         assert ctx.langfuse_handler is None
-        assert ctx.call_history == []
+        assert ctx.call_history == {}
+        assert ctx.elided_tool_call_ids == set()
         assert ctx.model_call_count == 0
         assert ctx.budget_exhausted is False
         assert ctx.forced_call_triggered is False
@@ -123,7 +127,8 @@ class TestLangfuseTracingMiddleware:
         assert run_ctx.ctx_budget.evidence_tokens > 0
         assert run_ctx.ctx_budget.total_used > 0
         # call_history + counters reset
-        assert run_ctx.call_history == []
+        assert run_ctx.call_history == {}
+        assert run_ctx.elided_tool_call_ids == set()
         assert run_ctx.model_call_count == 0
         assert run_ctx.budget_exhausted is False
 
@@ -333,7 +338,8 @@ class TestToolDedupMiddleware:
         await mw.awrap_tool_call(request, handler)
         handler.assert_awaited_once()
         assert len(run_ctx.call_history) == 1
-        assert run_ctx.call_history[0][0] == "echo"
+        key = ("echo", json.dumps({"text": "hi"}, sort_keys=True, default=str))
+        assert run_ctx.call_history[key] == "tc1"
 
     async def test_duplicate_call_returns_skip_message_without_invoking_handler(
         self, run_ctx: DiagnosisRunContext
@@ -367,6 +373,107 @@ class TestToolDedupMiddleware:
         await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "b"}, "tc2"), handler)
         assert handler.await_count == 2
         assert len(run_ctx.call_history) == 2
+
+    async def test_duplicate_after_elision_allows_refetch(
+        self, run_ctx: DiagnosisRunContext
+    ) -> None:
+        """elision-aware dedup: prior result aged out -> identical re-call is a
+        legitimate re-fetch, allowed through (not skipped)."""
+        handler = AsyncMock(return_value=ToolMessage(content="r", tool_call_id="tc2", name="echo"))
+        mw = ToolDedupMiddleware()
+        # first call executes, records call_key -> "tc1"
+        await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc1"), handler)
+        # simulate ContextElision having aged out tc1's result
+        run_ctx.elided_tool_call_ids.add("tc1")
+        # second identical call (new id tc2) -> allowed re-fetch
+        result = await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc2"), handler)
+        handler.assert_awaited()
+        assert handler.await_count == 2  # both calls executed
+        assert isinstance(result, ToolMessage)
+        assert "跳过" not in str(result.content)  # real content, not skip stub
+        # mapping tracks latest result id
+        key = ("echo", json.dumps({"text": "hi"}, sort_keys=True, default=str))
+        assert run_ctx.call_history[key] == "tc2"
+
+    async def test_duplicate_when_original_still_present_is_skipped(
+        self, run_ctx: DiagnosisRunContext
+    ) -> None:
+        """elision-aware dedup: prior result still in context (not elided) ->
+        identical re-call is a wasteful dup, skipped (original behaviour)."""
+        handler = AsyncMock(return_value=ToolMessage(content="r", tool_call_id="tc1", name="echo"))
+        mw = ToolDedupMiddleware()
+        await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc1"), handler)
+        # elided_tool_call_ids stays empty -> tc1 result still in context
+        result = await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc2"), handler)
+        handler.assert_awaited_once()  # only first call executed
+        assert isinstance(result, ToolMessage)
+        assert "跳过" in str(result.content)
+
+
+# ═════════════════════════════════════════════════════════════════════
+# Dedup <-> ContextElision integration (the §7.1 ↔ dedup contract)
+# ═════════════════════════════════════════════════════════════════════
+
+
+class TestDedupElisionIntegration:
+    """Joint contract: dedup must ALLOW a re-fetch whose prior result was aged
+    out by ContextElision. This is the exact scenario that caused the
+    recursion-limit loop (agent re-fetches an elided file, dedup blocks the
+    identical call, agent flails) - no test exercised both middlewares together
+    before, so the contradiction shipped green."""
+
+    @staticmethod
+    def _code_pair(tc_id: str, args: dict[str, Any]) -> list[Any]:
+        return [
+            AIMessage(
+                content="",
+                tool_calls=[{"name": "get_file_content", "args": args, "id": tc_id, "type": "tool_call"}],
+            ),
+            ToolMessage(content=f"line_{tc_id}\n" + "BULK" * 200, tool_call_id=tc_id, name="get_file_content"),
+        ]
+
+    async def test_refetch_allowed_after_elision_ages_out_prior_result(
+        self, run_ctx: DiagnosisRunContext
+    ) -> None:
+        args = {"file_path": "app/svc.py"}
+        # 4 tool results so keep_recent=3 ages out tc1.
+        raw: list[Any] = []
+        raw += self._code_pair("tc1", args)
+        raw += self._code_pair("tc2", {"file_path": "b.py"})
+        raw += self._code_pair("tc3", {"file_path": "c.py"})
+        raw += self._code_pair("tc4", {"file_path": "d.py"})
+        messages = add_messages([], raw)
+
+        # 1) Agent already fetched app/svc.py once (tc1) -> dedup records it.
+        first_handler = AsyncMock(
+            return_value=ToolMessage(content="line_tc1\n" + "BULK" * 200, tool_call_id="tc1", name="get_file_content")
+        )
+        dedup = ToolDedupMiddleware()
+        await dedup.awrap_tool_call(_make_tool_call_request("get_file_content", args, "tc1"), first_handler)
+        first_handler.assert_awaited_once()
+
+        # 2) Elision ages out tc1 (keep_recent=3) -> records tc1 as elided.
+        elision = ContextElisionMiddleware()
+        with patch("src.engine.middleware.context_elision.settings") as ms:
+            ms.context_elision_enabled = True
+            ms.context_elision_keep_recent = 3
+            await elision.abefore_model(state={"messages": messages}, runtime=None)
+        assert "tc1" in run_ctx.elided_tool_call_ids
+
+        # 3) Agent re-fetches app/svc.py (same args, new id tc5) -> dedup ALLOWS
+        #    (not skipped), because tc1 was elided.
+        refetch_handler = AsyncMock(
+            return_value=ToolMessage(content="line_tc1\n" + "BULK" * 200, tool_call_id="tc5", name="get_file_content")
+        )
+        result = await dedup.awrap_tool_call(
+            _make_tool_call_request("get_file_content", args, "tc5"), refetch_handler
+        )
+        refetch_handler.assert_awaited_once()  # executed, not skipped
+        assert isinstance(result, ToolMessage)
+        assert "跳过" not in str(result.content)
+        # mapping updated to the latest result's id
+        key = ("get_file_content", json.dumps(args, sort_keys=True, default=str))
+        assert run_ctx.call_history[key] == "tc5"
 
 
 # ═════════════════════════════════════════════════════════════════════

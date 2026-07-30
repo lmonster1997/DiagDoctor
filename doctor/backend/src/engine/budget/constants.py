@@ -13,3 +13,13 @@ MAX_MODEL_CALLS: int = 16  # 标定后(§5.3)：P90=12 +4buffer，FE-021 flail �
 BUDGET_WARNING_THRESHOLD: int = 8
 MAX_TOKENS_BUDGET: int = 100_000
 MAX_TIME_SECONDS: int = 300
+
+# 图步安全网(必须 > MAX_MODEL_CALLS × 单轮步数,否则 recursion 先于 BudgetGuard 触顶)。
+# langchain create_agent 里每个 before_model/after_model 钩子都是独立图节点=1 步:
+# 本栈单轮 = ContextElision.bm + BudgetGuard.bm + model + BudgetGuard.am + tools ≈ 5 步
+# (并行工具调用每路 +1)。§7.1 加 ContextElision.bm 前是 4 步/轮,旧值 80=20 轮足够;
+# 加完变 5 步/轮,80=16 轮恰好不容许第 17 次 before_model(BudgetGuard 在此 fire),
+# 导致 RecursionError 抢停、BudgetGuard 永不触发。取充裕值,让 BudgetGuard(16 轮)
+# 始终是真正的停止条件,此值仅兜底。改中间件结构(增/删 before_model/after_model)
+# 时须重估单轮步数,见 tests/graph/test_recursion_budget.py。
+RECURSION_LIMIT: int = 200

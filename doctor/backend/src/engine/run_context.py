@@ -30,7 +30,8 @@ class DiagnosisRunContext:
     and can't be known inside middleware: ``case_id``, ``langfuse_handler``,
     ``langfuse_trace_id``) and mutated by middlewares during the loop
     (``ctx_budget`` token accounting, ``call_history`` dedup cache,
-    ``model_call_count``, ``budget_exhausted``, ``forced_call_triggered``).
+    ``elided_tool_call_ids`` elision↔dedup contract, ``model_call_count``,
+    ``budget_exhausted``, ``forced_call_triggered``).
 
     The ``ctx_budget`` is initialized by ``AgentLifecycleMiddleware.abefore_agent``
     rather than by the node, so the node only needs to supply the
@@ -50,7 +51,16 @@ class DiagnosisRunContext:
 
     # ── Mutated by middlewares during the loop ──
     ctx_budget: ContextBudget = field(default_factory=ContextBudget)
-    call_history: list[tuple[str, str]] = field(default_factory=list)
+    # call_key (tool_name, args_json) -> tool_call_id of the LAST execution's
+    # result. Dict (not list) so dedup can look up which result a prior call
+    # produced, and update it when a re-fetch supersedes the old result.
+    call_history: dict[tuple[str, str], str] = field(default_factory=dict)
+    # tool_call_ids whose ToolMessage has been aged out to a placeholder by
+    # ``ContextElisionMiddleware``. Cross-middleware contract: **elision writes
+    # (abefore_model), ToolDedupMiddleware reads (awrap_tool_call)** to allow a
+    # re-fetch of an elided result instead of skipping it as a wasteful dup
+    # (the §7.1 ↔ dedup conflict that caused the recursion-limit loop).
+    elided_tool_call_ids: set[str] = field(default_factory=set)
     model_call_count: int = 0
     budget_exhausted: bool = False
     forced_call_triggered: bool = False

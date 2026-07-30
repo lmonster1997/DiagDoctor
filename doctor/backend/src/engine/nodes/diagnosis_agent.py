@@ -50,6 +50,7 @@ from src.engine.agent import (
     _build_system_prompt,
     get_diagnosis_agent,
 )
+from src.engine.budget.constants import RECURSION_LIMIT
 from src.engine.nodes.bug_info import bug_info_node
 from src.engine.run_context import (
     DiagnosisRunContext,
@@ -280,7 +281,7 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
 
     # Attach Langfuse handler at agent.ainvoke level (NOT model.with_config).
     # Tool callbacks (on_tool_start/end) are no-ops, so no double-recording.
-    invoke_config: dict[str, Any] = {"recursion_limit": 80}
+    invoke_config: dict[str, Any] = {"recursion_limit": RECURSION_LIMIT}
     if langfuse_handler is not None:
         invoke_config["callbacks"] = [langfuse_handler]
 

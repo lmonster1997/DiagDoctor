@@ -32,7 +32,8 @@ class AgentLifecycleMiddleware(AgentMiddleware):
             ctx.ctx_budget.add_evidence(ctx.evidence_text)
         ctx.ctx_budget.start_timer()
 
-        ctx.call_history = []
+        ctx.call_history = {}
+        ctx.elided_tool_call_ids = set()
         ctx.model_call_count = 0
         ctx.budget_exhausted = False
         ctx.forced_call_triggered = False

@@ -27,6 +27,7 @@ from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 
 from src.config import settings
 from src.engine.context.elision import build_elision_placeholder
+from src.engine.run_context import get_run_context_or_none
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)
@@ -51,12 +52,19 @@ class ContextElisionMiddleware(AgentMiddleware):
             return None
 
         keep_recent = settings.context_elision_keep_recent
+        # 记录被 ageing 的 tool_call_id 供 ToolDedupMiddleware 放行重取(见
+        # run_context 的 elided_tool_call_ids 契约注释)。ctx 在单测里可能未设。
+        ctx = get_run_context_or_none()
 
         # 倒序收集 ToolMessage 索引;rank 0 = 最近一次工具结果。
         tool_msg_indices: list[int] = [
             i for i in range(len(messages) - 1, -1, -1)
             if isinstance(messages[i], ToolMessage)
         ]
+
+        # 一次扫描建 tool_call_id -> args 索引,占位构造 O(1) 取重取入口
+        # (替代每个 aged ToolMessage 都 O(M) 重扫全表;整轮 O(E·M)->O(M+E))。
+        tc_args_by_id = _index_tool_call_args(messages)
 
         replacements: list[ToolMessage] = []
         for rank, idx in enumerate(tool_msg_indices):
@@ -66,8 +74,17 @@ class ContextElisionMiddleware(AgentMiddleware):
             if not isinstance(original, ToolMessage):  # 防御(race 上限已不必要)
                 continue
 
+            # 已归档过(prior pass 的同 id 原位替换)-> 跳过:省重扫/重建占位,且防
+            # "关键发现"退化(再跑 build_elision_placeholder 会把占位首行=handle 行
+            # 当 finding,丢掉原始关键发现)。elided_tool_call_ids:本中间件写、
+            # ToolDedupMiddleware 读(见 run_context 契约注释)。ctx 未设(单测)则不跳。
+            if ctx is not None and original.tool_call_id in ctx.elided_tool_call_ids:
+                continue
+
+            if ctx is not None:
+                ctx.elided_tool_call_ids.add(original.tool_call_id)
             tool_name = original.name or "unknown"
-            tool_call_args = _find_tool_call_args(messages, original.tool_call_id)
+            tool_call_args = tc_args_by_id.get(original.tool_call_id, {})
             placeholder = build_elision_placeholder(
                 tool_name, tool_call_args, str(original.content)
             )
@@ -86,29 +103,28 @@ class ContextElisionMiddleware(AgentMiddleware):
         logger.info(
             "context_elision_applied",
             total_tool_msgs=len(tool_msg_indices),
-            elided=len(replacements),
+            elided=len(replacements),  # 本轮新归档数(已归档的跳过不计)
             keep_recent=keep_recent,
         )
         return {"messages": replacements}
 
 
-def _find_tool_call_args(
-    messages: list[BaseMessage], tool_call_id: str | None
-) -> dict[str, Any]:
-    """找前一条匹配 ``tool_call_id`` 的 AIMessage,取其 tool_call ``args``。
+def _index_tool_call_args(messages: list[BaseMessage]) -> dict[str, dict[str, Any]]:
+    """扫一次所有 AIMessage,建 ``tool_call_id -> args`` 索引(供 O(1) 查)。
 
     用于构造非 obs 工具的重取入口(obs 优先从结果 JSON 取 echo 的 query/time_range,
-    JSON 不可解析时也回退到这里)。
+    JSON 不可解析时也回退到这里)。原 ``_find_tool_call_args`` 每个 aged ToolMessage
+    都 O(M) 重扫全表;索引法把整轮 abefore_model 从 O(E·M) 降到 O(M + E)。
     """
-    if not tool_call_id:
-        return {}
+    index: dict[str, dict[str, Any]] = {}
     for msg in messages:
         if not isinstance(msg, AIMessage):
             continue
         for tc in getattr(msg, "tool_calls", None) or []:
             if not isinstance(tc, dict):
                 continue
-            if tc.get("id") == tool_call_id:
-                args = tc.get("args", {})
-                return args if isinstance(args, dict) else {}
-    return {}
+            tc_id = tc.get("id")
+            if not tc_id:
+                continue
+            index[tc_id] = tc.get("args", {})
+    return index

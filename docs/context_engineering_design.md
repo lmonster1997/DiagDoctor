@@ -88,7 +88,7 @@
 - **ContextBudget**(`engine/context/budget.py`):四维度追踪 token / iteration / tool_calls / time;`phase` 取最严级别(INITIAL->INVESTIGATING->CONVERGING->FINALIZING)。token 口径用真实 usage(`real_input_tokens` = peak `usage_metadata.input_tokens`),详见 §6.1/§7.3。
 - **BudgetGuard**(`abefore_model`):`model_call_count > MAX_MODEL_CALLS` 或 `total_used >= MAX_TOKENS_BUDGET` 或 `elapsed >= MAX_TIME_SECONDS` -> `jump_to:end`。`aafter_model` 记录真实 input_tokens;`total_used = max(静态估算, real_input_tokens)`。
 - **ForcedFinalCall**(`aafter_agent`):循环结束若最后一条 AI 消息无 JSON,强制一次 `with_structured_output` 兜底出报告。
-- 常量(`engine/budget/constants.py`,**单一来源**):`MAX_MODEL_CALLS=16` / `MAX_TOKENS_BUDGET=100_000` / `MAX_TIME_SECONDS=300`。`MAX_MODEL_CALLS` 正名(实计 model_call);config.py / ContextBudget 不再存副本(§6.1 根治)。
+- 常量(`engine/budget/constants.py`,**单一来源**):`MAX_MODEL_CALLS=16` / `MAX_TOKENS_BUDGET=100_000` / `MAX_TIME_SECONDS=300` / `RECURSION_LIMIT=200`(图步安全网,>MAX_MODEL_CALLS×单轮步数,作 BudgetGuard 之上兜底,见 §5.3)。`MAX_MODEL_CALLS` 正名(实计 model_call);config.py / ContextBudget 不再存副本(§6.1 根治)。
 - ✅ 预算测量 split-brain 已彻底修(§7.3 真实 usage 口径)。
 
 ### 3.6 HITL 跨轮延续
@@ -180,6 +180,8 @@ BudgetGuard 硬停止 / ForcedFinalCall 强制 JSON / HITL 续查。
 
 **结论**:`MAX_MODEL_CALLS=16`(P90=12 + 4 buffer,覆盖 14/15;FE-021 触顶 16 靠 forced 出报告 + §7.2 治本)。符合"拉到 16-18(不是 30)"。不拉到 18+:FE-021 已证 flail,再加是给 flail 开绿灯(理由 ②)。配套 §7.1 符号占位(16 cap 下跨轮累积防爆)。
 
+**recursion_limit 安全网(2026-07-29 修)**:BudgetGuard(model-call 口径)与 `recursion_limit`(图步口径)是不同量纲,后者必须留足余量作前者兜底。langchain `create_agent` 里每个 `before_model`/`after_model` 钩子都是独立图节点=1 步;本栈单轮≈5 步(`ContextElision.bm`+`BudgetGuard.bm`+`model`+`BudgetGuard.am`+`tools`,并行工具每路 +1)。原 `recursion_limit=80` 在 §7.1 加 `ContextElision.bm` 前是 4 步/轮(80=20 轮>16,OK),加完后 5 步/轮(80=16×5)恰好不容许第 17 次 `before_model`(BudgetGuard 在第 17 轮 fire)-> `RecursionError` 抢停、BudgetGuard 永不触发(无 `budget_iteration_cap_hit` 日志)。修:`constants.py` 加 `RECURSION_LIMIT=200` 单源(>MAX_MODEL_CALLS×单轮步数,作 BudgetGuard 之上纯安全网),`diagnosis_agent.py` + `mount.py` 两处引用。回归测 `test_recursion_budget.py`(fake LLM 永不停调工具,断言 80 抛 `GraphRecursionError` / 200 优雅停于 BudgetGuard,`model_call_count==MAX_MODEL_CALLS+1`)。**教训:改中间件结构(增删 before_model/after_model)必重估单轮步数与 recursion_limit。**
+
 ### 5.4 入口压缩 vs 运行时压缩(取舍)
 
 **取舍**:压缩做在入口(预防),不做在运行时(管理)。
@@ -241,7 +243,7 @@ BudgetGuard 硬停止 / ForcedFinalCall 强制 JSON / HITL 续查。
 
 ## 7. 演进项
 
-### 7.1 符号占位 / tool result elision(已完成,2026-07-28;吸收 L2 可重取占位)
+### 7.1 符号占位 / tool result elision(已完成,2026-07-28;2026-07-29 修 elision↔dedup 冲突 + 步数顶穿;吸收 L2 可重取占位)
 
 `ContextElisionMiddleware`(`engine/middleware/context_elision.py`)+ 占位构造(`engine/context/elision.py`)。`abefore_model` 把 N 轮前的旧 ToolMessage 替换成带**重取入口**的一行占位,保留"调过什么 + 关键结论 + 如何重取",丢原始大块 JSON。
 
@@ -252,7 +254,12 @@ BudgetGuard 硬停止 / ForcedFinalCall 强制 JSON / HITL 续查。
 - **2 档 vs 旧 3 档**:旧 `compaction.py`(PR #34 删)是 3 档(全留/首行/归档);占位已带重取入口,"中档首行"冗余,简化为 2 档(近 N 全留 / 更早占位)。
 - **未标定**:`keep_recent=3` 参考旧 compaction 4 + §5.3 P90=12;后续用 `scripts/analyze_budget.py` 看替换率/重取率再调。
 - **收益定位**(讲法防雷):是"防爆 §7.6 worst case + 16-cap 累积余地",**不是"省 token 预算"**--§5.2 标定峰值 ~50k 远低于 100k,iteration 先 fire,token 不紧。
-- 配置:`settings.context_elision_enabled`(默认 True)+ `context_elision_keep_recent`(默认 3)。测试:`tests/graph/test_elision.py`(20 例)。
+- 配置:`settings.context_elision_enabled`(默认 True)+ `context_elision_keep_recent`(默认 3)。测试:`tests/graph/test_elision.py` + `test_middleware.py`(含 elision↔dedup 联合集成测)。
+
+**2026-07-29 运行时修复(手动测真实 case 暴露,单测绿但没人工验过)**:
+- **elision↔dedup 契约冲突**:占位的「重取=重调同参」与 `ToolDedupMiddleware`「拦死同参重调」(`call_history` 只增不清)直接矛盾--结果一旦被 ageing,agent 重取被拦、乱试路径烧步数。修:dedup 变 elision-aware,`DiagnosisRunContext` 加 `elided_tool_call_ids` 集(**elision 写 / dedup 读**),原结果已 ageing 时放行重取并更新映射;`call_history` 由 list 改 dict(call_key->tool_call_id)。两中间件仍独立,仅以此集合通信--不合并:合并不消共享状态(中间件实例跨 invoke 复用,`self` 上状态会泄漏,仍得走 ContextVar),只损单职责 + 可隔离单测。
+- **elision 自身重构**:① 索引化取参--`_find_tool_call_args`(每条 O(M) 重扫)改 `_index_tool_call_args`(一轮一次 O(M) 建 `tool_call_id->args` 索引,O(1) 查),整轮 O(E·M)->O(M+E);② 跳过已归档--`elided_tool_call_ids` 命中即 `continue`,省重扫 + 防「关键发现」退化(重复 `build_elision_placeholder` 会把占位首行=handle 当 finding,丢原始关键发现)。
+- **步数顶穿 recursion_limit(主因,见 §5.3)**:本中间件加了一个 `before_model` 图节点,单轮图步数 4->5,顶穿了原 `recursion_limit=80` 标定,致 BudgetGuard 结构性永不触发、RecursionError 抢停。修法见 §5.3。
 
 ### 7.2 HITL 续查升级:scratchpad(已完成,2026-07-28;吸收 L4 假设树结构)
 
