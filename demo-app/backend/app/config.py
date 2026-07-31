@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # --- Database ---
-    database_url: str = "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/taskflow"
+    database_url: str = "postgresql+asyncpg://postgres:DiagDoctor@127.0.0.1:5432/demo_taskflow"
 
     # --- JWT / Auth ---
     jwt_secret: str = "change-me-in-production-use-a-strong-random-secret"

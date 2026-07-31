@@ -322,6 +322,92 @@ class TestBudgetGuardMiddleware:
         assert result is None
         assert run_ctx.budget_exhausted is False
 
+    # ── §7.2 record_hypothesis budget exemption ──────────────────────
+
+    async def test_record_hypothesis_tool_call_exempt_from_tool_calls(
+        self, run_ctx: DiagnosisRunContext
+    ) -> None:
+        """record_hypothesis is instrumentation; awrap_tool_call must NOT count
+        it toward tool_calls (would eat the diagnostic MAX_MODEL_CALLS cap)."""
+        handler = AsyncMock(
+            return_value=ToolMessage(content="已记录", tool_call_id="rh1", name="record_hypothesis")
+        )
+        mw = BudgetGuardMiddleware()
+        await mw.awrap_tool_call(
+            _make_tool_call_request(
+                "record_hypothesis",
+                {"hypothesis": "h", "status": "excluded", "evidence": "e", "refuted": True},
+                "rh1",
+            ),
+            handler,
+        )
+        assert run_ctx.ctx_budget.tool_calls == 0  # not counted
+        assert run_ctx.ctx_budget.tool_result_tokens == 0  # ack not counted either
+
+        # a diagnostic tool call IS counted
+        handler2 = AsyncMock(
+            return_value=ToolMessage(content="result", tool_call_id="tc1", name="search_observability")
+        )
+        await mw.awrap_tool_call(_make_tool_call_request("search_observability", {}, "tc1"), handler2)
+        assert run_ctx.ctx_budget.tool_calls == 1
+
+    async def test_pure_record_hypothesis_turn_decrements_model_call_count(
+        self, run_ctx: DiagnosisRunContext
+    ) -> None:
+        """A turn whose tool_calls are ALL record_hypothesis is pure
+        instrumentation; aafter_model decrements model_call_count so it doesn't
+        advance the diagnostic MAX_MODEL_CALLS cap (§5.3 calibration preserved)."""
+        run_ctx.model_call_count = 5  # abefore_model already incremented for this turn
+        msg = AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "record_hypothesis",
+                    "args": {"hypothesis": "h", "status": "excluded"},
+                    "id": "rh1",
+                    "type": "tool_call",
+                }
+            ],
+        )
+        mw = BudgetGuardMiddleware()
+        await mw.aafter_model(state={"messages": [msg]}, runtime=None)
+        assert run_ctx.model_call_count == 4  # decremented back
+
+    async def test_mixed_record_and_diagnostic_turn_not_decremented(
+        self, run_ctx: DiagnosisRunContext
+    ) -> None:
+        """A turn mixing record_hypothesis + a diagnostic tool is NOT pure
+        instrumentation; model_call_count stands (it's a real diagnostic step)."""
+        run_ctx.model_call_count = 5
+        msg = AIMessage(
+            content="",
+            tool_calls=[
+                {"name": "record_hypothesis", "args": {}, "id": "rh1", "type": "tool_call"},
+                {"name": "search_observability", "args": {}, "id": "tc1", "type": "tool_call"},
+            ],
+        )
+        mw = BudgetGuardMiddleware()
+        await mw.aafter_model(state={"messages": [msg]}, runtime=None)
+        assert run_ctx.model_call_count == 5  # not decremented
+
+    async def test_record_hypothesis_turn_still_records_token_usage(
+        self, run_ctx: DiagnosisRunContext
+    ) -> None:
+        """Token budget is real (the turn consumed tokens); only model_call_count
+        is exempted for pure record turns -- tokens are a real resource cost."""
+        run_ctx.model_call_count = 1
+        msg = AIMessage(
+            content="",
+            usage_metadata={"input_tokens": 4000, "output_tokens": 10, "total_tokens": 4010},
+            tool_calls=[
+                {"name": "record_hypothesis", "args": {}, "id": "rh1", "type": "tool_call"}
+            ],
+        )
+        mw = BudgetGuardMiddleware()
+        await mw.aafter_model(state={"messages": [msg]}, runtime=None)
+        assert run_ctx.ctx_budget.real_input_tokens == 4000  # token usage recorded (real cost)
+        assert run_ctx.model_call_count == 0  # but the diagnostic turn-count was exempted
+
 
 # ═════════════════════════════════════════════════════════════════════
 # ToolDedupMiddleware

@@ -362,6 +362,20 @@ def _get_langfuse_handler_for_dict_state(case_id: str, evidence_text: str) -> An
         return None
 
 
+def _best_finding_for_root_cause(findings: list[Any]) -> Any | None:
+    """Pick the best finding as a root_cause fallback when no JSON report was emitted.
+
+    Preference: confirmed (a root_cause hypothesis the agent validated) > pending
+    (an unverified lead, but still a concrete hypothesis) > any. Excluded findings
+    are skipped -- they're ruled-out dead ends, not a root cause.
+    """
+    for status in ("confirmed", "pending"):
+        for f in findings:
+            if getattr(f, "status", None) == status:
+                return f
+    return findings[0] if findings else None
+
+
 def _finalize_report_for_dict_state(
     messages: list[Any], budget_exhausted: bool, retrieved_case_ids: list[str] | None = None
 ) -> tuple[Any, list[Any], Any, bool]:
@@ -381,13 +395,16 @@ def _finalize_report_for_dict_state(
     early_stopped = is_budget_exceeded(budget_state) or budget_exhausted
 
     if report is None:
-        best_summary = findings[0].summary if findings else "诊断未完成"
+        # Agent 未输出有效 JSON(被截断 + forced call 失败)。从 findings 里挑最佳
+        # 根因候选:confirmed > pending > 任意。远好过旧实现拿最后一条 AIMessage
+        # 的推理文本当 root_cause(那是调查中的碎碎念,不是结论)。
+        best = _best_finding_for_root_cause(findings)
         report = DiagnosisReport(
             primary_category="",
-            root_cause=best_summary,
+            root_cause=best.summary if best else "诊断未完成",
             confidence=0.3,
             early_stopped=early_stopped,
-            notes="Agent 未输出有效 JSON",
+            notes="Agent 未输出有效 JSON，根因取自假设记录" if best else "Agent 未输出有效 JSON",
         )
 
     if early_stopped:

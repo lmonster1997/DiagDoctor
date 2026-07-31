@@ -40,6 +40,7 @@ from src.tools.memory_recall import (
     ROOT_CAUSE_RECALL_TOOL,
     search_historical_root_cause,
 )
+from src.tools.hypothesis_log import RECORD_HYPOTHESIS_TOOL, record_hypothesis
 from src.tools.observability_tools import (
     query_loki_logs,
     query_tempo_trace,
@@ -176,13 +177,18 @@ TRACE_ANALYSIS_TOOL = StructuredTool.from_function(
     ),
 )
 
-# ── V3 统一工具集 (6 tools for DiagnosisAgent) ────────────────────────
+# ── V3 统一工具集 (6 诊断工具 + 1 埋点工具 for DiagnosisAgent) ─────────
 
 _ALL_TOOLS_CACHE: list[StructuredTool] | None = None
 
 
 def _build_all_tools() -> list[StructuredTool]:
-    """Build the V3 ALL_TOOLS list (6 tools: 5 observability/code + P1-a memory recall)."""
+    """Build the V3 ALL_TOOLS list.
+
+    6 诊断工具(可观测性/代码/db/前端/文件/历史根因) + 1 §7.2 假设证伪埋点工具
+    (``record_hypothesis``)。埋点工具是 no-op,预算豁免(见 BudgetGuardMiddleware),
+    不吃诊断 ``MAX_MODEL_CALLS`` cap。
+    """
     return [
         SEARCH_OBSERVABILITY_TOOL,  # 统一可观测性查询
         CODE_SEARCH_TOOL,  # 语义代码搜索
@@ -190,11 +196,12 @@ def _build_all_tools() -> list[StructuredTool]:
         INSPECT_FRONTEND_ERROR_TOOL,  # 一站式前端分析
         GET_FILE_CONTENT_TOOL,  # 文件读取
         ROOT_CAUSE_RECALL_TOOL,  # P1-a: 根因向量检索历史相似 bug (§6.4)
+        RECORD_HYPOTHESIS_TOOL,  # §7.2: 假设证伪埋点(预算豁免)
     ]
 
 
 def get_all_tools() -> list[StructuredTool]:
-    """Get the V3 unified tool set (6 tools). Cached after first call."""
+    """Get the V3 unified tool set (6 诊断 + 1 埋点). Cached after first call."""
     global _ALL_TOOLS_CACHE
     if _ALL_TOOLS_CACHE is None:
         _ALL_TOOLS_CACHE = _build_all_tools()
@@ -244,13 +251,15 @@ __all__ = [
     "CODE_SEARCH_TOOL",
     "DB_QUERY_TOOL",
     "EXTRACT_STACK_TRACE_TOOL",
-    "ALL_TOOLS",  # V3 统一工具集 (5 tools)
+    "ALL_TOOLS",  # V3 统一工具集 (6 诊断 + 1 埋点)
     "FRONTEND_SPECIALIST_TOOLS",  # DEPRECATED: 使用 INSPECT_FRONTEND_ERROR_TOOL 替代
     "GET_FILE_CONTENT_TOOL",  # V3 文件读取
     "INSPECT_FRONTEND_ERROR_TOOL",  # V3 一站式前端分析
     "LOKI_QUERY_TOOL",  # DEPRECATED: 使用 SEARCH_OBSERVABILITY_TOOL 替代
     "PARSE_BROWSER_ERRORS_TOOL",
     "ROOT_CAUSE_RECALL_TOOL",  # P1-a: 根因向量历史检索 (§6.4)
+    "RECORD_HYPOTHESIS_TOOL",  # §7.2: 假设证伪埋点工具
+    "record_hypothesis",  # §7.2: raw async fn
     "SEARCH_OBSERVABILITY_TOOL",  # V3 统一可观测性入口
     "SHARED_TOOLS",  # V2 兼容 (7 tools)
     "SOURCE_MAP_RESOLVE_TOOL",

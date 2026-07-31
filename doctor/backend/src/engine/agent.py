@@ -3,7 +3,7 @@ DiagnosisAgent — V3 统一诊断 Agent (ReAct with full toolset).
 
 Uses LangChain's ``create_agent`` to build a ReAct agent that:
 1. Receives normalized evidence via HumanMessage
-2. Calls 5 tools on demand
+2. Calls 6 diagnostic tools on demand (+ 1 §7.2 record_hypothesis 埋点工具, 预算豁免)
 3. Produces a structured DiagnosisReport
 
 Agent is cached at module level for reuse across sessions.

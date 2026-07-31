@@ -38,7 +38,15 @@ def update_budget(budget: BudgetState, agent_result: dict[str, Any]) -> BudgetSt
     for msg in messages:
         if isinstance(msg, AIMessage):
             if hasattr(msg, "tool_calls") and msg.tool_calls:
-                tool_call_count += len(msg.tool_calls)
+                # §7.2: record_hypothesis 是埋点工具,不计入诊断 tool_calls 口径
+                # (与 BudgetGuardMiddleware 豁免一致;否则 record 调用会顶高 tool_calls
+                # 代理口径、误判收敛 case 为 early_stopped)。见 src/tools/hypothesis_log.py。
+                tool_call_count += sum(
+                    1
+                    for tc in msg.tool_calls
+                    if (tc.get("name") if isinstance(tc, dict) else getattr(tc, "name", ""))
+                    != "record_hypothesis"
+                )
             usage = getattr(msg, "usage_metadata", None)
             if isinstance(usage, dict) and usage.get("total_tokens"):
                 real_total_tokens += int(usage["total_tokens"])
@@ -68,10 +76,11 @@ def is_budget_exceeded(budget: BudgetState) -> bool:
     """Check if the diagnosis budget has been exceeded (model_calls / tokens / time).
 
     Post-hoc re-derivation (OR'd with the runtime ``budget_exhausted`` flag in the
-    node). ``tool_calls`` is real tool invocations (≤ model_calls); comparing
-    against ``MAX_MODEL_CALLS`` is a conservative proxy -- if tool_calls hit the
-    model-call cap, model_calls certainly did too. The authoritative runtime gate
-    is BudgetGuardMiddleware (counts model_call_count directly).
+    node). ``tool_calls`` is real tool invocations (≤ model_calls, **excluding
+    §7.2 record_hypothesis 埋点**); comparing against ``MAX_MODEL_CALLS`` is a
+    conservative proxy -- if tool_calls hit the model-call cap, model_calls
+    certainly did too. The authoritative runtime gate is BudgetGuardMiddleware
+    (counts model_call_count directly, also exempting record_hypothesis turns).
     """
     if budget.tool_calls >= MAX_MODEL_CALLS:
         return True

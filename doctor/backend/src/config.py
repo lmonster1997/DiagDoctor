@@ -78,9 +78,9 @@ class Settings(BaseSettings):
 
     # --- Demo App Database (read-only for Doctor diagnosis) ---
     # Doctor 诊断时只做 SELECT 验证数据状态，使用只读连接。
-    # 默认连接 docker-compose 中的 postgres 容器（taskflow 数据库）。
+    # 必须指向 demo-app 实际使用的同一个 Postgres（127.0.0.1，与 demo-app .env 一致）。
     # 正式环境应使用独立的只读账号。
-    demo_db_ro_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/taskflow"
+    demo_db_ro_url: str = "postgresql+asyncpg://postgres:DiagDoctor@127.0.0.1:5432/demo_taskflow"
 
     # --- Target Services ---
     # Service names as they appear in OpenTelemetry instrumentation.

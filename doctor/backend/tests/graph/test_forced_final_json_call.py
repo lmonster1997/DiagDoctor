@@ -113,21 +113,21 @@ class TestLastAiIsNaturalStop:
 
 
 def _make_mock_llm(parsed_report: ForcedDiagnosisReport | None) -> tuple[MagicMock, AsyncMock]:
-    """Build a mock BaseChatModel whose ``with_structured_output`` returns a
-    structured_llm mock whose ``ainvoke`` returns ``{"parsed": parsed_report, ...}``.
+    """Build a mock BaseChatModel whose ``ainvoke`` returns an AIMessage whose
+    content is the model's text-JSON report response.
 
-    Mirrors the Iteration 2 call path: ``llm.with_structured_output(schema,
-    include_raw=True).ainvoke(...)`` returns a dict with a ``parsed`` key.
-    Pass ``parsed_report=None`` to simulate the model emitting no matching
-    tool_call (parsed-None branch).
+    Mirrors the plain-LLM call path: ``llm.ainvoke(forced_messages)`` (no tools
+    bound) returns an AIMessage with JSON content. Pass ``parsed_report=None``
+    to simulate the model emitting no extractable JSON (no-json branch).
     """
     mock_llm = MagicMock(spec=BaseChatModel)
-    structured_llm = MagicMock()
-    structured_llm.ainvoke = AsyncMock(
-        return_value={"parsed": parsed_report, "raw": AIMessage(content="raw")}
-    )
-    mock_llm.with_structured_output = MagicMock(return_value=structured_llm)
-    return mock_llm, structured_llm.ainvoke
+    if parsed_report is not None:
+        content = parsed_report.model_dump_json(indent=2)
+    else:
+        content = "抱歉，我无法生成结构化报告。"  # no JSON -> no_json branch
+    mock_ainvoke = AsyncMock(return_value=AIMessage(content=content))
+    mock_llm.ainvoke = mock_ainvoke
+    return mock_llm, mock_ainvoke
 
 
 def _sample_report(**overrides: Any) -> ForcedDiagnosisReport:
@@ -178,11 +178,7 @@ class TestForcedFinalJsonCall:
         # with_structured_output should have been called with the schema +
         # method="function_calling" (CRITICAL for DeepSeek — default json_schema
         # response_format is rejected with 400) + include_raw=True
-        mock_llm.with_structured_output.assert_called_once()
-        call_args = mock_llm.with_structured_output.call_args
-        assert call_args[0][0] is ForcedDiagnosisReport
-        assert call_args[1].get("method") == "function_calling"
-        assert call_args[1].get("include_raw") is True
+        mock_llm.with_structured_output.assert_not_called()
         # original messages list must not be mutated
         assert len(messages) == 3
 
@@ -219,9 +215,7 @@ class TestForcedFinalJsonCall:
     async def test_returns_none_when_llm_raises(self) -> None:
         """If the forced call itself fails (API error / timeout), return None."""
         mock_llm = MagicMock(spec=BaseChatModel)
-        structured_llm = MagicMock()
-        structured_llm.ainvoke = AsyncMock(side_effect=RuntimeError("API timeout"))
-        mock_llm.with_structured_output = MagicMock(return_value=structured_llm)
+        mock_llm.ainvoke = AsyncMock(side_effect=RuntimeError("API timeout"))
         messages = [AIMessage(content="")]
 
         response = await _forced_final_json_call(
@@ -233,8 +227,8 @@ class TestForcedFinalJsonCall:
         )
         assert response is None
 
-    async def test_returns_none_when_model_emits_no_tool_call(self) -> None:
-        """If the model emits no matching tool_call (parsed=None), return None."""
+    async def test_returns_none_when_model_emits_no_json(self) -> None:
+        """If the model emits no extractable JSON, return None."""
         mock_llm, _ = _make_mock_llm(parsed_report=None)
         messages = [AIMessage(content="")]
 
@@ -333,14 +327,12 @@ class TestStructuredOutputObservability:
         assert kwargs["schema_name"] == "ForcedDiagnosisReport"
         assert kwargs["parsed"] is None
         assert "error" in kwargs
-        assert "no matching tool_call" in kwargs["error"]
+        assert "no extractable JSON" in kwargs["error"]
 
     async def test_records_error_on_exception(self) -> None:
         """On LLM exception: record_structured_output called with parsed=None + error."""
         mock_llm = MagicMock(spec=BaseChatModel)
-        structured_llm = MagicMock()
-        structured_llm.ainvoke = AsyncMock(side_effect=RuntimeError("API timeout"))
-        mock_llm.with_structured_output = MagicMock(return_value=structured_llm)
+        mock_llm.ainvoke = AsyncMock(side_effect=RuntimeError("API timeout"))
         handler = MagicMock()
         messages = [AIMessage(content="")]
 

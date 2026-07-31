@@ -96,18 +96,19 @@ def parse_diagnosis_report(agent_result: dict[str, Any]) -> DiagnosisReport | No
                 extracted_json_keys=list(report_data.keys()) if report_data else [],
             )
 
-    # Fallback: construct a best-effort report from raw text
+    # No JSON extractable -> return None. The caller (_finalize_report_for_dict_state)
+    # falls back to a findings-based root_cause, which is far better than the old
+    # behavior of stuffing the last AIMessage's mid-reasoning text into root_cause.
+    # That produced garbage reports whenever the agent was cut off mid-investigation
+    # (budget exhausted, last AIMessage a tool-call with no JSON) -- e.g. root_cause
+    # = "关键发现！有多个 task 的 assignee_id 是空字符串...". Findings (record_hypothesis
+    # records / root_cause) are the durable signal; use them.
     logger.warning(
         "diagnosis_json_extraction_failed",
         content_len=len(last_ai_content),
         content_tail=last_ai_content[-300:] if len(last_ai_content) > 300 else last_ai_content,
     )
-    return DiagnosisReport(
-        primary_category="",
-        root_cause=last_ai_content[:500] if last_ai_content else "（无法解析 Agent 输出）",
-        confidence=0.2,
-        notes="JSON 解析失败，使用原始输出作为 root_cause",
-    )
+    return None
 
 
 def extract_findings(agent_result: dict[str, Any]) -> list[Finding]:
@@ -136,12 +137,34 @@ def extract_findings(agent_result: dict[str, Any]) -> list[Finding]:
         if not isinstance(msg, AIMessage):
             continue
         has_tool_calls = bool(getattr(msg, "tool_calls", None))
+        # §7.2 主路径:agent 调用 record_hypothesis 工具记录假设(原生 tool-calling
+        # agent 的可靠结构化通道;content 里的自由文本 JSON 它不会 emit)。
+        for tc in getattr(msg, "tool_calls", None) or []:
+            if _tool_call_name(tc) == "record_hypothesis":
+                finding = _finding_from_json(_tool_call_args(tc), has_tool_calls=True)
+                if finding is not None:
+                    findings.append(finding)
+        # §7.2 fallback:content 里自由文本 JSON 假设块(真 tool-calling agent 不会走,
+        # 但保留兼容;_finding_from_json 的 root_cause/summary 分支仍处理最终报告)。
         for data in _extract_all_json_objects(str(msg.content)):
             finding = _finding_from_json(data, has_tool_calls)
             if finding is not None:
                 findings.append(finding)
 
     return _dedup_findings_by_summary(findings)
+
+
+def _tool_call_name(tc: Any) -> str:
+    """Best-effort tool name from a ToolCall (dict or object)."""
+    if isinstance(tc, dict):
+        return str(tc.get("name", ""))
+    return str(getattr(tc, "name", ""))
+
+
+def _tool_call_args(tc: Any) -> dict[str, Any]:
+    """Best-effort args dict from a ToolCall (dict or object)."""
+    args = tc.get("args") if isinstance(tc, dict) else getattr(tc, "args", None)
+    return dict(args) if isinstance(args, dict) else {}
 
 
 _VALID_STATUSES = {"confirmed", "excluded", "pending"}

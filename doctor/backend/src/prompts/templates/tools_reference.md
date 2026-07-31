@@ -1,6 +1,6 @@
 ## 工具速查
 
-> DiagDoctor V3 统一工具集。共 6 个工具，覆盖日志/ Trace/代码搜索/前端分析/文件读取 + 历史根因检索。
+> DiagDoctor V3 统一工具集。共 6 个诊断工具（日志/Trace/代码搜索/前端分析/文件读取/历史根因检索）+ 1 个 §7.2 假设证伪埋点工具（record_hypothesis，预算豁免）。
 
 ---
 
@@ -149,6 +149,29 @@ search_historical_root_cause(hypothesis="IDOR 越权: get_project 缺 owner_id �
 
 ---
 
+### record_hypothesis - 假设证伪记录（埋点）
+
+记录一个根因假设的**验证状态**（确认 / 排除 / 待验证）。这是埋点工具：调用本身不查任何数据，只把假设状态记下来。每次你**确认或排除**一个假设时调用--先尝试找反例推翻假设，再确认。
+
+```
+record_hypothesis(hypothesis="创建评论未校验 task_id 存在性，全零 UUID 触发外键约束", status="confirmed", evidence="tasks 表无该 id 日志 + 外键报错 span", refuted=false)
+record_hypothesis(hypothesis="fenix 服务故障导致导出失败", status="excluded", evidence="fenix 200 OK 延迟正常", refuted=true)
+record_hypothesis(hypothesis="PixelSpacing 污染导致重建异常", status="pending", evidence="trace-xxx 可疑但未证实", refuted=false)
+```
+
+| 参数 | 说明 |
+|------|------|
+| `hypothesis` | 一句话根因假设（说清机制，非症状） |
+| `status` | `confirmed` 已确认 / `excluded` 已排除 / `pending` 待验证 |
+| `evidence` | 支撑证据或反例。`status=excluded` 时写推翻它的反例 |
+| `refuted` | 是否被反例推翻。`status=excluded` 时应为 `true` |
+
+**何时调用**：每次确认或排除一个假设时（调查全程，不是只在最后）。最终 `root_cause` 对应一个 `status=confirmed` 的假设。
+
+**返回**：简短 ack（如 `已记录假设[excluded]: ...`）。假设状态由解析侧从本次调用提取，供续查时整理成「已确认/已排除/待验证」三段注入，避免重复走已被推翻的死路。预算豁免，可放心调用。
+
+---
+
 ## 工具选择决策表
 
 | 你有的线索 | 应该调用的工具 |
@@ -161,3 +184,4 @@ search_historical_root_cause(hypothesis="IDOR 越权: get_project 缺 owner_id �
 | 需验证数据库状态 | `db_query(sql="SELECT ... LIMIT 10")` |
 | 需要看 Trace 分析 | `search_observability(source="tempo", query="<trace_id>", analysis="full")` |
 | 已形成根因假设，想参考历史相似 bug | `search_historical_root_cause(hypothesis="<一句话根因假设>")` |
+| 确认或排除了一个假设（全程） | `record_hypothesis(hypothesis="...", status="confirmed\|excluded\|pending", evidence="...", refuted=...)` |

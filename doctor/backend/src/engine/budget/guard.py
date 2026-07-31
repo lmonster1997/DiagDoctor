@@ -68,6 +68,17 @@ class BudgetGuardMiddleware(AgentMiddleware):
                 usage = getattr(msg, "usage_metadata", None)
                 if isinstance(usage, dict) and usage.get("input_tokens"):
                     ctx.ctx_budget.record_real_usage(int(usage["input_tokens"]))
+                # §7.2: record_hypothesis 是埋点工具,纯埋点 turn(所有 tool_calls
+                # 都是 record_hypothesis)不推进 model_call_count,保住 §5.3 的
+                # MAX_MODEL_CALLS=16 诊断标定不被埋点吃掉。token 口径照常计
+                # (埋点 turn 确实消耗了 token,是真实开销)。
+                tcs = getattr(msg, "tool_calls", None) or []
+                if tcs and all(
+                    (tc.get("name") if isinstance(tc, dict) else getattr(tc, "name", ""))
+                    == "record_hypothesis"
+                    for tc in tcs
+                ):
+                    ctx.model_call_count = max(0, ctx.model_call_count - 1)
                 break
         return None
 
@@ -76,13 +87,18 @@ class BudgetGuardMiddleware(AgentMiddleware):
         result = await handler(request)
         if ctx is not None:
             try:
-                ctx.ctx_budget.add_tool_call(1)
-                content = str(getattr(result, "content", result))
-                # tool_result 的 tiktoken 估算仅作 to_dict telemetry breakdown，
-                # 不进 gate（gate 用 aafter_model 里记录的 real_input_tokens）。
-                # 故无需像旧 §6.1 临时止血那样在此 truncate -- 真实 usage 本就是
-                # 截断后口径，split-brain 已彻底修。
-                ctx.ctx_budget.add_tool_result(content)
+                tc = getattr(request, "tool_call", None)
+                tc_name = tc.get("name") if isinstance(tc, dict) else getattr(tc, "name", "")
+                # §7.2: record_hypothesis 是埋点工具,不计入 tool_calls/tool_result 预算口径,
+                # 否则会吃掉诊断 MAX_MODEL_CALLS cap、扭曲 §5.3 标定(P90=12 + 4 buffer)。
+                if tc_name != "record_hypothesis":
+                    ctx.ctx_budget.add_tool_call(1)
+                    content = str(getattr(result, "content", result))
+                    # tool_result 的 tiktoken 估算仅作 to_dict telemetry breakdown，
+                    # 不进 gate（gate 用 aafter_model 里记录的 real_input_tokens）。
+                    # 故无需像旧 §6.1 临时止血那样在此 truncate -- 真实 usage 本就是
+                    # 截断后口径，split-brain 已彻底修。
+                    ctx.ctx_budget.add_tool_result(content)
             except Exception:
                 pass
         return result

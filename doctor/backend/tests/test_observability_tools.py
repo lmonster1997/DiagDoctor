@@ -723,7 +723,7 @@ class TestStructuredToolWrappers:
 
 
 class TestV3UnifiedTools:
-    """Verify that the V3 unified tool set (6 tools) is correctly configured."""
+    """Verify that the V3 unified tool set (6 诊断 + 1 §7.2 埋点) is correctly configured."""
 
     def test_search_observability_tool_exists(self) -> None:
         """SEARCH_OBSERVABILITY_TOOL is importable and has correct metadata."""
@@ -757,11 +757,19 @@ class TestV3UnifiedTools:
         assert "根因" in ROOT_CAUSE_RECALL_TOOL.description
         assert ROOT_CAUSE_RECALL_TOOL.coroutine is not None
 
-    def test_all_tools_has_exactly_six(self) -> None:
-        """ALL_TOOLS must contain exactly 6 tools (5 observability/code + P1-a root-cause recall)."""
+    def test_record_hypothesis_tool_exists(self) -> None:
+        """RECORD_HYPOTHESIS_TOOL (§7.2 假设证伪埋点) is importable + correct metadata."""
+        from src.tools import RECORD_HYPOTHESIS_TOOL
+
+        assert RECORD_HYPOTHESIS_TOOL.name == "record_hypothesis"
+        assert "假设" in RECORD_HYPOTHESIS_TOOL.description
+        assert RECORD_HYPOTHESIS_TOOL.coroutine is not None
+
+    def test_all_tools_has_exactly_seven(self) -> None:
+        """ALL_TOOLS = 6 诊断工具 + 1 §7.2 record_hypothesis 埋点工具(预算豁免)。"""
         from src.tools import ALL_TOOLS
 
-        assert len(ALL_TOOLS) == 6
+        assert len(ALL_TOOLS) == 7
         tool_names = {t.name for t in ALL_TOOLS}
         assert tool_names == {
             "search_observability",
@@ -770,6 +778,7 @@ class TestV3UnifiedTools:
             "inspect_frontend_error",
             "get_file_content",
             "search_historical_root_cause",
+            "record_hypothesis",
         }
 
     def test_all_tools_are_structured_tools(self) -> None:

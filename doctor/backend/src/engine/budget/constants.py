@@ -9,7 +9,7 @@ early_stopped 判定）和 ContextBudget（phase 阈值）共同引用。三处�
 iteration 粒度，也是 BudgetGuard 实际门控的量（§6.1 正名）。
 """
 
-MAX_MODEL_CALLS: int = 16  # 标定后(§5.3)：P90=12 +4buffer，FE-021 flail 靠 §7.2 不加轮
+MAX_MODEL_CALLS: int = 12  # 标定后(§5.3)：P90=12 +4buffer，FE-021 flail 靠 §7.2 不加轮
 BUDGET_WARNING_THRESHOLD: int = 8
 MAX_TOKENS_BUDGET: int = 100_000
 MAX_TIME_SECONDS: int = 300
