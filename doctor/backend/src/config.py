@@ -147,6 +147,13 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
     otel_service_name: str = "doctor-api"
 
+    # --- Structured logging (structlog) ---
+    # JSONL file sink mirroring all structlog events + stdlib log records
+    # (Langfuse/OTel internals) with bound trace_id/session_id. Relative paths
+    # resolve against CWD (uvicorn runs from doctor/backend). Empty string ->
+    # file sink disabled (stdout only). Rotation: 10 MiB x 5 backups.
+    log_file_path: str = "data/logs/doctor.log"
+
     # --- CORS ---
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 

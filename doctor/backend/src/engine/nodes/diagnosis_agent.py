@@ -62,7 +62,7 @@ from src.memory.long_term.case_retriever import (
     format_similar_cases,
     search_historical_cases,
 )
-from src.observability.logger import get_logger
+from src.observability.logger import bind_log_context, clear_log_context, get_logger
 
 logger = get_logger(__name__)
 
@@ -212,6 +212,21 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
     case_id = state.get("case_id") or ""
     evidence_text = format_evidence_for_agent(evidence)
 
+    # Bind log correlation early so the head-of-node logs below
+    # (copilotkit_diagnosis_agent_invoking, langfuse setup) carry trace_id.
+    # trace_id = case_id (the Langfuse trace id is created lazily inside ainvoke
+    # and doesn't propagate back to the log contextvar across langgraph's async
+    # boundary, so it can't be used as the log join key). case_id is ALSO bound
+    # as a STABLE field: trace_id collides with Tempo trace_ids on tool logs
+    # (querying_tempo_trace passes trace_id=<tempo tid>), so case_id is the
+    # reliable per-diagnosis join key. Cleared on every exit path below.
+    _lf_session_id = state.get("langfuse_session_id")
+    bind_log_context(
+        trace_id=case_id or "",
+        session_id=_lf_session_id or "",
+        case_id=case_id or "",
+    )
+
     logger.info(
         "copilotkit_diagnosis_agent_invoking",
         case_id=case_id,
@@ -295,6 +310,11 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
     )
     set_run_context(run_ctx)
 
+    # Log context was bound at the top of this node (trace_id=case_id,
+    # upgraded to the Langfuse trace id by LangfuseTracing middleware during
+    # the ainvoke below). Cleared on every exit path so finalize-phase logs
+    # (diagnosis_report_parsed / langfuse_trace_ended) still carry trace_id;
+    # clear_run_context stays in finally (local run_ctx ref survives it).
     try:
         agent = get_diagnosis_agent()
         result = await agent.ainvoke(  # type: ignore[call-overload]
@@ -307,6 +327,7 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
         if langfuse_handler is not None:
             with contextlib.suppress(Exception):
                 langfuse_handler.end_trace(output_data={"error": str(exc)})
+        clear_log_context()
         clear_run_context()
         return {"report": None, "findings": []}
     finally:
@@ -342,6 +363,7 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
         case_id=case_id or "",
     )
 
+    clear_log_context()
     return {
         "messages": _filter_visible_messages(final_messages),
         "report": report,

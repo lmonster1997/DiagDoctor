@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 from src.config import settings
 from src.engine.state import DoctorState, NormalizedEvidence
 from src.evidence.normalizer import ingest
-from src.observability.logger import get_logger
+from src.observability.logger import bind_log_context, clear_log_context, get_logger
 
 logger = get_logger(__name__)
 
@@ -225,6 +225,14 @@ async def bug_info_node(state: DoctorState, config: RunnableConfig) -> dict[str,
     if tid and not state.get("case_id"):
         id_updates = {"case_id": tid, "trace_id": tid, "session_id": tid}
 
+    # Bind log correlation (case_id == thread_id) so this node's extract /
+    # prefetch / normalize logs join to the same case as the downstream
+    # diagnosis_agent logs. diagnosis_agent rebinds on its entry (and upgrades
+    # trace_id to the Langfuse trace id mid-ainvoke); we clear on every exit so
+    # the binding doesn't leak past this node.
+    if tid:
+        bind_log_context(trace_id=tid, case_id=tid)
+
     raw_evidence: Any = state.get("raw_evidence")
     messages: list[Any] = state.get("messages", [])
 
@@ -250,6 +258,7 @@ async def bug_info_node(state: DoctorState, config: RunnableConfig) -> dict[str,
 
         if not user_message.strip():
             logger.warning("buginfo_empty_user_message")
+            clear_log_context()
             return {"evidence": NormalizedEvidence(), **id_updates}
 
         bug_info = await _extract_bug_info(user_message)
@@ -354,6 +363,7 @@ async def bug_info_node(state: DoctorState, config: RunnableConfig) -> dict[str,
         correlation_count=len(normalized.correlations),
     )
 
+    clear_log_context()
     return {
         "messages": messages,
         "evidence": normalized,
