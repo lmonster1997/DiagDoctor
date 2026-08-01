@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.graph.message import add_messages
+from langgraph.runtime import Runtime
 
 from src.engine.budget.constants import (
     MAX_MODEL_CALLS,
@@ -32,9 +33,6 @@ from src.engine.middleware import (
     LangfuseTracingMiddleware,
     ToolDedupMiddleware,
     ToolTruncationMiddleware,
-    clear_run_context,
-    get_run_context,
-    set_run_context,
 )
 
 # ═════════════════════════════════════════════════════════════════════
@@ -42,11 +40,18 @@ from src.engine.middleware import (
 # ═════════════════════════════════════════════════════════════════════
 
 
+def _make_runtime(ctx: DiagnosisRunContext | None = None) -> Runtime:
+    """Build a Runtime whose ``.context`` is ``ctx`` (or None). Stand-in for
+    langgraph's per-invocation Runtime so middlewares can read ``runtime.context``."""
+    return Runtime(context=ctx)
+
+
 def _make_tool_call_request(
     tool_name: str = "echo",
     tool_args: dict[str, Any] | None = None,
     tool_call_id: str = "tc1",
     tool: Any = None,
+    runtime: Any = None,
 ) -> SimpleNamespace:
     """Build a minimal stand-in for langgraph's ToolCallRequest."""
     if tool_args is None:
@@ -56,26 +61,22 @@ def _make_tool_call_request(
         tool_call={"name": tool_name, "args": tool_args, "id": tool_call_id},
         tool=fake_tool,
         state={},
-        runtime=None,
+        runtime=runtime if runtime is not None else _make_runtime(),
     )
 
 
 @pytest.fixture
 def run_ctx() -> DiagnosisRunContext:
-    """Fresh run context set into the ContextVar for each test."""
+    """Fresh run context for each test (passed via Runtime.context)."""
     ctx = DiagnosisRunContext(case_id="TEST-001")
-    set_run_context(ctx)
     yield ctx
-    clear_run_context()
 
 
 @pytest.fixture
 def no_langfuse_ctx() -> DiagnosisRunContext:
     """Run context with langfuse_handler=None (graceful-degradation path)."""
     ctx = DiagnosisRunContext(case_id="TEST-NO-LF")
-    set_run_context(ctx)
     yield ctx
-    clear_run_context()
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -84,19 +85,6 @@ def no_langfuse_ctx() -> DiagnosisRunContext:
 
 
 class TestRunContext:
-    def test_set_get_clear_roundtrip(self) -> None:
-        ctx = DiagnosisRunContext(case_id="X")
-        set_run_context(ctx)
-        assert get_run_context() is ctx
-        clear_run_context()
-        with pytest.raises(LookupError):
-            get_run_context()
-
-    def test_get_raises_when_not_set(self) -> None:
-        clear_run_context()
-        with pytest.raises(LookupError, match="DiagnosisRunContext not set"):
-            get_run_context()
-
     def test_default_fields(self) -> None:
         ctx = DiagnosisRunContext()
         assert ctx.case_id == ""
@@ -121,7 +109,7 @@ class TestLangfuseTracingMiddleware:
         run_ctx.system_prompt_text = "You are a diagnosis agent." * 50
         run_ctx.evidence_text = "signal: error in tasks.py" * 20
         mw = AgentLifecycleMiddleware()
-        await mw.abefore_agent(state={}, runtime=None)
+        await mw.abefore_agent(state={}, runtime=_make_runtime(run_ctx))
         # Budget should have nonzero tokens from system prompt + evidence
         assert run_ctx.ctx_budget.system_prompt_tokens > 0
         assert run_ctx.ctx_budget.evidence_tokens > 0
@@ -132,35 +120,12 @@ class TestLangfuseTracingMiddleware:
         assert run_ctx.model_call_count == 0
         assert run_ctx.budget_exhausted is False
 
-    async def test_before_agent_starts_trace_when_handler_present(
-        self, run_ctx: DiagnosisRunContext
-    ) -> None:
-        handler = MagicMock()
-        run_ctx.langfuse_handler = handler
-        run_ctx.langfuse_trace_id = "trace-123"
-        run_ctx.evidence_text = "some evidence"
-        mw = LangfuseTracingMiddleware()
-        await mw.abefore_agent(state={}, runtime=None)
-        handler.start_trace.assert_called_once()
-        _, kwargs = handler.start_trace.call_args
-        assert kwargs["trace_id"] == "trace-123"
-
     async def test_before_agent_no_handler_does_not_raise(
         self, no_langfuse_ctx: DiagnosisRunContext
     ) -> None:
         mw = LangfuseTracingMiddleware()
         # Should not raise even with langfuse_handler=None
-        await mw.abefore_agent(state={}, runtime=None)
-
-    async def test_before_agent_handler_exc_is_suppressed(
-        self, run_ctx: DiagnosisRunContext
-    ) -> None:
-        """Langfuse outage must not block diagnosis (graceful degradation)."""
-        handler = MagicMock()
-        handler.start_trace.side_effect = RuntimeError("langfuse down")
-        run_ctx.langfuse_handler = handler
-        mw = LangfuseTracingMiddleware()
-        await mw.abefore_agent(state={}, runtime=None)  # must not raise
+        await mw.abefore_agent(state={}, runtime=_make_runtime(no_langfuse_ctx))
 
     async def test_wrap_tool_call_records_span(self, run_ctx: DiagnosisRunContext) -> None:
         handler = MagicMock()
@@ -169,7 +134,7 @@ class TestLangfuseTracingMiddleware:
         mw = LangfuseTracingMiddleware()
         inner_result = ToolMessage(content="raw result text", tool_call_id="tc1", name="echo")
         fake_handler = AsyncMock(return_value=inner_result)
-        result = await mw.awrap_tool_call(_make_tool_call_request(), fake_handler)
+        result = await mw.awrap_tool_call(_make_tool_call_request(runtime=_make_runtime(run_ctx)), fake_handler)
         # Span recorded
         handler.record_tool_span.assert_called_once()
         span_kwargs = handler.record_tool_span.call_args.kwargs
@@ -193,7 +158,7 @@ class TestLangfuseTracingMiddleware:
         handler = MagicMock()
         run_ctx.langfuse_handler = handler
         mw = LangfuseTracingMiddleware()
-        await mw.aafter_agent(state={}, runtime=None)
+        await mw.aafter_agent(state={}, runtime=_make_runtime(run_ctx))
         handler.end_trace.assert_not_called()
 
 
@@ -208,7 +173,7 @@ class TestBudgetGuardMiddleware:
     ) -> None:
         mw = BudgetGuardMiddleware()
         starting_iter = run_ctx.ctx_budget.iteration
-        result = await mw.abefore_model(state={}, runtime=None)
+        result = await mw.abefore_model(state={}, runtime=_make_runtime(run_ctx))
         assert result is None
         assert run_ctx.model_call_count == 1
         assert run_ctx.ctx_budget.iteration == starting_iter + 1
@@ -218,7 +183,7 @@ class TestBudgetGuardMiddleware:
     ) -> None:
         run_ctx.model_call_count = MAX_MODEL_CALLS  # already at cap; next call is over
         mw = BudgetGuardMiddleware()
-        result = await mw.abefore_model(state={}, runtime=None)
+        result = await mw.abefore_model(state={}, runtime=_make_runtime(run_ctx))
         assert result == {"jump_to": "end"}
         assert run_ctx.budget_exhausted is True
         assert run_ctx.model_call_count == MAX_MODEL_CALLS + 1
@@ -228,7 +193,7 @@ class TestBudgetGuardMiddleware:
     ) -> None:
         run_ctx.ctx_budget.system_prompt_tokens = MAX_TOKENS_BUDGET  # total_used >= cap
         mw = BudgetGuardMiddleware()
-        result = await mw.abefore_model(state={}, runtime=None)
+        result = await mw.abefore_model(state={}, runtime=_make_runtime(run_ctx))
         assert result == {"jump_to": "end"}
         assert run_ctx.budget_exhausted is True
 
@@ -238,7 +203,7 @@ class TestBudgetGuardMiddleware:
         # Force elapsed_seconds > MAX_TIME_SECONDS by backdating the timer
         run_ctx.ctx_budget.started_at_monotonic = time.monotonic() - (MAX_TIME_SECONDS + 5)
         mw = BudgetGuardMiddleware()
-        result = await mw.abefore_model(state={}, runtime=None)
+        result = await mw.abefore_model(state={}, runtime=_make_runtime(run_ctx))
         assert result == {"jump_to": "end"}
         assert run_ctx.budget_exhausted is True
 
@@ -250,7 +215,7 @@ class TestBudgetGuardMiddleware:
         }
         before = run_ctx.ctx_budget.agent_reasoning_tokens
         mw = BudgetGuardMiddleware()
-        result = await mw.aafter_model(state=state, runtime=None)
+        result = await mw.aafter_model(state=state, runtime=_make_runtime(run_ctx))
         assert result is None
         assert run_ctx.ctx_budget.agent_reasoning_tokens > before
 
@@ -259,7 +224,7 @@ class TestBudgetGuardMiddleware:
     ) -> None:
         state = {"messages": [HumanMessage(content="q")]}
         mw = BudgetGuardMiddleware()
-        await mw.aafter_model(state=state, runtime=None)  # no AIMessage — skip
+        await mw.aafter_model(state=state, runtime=_make_runtime(run_ctx))  # no AIMessage — skip
 
     async def test_after_model_records_real_input_tokens(
         self, run_ctx: DiagnosisRunContext
@@ -270,7 +235,7 @@ class TestBudgetGuardMiddleware:
             usage_metadata={"input_tokens": 5000, "output_tokens": 200, "total_tokens": 5200},
         )
         mw = BudgetGuardMiddleware()
-        await mw.aafter_model(state={"messages": [msg]}, runtime=None)
+        await mw.aafter_model(state={"messages": [msg]}, runtime=_make_runtime(run_ctx))
         assert run_ctx.ctx_budget.real_input_tokens == 5000
         # total_used follows real_input_tokens once a call has happened
         assert run_ctx.ctx_budget.total_used == 5000
@@ -285,7 +250,7 @@ class TestBudgetGuardMiddleware:
                 content="x",
                 usage_metadata={"input_tokens": inp, "output_tokens": 1, "total_tokens": inp + 1},
             )
-            await mw.aafter_model(state={"messages": [msg]}, runtime=None)
+            await mw.aafter_model(state={"messages": [msg]}, runtime=_make_runtime(run_ctx))
         assert run_ctx.ctx_budget.real_input_tokens == 9000
 
     async def test_real_input_tokens_drive_token_gate(
@@ -294,7 +259,7 @@ class TestBudgetGuardMiddleware:
         """Token gate fires on real_input_tokens >= MAX_TOKENS_BUDGET."""
         run_ctx.ctx_budget.record_real_usage(MAX_TOKENS_BUDGET)
         mw = BudgetGuardMiddleware()
-        result = await mw.abefore_model(state={}, runtime=None)
+        result = await mw.abefore_model(state={}, runtime=_make_runtime(run_ctx))
         assert result == {"jump_to": "end"}
         assert run_ctx.budget_exhausted is True
 
@@ -311,14 +276,14 @@ class TestBudgetGuardMiddleware:
         )
         mw = BudgetGuardMiddleware()
         await mw.awrap_tool_call(
-            _make_tool_call_request("search_observability", {}, "tc1"), handler
+            _make_tool_call_request("search_observability", {}, "tc1", runtime=_make_runtime(run_ctx)), handler
         )
         # tool_result_tokens recorded (telemetry) but gate's total_used NOT inflated
         assert run_ctx.ctx_budget.tool_result_tokens > 0
         assert run_ctx.ctx_budget.total_used == 0
         # gate does not fire despite the huge tool result
         run_ctx.model_call_count = 0  # avoid iteration cap
-        result = await mw.abefore_model(state={}, runtime=None)
+        result = await mw.abefore_model(state={}, runtime=_make_runtime(run_ctx))
         assert result is None
         assert run_ctx.budget_exhausted is False
 
@@ -338,6 +303,7 @@ class TestBudgetGuardMiddleware:
                 "record_hypothesis",
                 {"hypothesis": "h", "status": "excluded", "evidence": "e", "refuted": True},
                 "rh1",
+                runtime=_make_runtime(run_ctx),
             ),
             handler,
         )
@@ -348,7 +314,7 @@ class TestBudgetGuardMiddleware:
         handler2 = AsyncMock(
             return_value=ToolMessage(content="result", tool_call_id="tc1", name="search_observability")
         )
-        await mw.awrap_tool_call(_make_tool_call_request("search_observability", {}, "tc1"), handler2)
+        await mw.awrap_tool_call(_make_tool_call_request("search_observability", {}, "tc1", runtime=_make_runtime(run_ctx)), handler2)
         assert run_ctx.ctx_budget.tool_calls == 1
 
     async def test_pure_record_hypothesis_turn_decrements_model_call_count(
@@ -370,7 +336,7 @@ class TestBudgetGuardMiddleware:
             ],
         )
         mw = BudgetGuardMiddleware()
-        await mw.aafter_model(state={"messages": [msg]}, runtime=None)
+        await mw.aafter_model(state={"messages": [msg]}, runtime=_make_runtime(run_ctx))
         assert run_ctx.model_call_count == 4  # decremented back
 
     async def test_mixed_record_and_diagnostic_turn_not_decremented(
@@ -387,7 +353,7 @@ class TestBudgetGuardMiddleware:
             ],
         )
         mw = BudgetGuardMiddleware()
-        await mw.aafter_model(state={"messages": [msg]}, runtime=None)
+        await mw.aafter_model(state={"messages": [msg]}, runtime=_make_runtime(run_ctx))
         assert run_ctx.model_call_count == 5  # not decremented
 
     async def test_record_hypothesis_turn_still_records_token_usage(
@@ -404,7 +370,7 @@ class TestBudgetGuardMiddleware:
             ],
         )
         mw = BudgetGuardMiddleware()
-        await mw.aafter_model(state={"messages": [msg]}, runtime=None)
+        await mw.aafter_model(state={"messages": [msg]}, runtime=_make_runtime(run_ctx))
         assert run_ctx.ctx_budget.real_input_tokens == 4000  # token usage recorded (real cost)
         assert run_ctx.model_call_count == 0  # but the diagnostic turn-count was exempted
 
@@ -420,7 +386,7 @@ class TestToolDedupMiddleware:
     ) -> None:
         handler = AsyncMock(return_value=ToolMessage(content="r", tool_call_id="tc1", name="echo"))
         mw = ToolDedupMiddleware()
-        request = _make_tool_call_request("echo", {"text": "hi"}, "tc1")
+        request = _make_tool_call_request("echo", {"text": "hi"}, "tc1", runtime=_make_runtime(run_ctx))
         await mw.awrap_tool_call(request, handler)
         handler.assert_awaited_once()
         assert len(run_ctx.call_history) == 1
@@ -434,7 +400,7 @@ class TestToolDedupMiddleware:
         lf_handler = MagicMock()
         run_ctx.langfuse_handler = lf_handler
         mw = ToolDedupMiddleware()
-        request = _make_tool_call_request("echo", {"text": "hi"}, "tc1")
+        request = _make_tool_call_request("echo", {"text": "hi"}, "tc1", runtime=_make_runtime(run_ctx))
 
         # First call — executes
         await mw.awrap_tool_call(request, handler)
@@ -455,8 +421,8 @@ class TestToolDedupMiddleware:
     async def test_different_args_not_treated_as_dup(self, run_ctx: DiagnosisRunContext) -> None:
         handler = AsyncMock(return_value=ToolMessage(content="r", tool_call_id="tc", name="echo"))
         mw = ToolDedupMiddleware()
-        await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "a"}, "tc1"), handler)
-        await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "b"}, "tc2"), handler)
+        await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "a"}, "tc1", runtime=_make_runtime(run_ctx)), handler)
+        await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "b"}, "tc2", runtime=_make_runtime(run_ctx)), handler)
         assert handler.await_count == 2
         assert len(run_ctx.call_history) == 2
 
@@ -468,11 +434,11 @@ class TestToolDedupMiddleware:
         handler = AsyncMock(return_value=ToolMessage(content="r", tool_call_id="tc2", name="echo"))
         mw = ToolDedupMiddleware()
         # first call executes, records call_key -> "tc1"
-        await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc1"), handler)
+        await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc1", runtime=_make_runtime(run_ctx)), handler)
         # simulate ContextElision having aged out tc1's result
         run_ctx.elided_tool_call_ids.add("tc1")
         # second identical call (new id tc2) -> allowed re-fetch
-        result = await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc2"), handler)
+        result = await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc2", runtime=_make_runtime(run_ctx)), handler)
         handler.assert_awaited()
         assert handler.await_count == 2  # both calls executed
         assert isinstance(result, ToolMessage)
@@ -488,9 +454,9 @@ class TestToolDedupMiddleware:
         identical re-call is a wasteful dup, skipped (original behaviour)."""
         handler = AsyncMock(return_value=ToolMessage(content="r", tool_call_id="tc1", name="echo"))
         mw = ToolDedupMiddleware()
-        await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc1"), handler)
+        await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc1", runtime=_make_runtime(run_ctx)), handler)
         # elided_tool_call_ids stays empty -> tc1 result still in context
-        result = await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc2"), handler)
+        result = await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc2", runtime=_make_runtime(run_ctx)), handler)
         handler.assert_awaited_once()  # only first call executed
         assert isinstance(result, ToolMessage)
         assert "跳过" in str(result.content)
@@ -535,7 +501,7 @@ class TestDedupElisionIntegration:
             return_value=ToolMessage(content="line_tc1\n" + "BULK" * 200, tool_call_id="tc1", name="get_file_content")
         )
         dedup = ToolDedupMiddleware()
-        await dedup.awrap_tool_call(_make_tool_call_request("get_file_content", args, "tc1"), first_handler)
+        await dedup.awrap_tool_call(_make_tool_call_request("get_file_content", args, "tc1", runtime=_make_runtime(run_ctx)), first_handler)
         first_handler.assert_awaited_once()
 
         # 2) Elision ages out tc1 (keep_recent=3) -> records tc1 as elided.
@@ -543,7 +509,7 @@ class TestDedupElisionIntegration:
         with patch("src.engine.middleware.context_elision.settings") as ms:
             ms.context_elision_enabled = True
             ms.context_elision_keep_recent = 3
-            await elision.abefore_model(state={"messages": messages}, runtime=None)
+            await elision.abefore_model(state={"messages": messages}, runtime=_make_runtime(run_ctx))
         assert "tc1" in run_ctx.elided_tool_call_ids
 
         # 3) Agent re-fetches app/svc.py (same args, new id tc5) -> dedup ALLOWS
@@ -552,7 +518,7 @@ class TestDedupElisionIntegration:
             return_value=ToolMessage(content="line_tc1\n" + "BULK" * 200, tool_call_id="tc5", name="get_file_content")
         )
         result = await dedup.awrap_tool_call(
-            _make_tool_call_request("get_file_content", args, "tc5"), refetch_handler
+            _make_tool_call_request("get_file_content", args, "tc5", runtime=_make_runtime(run_ctx)), refetch_handler
         )
         refetch_handler.assert_awaited_once()  # executed, not skipped
         assert isinstance(result, ToolMessage)
@@ -633,7 +599,7 @@ class TestForcedFinalCallMiddleware:
         state = {"messages": [AIMessage(content='{"primary_category":"logic"}')]}
         mw = ForcedFinalCallMiddleware()
         with patch("src.llm_factory.get_llm_for_role") as mock_llm:
-            result = await mw.aafter_agent(state=state, runtime=None)
+            result = await mw.aafter_agent(state=state, runtime=_make_runtime(run_ctx))
         assert result is None
         mock_llm.assert_not_called()
         assert run_ctx.forced_call_triggered is False
@@ -641,7 +607,7 @@ class TestForcedFinalCallMiddleware:
     async def test_skips_when_messages_empty(self, run_ctx: DiagnosisRunContext) -> None:
         mw = ForcedFinalCallMiddleware()
         with patch("src.llm_factory.get_llm_for_role") as mock_llm:
-            result = await mw.aafter_agent(state={"messages": []}, runtime=None)
+            result = await mw.aafter_agent(state={"messages": []}, runtime=_make_runtime(run_ctx))
         assert result is None
         mock_llm.assert_not_called()
 
@@ -659,7 +625,7 @@ class TestForcedFinalCallMiddleware:
                 new=AsyncMock(return_value=forced_msg),
             ) as mock_forced,
         ):
-            result = await mw.aafter_agent(state=state, runtime=None)
+            result = await mw.aafter_agent(state=state, runtime=_make_runtime(run_ctx))
         assert result == {"messages": [forced_msg]}
         assert run_ctx.forced_call_triggered is True
         mock_llm_role.assert_called_once_with("diagnosis")
@@ -683,7 +649,7 @@ class TestForcedFinalCallMiddleware:
                 new=AsyncMock(return_value=forced_msg),
             ) as mock_forced,
         ):
-            await mw.aafter_agent(state=state, runtime=None)
+            await mw.aafter_agent(state=state, runtime=_make_runtime(run_ctx))
         forced_kwargs = mock_forced.call_args.kwargs
         assert forced_kwargs["natural_stop"] is False
 
@@ -701,7 +667,7 @@ class TestForcedFinalCallMiddleware:
                 new=AsyncMock(return_value=None),
             ),
         ):
-            result = await mw.aafter_agent(state=state, runtime=None)
+            result = await mw.aafter_agent(state=state, runtime=_make_runtime(run_ctx))
         assert result is None
         # forced_call_triggered still True (the trigger happened, just failed)
         assert run_ctx.forced_call_triggered is True
@@ -723,7 +689,121 @@ class TestForcedFinalCallMiddleware:
                 new=AsyncMock(return_value=forced_msg),
             ) as mock_forced,
         ):
-            await mw.aafter_agent(state=state, runtime=None)
+            await mw.aafter_agent(state=state, runtime=_make_runtime(run_ctx))
         forced_kwargs = mock_forced.call_args.kwargs
         assert forced_kwargs["invoke_config"].get("callbacks") == [lf]
         assert forced_kwargs["langfuse_handler"] is lf
+
+
+# ═════════════════════════════════════════════════════════════════════
+# Diagnosis node: Langfuse trace lifecycle (start_trace owned by node)
+# ═════════════════════════════════════════════════════════════════════
+
+
+_NODE_RESPONSE = (
+    '{"primary_category": "logic", "categories": ["logic"], '
+    '"symptom_tier": "backend", "root_cause_tier": "backend", '
+    '"root_cause": "x", "affected_file": "a.py", "affected_function": "f", '
+    '"fix_suggestion": "fix", "evidence_chain": ["sig-1"], '
+    '"confidence": 0.85, "referenced_case_ids": []}'
+)
+
+
+class _RecordingAgent:
+    """Replaces the inner create_agent; returns a converged JSON report."""
+
+    async def ainvoke(
+        self, state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
+        return {"messages": [AIMessage(content=_NODE_RESPONSE)]}
+
+
+class TestDiagnosisNodeLangfuseTrace:
+    """The node owns the Langfuse trace lifecycle (start_trace/end_trace), not
+    LangfuseTracingMiddleware -- the handler is a shared singleton, so
+    per-diagnosis trace_id/session_id must be set on it explicitly at the node.
+    These tests cover the start_trace + set_external_session_id contract that
+    previously lived in the middleware (and its graceful-degradation path)."""
+
+    @staticmethod
+    def _evidence() -> Any:
+        from src.engine.state import NormalizedEvidence, Signal
+
+        return NormalizedEvidence(
+            user_report="创建任务后页面卡死",
+            golden_signals=[
+                Signal(signal_type="error_log", service_tier="backend", summary="TypeError")
+            ],
+            trigger_time="2026-07-18T10:00:00Z",
+            trigger_trace_ids=["self-trace-1"],
+        )
+
+    @staticmethod
+    def _state(**overrides: Any) -> dict[str, Any]:
+        base: dict[str, Any] = {
+            "evidence": TestDiagnosisNodeLangfuseTrace._evidence(),
+            "case_id": "test-case-1",
+            "findings": [],
+            "human_guidance": None,
+            "hitl_resumed": False,
+        }
+        base.update(overrides)
+        return base
+
+    @staticmethod
+    def _patch_node(monkeypatch: pytest.MonkeyPatch, handler: Any) -> _RecordingAgent:
+        from src.engine.nodes import diagnosis_agent as diag_mod
+
+        agent = _RecordingAgent()
+        monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: agent)
+        monkeypatch.setattr(
+            diag_mod, "_get_langfuse_handler_for_dict_state", lambda *a, **k: handler
+        )
+
+        async def fake_search(ev: Any, k_final: int = 3, *, now: Any = None) -> list[Any]:
+            return []
+
+        monkeypatch.setattr(diag_mod, "search_historical_cases", fake_search)
+        return agent
+
+    async def test_node_starts_trace_with_external_trace_id_and_session(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from typing import cast
+
+        from src.engine.nodes import diagnosis_agent as diag_mod
+        from src.engine.state import DoctorState
+
+        handler = MagicMock()
+        self._patch_node(monkeypatch, handler)
+
+        await diag_mod._diagnosis_agent_node(
+            cast(
+                DoctorState,
+                self._state(langfuse_trace_id="trace-abc", langfuse_session_id="sess-xyz"),
+            )
+        )
+
+        handler.prepare_for_managed_trace.assert_called_once()
+        handler.set_external_session_id.assert_called_once_with("sess-xyz")
+        handler.start_trace.assert_called_once()
+        _, kwargs = handler.start_trace.call_args
+        assert kwargs["trace_id"] == "trace-abc"
+        assert "evidence" in kwargs["input_data"]
+
+    async def test_node_langfuse_outage_does_not_block_diagnosis(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """start_trace raising must be suppressed (graceful degradation) --
+        diagnosis still produces a report."""
+        from typing import cast
+
+        from src.engine.nodes import diagnosis_agent as diag_mod
+        from src.engine.state import DoctorState
+
+        handler = MagicMock()
+        handler.start_trace.side_effect = RuntimeError("langfuse down")
+        self._patch_node(monkeypatch, handler)
+
+        result = await diag_mod._diagnosis_agent_node(cast(DoctorState, self._state()))
+        assert result["report"] is not None  # diagnosis still produced

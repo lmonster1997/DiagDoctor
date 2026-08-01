@@ -13,7 +13,6 @@ from langchain.agents.middleware import AgentMiddleware, hook_config
 from langchain_core.messages import AIMessage, BaseMessage
 
 from src.engine.budget.constants import MAX_MODEL_CALLS, MAX_TIME_SECONDS, MAX_TOKENS_BUDGET
-from src.engine.run_context import get_run_context, get_run_context_or_none
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)
@@ -24,7 +23,9 @@ class BudgetGuardMiddleware(AgentMiddleware):
 
     @hook_config(can_jump_to=["end"])
     async def abefore_model(self, state: Any, runtime: Any) -> dict[str, Any] | None:
-        ctx = get_run_context()
+        ctx = runtime.context
+        if ctx is None:
+            return None
         ctx.model_call_count += 1
         ctx.ctx_budget.tick_iteration()
 
@@ -55,7 +56,7 @@ class BudgetGuardMiddleware(AgentMiddleware):
         return None
 
     async def aafter_model(self, state: Any, runtime: Any) -> dict[str, Any] | None:
-        ctx = get_run_context_or_none()
+        ctx = runtime.context
         if ctx is None:
             return None
         messages: list[BaseMessage] = state.get("messages", []) if isinstance(state, dict) else []
@@ -83,7 +84,7 @@ class BudgetGuardMiddleware(AgentMiddleware):
         return None
 
     async def awrap_tool_call(self, request: Any, handler: Any) -> Any:
-        ctx = get_run_context_or_none()
+        ctx = request.runtime.context if request.runtime is not None else None
         result = await handler(request)
         if ctx is not None:
             try:

@@ -26,15 +26,12 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
+from langgraph.runtime import Runtime
 
 from src.engine.budget.constants import MAX_MODEL_CALLS, RECURSION_LIMIT
 from src.engine.context.budget import ContextBudget
 from src.engine.middleware import BudgetGuardMiddleware, ContextElisionMiddleware
-from src.engine.run_context import (
-    DiagnosisRunContext,
-    clear_run_context,
-    set_run_context,
-)
+from src.engine.run_context import DiagnosisRunContext
 
 
 class _AlwaysToolLLM(BaseChatModel):
@@ -76,6 +73,7 @@ def _build_loop_agent() -> Any:
         tools=[echo],
         system_prompt="test",
         middleware=[ContextElisionMiddleware(), BudgetGuardMiddleware()],
+        context_schema=DiagnosisRunContext,
     )
 
 
@@ -85,26 +83,30 @@ def _fresh_ctx() -> DiagnosisRunContext:
     ctx = DiagnosisRunContext(case_id="TEST-RECURSION")
     ctx.ctx_budget = ContextBudget()
     ctx.ctx_budget.start_timer()
-    set_run_context(ctx)
     return ctx
 
 
 class TestRecursionBudget:
-    async def test_old_limit_80_recurses_when_never_stopping(self) -> None:
-        """Documents the §7.1 regression: with the 5-steps/iter structure,
-        recursion_limit=80 (= 16*5) hits step 81 (the 17th before_model where
-        BudgetGuard would fire) -> GraphRecursionError, BudgetGuard never
-        triggers."""
-        _fresh_ctx()
-        try:
-            agent = _build_loop_agent()
-            with pytest.raises(GraphRecursionError):
-                await agent.ainvoke(
-                    {"messages": [HumanMessage(content="go")]},
-                    config={"recursion_limit": 80},
-                )
-        finally:
-            clear_run_context()
+    async def test_low_recursion_limit_recurses_when_never_stopping(self) -> None:
+        """A recursion_limit below MAX_MODEL_CALLS×steps/iter lets recursion
+        fire before BudgetGuard. With MAX_MODEL_CALLS=12 and ~5 steps/iter,
+        BudgetGuard fires on the 13th before_model (~step 62); a limit of 55
+        tops out mid-loop -> GraphRecursionError, BudgetGuard never triggers.
+
+        Contract: RECURSION_LIMIT (200) must stay ABOVE this threshold so
+        BudgetGuard is always the binding stop, never recursion. See
+        test_configured_limit_stops_gracefully_via_budget_guard for the happy
+        path. Changing the middleware structure (adding/removing a
+        before_model/after_model node) changes steps/iter and breaks this
+        calibration - see constants.py RECURSION_LIMIT note."""
+        ctx = _fresh_ctx()
+        agent = _build_loop_agent()
+        with pytest.raises(GraphRecursionError):
+            await agent.ainvoke(
+                {"messages": [HumanMessage(content="go")]},
+                config={"recursion_limit": 55},
+                context=ctx,
+            )
 
     async def test_configured_limit_stops_gracefully_via_budget_guard(self) -> None:
         """With RECURSION_LIMIT the never-stopping agent is stopped GRACEFULLY
@@ -112,15 +114,13 @@ class TestRecursionBudget:
         recursion_limit is a safety net ABOVE the budget guard, never the
         binding constraint."""
         ctx = _fresh_ctx()
-        try:
-            agent = _build_loop_agent()
-            result = await agent.ainvoke(
-                {"messages": [HumanMessage(content="go")]},
-                config={"recursion_limit": RECURSION_LIMIT},
-            )
-            # no exception raised; BudgetGuard fired jump_to=end
-            assert ctx.budget_exhausted is True
-            assert ctx.model_call_count == MAX_MODEL_CALLS + 1  # incremented, then jumped
-            assert isinstance(result, dict) and "messages" in result
-        finally:
-            clear_run_context()
+        agent = _build_loop_agent()
+        result = await agent.ainvoke(
+            {"messages": [HumanMessage(content="go")]},
+            config={"recursion_limit": RECURSION_LIMIT},
+            context=ctx,
+        )
+        # no exception raised; BudgetGuard fired jump_to=end
+        assert ctx.budget_exhausted is True
+        assert ctx.model_call_count == MAX_MODEL_CALLS + 1  # incremented, then jumped
+        assert isinstance(result, dict) and "messages" in result

@@ -18,7 +18,6 @@ from typing import Any
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import ToolMessage
 
-from src.engine.run_context import get_run_context_or_none
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)
@@ -28,7 +27,7 @@ class ToolDedupMiddleware(AgentMiddleware):
     """Skip tool calls whose (name, args) match a prior call in this invocation."""
 
     async def awrap_tool_call(self, request: Any, handler: Any) -> Any:
-        ctx = get_run_context_or_none()
+        ctx = request.runtime.context if request.runtime is not None else None
         tool = request.tool
         tool_call = request.tool_call
         tool_name = tool.name if tool is not None else tool_call.get("name", "unknown")

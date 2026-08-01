@@ -46,7 +46,9 @@ class _RecordingAgent:
         self.received_messages: list[BaseMessage] | None = None
         self._response = response
 
-    async def ainvoke(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
+    async def ainvoke(
+        self, state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
         self.received_messages = list(state.get("messages", []))
         return {"messages": [AIMessage(content=self._response)]}
 

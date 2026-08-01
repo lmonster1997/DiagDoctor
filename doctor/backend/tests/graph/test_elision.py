@@ -19,17 +19,14 @@ from unittest.mock import patch
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph.message import add_messages
+from langgraph.runtime import Runtime
 
 from src.engine.context.elision import build_elision_placeholder
 from src.engine.middleware.context_elision import (
     ContextElisionMiddleware,
     _index_tool_call_args,
 )
-from src.engine.run_context import (
-    DiagnosisRunContext,
-    clear_run_context,
-    set_run_context,
-)
+from src.engine.run_context import DiagnosisRunContext
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -88,6 +85,12 @@ def _patch_settings():
     tests).
     """
     return patch("src.engine.middleware.context_elision.settings")
+
+
+def _make_runtime(ctx: DiagnosisRunContext | None = None) -> Runtime:
+    """Build a Runtime whose ``.context`` is ``ctx`` (or None). Stand-in for
+    langgraph's per-invocation Runtime so middlewares can read ``runtime.context``."""
+    return Runtime(context=ctx)
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -220,7 +223,7 @@ class TestContextElisionMiddleware:
         with _patch_settings() as ms:
             ms.context_elision_enabled = True
             ms.context_elision_keep_recent = 3
-            result = await mw.abefore_model(state={"messages": messages}, runtime=None)
+            result = await mw.abefore_model(state={"messages": messages}, runtime=_make_runtime())
 
         assert result is not None
         replacements = result["messages"]
@@ -255,7 +258,7 @@ class TestContextElisionMiddleware:
         with _patch_settings() as ms:
             ms.context_elision_enabled = True
             ms.context_elision_keep_recent = 3
-            result = await mw.abefore_model(state={"messages": messages}, runtime=None)
+            result = await mw.abefore_model(state={"messages": messages}, runtime=_make_runtime())
 
         after = add_messages(messages, result["messages"])
         assert len(after) == before_count  # no duplication
@@ -281,7 +284,7 @@ class TestContextElisionMiddleware:
         with _patch_settings() as ms:
             ms.context_elision_enabled = True
             ms.context_elision_keep_recent = 3
-            result = await mw.abefore_model(state={"messages": messages}, runtime=None)
+            result = await mw.abefore_model(state={"messages": messages}, runtime=_make_runtime())
         assert result is None  # 3 tool msgs, keep_recent=3 -> nothing to elide
 
     async def test_disabled_returns_none(self) -> None:
@@ -294,7 +297,7 @@ class TestContextElisionMiddleware:
         with _patch_settings() as ms:
             ms.context_elision_enabled = False
             ms.context_elision_keep_recent = 3
-            result = await mw.abefore_model(state={"messages": messages}, runtime=None)
+            result = await mw.abefore_model(state={"messages": messages}, runtime=_make_runtime())
         assert result is None
 
     async def test_does_not_touch_non_tool_messages(self) -> None:
@@ -317,7 +320,7 @@ class TestContextElisionMiddleware:
         with _patch_settings() as ms:
             ms.context_elision_enabled = True
             ms.context_elision_keep_recent = 3
-            result = await mw.abefore_model(state={"messages": messages}, runtime=None)
+            result = await mw.abefore_model(state={"messages": messages}, runtime=_make_runtime())
         assert result is not None
         for repl in result["messages"]:
             assert isinstance(repl, ToolMessage)
@@ -327,8 +330,8 @@ class TestContextElisionMiddleware:
         with _patch_settings() as ms:
             ms.context_elision_enabled = True
             ms.context_elision_keep_recent = 3
-            assert await mw.abefore_model(state={"messages": []}, runtime=None) is None
-            assert await mw.abefore_model(state={}, runtime=None) is None
+            assert await mw.abefore_model(state={"messages": []}, runtime=_make_runtime()) is None
+            assert await mw.abefore_model(state={}, runtime=_make_runtime()) is None
 
     async def test_preceding_aimessage_tool_call_still_associates(self) -> None:
         """Regression: the AIMessage that issued tc1 must still find the replaced
@@ -348,7 +351,7 @@ class TestContextElisionMiddleware:
         with _patch_settings() as ms:
             ms.context_elision_enabled = True
             ms.context_elision_keep_recent = 3
-            result = await mw.abefore_model(state={"messages": messages}, runtime=None)
+            result = await mw.abefore_model(state={"messages": messages}, runtime=_make_runtime())
         after = add_messages(messages, result["messages"])
         # tc1 ToolMessage still present (replaced in place) with matching tool_call_id
         tc1_msgs = [m for m in after if isinstance(m, ToolMessage) and m.tool_call_id == "tc1"]
@@ -366,30 +369,26 @@ class TestContextElisionMiddleware:
         of elided results instead of skipping them (the elision <-> dedup
         contract documented on DiagnosisRunContext.elided_tool_call_ids)."""
         ctx = DiagnosisRunContext(case_id="TEST-ELISION")
-        set_run_context(ctx)
-        try:
-            raw = [
-                _ai_with_tool_call("code_search", {"query": "q1"}, "tc1"),
-                _tool_msg("tc1", "code_search", _result(1)),
-                _ai_with_tool_call("code_search", {"query": "q2"}, "tc2"),
-                _tool_msg("tc2", "code_search", _result(2)),
-                _ai_with_tool_call("code_search", {"query": "q3"}, "tc3"),
-                _tool_msg("tc3", "code_search", _result(3)),
-                _ai_with_tool_call("code_search", {"query": "q4"}, "tc4"),
-                _tool_msg("tc4", "code_search", _result(4)),
-            ]
-            messages = add_messages([], raw)
-            mw = ContextElisionMiddleware()
-            with _patch_settings() as ms:
-                ms.context_elision_enabled = True
-                ms.context_elision_keep_recent = 3
-                await mw.abefore_model(state={"messages": messages}, runtime=None)
-            # tc1 is the only one aged out (keep_recent=3); tc2-tc4 retained
-            assert "tc1" in ctx.elided_tool_call_ids
-            assert "tc2" not in ctx.elided_tool_call_ids
-            assert "tc3" not in ctx.elided_tool_call_ids
-        finally:
-            clear_run_context()
+        raw = [
+            _ai_with_tool_call("code_search", {"query": "q1"}, "tc1"),
+            _tool_msg("tc1", "code_search", _result(1)),
+            _ai_with_tool_call("code_search", {"query": "q2"}, "tc2"),
+            _tool_msg("tc2", "code_search", _result(2)),
+            _ai_with_tool_call("code_search", {"query": "q3"}, "tc3"),
+            _tool_msg("tc3", "code_search", _result(3)),
+            _ai_with_tool_call("code_search", {"query": "q4"}, "tc4"),
+            _tool_msg("tc4", "code_search", _result(4)),
+        ]
+        messages = add_messages([], raw)
+        mw = ContextElisionMiddleware()
+        with _patch_settings() as ms:
+            ms.context_elision_enabled = True
+            ms.context_elision_keep_recent = 3
+            await mw.abefore_model(state={"messages": messages}, runtime=_make_runtime(ctx))
+        # tc1 is the only one aged out (keep_recent=3); tc2-tc4 retained
+        assert "tc1" in ctx.elided_tool_call_ids
+        assert "tc2" not in ctx.elided_tool_call_ids
+        assert "tc3" not in ctx.elided_tool_call_ids
 
     async def test_second_pass_skips_already_archived_no_degradation(self) -> None:
         """Multi-pass: a ToolMessage archived in pass 1 is skipped in pass 2
@@ -398,42 +397,38 @@ class TestContextElisionMiddleware:
         content would take the placeholder's first line (the handle) as the
         finding, losing the original key finding."""
         ctx = DiagnosisRunContext(case_id="TEST-MULTIPASS")
-        set_run_context(ctx)
-        try:
-            raw = [
-                _ai_with_tool_call("get_file_content", {"file_path": "app/svc.py"}, "tc1"),
-                _tool_msg("tc1", "get_file_content", "def foo():\n    pass\n"),
-                _ai_with_tool_call("get_file_content", {"file_path": "b.py"}, "tc2"),
-                _tool_msg("tc2", "get_file_content", _result(2)),
-                _ai_with_tool_call("get_file_content", {"file_path": "c.py"}, "tc3"),
-                _tool_msg("tc3", "get_file_content", _result(3)),
-                _ai_with_tool_call("get_file_content", {"file_path": "d.py"}, "tc4"),
-                _tool_msg("tc4", "get_file_content", _result(4)),
-            ]
-            messages = add_messages([], raw)
-            mw = ContextElisionMiddleware()
-            with _patch_settings() as ms:
-                ms.context_elision_enabled = True
-                ms.context_elision_keep_recent = 3
-                # pass 1: tc1 aged out (rank 3) -> archived with original finding
-                r1 = await mw.abefore_model(state={"messages": messages}, runtime=None)
-                assert r1 is not None
-                messages = add_messages(messages, r1["messages"])
-                tc1 = next(
-                    m for m in messages if isinstance(m, ToolMessage) and m.tool_call_id == "tc1"
-                )
-                assert "def foo():" in str(tc1.content)  # original key finding kept
-                assert "tc1" in ctx.elided_tool_call_ids
+        raw = [
+            _ai_with_tool_call("get_file_content", {"file_path": "app/svc.py"}, "tc1"),
+            _tool_msg("tc1", "get_file_content", "def foo():\n    pass\n"),
+            _ai_with_tool_call("get_file_content", {"file_path": "b.py"}, "tc2"),
+            _tool_msg("tc2", "get_file_content", _result(2)),
+            _ai_with_tool_call("get_file_content", {"file_path": "c.py"}, "tc3"),
+            _tool_msg("tc3", "get_file_content", _result(3)),
+            _ai_with_tool_call("get_file_content", {"file_path": "d.py"}, "tc4"),
+            _tool_msg("tc4", "get_file_content", _result(4)),
+        ]
+        messages = add_messages([], raw)
+        mw = ContextElisionMiddleware()
+        with _patch_settings() as ms:
+            ms.context_elision_enabled = True
+            ms.context_elision_keep_recent = 3
+            # pass 1: tc1 aged out (rank 3) -> archived with original finding
+            r1 = await mw.abefore_model(state={"messages": messages}, runtime=_make_runtime(ctx))
+            assert r1 is not None
+            messages = add_messages(messages, r1["messages"])
+            tc1 = next(
+                m for m in messages if isinstance(m, ToolMessage) and m.tool_call_id == "tc1"
+            )
+            assert "def foo():" in str(tc1.content)  # original key finding kept
+            assert "tc1" in ctx.elided_tool_call_ids
 
-                # pass 2: same messages -> tc1 already archived -> skipped;
-                # tc2-tc4 still within keep_recent -> nothing to do
-                r2 = await mw.abefore_model(state={"messages": messages}, runtime=None)
-                assert r2 is None  # no new replacements (tc1 skipped, not re-elided)
-                # tc1 content unchanged: finding NOT degraded to the handle line
-                tc1_after = next(
-                    m for m in messages if isinstance(m, ToolMessage) and m.tool_call_id == "tc1"
-                )
-                assert "def foo():" in str(tc1_after.content)
-                assert "[已归档·可重取]" in str(tc1_after.content)
-        finally:
-            clear_run_context()
+            # pass 2: same messages -> tc1 already archived -> skipped;
+            # tc2-tc4 still within keep_recent -> nothing to do
+            r2 = await mw.abefore_model(state={"messages": messages}, runtime=_make_runtime(ctx))
+            assert r2 is None  # no new replacements (tc1 skipped, not re-elided)
+            # tc1 content unchanged: finding NOT degraded to the handle line
+            tc1_after = next(
+                m for m in messages if isinstance(m, ToolMessage) and m.tool_call_id == "tc1"
+            )
+            assert "def foo():" in str(tc1_after.content)
+            assert "[已归档·可重取]" in str(tc1_after.content)

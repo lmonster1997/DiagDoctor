@@ -52,11 +52,7 @@ from src.engine.agent import (
 )
 from src.engine.budget.constants import RECURSION_LIMIT
 from src.engine.nodes.bug_info import bug_info_node
-from src.engine.run_context import (
-    DiagnosisRunContext,
-    clear_run_context,
-    set_run_context,
-)
+from src.engine.run_context import DiagnosisRunContext
 from src.engine.state import DoctorState, NormalizedEvidence
 from src.memory.long_term.case_retriever import (
     format_similar_cases,
@@ -276,16 +272,28 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
         initial_messages.append(HumanMessage(content=evidence_text))
 
     # ── Langfuse setup (graceful degradation) ────────────────────
+    # Trace lifecycle (start_trace/end_trace) is owned by the NODE, not
+    # LangfuseTracingMiddleware: the handler is a process-wide shared
+    # singleton (get_langfuse_handler caches it), so the per-diagnosis
+    # trace_id/session_id can't be baked in at construction -- they're set
+    # explicitly here. The middleware only records tool spans
+    # (awrap_tool_call); end_trace runs in _finalize_langfuse_trace below.
+    _lf_trace_id = state.get("langfuse_trace_id")
     langfuse_handler = None
     try:
         langfuse_handler = _get_langfuse_handler_for_dict_state(case_id, evidence_text)
         if langfuse_handler is not None:
             langfuse_handler.prepare_for_managed_trace()
+            if _lf_session_id:
+                langfuse_handler.set_external_session_id(_lf_session_id)
+            langfuse_handler.start_trace(
+                input_data={"evidence": evidence_text[:500]},
+                trace_id=_lf_trace_id,
+            )
     except Exception:
+        # Langfuse outage must not block diagnosis (graceful degradation).
         pass
 
-    _lf_trace_id = state.get("langfuse_trace_id")
-    _lf_session_id = state.get("langfuse_session_id")
     logger.info(
         "copilotkit_diag_langfuse_trace_id",
         case_id=case_id,
@@ -303,23 +311,22 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
     run_ctx = DiagnosisRunContext(
         case_id=case_id or "",
         langfuse_handler=langfuse_handler,
-        langfuse_trace_id=_lf_trace_id,
-        langfuse_session_id=_lf_session_id,
         system_prompt_text=base_prompt,
         evidence_text=evidence_text,
     )
-    set_run_context(run_ctx)
-
     # Log context was bound at the top of this node (trace_id=case_id,
     # upgraded to the Langfuse trace id by LangfuseTracing middleware during
     # the ainvoke below). Cleared on every exit path so finalize-phase logs
-    # (diagnosis_report_parsed / langfuse_trace_ended) still carry trace_id;
-    # clear_run_context stays in finally (local run_ctx ref survives it).
+    # (diagnosis_report_parsed / langfuse_trace_ended) still carry trace_id.
+    # run_ctx is passed as ``context=`` to ainvoke below; middlewares mutate
+    # it in place via runtime.context, and the local ref here reads those
+    # mutations back after ainvoke returns.
     try:
         agent = get_diagnosis_agent()
         result = await agent.ainvoke(  # type: ignore[call-overload]
             {"messages": initial_messages},
             config=invoke_config,
+            context=run_ctx,
         )
         final_messages: list[BaseMessage] = result.get("messages", [])
     except Exception as exc:
@@ -328,10 +335,7 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
             with contextlib.suppress(Exception):
                 langfuse_handler.end_trace(output_data={"error": str(exc)})
         clear_log_context()
-        clear_run_context()
         return {"report": None, "findings": []}
-    finally:
-        clear_run_context()
 
     budget_exhausted = run_ctx.budget_exhausted
     forced_call_triggered = run_ctx.forced_call_triggered

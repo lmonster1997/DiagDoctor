@@ -27,7 +27,6 @@ from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 
 from src.config import settings
 from src.engine.context.elision import build_elision_placeholder
-from src.engine.run_context import get_run_context_or_none
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)
@@ -53,8 +52,9 @@ class ContextElisionMiddleware(AgentMiddleware):
 
         keep_recent = settings.context_elision_keep_recent
         # 记录被 ageing 的 tool_call_id 供 ToolDedupMiddleware 放行重取(见
-        # run_context 的 elided_tool_call_ids 契约注释)。ctx 在单测里可能未设。
-        ctx = get_run_context_or_none()
+        # DiagnosisRunContext.elided_tool_call_ids 契约注释)。ctx 经 runtime.context
+        # 注入,单测里传带 context 的 Runtime;context 未注入时为 None(跳过记录)。
+        ctx = runtime.context
 
         # 倒序收集 ToolMessage 索引;rank 0 = 最近一次工具结果。
         tool_msg_indices: list[int] = [

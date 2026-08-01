@@ -61,7 +61,9 @@ class _FakeAgent:
     def __init__(self) -> None:
         self.calls = 0
 
-    async def ainvoke(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
+    async def ainvoke(
+        self, state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
         self.calls += 1
         msgs = state.get("messages", []) if isinstance(state, dict) else []
         is_resume = any(_RESUME_MARKER in str(getattr(m, "content", "")) for m in msgs)
@@ -83,7 +85,9 @@ class _ConvergingFake:
     def __init__(self) -> None:
         self.calls = 0
 
-    async def ainvoke(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
+    async def ainvoke(
+        self, state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
         self.calls += 1
         return {"messages": [AIMessage(content=CONVERGED_JSON)]}
 
@@ -255,7 +259,9 @@ async def test_one_shot_hitl_no_loop(tmp_path: pytest.Path, fake_agent: _FakeAge
     """Pass 2 also exhausts budget -> END (hitl_resumed gates a second pause)."""
 
     # Override ainvoke to flail on BOTH passes (second exhaustion on resume).
-    async def always_flail(state: dict[str, Any], config: Any = None) -> dict[str, Any]:
+    async def always_flail(
+        state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
         fake_agent.calls += 1
         flail = [
             AIMessage(content="", tool_calls=[{"name": "f", "args": {}, "id": f"t{i}"}])

@@ -20,6 +20,7 @@ from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 
 from src.config import settings
+from src.engine.run_context import DiagnosisRunContext
 from src.llm_factory import get_llm_for_role
 from src.observability.logger import get_logger
 from src.prompts.registry import render_prompt
@@ -102,6 +103,7 @@ def build_diagnosis_agent() -> Any:
         tools=tools,
         system_prompt=system_prompt,
         middleware=middleware,
+        context_schema=DiagnosisRunContext,
     )
 
     return agent
