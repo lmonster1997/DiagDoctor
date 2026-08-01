@@ -18,6 +18,7 @@ import {
   Database,
   Settings,
   RefreshCw,
+  Bug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ const TOOL_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   code_search: Search,
   get_trace: Search,
   get_logs: Search,
+  buginfo: Bug,
 };
 const DEFAULT_TOOL_ICON = Wrench;
 
@@ -48,6 +50,7 @@ function toolLabel(name: string): string {
     code_search: "代码搜索",
     get_trace: "获取 Trace 详情",
     get_logs: "获取日志详情",
+    buginfo: "提取 Bug 信息",
   };
   const key = name.toLowerCase().replace(/[^a-z_]/g, "");
   return map[key] ?? name;
@@ -89,6 +92,8 @@ function friendlyHint(name: string, args: Record<string, unknown>): string {
       return `正在获取 Trace 详情…`;
     case "get_logs":
       return `正在拉取日志详情…`;
+    case "buginfo":
+      return `正在从描述中提取 Bug 信息…`;
     default:
       return `正在执行 ${toolLabel(name)}…`;
   }
