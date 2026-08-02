@@ -15,6 +15,7 @@ import { Network, FileText, Activity, Sparkles, Copy, Check, History } from "luc
 import { BudgetPanel } from "@/features/diagnosis/BudgetPanel";
 import { EvidenceChainGraph } from "@/features/diagnosis/EvidenceChainGraph";
 import { ReportPanel } from "@/features/diagnosis/ReportPanel";
+import { DiagAssistantMessage } from "@/features/diagnosis/DiagAssistantMessage";
 import { GuidanceCard, type HitlPayload } from "@/features/diagnosis/GuidanceCard";
 import { HistoryPanel } from "@/features/diagnosis/HistoryPanel";
 import { parseAgentState, type RawAgentState } from "@/features/diagnosis/parseAgentState";
@@ -209,6 +210,7 @@ export default function DiagnosePage() {
           }}
           onThumbsUp={onThumbsUp}
           onThumbsDown={onThumbsDown}
+          AssistantMessage={DiagAssistantMessage}
           className="h-full"
         />
       </div>
