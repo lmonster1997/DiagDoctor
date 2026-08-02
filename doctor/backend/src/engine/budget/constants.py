@@ -1,8 +1,8 @@
 """诊断预算硬常量（单一来源）。
 
-被 BudgetGuardMiddleware（运行时硬门）、tracker.is_budget_exceeded（事后
-early_stopped 判定）和 ContextBudget（phase 阈值）共同引用。三处必须读这里，
-不得在 config.py / ContextBudget 里另存副本（§6.1 split-brain 的根治）。
+被 BudgetGuardMiddleware（运行时硬门）和 ContextBudget（phase 阈值）共同引用。
+两处必须读这里，不得在 config.py / ContextBudget 里另存副本（§6.1 split-brain
+的根治）。
 
 命名：``MAX_MODEL_CALLS`` 实计 LLM 调用数（``model_call_count``），非工具调用数。
 ``create_agent`` 每轮 model 调用后才决定是否调工具，故 model_call 是真正的

@@ -406,7 +406,7 @@ def _finalize_report_for_dict_state(
     messages: list[Any], budget_exhausted: bool, retrieved_case_ids: list[str] | None = None
 ) -> tuple[Any, list[Any], Any, bool]:
     """Parse messages into report + findings (mirrors _finalize_report from node.py)."""
-    from src.engine.budget.tracker import is_budget_exceeded, update_budget
+    from src.engine.budget.tracker import update_budget
     from src.engine.parsing import (
         clamp_referenced_case_ids,
         extract_findings,
@@ -417,8 +417,17 @@ def _finalize_report_for_dict_state(
     agent_result: dict[str, Any] = {"messages": messages}
     report = parse_diagnosis_report(agent_result)
     findings = extract_findings(agent_result)
+    # budget_state is telemetry-only (Langfuse tool_calls/tokens/elapsed).
+    # early_stopped reads the AUTHORITATIVE runtime ``budget_exhausted`` flag
+    # set by BudgetGuardMiddleware (model_call_count > MAX_MODEL_CALLS / token
+    # / time caps), captured during the loop before the forced call. We do NOT
+    # re-derive it from messages: tool_calls (sum of tool invocations) !=
+    # model_call_count (LLM calls), so a message-based proxy (the old
+    # is_budget_exceeded) false-positived on parallel-tool CONVERGED runs ->
+    # spurious HITL. §6.1 split-brain: gate on the runtime signal, not a
+    # re-derivation with a different口径.
     budget_state = update_budget(BudgetState(), agent_result)
-    early_stopped = is_budget_exceeded(budget_state) or budget_exhausted
+    early_stopped = budget_exhausted
 
     if report is None:
         # Agent 未输出有效 JSON(被截断 + forced call 失败)。从 findings 里挑最佳

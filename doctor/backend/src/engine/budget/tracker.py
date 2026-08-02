@@ -1,6 +1,13 @@
-"""预算状态追踪 — update_budget + is_budget_exceeded。
+"""预算状态追踪 - update_budget (telemetry only)。
 
-用于 CopilotKit 路径中的诊断节点后处理。
+``update_budget`` rebuilds a ``BudgetState`` from the final message list for
+Langfuse telemetry (tool_calls / total_tokens / elapsed_seconds). It is NOT
+used for ``early_stopped`` gating -- that reads the runtime
+``budget_exhausted`` flag set authoritatively by ``BudgetGuardMiddleware``
+(see ``diagnosis_agent._finalize_report_for_dict_state``). Re-deriving
+``early_stopped`` from messages was a §6.1 split-brain: ``tool_calls`` (sum of
+tool invocations) != ``model_call_count`` (LLM calls), so a message-based
+proxy false-positived on parallel-tool converged runs.
 """
 
 from __future__ import annotations
@@ -11,7 +18,6 @@ from typing import Any
 import tiktoken
 from langchain_core.messages import AIMessage
 
-from src.engine.budget.constants import MAX_MODEL_CALLS, MAX_TIME_SECONDS, MAX_TOKENS_BUDGET
 from src.engine.state import BudgetState
 
 _encoder = tiktoken.get_encoding("cl100k_base")
@@ -70,18 +76,3 @@ def update_budget(budget: BudgetState, agent_result: dict[str, Any]) -> BudgetSt
         elapsed_seconds=elapsed,
         last_checked_at=now,
     )
-
-
-def is_budget_exceeded(budget: BudgetState) -> bool:
-    """Check if the diagnosis budget has been exceeded (model_calls / tokens / time).
-
-    Post-hoc re-derivation (OR'd with the runtime ``budget_exhausted`` flag in the
-    node). ``tool_calls`` is real tool invocations (≤ model_calls, **excluding
-    §7.2 record_hypothesis 埋点**); comparing against ``MAX_MODEL_CALLS`` is a
-    conservative proxy -- if tool_calls hit the model-call cap, model_calls
-    certainly did too. The authoritative runtime gate is BudgetGuardMiddleware
-    (counts model_call_count directly, also exempting record_hypothesis turns).
-    """
-    if budget.tool_calls >= MAX_MODEL_CALLS:
-        return True
-    return budget.total_tokens >= MAX_TOKENS_BUDGET or budget.elapsed_seconds >= MAX_TIME_SECONDS
