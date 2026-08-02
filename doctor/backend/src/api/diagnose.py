@@ -353,3 +353,36 @@ async def list_diagnosis_threads(
         )
     threads.sort(key=lambda t: (t["status"] != "paused",))
     return {"threads": threads}
+
+
+@router.get("/diagnose/threads/{thread_id}", response_model=None)
+async def get_diagnosis_thread(thread_id: str) -> DiagnoseResponse:
+    """Return the full report/findings/evidence of a diagnosis thread.
+
+    Works for both ``completed`` (reached END with a report) and ``paused``
+    (mid-HITL, best-effort ``early_stopped`` report) threads. Enabler for
+    viewing a historical diagnosis without re-running it -- the P0 'view
+    completed report' feature (see ``docs/hitl-evolution-plan.md`` §3). Reuses
+    ``_response_from_state`` so the payload shape matches POST /api/diagnose.
+    """
+    graph = get_copilotkit_graph()
+    try:
+        snap = await graph.aget_state({"configurable": {"thread_id": thread_id}})
+    except ValueError as e:
+        # Stale / subgraph-only checkpoint unresolvable at the root namespace
+        # (same guard as ``list_diagnosis_threads``).
+        raise HTTPException(status_code=404, detail=f"Thread not resolvable: {e}") from e
+    vals = snap.values or {}
+    if not vals:
+        raise HTTPException(
+            status_code=404,
+            detail="No diagnosis state for this thread_id (never started or expired).",
+        )
+    logger.info(
+        "diagnose_thread_detail",
+        thread_id=thread_id,
+        early_stopped=bool(vals.get("early_stopped")),
+        hitl_resumed=bool(vals.get("hitl_resumed")),
+        has_report=bool(vals.get("report")),
+    )
+    return _response_from_state(thread_id, vals)

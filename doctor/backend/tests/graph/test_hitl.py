@@ -397,3 +397,76 @@ def test_rest_pause_list_resume_cycle(
         # 5. Resume a completed (non-paused) thread -> 409.
         r = client.post("/api/diagnose/resume", json={"thread_id": tid, "guidance": "x"})
         assert r.status_code == 409
+
+
+# ── REST GET /diagnose/threads/{tid} (P0: view historical report) ─────
+
+
+def test_rest_get_thread_detail_completed(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """GET /api/diagnose/threads/{tid} returns the full report of a completed
+    thread, and 404s for an unknown thread_id (P0 historical report view)."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from src.api import diagnose as diag_api
+
+    fake = _ConvergingFake()
+    monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
+    graph = _build(tmp_path)
+    monkeypatch.setattr(diag_api, "get_copilotkit_graph", lambda: graph)
+
+    app = FastAPI()
+    app.include_router(diag_api.router)
+    with TestClient(app) as client:
+        # 1. Run a converging diagnosis -> completed.
+        r = client.post("/api/diagnose", json={"evidence": {"user_report": "comments IDOR"}})
+        assert r.status_code == 200, r.text
+        tid = r.json()["thread_id"]
+
+        # 2. GET the thread detail -> full report payload (same shape as POST).
+        r = client.get(f"/api/diagnose/threads/{tid}")
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["thread_id"] == tid
+        assert body["report"] is not None
+        assert body["report"]["primary_category"] == "logic"
+        assert body["report"]["early_stopped"] is False
+        assert "findings_count" in body
+
+        # 3. Unknown thread_id -> 404.
+        r = client.get("/api/diagnose/threads/never-existed")
+        assert r.status_code == 404
+
+
+def test_rest_get_thread_detail_paused(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """GET /api/diagnose/threads/{tid} on a paused thread returns the
+    best-effort early_stopped report (so an operator can read it before
+    deciding whether to resume)."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from src.api import diagnose as diag_api
+
+    fake = _FakeAgent()
+    monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
+    graph = _build(tmp_path)
+    monkeypatch.setattr(diag_api, "get_copilotkit_graph", lambda: graph)
+
+    app = FastAPI()
+    app.include_router(diag_api.router)
+    with TestClient(app) as client:
+        # 1. Run -> budget exhausts -> pauses at human_input.
+        r = client.post("/api/diagnose", json={"evidence": {"user_report": "comments IDOR"}})
+        assert r.status_code == 200, r.text
+        tid = r.json()["thread_id"]
+
+        # 2. GET the paused thread -> early_stopped report is readable.
+        r = client.get(f"/api/diagnose/threads/{tid}")
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["report"] is not None
+        assert body["report"]["early_stopped"] is True

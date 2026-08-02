@@ -7,7 +7,7 @@
 
 // 默认相对路径 -> 经 vite dev 代理(/api -> :8001)同源无 CORS,与 CopilotKit 的
 // runtimeUrl="/api/copilotkit"(相对)一致。生产分源时设 VITE_DOCTOR_API_URL。
-import type { CaseFeedbackResponse } from "./types";
+import type { CaseFeedbackResponse, DiagnosisThreadDetail } from "./types";
 
 const BASE_URL = import.meta.env.VITE_DOCTOR_API_URL || "";
 
@@ -82,6 +82,12 @@ export interface ThreadsResponse {
 /** List recent diagnosis threads (paused first). Enabler for the F3 history list. */
 export function listThreads(limit = 50): Promise<ThreadsResponse> {
   return apiFetch<ThreadsResponse>(`/api/diagnose/threads?limit=${limit}`);
+}
+
+/** GET /api/diagnose/threads/{thread_id} -- full report of a completed or
+ *  paused thread (P0 historical report view, see docs/hitl-evolution-plan.md §3). */
+export function getThread(threadId: string): Promise<DiagnosisThreadDetail> {
+  return apiFetch<DiagnosisThreadDetail>(`/api/diagnose/threads/${threadId}`);
 }
 
 // ── Diagnosis case-level feedback (§8.1 path 2) ──────────────────

@@ -32,6 +32,21 @@ export interface DiagnosisReport {
   referenced_case_ids: string[];
 }
 
+// ── Diagnosis thread detail (P0 historical report view) ──────────
+
+/** GET /api/diagnose/threads/{thread_id} response.
+ *  Backend returns the full DiagnoseResponse; we only type the fields the UI
+ *  consumes. budget/findings/evidence/correlations travel on the wire but are
+ *  unused by the frontend yet (re-expand when needed). */
+export interface DiagnosisThreadDetail {
+  thread_id: string;
+  report: DiagnosisReport | null;
+  primary_category: string | null;
+  categories: string[];
+  findings_count: number;
+  referenced_case_ids: string[];
+}
+
 // ── Findings ─────────────────────────────────────────────────────
 
 export interface Finding {
