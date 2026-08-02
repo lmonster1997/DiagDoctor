@@ -23,7 +23,6 @@ from src.engine.nodes.diagnosis_agent import (
 from src.engine.parsing import extract_findings, parse_diagnosis_report
 from src.engine.state import Finding
 
-
 # ═════════════════════════════════════════════════════════════════════
 # Helpers
 # ═════════════════════════════════════════════════════════════════════
@@ -35,7 +34,9 @@ def _ai(content: str, tool_call_id: str | None = None) -> AIMessage:
         return AIMessage(content=content)
     return AIMessage(
         content=content,
-        tool_calls=[{"name": "search_observability", "args": {}, "id": tool_call_id, "type": "tool_call"}],
+        tool_calls=[
+            {"name": "search_observability", "args": {}, "id": tool_call_id, "type": "tool_call"}
+        ],
     )
 
 
@@ -95,7 +96,13 @@ class TestExtractFindingsHypothesis:
     def test_hypothesis_block_from_tool_call_message(self) -> None:
         """ReAct reasoning (tool-call AIMessage) carries hypothesis blocks -
         extract_findings must NOT skip these (the §7.2 root change)."""
-        msgs = [_ai("check fenix. " + _hypothesis("fenix is the failure side", "excluded", "fenix 200 OK"), "tc1")]
+        msgs = [
+            _ai(
+                "check fenix. "
+                + _hypothesis("fenix is the failure side", "excluded", "fenix 200 OK"),
+                "tc1",
+            )
+        ]
         findings = extract_findings({"messages": msgs})
         assert len(findings) == 1
         f = findings[0]
@@ -285,8 +292,15 @@ class TestExtractFindingsToolCall:
 class TestFormatScratchpad:
     def test_three_sections_grouped_by_status(self) -> None:
         findings = [
-            Finding(summary="GetImageByUID fails on export", status="confirmed", evidence_refs=["sig-1"]),
-            Finding(summary="fenix is the failure side", status="excluded", refuted=True, refutation_evidence="fenix 200 OK"),
+            Finding(
+                summary="GetImageByUID fails on export", status="confirmed", evidence_refs=["sig-1"]
+            ),
+            Finding(
+                summary="fenix is the failure side",
+                status="excluded",
+                refuted=True,
+                refutation_evidence="fenix 200 OK",
+            ),
             Finding(summary="PixelSpacing polluted", status="pending", evidence_refs=["trace-x"]),
         ]
         out = _format_scratchpad(findings)
@@ -306,7 +320,14 @@ class TestFormatScratchpad:
         assert "待验证线索" not in out
 
     def test_excluded_only(self) -> None:
-        findings = [Finding(summary="dead end", status="excluded", refuted=True, refutation_evidence="counterexample")]
+        findings = [
+            Finding(
+                summary="dead end",
+                status="excluded",
+                refuted=True,
+                refutation_evidence="counterexample",
+            )
+        ]
         out = _format_scratchpad(findings)
         assert "已排除假设" in out
         assert "dead end" in out
@@ -382,7 +403,9 @@ class TestReportFallbackFromFindings:
             _rh_tc("assignee_id.slice 未判空导致白屏", "confirmed", "null 报错 span", tc_id="rh1"),
             AIMessage(
                 content="关键发现！让我看看前端 TaskDetailPage 第 139 行",
-                tool_calls=[{"name": "get_file_content", "args": {}, "id": "tc1", "type": "tool_call"}],
+                tool_calls=[
+                    {"name": "get_file_content", "args": {}, "id": "tc1", "type": "tool_call"}
+                ],
             ),
         ]
         report, findings, _budget, early_stopped = _finalize_report_for_dict_state(
@@ -394,6 +417,11 @@ class TestReportFallbackFromFindings:
 
     def test_finalize_no_findings_uses_placeholder(self) -> None:
         """No report AND no findings -> placeholder root_cause (not reasoning text)."""
-        msgs = [AIMessage(content="还在调查中...", tool_calls=[{"name": "x", "args": {}, "id": "t1", "type": "tool_call"}])]
+        msgs = [
+            AIMessage(
+                content="还在调查中...",
+                tool_calls=[{"name": "x", "args": {}, "id": "t1", "type": "tool_call"}],
+            )
+        ]
         report, _f, _b, _e = _finalize_report_for_dict_state(msgs, budget_exhausted=True)
         assert report.root_cause == "诊断未完成"

@@ -156,12 +156,18 @@ async def db_query(sql: str) -> str:
             "db_query_failed",
             error=str(exc),
             sql_snippet=sql[:200],
-            hint="psycopg could not reach the demo-app Postgres; no fallback (would read a different DB)",
+            hint=(
+                "psycopg could not reach the demo-app Postgres; "
+                "no fallback (would read a different DB)"
+            ),
         )
         return json.dumps(
             {
                 "error": "无法连接到 demo-app 数据库。",
-                "hint": "请确认 demo-app 的 Postgres 正在运行且 demo_db_ro_url 指向它（与 demo-app 同库）",
+                "hint": (
+                    "请确认 demo-app 的 Postgres 正在运行且 "
+                    "demo_db_ro_url 指向它（与 demo-app 同库）"
+                ),
                 "detail": str(exc)[:300],
                 "status": "not_connected",
             },

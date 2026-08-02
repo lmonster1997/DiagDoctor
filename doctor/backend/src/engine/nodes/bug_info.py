@@ -113,7 +113,9 @@ async def _extract_bug_info(
         tc = tool_calls[0]
         tc_args = tc.get("args", {}) if isinstance(tc, dict) else getattr(tc, "args", {})
         tc_id = tc.get("id", "") if isinstance(tc, dict) else getattr(tc, "id", "")
-        tc_name = tc.get("name", "BugInfo") if isinstance(tc, dict) else getattr(tc, "name", "BugInfo")
+        tc_name = (
+            tc.get("name", "BugInfo") if isinstance(tc, dict) else getattr(tc, "name", "BugInfo")
+        )
         bug_info = BugInfo(**tc_args)
         logger.debug("bug_info_extracted", bug_info=bug_info.model_dump())
 

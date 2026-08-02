@@ -98,7 +98,7 @@ def build_diagnosis_agent() -> Any:
         ForcedFinalCallMiddleware(),
     ]
 
-    agent = create_agent(
+    agent = create_agent(  # type: ignore[misc]
         model=llm,
         tools=tools,
         system_prompt=system_prompt,

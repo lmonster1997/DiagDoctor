@@ -123,15 +123,23 @@ def _print_table(summary: dict[str, Any]) -> None:
     tk = summary["total_tokens"]
     el = summary["elapsed_seconds"]
     print("                n     P50     P75     P90     max    mean")
-    print(f"  tool_calls  {tc['n']:<5}  {tc['p50']:<6.0f}  {tc['p75']:<6.0f}  {tc['p90']:<6.0f}  {tc['max']:<6.0f}  {tc['mean']:<.1f}")
-    print(f"  total_tokens{tk['n']:<5}  {tk['p50']:<6.0f}  {tk['p75']:<6.0f}  {tk['p90']:<6.0f}  {tk['max']:<6.0f}  {tk['mean']:<.1f}")
-    print(f"  elapsed_s   {el['n']:<5}  {el['p50']:<6.0f}  {el['p75']:<6.0f}  {el['p90']:<6.0f}  {el['max']:<6.0f}  {el['mean']:<.1f}")
+    print(
+        f"  tool_calls  {tc['n']:<5}  {tc['p50']:<6.0f}  {tc['p75']:<6.0f}  {tc['p90']:<6.0f}  {tc['max']:<6.0f}  {tc['mean']:<.1f}"
+    )
+    print(
+        f"  total_tokens{tk['n']:<5}  {tk['p50']:<6.0f}  {tk['p75']:<6.0f}  {tk['p90']:<6.0f}  {tk['max']:<6.0f}  {tk['mean']:<.1f}"
+    )
+    print(
+        f"  elapsed_s   {el['n']:<5}  {el['p50']:<6.0f}  {el['p75']:<6.0f}  {el['p90']:<6.0f}  {el['max']:<6.0f}  {el['mean']:<.1f}"
+    )
     print()
     print(f"  early_stop_rate:         {summary['early_stop_rate']:.1%}")
     print(f"  forced_final_call_rate:  {summary['forced_final_call_rate']:.1%}")
     print()
     print("  per-case:")
-    print(f"    {'recipe_id':<16} {'tool_calls':>10} {'tokens':>10} {'elapsed':>8} {'early':>6} {'forced':>6}")
+    print(
+        f"    {'recipe_id':<16} {'tool_calls':>10} {'tokens':>10} {'elapsed':>8} {'early':>6} {'forced':>6}"
+    )
     for r in summary["per_case"]:
         rid = str(r["recipe_id"])[:16]
         print(
@@ -141,7 +149,9 @@ def _print_table(summary: dict[str, Any]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Analyze budget distribution from Langfuse traces.")
+    parser = argparse.ArgumentParser(
+        description="Analyze budget distribution from Langfuse traces."
+    )
     parser.add_argument(
         "--session",
         type=str,
@@ -169,9 +179,7 @@ def main() -> None:
         host=settings.langfuse_host,
     )
 
-    traces = _fetch_traces(
-        lf, session_id=args.session, tags=args.tags, limit=args.limit
-    )
+    traces = _fetch_traces(lf, session_id=args.session, tags=args.tags, limit=args.limit)
     rows = []
     for t in traces:
         row = _parse_trace(t)

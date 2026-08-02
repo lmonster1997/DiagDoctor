@@ -205,9 +205,9 @@ class ContextBudget:
     def record_real_usage(self, input_tokens: int) -> int:
         """Record real input_tokens from the latest AIMessage's usage_metadata.
 
-        Tracks the peak context size the model actually received (post-truncation
-       口径). This is the gate's primary token metric (see ``total_used``), replacing
-        the tiktoken tool-result estimate that caused §6.1 split-brain.
+         Tracks the peak context size the model actually received (post-truncation
+        口径). This is the gate's primary token metric (see ``total_used``), replacing
+         the tiktoken tool-result estimate that caused §6.1 split-brain.
         """
         if input_tokens > self.real_input_tokens:
             self.real_input_tokens = input_tokens

@@ -114,9 +114,7 @@ def _placeholder_db_query(args: dict[str, Any], content: str) -> str:
     return _format("db_query", handle, _first_key_line(content))
 
 
-def _placeholder_generic(
-    name: str, args: dict[str, Any], content: str
-) -> str:
+def _placeholder_generic(name: str, args: dict[str, Any], content: str) -> str:
     """通用占位:重取入口 = 工具名+参数;结果首条关键行。
 
     适用于 ``inspect_frontend_error`` / ``search_historical_root_cause`` / 未知工具。
@@ -184,8 +182,8 @@ def _first_key_line(content: str) -> str:
 
 def _clip(s: Any, n: int) -> str:
     """单行化 + 裁剪到 n 字符(防换行/超长撑爆占位)。"""
-    s = str(s).replace("\n", " ").replace("\r", " ").strip()
-    return s if len(s) <= n else s[:n] + "..."
+    text: str = str(s).replace("\n", " ").replace("\r", " ").strip()
+    return text if len(text) <= n else text[:n] + "..."
 
 
 def _safe_json(content: str) -> dict[str, Any] | None:

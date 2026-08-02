@@ -163,9 +163,7 @@ def configure_logging(
         logging.getLogger(_lib).setLevel(logging.WARNING)
 
     console_renderer = (
-        structlog.processors.JSONRenderer()
-        if json_format
-        else structlog.dev.ConsoleRenderer()
+        structlog.processors.JSONRenderer() if json_format else structlog.dev.ConsoleRenderer()
     )
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(

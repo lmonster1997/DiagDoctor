@@ -134,7 +134,9 @@ class TestLangfuseTracingMiddleware:
         mw = LangfuseTracingMiddleware()
         inner_result = ToolMessage(content="raw result text", tool_call_id="tc1", name="echo")
         fake_handler = AsyncMock(return_value=inner_result)
-        result = await mw.awrap_tool_call(_make_tool_call_request(runtime=_make_runtime(run_ctx)), fake_handler)
+        result = await mw.awrap_tool_call(
+            _make_tool_call_request(runtime=_make_runtime(run_ctx)), fake_handler
+        )
         # Span recorded
         handler.record_tool_span.assert_called_once()
         span_kwargs = handler.record_tool_span.call_args.kwargs
@@ -144,9 +146,7 @@ class TestLangfuseTracingMiddleware:
         # Result passed through unchanged
         assert result is inner_result
 
-    async def test_after_agent_does_not_end_trace(
-        self, run_ctx: DiagnosisRunContext
-    ) -> None:
+    async def test_after_agent_does_not_end_trace(self, run_ctx: DiagnosisRunContext) -> None:
         # Regression: aafter_agent must NOT call end_trace. The trace output
         # (diagnosis report) is owned by diagnosis_agent_node's
         # _finalize_langfuse_trace, which runs AFTER agent.ainvoke returns.
@@ -253,9 +253,7 @@ class TestBudgetGuardMiddleware:
             await mw.aafter_model(state={"messages": [msg]}, runtime=_make_runtime(run_ctx))
         assert run_ctx.ctx_budget.real_input_tokens == 9000
 
-    async def test_real_input_tokens_drive_token_gate(
-        self, run_ctx: DiagnosisRunContext
-    ) -> None:
+    async def test_real_input_tokens_drive_token_gate(self, run_ctx: DiagnosisRunContext) -> None:
         """Token gate fires on real_input_tokens >= MAX_TOKENS_BUDGET."""
         run_ctx.ctx_budget.record_real_usage(MAX_TOKENS_BUDGET)
         mw = BudgetGuardMiddleware()
@@ -276,7 +274,10 @@ class TestBudgetGuardMiddleware:
         )
         mw = BudgetGuardMiddleware()
         await mw.awrap_tool_call(
-            _make_tool_call_request("search_observability", {}, "tc1", runtime=_make_runtime(run_ctx)), handler
+            _make_tool_call_request(
+                "search_observability", {}, "tc1", runtime=_make_runtime(run_ctx)
+            ),
+            handler,
         )
         # tool_result_tokens recorded (telemetry) but gate's total_used NOT inflated
         assert run_ctx.ctx_budget.tool_result_tokens > 0
@@ -312,9 +313,16 @@ class TestBudgetGuardMiddleware:
 
         # a diagnostic tool call IS counted
         handler2 = AsyncMock(
-            return_value=ToolMessage(content="result", tool_call_id="tc1", name="search_observability")
+            return_value=ToolMessage(
+                content="result", tool_call_id="tc1", name="search_observability"
+            )
         )
-        await mw.awrap_tool_call(_make_tool_call_request("search_observability", {}, "tc1", runtime=_make_runtime(run_ctx)), handler2)
+        await mw.awrap_tool_call(
+            _make_tool_call_request(
+                "search_observability", {}, "tc1", runtime=_make_runtime(run_ctx)
+            ),
+            handler2,
+        )
         assert run_ctx.ctx_budget.tool_calls == 1
 
     async def test_pure_record_hypothesis_turn_decrements_model_call_count(
@@ -386,7 +394,9 @@ class TestToolDedupMiddleware:
     ) -> None:
         handler = AsyncMock(return_value=ToolMessage(content="r", tool_call_id="tc1", name="echo"))
         mw = ToolDedupMiddleware()
-        request = _make_tool_call_request("echo", {"text": "hi"}, "tc1", runtime=_make_runtime(run_ctx))
+        request = _make_tool_call_request(
+            "echo", {"text": "hi"}, "tc1", runtime=_make_runtime(run_ctx)
+        )
         await mw.awrap_tool_call(request, handler)
         handler.assert_awaited_once()
         assert len(run_ctx.call_history) == 1
@@ -400,7 +410,9 @@ class TestToolDedupMiddleware:
         lf_handler = MagicMock()
         run_ctx.langfuse_handler = lf_handler
         mw = ToolDedupMiddleware()
-        request = _make_tool_call_request("echo", {"text": "hi"}, "tc1", runtime=_make_runtime(run_ctx))
+        request = _make_tool_call_request(
+            "echo", {"text": "hi"}, "tc1", runtime=_make_runtime(run_ctx)
+        )
 
         # First call — executes
         await mw.awrap_tool_call(request, handler)
@@ -421,8 +433,14 @@ class TestToolDedupMiddleware:
     async def test_different_args_not_treated_as_dup(self, run_ctx: DiagnosisRunContext) -> None:
         handler = AsyncMock(return_value=ToolMessage(content="r", tool_call_id="tc", name="echo"))
         mw = ToolDedupMiddleware()
-        await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "a"}, "tc1", runtime=_make_runtime(run_ctx)), handler)
-        await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "b"}, "tc2", runtime=_make_runtime(run_ctx)), handler)
+        await mw.awrap_tool_call(
+            _make_tool_call_request("echo", {"text": "a"}, "tc1", runtime=_make_runtime(run_ctx)),
+            handler,
+        )
+        await mw.awrap_tool_call(
+            _make_tool_call_request("echo", {"text": "b"}, "tc2", runtime=_make_runtime(run_ctx)),
+            handler,
+        )
         assert handler.await_count == 2
         assert len(run_ctx.call_history) == 2
 
@@ -434,11 +452,17 @@ class TestToolDedupMiddleware:
         handler = AsyncMock(return_value=ToolMessage(content="r", tool_call_id="tc2", name="echo"))
         mw = ToolDedupMiddleware()
         # first call executes, records call_key -> "tc1"
-        await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc1", runtime=_make_runtime(run_ctx)), handler)
+        await mw.awrap_tool_call(
+            _make_tool_call_request("echo", {"text": "hi"}, "tc1", runtime=_make_runtime(run_ctx)),
+            handler,
+        )
         # simulate ContextElision having aged out tc1's result
         run_ctx.elided_tool_call_ids.add("tc1")
         # second identical call (new id tc2) -> allowed re-fetch
-        result = await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc2", runtime=_make_runtime(run_ctx)), handler)
+        result = await mw.awrap_tool_call(
+            _make_tool_call_request("echo", {"text": "hi"}, "tc2", runtime=_make_runtime(run_ctx)),
+            handler,
+        )
         handler.assert_awaited()
         assert handler.await_count == 2  # both calls executed
         assert isinstance(result, ToolMessage)
@@ -454,9 +478,15 @@ class TestToolDedupMiddleware:
         identical re-call is a wasteful dup, skipped (original behaviour)."""
         handler = AsyncMock(return_value=ToolMessage(content="r", tool_call_id="tc1", name="echo"))
         mw = ToolDedupMiddleware()
-        await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc1", runtime=_make_runtime(run_ctx)), handler)
+        await mw.awrap_tool_call(
+            _make_tool_call_request("echo", {"text": "hi"}, "tc1", runtime=_make_runtime(run_ctx)),
+            handler,
+        )
         # elided_tool_call_ids stays empty -> tc1 result still in context
-        result = await mw.awrap_tool_call(_make_tool_call_request("echo", {"text": "hi"}, "tc2", runtime=_make_runtime(run_ctx)), handler)
+        result = await mw.awrap_tool_call(
+            _make_tool_call_request("echo", {"text": "hi"}, "tc2", runtime=_make_runtime(run_ctx)),
+            handler,
+        )
         handler.assert_awaited_once()  # only first call executed
         assert isinstance(result, ToolMessage)
         assert "跳过" in str(result.content)
@@ -479,9 +509,15 @@ class TestDedupElisionIntegration:
         return [
             AIMessage(
                 content="",
-                tool_calls=[{"name": "get_file_content", "args": args, "id": tc_id, "type": "tool_call"}],
+                tool_calls=[
+                    {"name": "get_file_content", "args": args, "id": tc_id, "type": "tool_call"}
+                ],
             ),
-            ToolMessage(content=f"line_{tc_id}\n" + "BULK" * 200, tool_call_id=tc_id, name="get_file_content"),
+            ToolMessage(
+                content=f"line_{tc_id}\n" + "BULK" * 200,
+                tool_call_id=tc_id,
+                name="get_file_content",
+            ),
         ]
 
     async def test_refetch_allowed_after_elision_ages_out_prior_result(
@@ -498,10 +534,17 @@ class TestDedupElisionIntegration:
 
         # 1) Agent already fetched app/svc.py once (tc1) -> dedup records it.
         first_handler = AsyncMock(
-            return_value=ToolMessage(content="line_tc1\n" + "BULK" * 200, tool_call_id="tc1", name="get_file_content")
+            return_value=ToolMessage(
+                content="line_tc1\n" + "BULK" * 200, tool_call_id="tc1", name="get_file_content"
+            )
         )
         dedup = ToolDedupMiddleware()
-        await dedup.awrap_tool_call(_make_tool_call_request("get_file_content", args, "tc1", runtime=_make_runtime(run_ctx)), first_handler)
+        await dedup.awrap_tool_call(
+            _make_tool_call_request(
+                "get_file_content", args, "tc1", runtime=_make_runtime(run_ctx)
+            ),
+            first_handler,
+        )
         first_handler.assert_awaited_once()
 
         # 2) Elision ages out tc1 (keep_recent=3) -> records tc1 as elided.
@@ -509,16 +552,23 @@ class TestDedupElisionIntegration:
         with patch("src.engine.middleware.context_elision.settings") as ms:
             ms.context_elision_enabled = True
             ms.context_elision_keep_recent = 3
-            await elision.abefore_model(state={"messages": messages}, runtime=_make_runtime(run_ctx))
+            await elision.abefore_model(
+                state={"messages": messages}, runtime=_make_runtime(run_ctx)
+            )
         assert "tc1" in run_ctx.elided_tool_call_ids
 
         # 3) Agent re-fetches app/svc.py (same args, new id tc5) -> dedup ALLOWS
         #    (not skipped), because tc1 was elided.
         refetch_handler = AsyncMock(
-            return_value=ToolMessage(content="line_tc1\n" + "BULK" * 200, tool_call_id="tc5", name="get_file_content")
+            return_value=ToolMessage(
+                content="line_tc1\n" + "BULK" * 200, tool_call_id="tc5", name="get_file_content"
+            )
         )
         result = await dedup.awrap_tool_call(
-            _make_tool_call_request("get_file_content", args, "tc5", runtime=_make_runtime(run_ctx)), refetch_handler
+            _make_tool_call_request(
+                "get_file_content", args, "tc5", runtime=_make_runtime(run_ctx)
+            ),
+            refetch_handler,
         )
         refetch_handler.assert_awaited_once()  # executed, not skipped
         assert isinstance(result, ToolMessage)

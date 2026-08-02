@@ -44,9 +44,7 @@ class ContextElisionMiddleware(AgentMiddleware):
         if not settings.context_elision_enabled:
             return None
 
-        messages: list[BaseMessage] = (
-            state.get("messages", []) if isinstance(state, dict) else []
-        )
+        messages: list[BaseMessage] = state.get("messages", []) if isinstance(state, dict) else []
         if not messages:
             return None
 
@@ -58,8 +56,7 @@ class ContextElisionMiddleware(AgentMiddleware):
 
         # 倒序收集 ToolMessage 索引;rank 0 = 最近一次工具结果。
         tool_msg_indices: list[int] = [
-            i for i in range(len(messages) - 1, -1, -1)
-            if isinstance(messages[i], ToolMessage)
+            i for i in range(len(messages) - 1, -1, -1) if isinstance(messages[i], ToolMessage)
         ]
 
         # 一次扫描建 tool_call_id -> args 索引,占位构造 O(1) 取重取入口

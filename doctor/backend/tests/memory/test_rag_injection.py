@@ -111,6 +111,14 @@ def _patch_agent(
     return agent
 
 
+@pytest.fixture(autouse=True)
+def _enable_rag_injection(monkeypatch: pytest.MonkeyPatch) -> None:
+    """RAG injection tests mock retrieval, so the flag must be ON regardless
+    of the local .env (RAG_INJECTION_ENABLED=false when Qdrant/embeddings are
+    down). test_flag_off_skips_retrieval_entirely overrides this to False."""
+    monkeypatch.setattr(settings, "rag_injection_enabled", True)
+
+
 # ── pass 1: retrieve + inject + cache ───────────────────────────────
 
 

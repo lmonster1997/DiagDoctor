@@ -1,3 +1,4 @@
+# ruff: noqa: E402, E501
 """手工验证 §7.2 HITL 假设树 scratchpad(commit 6c4d008)。
 
 驱动【真】CopilotKit 诊断 graph(真节点 / 路由 / checkpointer / extract_findings /
@@ -66,6 +67,7 @@ def _flail(tc_id: str) -> AIMessage:
         content="", tool_calls=[{"name": "fake_tool", "args": {}, "id": tc_id, "type": "tool_call"}]
     )
 
+
 CONVERGED_JSON = """```json
 {
   "primary_category": "backend_error",
@@ -130,7 +132,9 @@ async def main() -> None:
         tid = "verify-hitl-1"
         cfg = {"configurable": {"thread_id": tid}}
         state = {
-            "raw_evidence": Evidence(user_report="导出图片接口偶发返回空,可疑 fenix/PixelSpacing/导出链路"),
+            "raw_evidence": Evidence(
+                user_report="导出图片接口偶发返回空,可疑 fenix/PixelSpacing/导出链路"
+            ),
             "case_id": tid,
             "trace_id": tid,
             "session_id": tid,
@@ -163,8 +167,12 @@ async def main() -> None:
         v2 = snap2.values or {}
         report = v2.get("report")
         print("\n[pass2] next =", snap2.next, "| hitl_resumed =", v2.get("hitl_resumed"))
-        print("[pass2] root_cause =", getattr(report, "root_cause", None),
-              "| early_stopped =", getattr(report, "early_stopped", None))
+        print(
+            "[pass2] root_cause =",
+            getattr(report, "root_cause", None),
+            "| early_stopped =",
+            getattr(report, "early_stopped", None),
+        )
         # add reducer: pass2 的 confirmed root_cause 累加进 findings
         print("[pass2] final findings count =", len(v2.get("findings", [])))
 

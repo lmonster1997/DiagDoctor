@@ -16,7 +16,6 @@ import json
 from typing import Any
 from unittest.mock import patch
 
-import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph.message import add_messages
 from langgraph.runtime import Runtime
@@ -27,7 +26,6 @@ from src.engine.middleware.context_elision import (
     _index_tool_call_args,
 )
 from src.engine.run_context import DiagnosisRunContext
-
 
 # ═════════════════════════════════════════════════════════════════════
 # Helpers
@@ -61,7 +59,9 @@ def _obs_result(
 
 
 def _ai_with_tool_call(name: str, args: dict[str, Any], tc_id: str) -> AIMessage:
-    return AIMessage(content="", tool_calls=[{"name": name, "args": args, "id": tc_id, "type": "tool_call"}])
+    return AIMessage(
+        content="", tool_calls=[{"name": name, "args": args, "id": tc_id, "type": "tool_call"}]
+    )
 
 
 def _tool_msg(tc_id: str, name: str, content: str, msg_id: str | None = None) -> ToolMessage:
@@ -133,7 +133,9 @@ class TestBuildElisionPlaceholder:
         assert "[已归档·可重取]" in out
 
     def test_code_search_handle_carries_query(self) -> None:
-        out = build_elision_placeholder("code_search", {"query": "create_task"}, "file.py:42\ndef create_task():")
+        out = build_elision_placeholder(
+            "code_search", {"query": "create_task"}, "file.py:42\ndef create_task():"
+        )
         assert 'code_search(query="create_task")' in out
         assert "file.py:42" in out
 
@@ -148,12 +150,16 @@ class TestBuildElisionPlaceholder:
         assert "end_line=20" in out
 
     def test_db_query_handle_carries_sql(self) -> None:
-        out = build_elision_placeholder("db_query", {"sql": "SELECT * FROM users"}, "id=1 name=alice")
+        out = build_elision_placeholder(
+            "db_query", {"sql": "SELECT * FROM users"}, "id=1 name=alice"
+        )
         assert 'sql="SELECT * FROM users"' in out
         assert "id=1 name=alice" in out
 
     def test_unknown_tool_uses_generic_handle(self) -> None:
-        out = build_elision_placeholder("inspect_frontend_error", {"browser_errors": "err"}, "first line\nsecond")
+        out = build_elision_placeholder(
+            "inspect_frontend_error", {"browser_errors": "err"}, "first line\nsecond"
+        )
         assert "inspect_frontend_error(" in out
         assert "first line" in out
 
@@ -217,7 +223,9 @@ class TestContextElisionMiddleware:
             _tool_msg("tc4", "code_search", _result(4)),
         ]
         messages = add_messages([], raw)  # assigns ids (as in the real loop)
-        tc1_msg = next(m for m in messages if isinstance(m, ToolMessage) and m.tool_call_id == "tc1")
+        tc1_msg = next(
+            m for m in messages if isinstance(m, ToolMessage) and m.tool_call_id == "tc1"
+        )
 
         mw = ContextElisionMiddleware()
         with _patch_settings() as ms:
@@ -358,8 +366,10 @@ class TestContextElisionMiddleware:
         assert len(tc1_msgs) == 1
         # the AIMessage with tool_calls=[...tc1...] is unchanged
         ai_with_tc1 = [
-            m for m in after
-            if isinstance(m, AIMessage) and any(tc.get("id") == "tc1" for tc in (m.tool_calls or []))
+            m
+            for m in after
+            if isinstance(m, AIMessage)
+            and any(tc.get("id") == "tc1" for tc in (m.tool_calls or []))
         ]
         assert len(ai_with_tc1) == 1
 
