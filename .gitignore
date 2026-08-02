@@ -14,8 +14,9 @@ node_modules/
 # IDE
 .vscode/
 
-# Docs - internal design documents (not for public repo)
-docs/agent-dev-notes/
+# Docs - 全部本地文档(设计/调试/概览等),不入库
+# 2026-08-02 起全部取消跟踪:已 tracked 的也 git rm --cached 移出,磁盘保留
+docs/
 
 # Docker
 .env
@@ -27,9 +28,6 @@ data/
 # Infra runtime data
 infra/tempo/data/
 infra/loki/data/
-
-# Agent development learning notes (personal use, not for repo)
-docs/agent-dev-notes/
 
 # Local tooling configs (Claude Code, Copilot/skills/CI) - not for repo
 .claude/
