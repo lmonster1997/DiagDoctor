@@ -212,7 +212,7 @@ export function ToolCallCardContent({
   return (
     <div
       className={cn(
-        "my-2 overflow-hidden rounded-lg border transition-all duration-300",
+        "my-2 mx-4 overflow-hidden rounded-lg border transition-all duration-300",
         isSkipped && "border-white/[0.04] bg-white/[0.01] opacity-50",
         isPending && "border-l-2 border-l-cyan-500/30 border-r border-r-white/[0.06] border-t border-t-white/[0.06] border-b border-b-white/[0.06] bg-blue-500/[0.04]",
         isFailed && "border-l-2 border-l-amber-500/60 border-r border-r-white/[0.06] border-t border-t-white/[0.06] border-b border-b-white/[0.06] bg-amber-500/[0.03]",

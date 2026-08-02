@@ -680,45 +680,6 @@ class TestSearchTempoTracesIntegration:
 # ── StructuredTool wrapper tests ────────────────────────────────────
 
 
-class TestStructuredToolWrappers:
-    """Verify that LangChain StructuredTool wrappers are correctly configured."""
-
-    def test_loki_query_tool_exists(self) -> None:
-        """LOKI_QUERY_TOOL is importable and has correct name/description."""
-        from src.tools import LOKI_QUERY_TOOL
-
-        assert LOKI_QUERY_TOOL.name == "query_loki_logs"
-        assert "LogQL" in LOKI_QUERY_TOOL.description
-        assert LOKI_QUERY_TOOL.coroutine is not None
-
-    def test_tempo_trace_tool_exists(self) -> None:
-        """TEMPO_TRACE_TOOL is importable and has correct name/description."""
-        from src.tools import TEMPO_TRACE_TOOL
-
-        assert TEMPO_TRACE_TOOL.name == "query_tempo_trace"
-        assert "trace id" in TEMPO_TRACE_TOOL.description.lower()
-        assert TEMPO_TRACE_TOOL.coroutine is not None
-
-    def test_tempo_search_tool_exists(self) -> None:
-        """TEMPO_SEARCH_TOOL is importable and has correct name/description."""
-        from src.tools import TEMPO_SEARCH_TOOL
-
-        assert TEMPO_SEARCH_TOOL.name == "search_tempo_traces"
-        assert "service name" in TEMPO_SEARCH_TOOL.description.lower()
-        assert TEMPO_SEARCH_TOOL.coroutine is not None
-
-    def test_all_tools_exposed_in_all(self) -> None:
-        """All three tools are exposed in __all__."""
-        from src.tools import __all__ as tools_all
-
-        assert "LOKI_QUERY_TOOL" in tools_all
-        assert "TEMPO_TRACE_TOOL" in tools_all
-        assert "TEMPO_SEARCH_TOOL" in tools_all
-        assert "query_loki_logs" in tools_all
-        assert "query_tempo_trace" in tools_all
-        assert "search_tempo_traces" in tools_all
-
-
 # ── V3 统一工具集测试 ──────────────────────────────────────────────
 
 
@@ -809,20 +770,3 @@ class TestV3UnifiedTools:
         assert "search_observability" in tools_all
         assert "inspect_frontend_error" in tools_all
         assert "get_file_content" in tools_all
-
-    def test_deprecated_tools_still_importable(self) -> None:
-        """Old tools should still be importable (deprecated, not removed)."""
-        from src.tools import (
-            FRONTEND_SPECIALIST_TOOLS,
-            LOKI_QUERY_TOOL,
-            TEMPO_SEARCH_TOOL,
-            TEMPO_TRACE_TOOL,
-            TRACE_ANALYSIS_TOOL,
-        )
-
-        # All deprecated tools exist
-        assert LOKI_QUERY_TOOL.name == "query_loki_logs"
-        assert TEMPO_TRACE_TOOL.name == "query_tempo_trace"
-        assert TEMPO_SEARCH_TOOL.name == "search_tempo_traces"
-        assert TRACE_ANALYSIS_TOOL.name == "analyze_trace"
-        assert len(FRONTEND_SPECIALIST_TOOLS) > 0

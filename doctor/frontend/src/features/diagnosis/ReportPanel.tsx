@@ -24,8 +24,6 @@ import { postCaseFeedback } from "@/api/client";
 
 interface ReportPanelProps {
   report: DiagnosisReport;
-  onHighlightRef?: (ref: string) => void;
-  highlightedRef?: string | null;
   /** §8.1 path 2: backend thread_id (state.case_id) for POST /feedback/{run_id}/case. */
   runId?: string;
   /** §6.5 injection block (all retrieved cases w/ content + [id:...]) — shown
@@ -50,8 +48,6 @@ function categoryColor(cat: string): string {
 
 export function ReportPanel({
   report,
-  onHighlightRef,
-  highlightedRef,
   runId,
   similarCasesText,
 }: ReportPanelProps) {
@@ -180,23 +176,18 @@ export function ReportPanel({
 
       {/* ── Affected File ───────────────────────────────────────── */}
       {affectedRef && (
-        <button
-          type="button"
-          onClick={() => onHighlightRef?.(affectedRef)}
-          className="group flex items-start gap-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 text-left transition-all hover:border-white/[0.10] hover:bg-white/[0.04]"
-          title="点击在证据链中高亮相关节点"
-        >
-          <FileCode className="mt-0.5 size-4 shrink-0 text-[#5c6070] group-hover:text-[#3b82f6]" />
+        <div className="flex items-start gap-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+          <FileCode className="mt-0.5 size-4 shrink-0 text-[#5c6070]" />
           <div className="min-w-0">
             <div className="mb-0.5 flex items-center gap-1.5 text-[10px] text-[#5c6070]">
               <MapPin className="size-3" />
               受影响文件
             </div>
-            <code className="block break-all text-xs text-[#e4e4ef] group-hover:text-[#3b82f6] transition-colors">
+            <code className="block break-all text-xs text-[#e4e4ef]">
               {affectedRef}
             </code>
           </div>
-        </button>
+        </div>
       )}
 
       {/* ── Fix Suggestion — blockquote style ───────────────────── */}
@@ -220,24 +211,14 @@ export function ReportPanel({
             证据链 ({report.evidence_chain.length})
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {report.evidence_chain.map((ref, i) => {
-              const active = highlightedRef === ref;
-              return (
-                <button
-                  key={`${ref}-${i}`}
-                  type="button"
-                  onClick={() => onHighlightRef?.(ref)}
-                  className={`rounded px-2 py-1 font-mono text-[10px] transition-all ${
-                    active
-                      ? "bg-[#3b82f6]/20 text-[#3b82f6] ring-1 ring-[#3b82f6]/30"
-                      : "bg-white/[0.03] text-[#8a8fa3] hover:bg-white/[0.06] hover:text-[#e4e4ef]"
-                  }`}
-                  title="点击在证据链中高亮该证据"
-                >
-                  {ref}
-                </button>
-              );
-            })}
+            {report.evidence_chain.map((ref, i) => (
+              <span
+                key={`${ref}-${i}`}
+                className="rounded bg-white/[0.03] px-2 py-1 font-mono text-[10px] text-[#8a8fa3]"
+              >
+                {ref}
+              </span>
+            ))}
           </div>
         </div>
       )}

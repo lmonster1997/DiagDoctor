@@ -3,17 +3,13 @@ Diagnose endpoint — runs the full LangGraph diagnosis pipeline.
 
 Accepts Evidence (user_report + optional logs/traces/browser_errors)
 and returns a structured DiagnosisReport (v2 multi-label).
-Supports streaming via ?stream=true.
 """
 
 from __future__ import annotations
 
-import json
-from collections.abc import AsyncIterator
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from src.engine.nodes.diagnosis_agent import generate_thread_id, get_copilotkit_graph
@@ -87,10 +83,9 @@ class DiagnoseRequest(BaseModel):
 class DiagnoseResponse(BaseModel):
     """Standard (non-streaming) response from the diagnose endpoint (v2).
 
-    Phase 2: carries the full evidence chain payload (budget, findings,
-    normalized evidence, correlations) so the frontend can render
-    the EvidenceChainGraph and a complete ReportPanel without a second
-    round-trip.
+    Carries the full graph-state payload (budget, findings, normalized
+    evidence, correlations) for debug/benchmark consumers. The CopilotKit
+    UI does not use this endpoint (it streams via /api/copilotkit).
     """
 
     thread_id: str
@@ -166,129 +161,17 @@ def _extract_evidence_payload(final_state: Any) -> dict[str, Any]:
         "correlations": correlations,
     }
 
-
-async def _stream_graph(thread_id: str, state: dict[str, Any]) -> AsyncIterator[str]:
-    """Stream graph events as SSE (Server-Sent Events).
-
-    Emits incremental ``on_chat_model_*`` events during the run, then a
-    final ``final`` event carrying the full Phase 2 payload (report +
-    budget + findings + evidence + correlations) so the
-    frontend can render the evidence chain graph and complete report
-    without a second request.
-    """
-    graph = get_copilotkit_graph()
-    config = {"configurable": {"thread_id": thread_id}}
-
-    try:
-        async for event in graph.astream_events(state, config, version="v2"):
-            event_type = event.get("event", "")
-            event_name = event.get("name", "")
-
-            # Stream chat model events
-            if event_type in ("on_chat_model_start", "on_chat_model_stream", "on_chat_model_end"):
-                data = {
-                    "event": event_type,
-                    "name": event_name,
-                    "data": event.get("data", {}),
-                }
-                yield f"data: {json.dumps(data, default=str)}\n\n"
-
-            elif event_type == "on_chain_end" and event_name == "reporter":
-                # Extract final report from the chain output
-                output = event.get("data", {}).get("output", {})
-                if isinstance(output, dict) and "report" in output:
-                    report = output["report"]
-                    if hasattr(report, "model_dump"):
-                        report = report.model_dump()
-                    data = {
-                        "event": "report",
-                        "report": report,
-                    }
-                    yield f"data: {json.dumps(data, default=str)}\n\n"
-
-        # ── Final event: full evidence-chain payload ──
-        # Fetch the persisted checkpoint state to access budget/findings/
-        # evidence/correlations/timeline alongside the report.
-        snapshot = await graph.aget_state(config)
-
-        # -- #5 HITL: if the graph paused (budget exhausted before
-        # convergence), surface the interrupt so the client can collect
-        # guidance and POST /api/diagnose/resume instead of treating the
-        # best-effort early_stopped report as final. --
-        if snapshot.next:
-            interrupt_payload: dict[str, Any] | None = None
-            for task in snapshot.tasks:
-                if task.interrupts:
-                    interrupt_payload = task.interrupts[0].value
-                    break
-            hitl_data = {
-                "event": "hitl_interrupt",
-                "thread_id": thread_id,
-                "prompt": (interrupt_payload or {}).get("prompt", "预算耗尽,请补充人工引导。"),
-                "prior_findings_count": (interrupt_payload or {}).get("prior_findings_count", 0),
-                "early_stopped": bool((snapshot.values or {}).get("early_stopped")),
-                "next": list(snapshot.next),
-            }
-            yield f"data: {json.dumps(hitl_data, default=str)}\n\n"
-            return
-
-        final_state: dict[str, Any] = snapshot.values or {}
-        payload = _extract_evidence_payload(final_state)
-
-        report = final_state.get("report")
-        report_dump = report.model_dump() if report and hasattr(report, "model_dump") else report
-
-        budget = payload["budget"]
-        budget_dump = budget.model_dump() if budget and hasattr(budget, "model_dump") else budget
-
-        evidence = payload["evidence"]
-        evidence_dump = (
-            evidence.model_dump() if evidence and hasattr(evidence, "model_dump") else evidence
-        )
-
-        findings_dump = [
-            f.model_dump() if hasattr(f, "model_dump") else f for f in payload["findings"]
-        ]
-        correlations_dump = [
-            c.model_dump() if hasattr(c, "model_dump") else c for c in payload["correlations"]
-        ]
-
-        final_data = {
-            "event": "final",
-            "report": report_dump,
-            "budget": budget_dump,
-            "findings": findings_dump,
-            "evidence": evidence_dump,
-            "correlations": correlations_dump,
-            # §8.1 path 2: top-level mirror of report.referenced_case_ids for
-            # the frontend "本次参考了 [X,Y,Z]" display + case-level feedback.
-            "referenced_case_ids": (
-                report_dump.get("referenced_case_ids", []) if isinstance(report_dump, dict) else []
-            ),
-        }
-        yield f"data: {json.dumps(final_data, default=str)}\n\n"
-    except Exception as exc:
-        error_data = {"event": "error", "message": str(exc)}
-        yield f"data: {json.dumps(error_data, default=str)}\n\n"
-    finally:
-        yield "data: [DONE]\n\n"
-
-
 # ── Routes ──────────────────────────────────────────────────────────
 
 
 @router.post("/diagnose", response_model=None)
-async def diagnose(
-    request: DiagnoseRequest,
-    stream: bool = Query(False, description="If true, stream events as SSE."),
-) -> DiagnoseResponse | StreamingResponse:
+async def diagnose(request: DiagnoseRequest) -> DiagnoseResponse:
     """
     Diagnose a bug using the LangGraph pipeline.
 
     Accepts Evidence (user_report + optional logs/traces) and runs the
     DiagDoctor graph to produce a DiagnosisReport.
 
-    Set ?stream=true to receive Server-Sent Events for real-time progress.
     Provide a thread_id to resume a previous diagnosis session.
     """
     # Validate: user_report is required
@@ -301,19 +184,7 @@ async def diagnose(
     thread_id = request.thread_id or generate_thread_id()
     initial_state = _build_initial_state(request)
 
-    logger.info("diagnose_request_start", thread_id=thread_id, stream=stream)
-
-    # Streaming mode
-    if stream:
-        return StreamingResponse(
-            _stream_graph(thread_id, initial_state),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Thread-ID": thread_id,
-            },
-        )
+    logger.info("diagnose_request_start", thread_id=thread_id)
 
     # Standard (batch) mode
     try:
