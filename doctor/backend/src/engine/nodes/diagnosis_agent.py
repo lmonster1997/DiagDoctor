@@ -31,7 +31,7 @@ the current best-effort report. One-shot: ``hitl_resumed`` gates a single
 HITL cycle (a second exhaustion routes straight to END).
 
 State schema: typed ``DoctorState`` (TypedDict) so the declared ``add``
-reducers on findings/hypotheses/budget_ticks/total_cost actually run, and
+reducers on findings/budget_ticks/total_cost actually run, and
 ``messages`` uses ``add_messages`` so the chat history persists across the
 pause/resume boundary. Compiled with a persistent SQLite checkpointer
 (``_LazyAsyncSqliteSaver`` -> ``data/checkpoints.db``) so a paused diagnosis
@@ -50,18 +50,15 @@ from src.engine.agent import (
     _build_system_prompt,
     get_diagnosis_agent,
 )
+from src.engine.budget.constants import RECURSION_LIMIT
 from src.engine.nodes.bug_info import bug_info_node
-from src.engine.run_context import (
-    DiagnosisRunContext,
-    clear_run_context,
-    set_run_context,
-)
+from src.engine.run_context import DiagnosisRunContext
 from src.engine.state import DoctorState, NormalizedEvidence
 from src.memory.long_term.case_retriever import (
     format_similar_cases,
     search_historical_cases,
 )
-from src.observability.logger import get_logger
+from src.observability.logger import bind_log_context, clear_log_context, get_logger
 
 logger = get_logger(__name__)
 
@@ -77,6 +74,51 @@ def _filter_visible_messages(messages: list[Any]) -> list[Any]:
     from langchain_core.messages import AIMessage, ToolMessage
 
     return [m for m in messages if isinstance(m, (AIMessage, ToolMessage))]
+
+
+def _format_scratchpad(findings: list[Any]) -> str:
+    """§7.2: render prior findings as a 3-section hypothesis tree for续查 injection.
+
+    Groups by ``Finding.status`` into 已确认事实(✓) / 已排除假设(✗) / 待验证线索(?),
+    each line carrying evidence or the counterexample that excluded it. Empty
+    sections omitted. This is the L4 hypothesis-tree structure (minus the LLM
+    summary compression, which §5.4 rejects) -- it surfaces "what's been ruled
+    out" so the resumed agent doesn't re-walk dead branches (the FE-021 flail
+    root cause, §5.3 理由 2).
+
+    Falls back to "(暂无)" when there are no usable findings.
+    """
+    confirmed = [f for f in findings if getattr(f, "status", None) == "confirmed"]
+    excluded = [f for f in findings if getattr(f, "status", None) == "excluded"]
+    pending = [f for f in findings if getattr(f, "status", None) == "pending"]
+
+    sections: list[str] = []
+    if confirmed:
+        lines = "\n".join(
+            f"- [✓] {f.summary} | 证据: {', '.join(f.evidence_refs) or '无'}"
+            for f in confirmed
+            if getattr(f, "summary", "")
+        )
+        if lines:
+            sections.append(f"## 已确认事实(可依赖)\n{lines}")
+    if excluded:
+        lines = "\n".join(
+            f"- [✗] {f.summary} | 反例: {getattr(f, 'refutation_evidence', '') or '未记录'}"
+            for f in excluded
+            if getattr(f, "summary", "")
+        )
+        if lines:
+            sections.append(f"## 已排除假设(别再试)\n{lines}")
+    if pending:
+        lines = "\n".join(
+            f"- [?] {f.summary} | 证据: {', '.join(f.evidence_refs) or '无'}"
+            for f in pending
+            if getattr(f, "summary", "")
+        )
+        if lines:
+            sections.append(f"## 待验证线索(重点查)\n{lines}")
+
+    return "\n\n".join(sections) if sections else "(暂无)"
 
 
 async def _build_similar_cases_message(
@@ -166,6 +208,21 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
     case_id = state.get("case_id") or ""
     evidence_text = format_evidence_for_agent(evidence)
 
+    # Bind log correlation early so the head-of-node logs below
+    # (copilotkit_diagnosis_agent_invoking, langfuse setup) carry trace_id.
+    # trace_id = case_id (the Langfuse trace id is created lazily inside ainvoke
+    # and doesn't propagate back to the log contextvar across langgraph's async
+    # boundary, so it can't be used as the log join key). case_id is ALSO bound
+    # as a STABLE field: trace_id collides with Tempo trace_ids on tool logs
+    # (querying_tempo_trace passes trace_id=<tempo tid>), so case_id is the
+    # reliable per-diagnosis join key. Cleared on every exit path below.
+    _lf_session_id = state.get("langfuse_session_id")
+    bind_log_context(
+        trace_id=case_id or "",
+        session_id=_lf_session_id or "",
+        case_id=case_id or "",
+    )
+
     logger.info(
         "copilotkit_diagnosis_agent_invoking",
         case_id=case_id,
@@ -191,15 +248,12 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
 
     if is_resume:
         prior_findings = state.get("findings", []) or []
-        prior_summary = (
-            "\n".join(f"- {f.summary}" for f in prior_findings if getattr(f, "summary", ""))
-            or "(暂无)"
-        )
+        scratchpad = _format_scratchpad(prior_findings)
         continuation = (
-            "【续查模式】上一轮调查因预算耗尽未收敛。\n"
-            f"已收集发现:\n{prior_summary}\n\n"
+            "【续查模式】上一轮调查因预算耗尽未收敛。\n\n"
+            f"{scratchpad}\n\n"
             f"操作员补充引导: {human_guidance}\n\n"
-            "请基于已有发现和引导继续调查,并输出最终诊断报告 JSON。"
+            "请基于已有发现和引导继续调查(别重复已排除的假设),并输出最终诊断报告 JSON。"
         )
         initial_messages: list[BaseMessage] = [SystemMessage(content=base_prompt)]
         if similar_msg is not None:
@@ -218,16 +272,28 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
         initial_messages.append(HumanMessage(content=evidence_text))
 
     # ── Langfuse setup (graceful degradation) ────────────────────
+    # Trace lifecycle (start_trace/end_trace) is owned by the NODE, not
+    # LangfuseTracingMiddleware: the handler is a process-wide shared
+    # singleton (get_langfuse_handler caches it), so the per-diagnosis
+    # trace_id/session_id can't be baked in at construction -- they're set
+    # explicitly here. The middleware only records tool spans
+    # (awrap_tool_call); end_trace runs in _finalize_langfuse_trace below.
+    _lf_trace_id = state.get("langfuse_trace_id")
     langfuse_handler = None
     try:
         langfuse_handler = _get_langfuse_handler_for_dict_state(case_id, evidence_text)
         if langfuse_handler is not None:
             langfuse_handler.prepare_for_managed_trace()
+            if _lf_session_id:
+                langfuse_handler.set_external_session_id(_lf_session_id)
+            langfuse_handler.start_trace(
+                input_data={"evidence": evidence_text[:500]},
+                trace_id=_lf_trace_id,
+            )
     except Exception:
+        # Langfuse outage must not block diagnosis (graceful degradation).
         pass
 
-    _lf_trace_id = state.get("langfuse_trace_id")
-    _lf_session_id = state.get("langfuse_session_id")
     logger.info(
         "copilotkit_diag_langfuse_trace_id",
         case_id=case_id,
@@ -238,25 +304,29 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
 
     # Attach Langfuse handler at agent.ainvoke level (NOT model.with_config).
     # Tool callbacks (on_tool_start/end) are no-ops, so no double-recording.
-    invoke_config: dict[str, Any] = {"recursion_limit": 80}
+    invoke_config: dict[str, Any] = {"recursion_limit": RECURSION_LIMIT}
     if langfuse_handler is not None:
         invoke_config["callbacks"] = [langfuse_handler]
 
     run_ctx = DiagnosisRunContext(
         case_id=case_id or "",
         langfuse_handler=langfuse_handler,
-        langfuse_trace_id=_lf_trace_id,
-        langfuse_session_id=_lf_session_id,
         system_prompt_text=base_prompt,
         evidence_text=evidence_text,
     )
-    set_run_context(run_ctx)
-
+    # Log context was bound at the top of this node (trace_id=case_id,
+    # upgraded to the Langfuse trace id by LangfuseTracing middleware during
+    # the ainvoke below). Cleared on every exit path so finalize-phase logs
+    # (diagnosis_report_parsed / langfuse_trace_ended) still carry trace_id.
+    # run_ctx is passed as ``context=`` to ainvoke below; middlewares mutate
+    # it in place via runtime.context, and the local ref here reads those
+    # mutations back after ainvoke returns.
     try:
         agent = get_diagnosis_agent()
         result = await agent.ainvoke(  # type: ignore[call-overload]
             {"messages": initial_messages},
             config=invoke_config,
+            context=run_ctx,
         )
         final_messages: list[BaseMessage] = result.get("messages", [])
     except Exception as exc:
@@ -264,10 +334,8 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
         if langfuse_handler is not None:
             with contextlib.suppress(Exception):
                 langfuse_handler.end_trace(output_data={"error": str(exc)})
-        clear_run_context()
+        clear_log_context()
         return {"report": None, "findings": []}
-    finally:
-        clear_run_context()
 
     budget_exhausted = run_ctx.budget_exhausted
     forced_call_triggered = run_ctx.forced_call_triggered
@@ -299,6 +367,7 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
         case_id=case_id or "",
     )
 
+    clear_log_context()
     return {
         "messages": _filter_visible_messages(final_messages),
         "report": report,
@@ -319,11 +388,25 @@ def _get_langfuse_handler_for_dict_state(case_id: str, evidence_text: str) -> An
         return None
 
 
+def _best_finding_for_root_cause(findings: list[Any]) -> Any | None:
+    """Pick the best finding as a root_cause fallback when no JSON report was emitted.
+
+    Preference: confirmed (a root_cause hypothesis the agent validated) > pending
+    (an unverified lead, but still a concrete hypothesis) > any. Excluded findings
+    are skipped -- they're ruled-out dead ends, not a root cause.
+    """
+    for status in ("confirmed", "pending"):
+        for f in findings:
+            if getattr(f, "status", None) == status:
+                return f
+    return findings[0] if findings else None
+
+
 def _finalize_report_for_dict_state(
     messages: list[Any], budget_exhausted: bool, retrieved_case_ids: list[str] | None = None
 ) -> tuple[Any, list[Any], Any, bool]:
     """Parse messages into report + findings (mirrors _finalize_report from node.py)."""
-    from src.engine.budget.tracker import is_budget_exceeded, update_budget
+    from src.engine.budget.tracker import update_budget
     from src.engine.parsing import (
         clamp_referenced_case_ids,
         extract_findings,
@@ -334,17 +417,29 @@ def _finalize_report_for_dict_state(
     agent_result: dict[str, Any] = {"messages": messages}
     report = parse_diagnosis_report(agent_result)
     findings = extract_findings(agent_result)
+    # budget_state is telemetry-only (Langfuse tool_calls/tokens/elapsed).
+    # early_stopped reads the AUTHORITATIVE runtime ``budget_exhausted`` flag
+    # set by BudgetGuardMiddleware (model_call_count > MAX_MODEL_CALLS / token
+    # / time caps), captured during the loop before the forced call. We do NOT
+    # re-derive it from messages: tool_calls (sum of tool invocations) !=
+    # model_call_count (LLM calls), so a message-based proxy (the old
+    # is_budget_exceeded) false-positived on parallel-tool CONVERGED runs ->
+    # spurious HITL. §6.1 split-brain: gate on the runtime signal, not a
+    # re-derivation with a different口径.
     budget_state = update_budget(BudgetState(), agent_result)
-    early_stopped = is_budget_exceeded(budget_state) or budget_exhausted
+    early_stopped = budget_exhausted
 
     if report is None:
-        best_summary = findings[0].summary if findings else "诊断未完成"
+        # Agent 未输出有效 JSON(被截断 + forced call 失败)。从 findings 里挑最佳
+        # 根因候选:confirmed > pending > 任意。远好过旧实现拿最后一条 AIMessage
+        # 的推理文本当 root_cause(那是调查中的碎碎念,不是结论)。
+        best = _best_finding_for_root_cause(findings)
         report = DiagnosisReport(
             primary_category="",
-            root_cause=best_summary,
+            root_cause=best.summary if best else "诊断未完成",
             confidence=0.3,
             early_stopped=early_stopped,
-            notes="Agent 未输出有效 JSON",
+            notes="Agent 未输出有效 JSON，根因取自假设记录" if best else "Agent 未输出有效 JSON",
         )
 
     if early_stopped:
@@ -382,6 +477,8 @@ def _finalize_langfuse_trace(
                 "diagnosis_report": report_dict,
                 "early_stopped": early_stopped,
                 "tool_calls": budget_state.tool_calls,
+                "total_tokens": budget_state.total_tokens,
+                "elapsed_seconds": budget_state.elapsed_seconds,
                 "forced_final_json_call": forced_call_triggered,
             },
         )
@@ -421,9 +518,11 @@ async def human_input_node(state: DoctorState) -> dict[str, Any]:
 
     prior_findings = state.get("findings", []) or []
     prior_summary = "; ".join(f.summary for f in prior_findings if getattr(f, "summary", ""))[:500]
+    excluded_count = sum(1 for f in prior_findings if getattr(f, "status", None) == "excluded")
     prompt = (
         "预算耗尽,诊断未收敛。"
         f"已收集 {len(prior_findings)} 条发现"
+        f"{f'(已排除 {excluded_count} 个假设)' if excluded_count else ''}"
         f"{'(' + prior_summary + ')' if prior_summary else ''}。"
         "请补充一句人工引导(如可疑方向/已知线索),agent 将据此续查;"
         "留空则直接采纳当前 best-effort 结论。"

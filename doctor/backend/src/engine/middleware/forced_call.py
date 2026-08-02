@@ -17,7 +17,6 @@ from src.engine.forced_call import (
     _last_ai_has_json,
     _last_ai_is_natural_stop,
 )
-from src.engine.run_context import get_run_context
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)
@@ -27,7 +26,9 @@ class ForcedFinalCallMiddleware(AgentMiddleware):
     """Force one final structured-output LLM call if the loop didn't deliver JSON."""
 
     async def aafter_agent(self, state: Any, runtime: Any) -> dict[str, Any] | None:
-        ctx = get_run_context()
+        ctx = runtime.context
+        if ctx is None:
+            return None
         messages = state.get("messages", []) if isinstance(state, dict) else []
 
         if not messages:
@@ -40,7 +41,7 @@ class ForcedFinalCallMiddleware(AgentMiddleware):
         # test_forced_final_json_call.py::TestLastAiHasJson).
         # NOTE: budget exhaustion is intentionally NOT a skip condition -
         # the forced call exists to recover the mode-1 failure (loop hit
-        # MAX_TOOL_CALLS with content="" + tool_calls), so it must still fire.
+        # MAX_MODEL_CALLS with content="" + tool_calls), so it must still fire.
         if _last_ai_has_json(messages):
             logger.info("forced_call_skipped_last_ai_has_json", case_id=ctx.case_id)
             return None

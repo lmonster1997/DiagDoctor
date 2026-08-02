@@ -89,7 +89,7 @@
 - 入口:header 加"历史"nav,或诊断页右侧加 tab。v1 可只做"列表 + 复制 thread_id + 跳恢复",click-to-resume 作为 v2。
 
 ## 4. demo 触发(真实模型)
-真实模型多数 <12 calls 收敛不暂停。要可靠演示 F1,临时把 `doctor/backend/src/engine/budget/constants.py` `MAX_TOOL_CALLS` 调到 ~4(改完 uvicorn `--reload` 自动重载),demo 完恢复 12。
+真实模型多数 <12 calls 收敛不暂停。要可靠演示 F1,临时把 `doctor/backend/src/engine/budget/constants.py` `MAX_MODEL_CALLS` 调到 ~4(改完 uvicorn `--reload` 自动重载),demo 完恢复 16。
 - 注意:cap=4 时 pass2 也可能再耗尽 -> 一次性 END(照样展示 pause->resume->END 机制,只是不一定"引导后收敛")。确定性"引导后收敛"证明在 `tests/graph/test_hitl.py`。
 
 ## 5. 验证
@@ -97,7 +97,7 @@
 - 前端:`cd doctor/frontend && pnpm build`(或 `pnpm lint`)。手测:启动后端 `uv run uvicorn src.main:app --port 8001 --reload` + 前端 `pnpm dev`,cap 调 4,聊天输 bug -> 见引导卡 -> 输引导续查 -> 收敛。
 
 ## 6. 已定决策(后端,勿改)
-- `messages` 用 `add_messages`(跨 pass 保历史)。续查=知情二次调查(非真 ReAct 续传)。一次性 HITL(`hitl_resumed` 门)。HITL 活在共享 graph(benchmark 中性)。未做:真 ReAct 续传、多轮 HITL、循环中插消息(off-framework)。
+- `messages` 用 `add_messages`(跨 pass 保历史)。续查=知情二次调查(非真 ReAct 续传)。一次性 HITL(`hitl_resumed` 门)。HITL 活在共享 graph(REST/CopilotKit 中性)。未做:真 ReAct 续传、多轮 HITL、循环中插消息(off-framework)。
 
 ## 7. 清理项
 - `DiagDoctorAgent.get_state`(死代码):删或注释(见 §1.4)。`execute` 同文件亦未被调,一并审视。

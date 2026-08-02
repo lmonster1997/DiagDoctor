@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DiagDoctor 项目架构与实现速览</title>
+<style>
+  :root{
+    --bg:#f6f8fb; --card:#ffffff; --ink:#1f2937; --muted:#64748b;
+    --blue:#2563eb; --blue-dark:#1e3a8a; --blue-soft:#eff4ff;
+    --red:#dc2626; --red-soft:#fef2f2; --amber:#d97706; --amber-soft:#fffbeb;
+    --green:#059669; --green-soft:#ecfdf5;
+    --border:#e2e8f0; --code-bg:#f1f5f9; --code-ink:#334155;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:15px;line-height:1.65;}
+  code{background:var(--code-bg);color:var(--code-ink);padding:1px 5px;border-radius:4px;
+    font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;font-size:13px;}
+  pre{background:#0f172a;color:#e2e8f0;padding:14px 16px;border-radius:8px;overflow-x:auto;
+    font-family:"SFMono-Regular",Consolas,monospace;font-size:12.5px;line-height:1.5;}
+  pre code{background:transparent;color:inherit;padding:0;font-size:inherit;}
+  .loc{color:var(--blue);font-family:monospace;font-size:12px;text-decoration:none;border-bottom:1px dotted var(--blue);}
+  .loc:hover{background:var(--blue-soft);}
+  .wrap{display:flex;max-width:1280px;margin:0 auto;}
+  /* TOC */
+  .toc{width:250px;flex-shrink:0;position:sticky;top:0;align-self:flex-start;
+    max-height:100vh;overflow-y:auto;padding:24px 14px 24px 4px;font-size:13px;}
+  .toc h4{margin:0 0 8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+  .toc a{display:block;color:var(--muted);text-decoration:none;padding:3px 8px;border-radius:5px;line-height:1.35;}
+  .toc a:hover{background:var(--blue-soft);color:var(--blue-dark);}
+  .toc a.lvl2{padding-left:20px;font-size:12.5px;}
+  /* content */
+  .content{flex:1;min-width:0;padding:28px 40px 80px;}
+  header.hero{background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border-radius:14px;
+    padding:30px 34px;margin-bottom:28px;}
+  header.hero h1{margin:0 0 6px;font-size:26px;}
+  header.hero p{margin:0;opacity:.92;font-size:14.5px;}
+  header.hero .meta{margin-top:14px;font-size:12.5px;opacity:.85;}
+  section{background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:24px 28px;margin-bottom:20px;}
+  h2{margin:0 0 14px;font-size:20px;color:var(--blue-dark);border-bottom:2px solid var(--blue-soft);padding-bottom:8px;}
+  h3{margin:22px 0 10px;font-size:16px;color:var(--blue-dark);}
+  h4{margin:16px 0 8px;font-size:14px;color:var(--ink);}
+  p{margin:8px 0;}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13.5px;}
+  th,td{border:1px solid var(--border);padding:7px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--blue-soft);color:var(--blue-dark);font-weight:600;}
+  tr:nth-child(even) td{background:#fafbfd;}
+  ul,ol{margin:8px 0;padding-left:22px;}
+  li{margin:4px 0;}
+  .tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;vertical-align:middle;}
+  .t-blue{background:var(--blue-soft);color:var(--blue-dark);}
+  .t-green{background:var(--green-soft);color:var(--green);}
+  .t-gray{background:#f1f5f9;color:var(--muted);}
+  /* bug cards */
+  .bug{border-left:4px solid var(--red);background:var(--red-soft);padding:10px 14px;border-radius:6px;margin:10px 0;}
+  .bug.mid{border-color:var(--amber);background:var(--amber-soft);}
+  .bug.low{border-color:var(--muted);background:#f8fafc;}
+  .bug .b{font-weight:700;color:var(--red);font-size:12px;margin-right:6px;}
+  .bug.mid .b{color:var(--amber);}
+  .bug.low .b{color:var(--muted);}
+  .bug .ttl{font-weight:600;}
+  /* arch diagram */
+  .arch{background:#fafbfd;border:1px dashed var(--border);border-radius:10px;padding:18px;margin:14px 0;font-size:13px;}
+  .row{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;}
+  .node{background:#fff;border:2px solid var(--blue);border-radius:8px;padding:10px 14px;min-width:120px;text-align:center;}
+  .node .n{font-weight:700;color:var(--blue-dark);}
+  .node .d{font-size:11.5px;color:var(--muted);margin-top:3px;}
+  .arrow{align-self:center;color:var(--blue);font-size:20px;font-weight:700;}
+  .pipe{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin:8px 0;}
+  .step{background:var(--blue-soft);border:1px solid #bfdbfe;border-radius:6px;padding:4px 10px;font-size:12px;color:var(--blue-dark);}
+  .step .n{font-weight:700;margin-right:3px;}
+  .note{background:var(--amber-soft);border:1px solid #fde68a;border-radius:6px;padding:8px 12px;font-size:12.5px;color:#92400e;margin:10px 0;}
+  .ok{background:var(--green-soft);border:1px solid #a7f3d0;border-radius:6px;padding:8px 12px;font-size:12.5px;color:#065f46;margin:10px 0;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .kbd{background:#fff;border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:1px 6px;font-family:monospace;font-size:12px;}
+  .todo-fix{color:var(--amber);font-weight:600;}
+  @media(max-width:880px){.wrap{display:block}.toc{position:static;width:auto;max-height:none}.content{padding:16px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="toc">
+  <h4>导航</h4>
+  <a href="#overview">1. 项目概览</a>
+  <a href="#subsystems">2. 三子系统</a>
+  <a href="#startup">3. 启动与配置</a>
+  <a href="#graph">4. LangGraph 主图</a>
+  <a href="#state">5. DoctorState 状态</a>
+  <a href="#agent-node">6. diagnosis_agent 节点</a>
+  <a href="#middleware">7. 7 个 Middleware</a>
+  <a href="#ctx">8. 上下文工程 §7</a>
+  <a href="#budget">9. 预算系统</a>
+  <a href="#tools">10. Tools 工具集</a>
+  <a href="#evidence">11. Evidence 管线</a>
+  <a href="#memory">12. Memory / RAG</a>
+  <a href="#obs">13. 可观测性</a>
+  <a href="#sec">14. 安全</a>
+  <a href="#prompts">15. Prompts</a>
+  <a href="#frontend">16. 前端</a>
+  <a href="#bugs" class="lvl2">16. 已知问题汇总</a>
+  <a href="#journey">17. 一次诊断的旅程</a>
+</nav>
+
+<div class="content">
+
+<header class="hero">
+  <h1>DiagDoctor — 项目架构与实现速览</h1>
+  <p>一个 LLM 驱动的 Web 应用 Bug 诊断 Agent:给定出错应用(demo-app/TaskFlow)的错误现象 + 日志/trace,编排工具定位根因并给修复建议,由 Langfuse 评测。</p>
+  <div class="meta">基于源码逐文件核对 · 2026-08-01 · doctor 后端为主 · <span style="color:#fde68a;">末尾含已定位 Bug 嫌疑清单(供修复用)</span></div>
+</header>
+
+<!-- 1 -->
+<section id="overview">
+<h2>1. 项目概览</h2>
+<p>DiagDoctor 由三个子系统组成。其中 <b>doctor</b> 是诊断 Agent 主体(本介绍重点),<b>demo-app</b> 是被诊断的靶应用(也是可观测信号的来源),<b>bug-factory</b> 量产可复现评测 case。</p>
+<div class="arch">
+<div class="row">
+  <div class="node"><div class="n">demo-app</div><div class="d">靶应用 TaskFlow<br>FastAPI + React</div></div>
+  <div class="arrow">→ 注入 bug + 产生 logs/traces</div>
+  <div class="node" style="border-color:var(--red)"><div class="n" style="color:var(--red)">doctor</div><div class="d">诊断 Agent 主体<br>LangGraph + create_agent</div></div>
+  <div class="arrow">→ 评测打分</div>
+  <div class="node"><div class="n">bug-factory</div><div class="d">15 个 gold recipe<br>注入 + 触发 + 收集</div></div>
+</div>
+</div>
+<p><b>doctor 主图(实际)</b>:3 节点 <code>bug_info → diagnosis_agent → human_input(HITL) → END</code>;diagnosis agent 用 LangChain <code>create_agent()</code> + <b>7 个 middleware</b> 管线(<span class="todo-fix">注意:非手写 while 循环</span>,Iteration 3 从手写循环迁移而来,借 middleware 找回预算/去重/forced-call 注入点)。状态为 typed <code>DoctorState</code>(TypedDict,声明的 <code>add</code> reducer 真跑);checkpointer 为持久 <code>_LazyAsyncSqliteSaver</code>(<code>data/checkpoints.db</code>),支持 HITL 跨重启恢复。</p>
+<p><b>技术栈</b>:Python · FastAPI · LangGraph · LangChain 1.0(middleware API) · Pydantic · structlog · OpenTelemetry · Langfuse · Qdrant · psycopg3。</p>
+</section>
+
+<!-- 2 -->
+<section id="subsystems">
+<h2>2. 三子系统</h2>
+<table>
+<tr><th>子系统</th><th>职责</th><th>关键</th></tr>
+<tr><td><b>demo-app</b></td><td>被诊断的靶应用(TaskFlow 任务管理):auth(JWT)/项目/看板(@dnd-kit 拖拽)/任务/评论</td><td>OTel tracing + 自定义 Loki bridge 注 trace_id + W3C traceparent + 双通道错误上报(OTel span→Tempo 且 sendBeacon→Loki)。<span class="tag t-blue">前端后端都有 bug 嫌疑</span></td></tr>
+<tr><td><b>bug-factory</b></td><td>AI 辅助生成 + 注入 bug,量产可复现评测 case</td><td>15 个 gold recipe / 8 类别;diff_patch 注入(确定性);trigger 注 W3C traceparent + <code>ui_reachable</code> 门禁。<span class="tag t-gray">AI rewriter 实为死代码</span></td></tr>
+<tr><td><b>doctor</b></td><td>诊断 Agent 主体(本介绍核心)</td><td>LangGraph 3 节点图 + create_agent ReAct + 7 middleware + 7 工具 + evidence 管线 + RAG 长期记忆</td></tr>
+</table>
+</section>
+
+<!-- 3 -->
+<section id="startup">
+<h2>3. 应用启动与配置</h2>
+<h3>3.1 启动流程 <span class="loc">doctor/backend/src/main.py</span></h3>
+<pre><code>init_observability()          # L12  OTel TracerProvider,必须在 FastAPI 实例化前
+configure_logging(json_format=False)  # L13  structlog,开发态 ConsoleRenderer
+app = create_app()            # L20  FastAPI 工厂: CORS + OTel instrument + lifespan
+register_routes(app)          # L21  health / diagnose / feedback 三个 router
+mount_copilotkit(app)         # L22  /api/copilotkit 挂 ag-ui runtime</code></pre>
+<p><code>create_app.py</code> 的 <code>lifespan</code> 启动时预热:<code>get_diagnosis_agent()</code>(warm cache)+ <code>ensure_collection()</code>(确保 Qdrant <code>historical_cases</code> collection,失败仅 warning 不阻断)。</p>
+
+<h3>3.2 配置 <span class="loc">doctor/backend/src/config.py</span></h3>
+<p><code>Settings(BaseSettings)</code> 从 <code>.env</code> 加载。重要分组:</p>
+<table>
+<tr><th>分组</th><th>字段</th><th>默认值 / 说明</th></tr>
+<tr><td>LLM 通用</td><td><code>llm_model</code> / <code>llm_base_url</code> / <code>llm_api_key</code></td><td>gpt-4o-mini / openai v1</td></tr>
+<tr><td>LLM specialist</td><td><code>llm_specialist_model</code></td><td>诊断模型覆盖(空则回退 llm_model)</td></tr>
+<tr><td>LLM-as-Judge</td><td><code>llm_judge_model</code> / <code>llm_judge_api_key</code></td><td>评测专用,独立 key/base_url 可选,三级 fallback</td></tr>
+<tr><td>Embedding</td><td><code>embedding_base_url</code> / <code>dashscope_api_key</code> / <code>embedding_dimensions</code></td><td>DashScope qwen3 文本嵌入,1024 维;base_url 为空时才走 bge-m3 本地 fallback</td></tr>
+<tr><td>Qdrant</td><td><code>qdrant_url</code></td><td>localhost:6333</td></tr>
+<tr><td>Loki/Tempo</td><td><code>loki_url</code> / <code>tempo_url</code></td><td>127.0.0.1:3100 / :3200</td></tr>
+<tr><td>Demo DB</td><td><code>demo_db_ro_url</code></td><td>postgresql+asyncpg://...@127.0.0.1:5432/demo_taskflow(只读 SELECT)</td></tr>
+<tr><td>上下文 §7.1</td><td><code>context_elision_enabled</code> / <code>context_elision_keep_recent</code></td><td>True / 3</td></tr>
+<tr><td>RAG</td><td><code>rag_injection_enabled</code> / <code>rag_root_cause_tool_enabled</code></td><td>True / True(两个独立开关)</td></tr>
+<tr><td>预算</td><td><span class="todo-fix">无字段</span></td><td>硬上限单一来源在 <code>engine/budget/constants.py</code>(§6.1 split-brain 根治,config 不存副本)</td></tr>
+</table>
+
+<h3>3.3 LLM 工厂 <span class="loc">doctor/backend/src/llm_factory.py</span></h3>
+<p><code>get_llm_for_role(role)</code> <span class="loc">:81</span> 用 <code>@lru_cache(maxsize=6)</code> 缓存。4 个 role:</p>
+<ul>
+<li><b>judge</b>:key/url/model 三级 fallback(judge → specialist → 通用)</li>
+<li><b>specialist / diagnosis</b>:<code>llm_specialist_model or llm_model</code></li>
+<li><b>default</b>:通用 <code>llm_model</code></li>
+</ul>
+<p>DeepSeek 走子类 <code>DeepSeekChatOpenAI</code> <span class="loc">:39</span>,重写 <code>_get_request_payload</code> 把 <code>thinking</code> 塞进 <code>extra_body</code>,绕过 OpenAI SDK 顶层参数校验(由 <code>llm_deepseek_thinking</code> 控制)。其余返回标准 <code>ChatOpenAI</code>(timeout=120, max_retries=2)。</p>
+</section>
+
+<!-- 4 -->
+<section id="graph">
+<h2>4. LangGraph 主图与数据流</h2>
+<p>图构建在 <span class="loc">doctor/backend/src/engine/nodes/diagnosis_agent.py:539</span> <code>build_copilotkit_graph()</code>。</p>
+<div class="arch">
+<div class="row">
+  <div class="node"><div class="n">bug_info</div><div class="d">解析用户消息<br>预取 logs/traces<br>归一化 evidence</div></div>
+  <div class="arrow">→</div>
+  <div class="node" style="border-color:var(--red)"><div class="n" style="color:var(--red)">diagnosis_agent</div><div class="d">ReAct + 7 middleware<br>7 工具<br>预算守卫</div></div>
+  <div class="arrow">→ 路由</div>
+  <div class="node"><div class="n">human_input</div><div class="d">HITL interrupt<br>(仅首次预算耗尽)</div></div>
+  <div class="arrow">→</div>
+  <div class="node"><div class="n">END</div><div class="d">report</div></div>
+</div>
+</div>
+<p><b>路由</b> <span class="loc">diagnosis_agent.py:513</span> <code>_route_after_diagnosis</code>:<code>early_stopped &amp;&amp; !hitl_resumed → human_input</code>,否则 END。<code>hitl_resumed</code> 是单次门:第二次耗尽直奔 END,不无限暂停。</p>
+<p><b>HITL resume</b>:<code>human_input_node</code> <span class="loc">:463</span> 调 <code>interrupt()</code> 暂停,checkpoint 持久化到 SQLite;用 <code>Command(resume=&lt;guidance&gt;)</code> 同 thread_id 恢复。非空 guidance → 重入 <code>diagnosis_agent</code> 第二轮(知情续查,新预算);空 → 接受当前 early_stopped 报告。</p>
+<div class="note"><b>两条入口路径</b>:① CopilotKit ag-ui(前端聊天,流式);② REST <code>POST /api/diagnose</code>(批量/流式)+ <code>/api/diagnose/resume</code>(HITL)。两者共用同一个 graph。</div>
+</section>
+
+<!-- 5 -->
+<section id="state">
+<h2>5. DoctorState 状态 Schema <span class="loc">doctor/backend/src/engine/state.py</span></h2>
+<p><code>DoctorState(TypedDict, total=False)</code> <span class="loc">:257</span> — <b>TypedDict 而非 Pydantic</b>(LangGraph 传 plain dict 给节点,保留 <code>state.get(...)</code> 与 <code>isinstance(dict)</code> 守卫)。声明的 reducer 真跑:</p>
+<ul>
+<li><code>findings</code> / <code>budget_ticks</code> / <code>total_cost</code>:<code>Annotated[..., add]</code> 累加(跨 HITL resume 不丢)</li>
+<li><code>messages</code>:<code>Annotated[list, add_messages]</code> 累加(跨 pause/resume 保聊天历史)</li>
+</ul>
+<h4>核心子模型</h4>
+<table>
+<tr><th>模型</th><th>行</th><th>要点</th></tr>
+<tr><td><code>Evidence</code></td><td>:89</td><td>原始用户输入:user_report / logs / traces / trigger_time / trigger_trace_ids</td></tr>
+<tr><td><code>NormalizedEvidence</code></td><td>:160</td><td>Ingest 后:golden_signals + correlations + trigger_time/trace_ids</td></tr>
+<tr><td><code>Signal</code></td><td>:115</td><td>golden signal,error 信号 vs 行为不匹配信号(IDOR/静默丢数据等)</td></tr>
+<tr><td><code>Finding</code></td><td>:191</td><td>§7.2 加 <code>status(confirmed/excluded/pending)</code> / <code>refuted</code> / <code>refutation_evidence</code>(假设树)</td></tr>
+<tr><td><code>DiagnosisReport</code></td><td>:216</td><td>primary_category / categories / root_cause / affected_file/function / fix_suggestion / evidence_chain / confidence / <code>referenced_case_ids</code>(§8.1 反幻觉)</td></tr>
+<tr><td><code>BudgetState</code></td><td>:243</td><td>total_tokens / total_cost_usd / tool_calls / elapsed_seconds</td></tr>
+</table>
+</section>
+
+<!-- 6 -->
+<section id="agent-node">
+<h2>6. diagnosis_agent 节点 <span class="loc">doctor/backend/src/engine/nodes/diagnosis_agent.py:179</span></h2>
+<p>核心节点 <code>_diagnosis_agent_node</code> 流程:</p>
+<ol>
+<li><b>格式化证据</b>:<code>format_evidence_for_agent(evidence)</code> → evidence_text <span class="loc">:213</span></li>
+<li><b>收窄时间窗</b>:<code>set_trigger_time(trigger_time)</code> → search_observability 用 trigger_time ±5min(防"最近1小时"淹没 agent)<span class="loc">:206</span></li>
+<li><b>RAG 注入</b>:<code>_build_similar_cases_message</code> <span class="loc">:128</span> — 首次 pass 查询 + 缓存;resume 复用缓存不 re-query(§6.5)。失败/空召回/关闭 → 优雅降级</li>
+<li><b>[resume] scratchpad</b>:<code>_format_scratchpad(prior_findings)</code> <span class="loc">:83</span> 渲染三段假设树(已确认✓/已排除✗/待验证?)+ 操作员引导,注入续查消息</li>
+<li><b>set_run_context</b>:<code>DiagnosisRunContext(case_id, langfuse_handler, prompt, evidence)</code> 设入 ContextVar <span class="loc">:288</span></li>
+<li><b>agent.ainvoke</b>:<code>{"messages":[System, RAG?, Human(evidence), Human(continuation)?]}</code>,<code>recursion_limit=200</code> <span class="loc">:300</span></li>
+<li><b>finalize</b>:<code>_finalize_report_for_dict_state</code> <span class="loc">:379</span> — <code>parse_diagnosis_report</code> + <code>extract_findings</code> + <code>update_budget</code> + <code>clamp_referenced_case_ids</code>(反幻觉)</li>
+<li><b>langfuse end_trace</b> <span class="loc">:427</span></li>
+</ol>
+<p><b>可见消息过滤</b> <span class="loc">:70</span>:<code>_filter_visible_messages</code> 剥掉 SystemMessage 和 HumanMessage(证据 dump),只把 AIMessage/ToolMessage 流回前端聊天。</p>
+
+<h4>DiagnosisRunContext <span class="loc">doctor/backend/src/engine/run_context.py:26</span></h4>
+<p>middleware 实例跨 <code>ainvoke</code> 复用,per-invocation 可变状态不能放 <code>self</code>。改用模块级 <code>ContextVar</code>:node 调 <code>set_run_context()</code> 后,middleware 经 <code>get_run_context()</code> 读写。承载:<code>ctx_budget</code> / <code>call_history</code>(去重缓存)/ <code>elided_tool_call_ids</code>(elision↔dedup 契约)/ <code>model_call_count</code> / <code>budget_exhausted</code> / <code>forced_call_triggered</code>。</p>
+
+<h4>parsing.py <span class="loc">doctor/backend/src/engine/parsing.py</span></h4>
+<ul>
+<li><code>parse_diagnosis_report()</code> :24 — 从最后一条 AIMessage 提 JSON(markdown fence → 花括号深度追踪 → json.loads),失败返回 None</li>
+<li><code>extract_findings()</code> :114 — 扫所有 AIMessage,从 <code>record_hypothesis</code> tool_calls + 自由文本 JSON 块提取 §7.2 假设,按 summary 去重保留最新 status</li>
+<li><code>clamp_referenced_case_ids()</code> :388 — agent 声称引用的 case_ids 收束到实际召回子集(反幻觉)</li>
+</ul>
+</section>
+
+<!-- 7 -->
+<section id="middleware">
+<h2>7. 七个 Middleware 管线 <span class="loc">doctor/backend/src/engine/agent.py:90</span></h2>
+<p>注册顺序(<code>abefore_agent</code> 按此序;<code>wrap_tool_call</code> 外→内;<code>aafter_agent</code> 逆序):</p>
+<div class="pipe">
+<span class="step"><span class="n">1</span>AgentLifecycle</span>→<span class="step"><span class="n">2</span>ToolDedup</span>→<span class="step"><span class="n">3</span>LangfuseTracing</span>→<span class="step"><span class="n">4</span>ToolTruncation</span>→<span class="step"><span class="n">5</span>ContextElision</span>→<span class="step"><span class="n">6</span>BudgetGuard</span>→<span class="step"><span class="n">7</span>ForcedFinalCall</span>
+</div>
+<table>
+<tr><th>#</th><th>Middleware</th><th>钩子</th><th>职责</th><th>协作/冲突</th></tr>
+<tr><td>1</td><td>AgentLifecycle</td><td>abefore_agent</td><td>初始化 <code>ctx_budget</code>(加 system_prompt+evidence tokens + start_timer)、清空 call_history/elided_ids/计数器</td><td>最先跑,为后续准备 ContextBudget</td></tr>
+<tr><td>2</td><td>ToolDedup</td><td>awrap_tool_call</td><td>同 (name,args) 重复调用跳过,返回 <code>[跳过]</code></td><td><b>读</b> ctx.elided_tool_call_ids(ContextElision 写):被 ageing 的旧结果放行重取 — §7.1↔dedup 冲突修复点</td></tr>
+<tr><td>3</td><td>LangfuseTracing</td><td>abefore_agent + awrap_tool_call + aafter_agent</td><td>start_trace / record_tool_span(名/参/果/延迟)</td><td>aafter_agent <b>不</b> end_trace(留给 node,否则重置 handler._trace_id)</td></tr>
+<tr><td>4</td><td>ToolTruncation</td><td>awrap_tool_call</td><td>对 ToolMessage 套 <code>truncate_tool_result</code>;捕获工具异常转 ToolMessage</td><td>Langfuse 记录的是截断后内容</td></tr>
+<tr><td>5</td><td>ContextElision</td><td>abefore_model</td><td>每轮 model 前把 rank ≥ keep_recent(3) 的旧 ToolMessage <b>同 id 原位替换</b>为符号占位</td><td><b>写</b> ctx.elided_tool_call_ids 供 ToolDedup 读;放在 BudgetGuard 前让后者看到 post-elision 真实 usage</td></tr>
+<tr><td>6</td><td>BudgetGuard</td><td>abefore_model + aafter_model + awrap_tool_call</td><td>model_call_count++ / tick;超限 → <code>{"jump_to":"end"}</code>;record_hypothesis 纯埋点 turn 豁免计数</td><td><code>@hook_config(can_jump_to=["end"])</code> 唯一能停循环的;token 照常计</td></tr>
+<tr><td>7</td><td>ForcedFinalCall</td><td>aafter_agent</td><td>循环结束后若最后 AIMessage 无 JSON,触发一次强制 LLM 调用产出报告</td><td>最后跑;用 <code>get_run_context()</code>(非 _or_none,ctx 未设会抛)</td></tr>
+</table>
+</section>
+
+<!-- 8 -->
+<section id="ctx">
+<h2>8. 上下文工程 §7 <span class="loc">doctor/backend/src/engine/context/</span></h2>
+<div class="grid2">
+<div>
+<h4>truncation.py — 入口截断(预防性)</h4>
+<p><code>truncate_tool_result()</code> :61 — 工具结果<b>入 context 前</b>裁剪。按工具类型字符上限(search_observability=12k / code_search=4k / db_query=3.2k),超限优先保留含 error/exception/trace 关键词的行,不足则头 15 + 尾 10 行。由 ToolTruncationMiddleware 调用。</p>
+</div>
+<div>
+<h4>budget.py — 四维度预算追踪</h4>
+<p><code>ContextBudget</code> :58 — tiktoken 估算 + <b>§7.3 真实 usage</b>(从 AIMessage.usage_metadata.input_tokens 取 peak)。gate 口径 <code>total_used = max(静态估算, real_input_tokens)</code> :108。<code>ContextPhase</code> 四阶段(INITIAL/INVESTIGATING/CONVERGING/FINALIZING)— <span class="todo-fix">phase 仅导出 telemetry,未接回 prompt(§7.5 待做)</span></p>
+</div>
+</div>
+<h4>elision.py — 运行时符号占位(§7.1 / L2 可重取)</h4>
+<p><code>build_elision_placeholder()</code> :36 — 为旧工具结果构造占位:工具名 + 重取入口(从结果 echo 的 query/time_range 或调用参数)+ 关键发现(insights/analysis.summary)+ 重取提示。4 个 builder(search/code/db/generic),任何解析失败 fallback 通用占位,<b>绝不抛错</b>。数据可寻址无损重取(search_observability 同参同果),evict 旧结果只花一次 re-query,不丢信息。</p>
+<table>
+<tr><th>§</th><th>机制</th><th>落点</th></tr>
+<tr><td>§7.1</td><td>符号占位 / L2 可重取</td><td><code>context/elision.py</code> + <code>middleware/context_elision.py</code>;dedup 冲突修复在 <code>tool_dedup.py:53</code></td></tr>
+<tr><td>§7.2</td><td>scratchpad 假设树(L4 证伪纪律)</td><td><code>Finding.status/refuted</code> state.py:211 + <code>parsing.extract_findings</code> + <code>_format_scratchpad</code> + <code>record_hypothesis</code> 埋点工具豁免预算</td></tr>
+<tr><td>§7.3</td><td>预算单源化 + 真实 usage</td><td>硬常量集中 <code>budget/constants.py</code>;gate 用 peak input_tokens;tiktoken tool_result 估算仅 telemetry 不进 gate(根治 §6.1 split-brain)</td></tr>
+<tr><td>§7.4</td><td>可观测闭环</td><td><code>ContextBudget.to_dict</code> :222 全维度导出;BudgetGuard 日志 <code>budget_iteration_cap_hit</code> / <code>budget_hard_limit_hit</code></td></tr>
+</table>
+</section>
+
+<!-- 9 -->
+<section id="budget">
+<h2>9. 预算系统 <span class="loc">doctor/backend/src/engine/budget/</span></h2>
+<pre><code>constants.py (硬常量单一来源)
+    ↑ 引用
+    ├── guard.py     运行时硬门 (abefore_model)
+    ├── tracker.py   事后 early_stopped 判定
+    └── budget.py    ContextBudget phase 阈值</code></pre>
+<table>
+<tr><th>维度</th><th>常量</th><th>值</th><th>触发</th></tr>
+<tr><td>iteration</td><td><code>MAX_MODEL_CALLS</code></td><td><b>12</b> <span class="loc">constants.py:12</span></td><td>运行时 <code>model_call_count &gt; 12</code>;事后 <code>tool_calls &gt;= 12</code></td></tr>
+<tr><td>token</td><td><code>MAX_TOKENS_BUDGET</code></td><td>100,000</td><td>运行时 <code>total_used &gt;= 100k</code></td></tr>
+<tr><td>time</td><td><code>MAX_TIME_SECONDS</code></td><td>300</td><td>运行时 <code>elapsed &gt;= 300</code></td></tr>
+<tr><td>recursion</td><td><code>RECURSION_LIMIT</code></td><td>200</td><td>LangGraph 兜底</td></tr>
+</table>
+<p><b>early-stopped 判定</b> <span class="loc">diagnosis_agent.py:430</span>:<code>early_stopped = budget_exhausted</code>(只读 BudgetGuard 运行时权威标志,不从 messages 重算 -- 旧 <code>is_budget_exceeded</code> 用 tool_calls 量 LLM 调用数,并行工具会误判收敛 run)。</p>
+<div class="note"><b>record_hypothesis 预算豁免</b>:纯 no-op 埋点(返回 ack,不查数据)。豁免在 <code>guard.py:71</code>(纯 record_hypothesis turn 不推进 model_call_count)+ <code>tracker.py:41</code>(事后统计排除)。理由:埋点不能吃掉 16 次诊断 cap,否则扭曲 §5.3 标定。token 照常计。</div>
+</section>
+
+<!-- 10 -->
+<section id="tools">
+<h2>10. Tools 工具集 <span class="loc">doctor/backend/src/tools/</span></h2>
+<p><code>get_all_tools()</code> <span class="loc">__init__.py:203</span> 组装 <b>7 个激活工具</b>(顺序固定,模块级缓存):</p>
+<table>
+<tr><th>#</th><th>工具</th><th>位置</th><th>职责</th><th>外部依赖</th></tr>
+<tr><td>1</td><td><code>search_observability</code></td><td>observability_unified.py:950</td><td>统一入口:Loki 日志 + Tempo trace + N+1/瓶颈/错误分析 + 因果链 + 洞察</td><td>Loki + Tempo(aiohttp 异步)</td></tr>
+<tr><td>2</td><td><code>code_search</code></td><td>code_search.py:387</td><td>ripgrep 精确搜索;无匹配返回结构化建议(非假向量)</td><td>本地 rg 子进程(to_thread)</td></tr>
+<tr><td>3</td><td><code>db_query</code></td><td>db_query.py:122</td><td>只读 SELECT 查 demo-app Postgres</td><td>psycopg3 同步(to_thread)</td></tr>
+<tr><td>4</td><td><code>inspect_frontend_error</code></td><td>frontend_inspect.py:171</td><td>一站式前端错误分析(合并 parse+stack+source_map)</td><td>纯 Python 正则</td></tr>
+<tr><td>5</td><td><code>get_file_content</code></td><td>file_reader.py:104</td><td>读 demo-app 文件(沙箱 + 行范围 + 截断)</td><td>本地文件系统</td></tr>
+<tr><td>6</td><td><code>search_historical_root_cause</code></td><td>memory_recall.py:34</td><td>按根因假设检索历史相似 bug(根因向量,非症状)</td><td>Qdrant + DashScope</td></tr>
+<tr><td>7</td><td><code>record_hypothesis</code></td><td>hypothesis_log.py:31</td><td>§7.2 假设证伪<b>埋点 no-op</b>(预算豁免)</td><td>无</td></tr>
+</table>
+<div class="ok"><b>已修复的历史问题(确认现状)</b>:db_query NULL 渲染(None→JSON null,与空串区分)<span class="loc">db_query.py:106</span>;psycopg async/ProactorEventLoop 崩(改同步+to_thread)<span class="loc">db_query.py:13</span>;docker exec 回退读错库(已删回退,fail loud)<span class="loc">db_query.py:18</span>。</div>
+<p><b>仍导出的 DEPRECATED 工具</b>(不在 ALL_TOOLS,在 SHARED_TOOLS V2 兼容集):<code>query_loki_logs</code> / <code>query_tempo_trace</code> / <code>search_tempo_traces</code> / <code>analyze_trace_tree</code> / <code>parse_browser_errors</code> / <code>extract_stack_trace</code> / <code>source_map_resolve</code>(stub)。</p>
+</section>
+
+<!-- 11 -->
+<section id="evidence">
+<h2>11. Evidence 管线 <span class="loc">doctor/backend/src/evidence/</span></h2>
+<div class="note">⚠️ 本节基于 <code>state.py</code> 状态模型 + <code>docs/current-status.md</code>(2026-07-15 code-verified)+ 配置/工具引用整理;evidence/ 源码细节待最后一份代码复核报告确认。结论性流水线与模型已核对。</div>
+<p>确定性纯 Python 流水线(把便宜可复现的活留在 LLM 之外):</p>
+<pre><code>tier_aware → denoise → dedup → signal_extract → correlate
+                                                   ↓
+                                          NormalizedEvidence
+                              (golden_signals + correlations)</code></pre>
+<table>
+<tr><th>模块</th><th>职责</th></tr>
+<tr><td><code>tier_aware.py</code></td><td>判定 signal 所属层(frontend/backend)</td></tr>
+<tr><td><code>denoiser.py</code></td><td>去噪</td></tr>
+<tr><td><code>deduplicator.py</code></td><td>去重</td></tr>
+<tr><td><code>signal_extractor.py</code></td><td>提取 golden signal(error_log / error_span / slow_span / browser_error 等)</td></tr>
+<tr><td><code>correlator.py</code></td><td>跨层 trace_id 关联(frontend↔backend↔DB)</td></tr>
+<tr><td><code>normalizer.py</code></td><td>bug-factory 字段名归一化(见 state.py LogEntry/TraceSpan 的 model_post_init)</td></tr>
+<tr><td><code>formatter.py</code></td><td><code>format_evidence_for_agent</code> — 给 agent 的证据文本</td></tr>
+</table>
+<p><b>已知缺口</b>(来自现状文档):helper 重复(<code>_get_service_name</code>/<code>_get_trace_id</code>/<code>derive_tier</code> 在 correlator/signal_extractor/tier_aware/trace_query 各一份);<code>repeated_query</code>(N+1)信号 docstring 列了但 ingest 不 emit,仅 agent 主动调 search_observability 时出。</p>
+</section>
+
+<!-- 12 -->
+<section id="memory">
+<h2>12. Memory / RAG 长期记忆 <span class="loc">doctor/backend/src/memory/long_term/</span></h2>
+<div class="note">⚠️ 本节基于 <code>state.py</code> + <code>docs/current-status.md</code> + 工具/配置引用整理;memory/ 源码细节待最后一份代码复核报告确认。召回机制与向量配置已核对。</div>
+<h4>写入侧 <code>case_store.py</code></h4>
+<p><code>maybe_index_diagnosis</code> — 用户 👍 触发索引。写侧三分离:embedding 只编码症状/根因语义,诊断输出进 payload。P1-a <b>双向量</b>:point 带 named vectors <code>symptom</code> + <code>root_cause</code>(批量 embed 单次往返)。</p>
+<h4>检索侧 <code>case_retriever.py</code></h4>
+<ul>
+<li><code>search_historical_cases(evidence)</code> — 三因子 relevance×recency×importance + 自排 + trace 去重 + 阈值 + 空召回/异常降级(<code>using=symptom</code>);首次 pass §6.5 静态注入,HITL resume 从缓存重注入不 re-query</li>
+<li><code>search_by_root_cause(hypothesis)</code> — P1-a 根因向量检索(突破 #8 症状相似天花板),包成工具 <code>search_historical_root_cause</code></li>
+<li>症状层完整 MMR:<code>_select_mmr_topk</code> — relevance vs root_cause 向量冗余 + λ 贪心选,软惩罚非硬去重,λ=0.5 <span class="todo-fix">(未标定)</span></li>
+</ul>
+<h4>embedding <code>embedding.py</code></h4>
+<p>DashScope qwen3 文本嵌入(1024 维)为主;<code>embedding_base_url</code> 为空时才走 bge-m3 本地 fallback(不混用,避免向量空间污染)。阈值标定 <b>0.60 / 0.61</b>。<code>recall_ablation.py</code> — 15 case 成对 cosine 四象限 recall@k 评测。</p>
+<h4>反馈回填 §8.1</h4>
+<p><code>backfill_effectiveness</code> — Qdrant retrieve→set_payload,effectiveness clamp[0,1],👍 delta=+0.1 / hit_count+1。<b>👎 不降权</b>(归因不清会冤枉好 case),只留结构化日志作 P1-b 失败 pattern 数据源。case-level 反馈校验 <code>case_id ∈ report.referenced_case_ids</code> 防越权。</p>
+</section>
+
+<!-- 13 -->
+<section id="obs">
+<h2>13. 可观测性 <span class="loc">doctor/backend/src/observability/</span></h2>
+<table>
+<tr><th>模块</th><th>职责</th><th>要点</th></tr>
+<tr><td><code>__init__.py</code></td><td>OTel</td><td><code>init_observability()</code> :16 建 TracerProvider + BatchSpanProcessor + OTLPSpanExporter;<code>instrument_fastapi(app)</code></td></tr>
+<tr><td><code>logger.py</code></td><td>structlog</td><td><code>configure_logging()</code> :72;ContextVar 注 trace_id/session_id;<code>bind_log_context</code></td></tr>
+<tr><td><code>tracing.py</code></td><td>@traced 装饰器</td><td><code>traced(name,attributes)</code> :38 包 start_as_current_span</td></tr>
+<tr><td><code>cost.py</code></td><td>TokenAccountant</td><td>dataclass + ContextVar 隔离;<span class="todo-fix">疑似未接入运行时(§7.3 已改真实 usage 单源化)</span></td></tr>
+<tr><td><code>langfuse_tracing.py</code></td><td>LLM 可观测</td><td>原生 langfuse SDK(非 langfuse-langchain);on_tool_start/end <b>故意 no-op</b>(避免与 record_tool_span 双计,曾把 process_quality 从 0.958 拉到 0.806)</td></tr>
+</table>
+</section>
+
+<!-- 14 -->
+<section id="sec">
+<h2>14. 安全 <span class="loc">doctor/backend/src/security/</span></h2>
+<table>
+<tr><th>模块</th><th>职责</th></tr>
+<tr><td><code>sql_guard.py</code></td><td><code>assert_readonly(sql)</code> :75 四层校验:单语句 + 危险 raw 正则 + token 递归扫 + get_type∈{SELECT,UNKNOWN} + 首关键词必须 SELECT/WITH</td></tr>
+<tr><td><code>sanitizer.py</code></td><td><code>sanitize_path</code>(Path.resolve 沙箱)/ <code>safe_subprocess_args</code>(shell 元字符校验)/ <code>sanitize_for_llm</code>(PII 脱敏:手机/邮箱/IP/身份证)</td></tr>
+<tr><td><code>secrets.py</code></td><td><code>mask</code>(SecretStr→abc***xyz)/ <code>require_secret_fields</code> / <code>ensure_no_leaked_secrets</code></td></tr>
+</table>
+</section>
+
+<!-- 15 -->
+<section id="prompts">
+<h2>15. Prompts <span class="loc">doctor/backend/src/prompts/</span></h2>
+<p><code>registry.py</code> Jinja2 加载渲染。<code>diagnosis_agent.j2</code> — 3 步策略:</p>
+<ol>
+<li><b>理解证据</b>(不调工具,先思考:症状层?跨层关联?最可疑信号?)</li>
+<li><b>深入调查</b> — ⚠️ 第一步必须先调 <code>search_observability</code>;工具选择表(trace_id→tempo / 函数名→code_search / 数据→db_query / 根因假设→search_historical_root_cause);最多 16 次工具;假设证伪纪律(找反例推翻再确认)+ 每次调 <code>record_hypothesis</code> 记录</li>
+<li><b>定位根因 + 给修复</b> — 输出结构化 JSON 报告(必须含 affected_file/function/line + 改前改后 + evidence_chain)</li>
+</ol>
+<p><code>tools_reference.md</code> 在 agent 构建时注入 system prompt(<span class="todo-fix">手维护,与 tool schema 双源漂移</span>)。<code>triage.j2</code> 已弃用(triage 节点 V3 已删)。</p>
+</section>
+
+<!-- 16 -->
+<section id="frontend">
+<h2>16. 前端</h2>
+<h3>16.1 doctor/frontend(诊断操作台)</h3>
+<p><b>技术栈</b>:React 19 + Vite 8 + Tailwind v4 + CopilotKit ag-ui + zustand + @tanstack/react-query + reactflow(证据链图)+ recharts。<b>双通道</b>:CopilotKit ag-ui 流式(主)+ REST(threads/feedback)。</p>
+<table>
+<tr><th>路由</th><th>文件</th><th>状态</th></tr>
+<tr><td><code>/</code></td><td>DiagnosePage.tsx:38</td><td>✅ 主诊断页:左 CopilotChat + 右 420px 四 tab 面板</td></tr>
+<tr><td><code>/eval</code></td><td>EvalPage.tsx</td><td>⚠️ 占位 stub("Phase 5 将实现")</td></tr>
+<tr><td><code>/cases/:id</code></td><td>CasePage.tsx</td><td>⚠️ 占位 stub</td></tr>
+<tr><td><code>/runs/:name</code></td><td>RunPage.tsx</td><td>⚠️ 占位 stub</td></tr>
+</table>
+<h4>diagnosis features</h4>
+<ul>
+<li><code>parseAgentState.ts</code> — 从聊天消息反解 JSON 重建 report(CopilotKit 绕过外层图直接调内层 ReAct,同步过来的 state 只有 {messages})</li>
+<li><code>BudgetPanel.tsx</code> — 实时资源仪表盘:迭代环 / token 双条 / 工具点阵 / 阶段 / 成本柱</li>
+<li><code>EvidenceChainGraph.tsx</code> — ReactFlow 侦探墙:Signal→Correlation→Finding→Report 四列红线因果</li>
+<li><code>ToolCallCard.tsx</code> — 工具调用渲染成编号步骤插片</li>
+<li><code>GuidanceCard.tsx</code> — HITL 引导卡(续查/采纳当前)</li>
+<li><code>HistoryPanel.tsx</code> — 历史诊断线程列表(paused 置顶,可切换恢复)</li>
+<li><code>ReportPanel.tsx</code> — 结构化报告 + 历史相似诊断 + case 反馈(有帮助/没帮助)</li>
+</ul>
+<h3>16.2 demo-app/frontend(靶应用 TaskFlow)</h3>
+<p>React 19 + Vite + shadcn + @dnd-kit + axios + zustand。页面:login/register/projects/TaskBoard(看板拖拽)/TaskDetail(评论)。OTel:<code>FetchInstrumentation</code> + <code>XMLHttpRequestInstrumentation</code> 配 <code>propagateTraceHeaderCorsUrls</code> 注 W3C traceparent(前后端共享 trace_id);<code>console.error</code> monkey-patch 推 Loki 让前端错误可被 search_observability 查到。</p>
+</section>
+
+<!-- 17 bugs -->
+<section id="bugs">
+<h2>🔴 已知问题与 Bug 嫌疑汇总(供修复)</h2>
+<p>按严重度分级。所有结论基于源码核对,带 file:line。<b>🔴 重大 / 🟠 中等 / 🟡 轻微或文档滞后</b></p>
+
+<h3>后端 — engine 编排</h3>
+<div class="bug">
+<span class="b">🔴 重大</span><span class="ttl">forced_call.py 声称 structured output 但代码未实现</span>
+<p>docstring 多处声称用 <code>llm.with_structured_output(ForcedDiagnosisReport)</code> + <code>method="function_calling"</code> + <code>include_raw=True</code>,但实际代码 <span class="loc">forced_call.py:246</span> 只是 <code>llm.ainvoke(forced_messages)</code> — 从未调用 <code>with_structured_output</code>。走的是自由文本 JSON + <code>_extract_json_from_text</code>。<code>ForcedDiagnosisReport</code> 仅用于事后 validation。<b>"Iteration 2 structured output 机制"是文档描述非代码实现。</b></p>
+</div>
+<div class="bug">
+<span class="b">🔴 重大</span><span class="ttl">MAX_MODEL_CALLS 常量值内部矛盾(12 vs 16)</span>
+<p><code>constants.py:12</code> 定义 <code>MAX_MODEL_CALLS=12</code>(注释 "P90=12 +4buffer"),但 <code>tracker.py:100</code> docstring 写 "calibrated MAX_MODEL_CALLS=16",记忆也记"标定 16"。值是 12 还是 16 存在代码内部矛盾。<span class="todo-fix">tracker.py 当前有未提交 diff(git status M)</span>。</p>
+</div>
+<div class="bug">
+<span class="b">🔴 重大</span><span class="ttl">`>` vs `>=` 阈值不对称致收敛 case 误判 early_stopped</span>
+<p>运行时门 <code>guard.py:31</code> 用 <code>model_call_count &gt; MAX_MODEL_CALLS</code>(第 13 次才 fire),事后判定 <code>tracker.py:104</code> 用 <code>tool_calls &gt;= MAX_MODEL_CALLS</code>(第 12 次就 fire)。若 MAX_MODEL_CALLS=12 且 P90 收敛=12,一个恰好 12 次工具调用的<b>自然收敛</b> run:运行时不 fire 但事后 fire → <code>early_stopped=True</code> → 被误路由进 HITL。tracker 注释声称"only fires on genuinely-over-budget runs"但在此值下不成立。</p>
+</div>
+<div class="bug mid">
+<span class="b">🟠 中等</span><span class="ttl">budget_state.elapsed_seconds 恒为 0</span>
+<p><code>diagnosis_agent.py:321</code> 创建 <code>BudgetState()</code>(started_at=None),<code>tracker.py:63</code> 计算 elapsed 时 <code>started_at</code> 为 None → 恒 0。时间维度 early-stop 实际 inert。</p>
+</div>
+<div class="bug mid">
+<span class="b">🟠 中等</span><span class="ttl">BudgetState.total_cost_usd 从未更新(空壳)</span>
+<p><code>tracker.py:67</code> 透传原值,<code>update_budget</code> 不算 cost。<code>DoctorState.total_cost</code> 有 add reducer 但无写入点。cost 统计目前空壳。</p>
+</div>
+<div class="bug mid">
+<span class="b">🟠 中等</span><span class="ttl">diagnosis_agent 异常路径不设 early_stopped(静默失败)</span>
+<p><code>diagnosis_agent.py:305</code> <code>agent.ainvoke</code> 抛异常(如 RecursionError)时,except 返回 <code>{"report":None,"findings":[]}</code> — 不设 early_stopped → 路由到 END。崩溃的诊断静默结束,无 HITL 机会,无错误标记。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">bug_info.py 异常处理比 diagnosis_agent.py 少一层</span>
+<p><code>bug_info.py:276</code> 只捕 <code>ImportError</code>,<code>diagnosis_agent.py:209</code> 捕 <code>(ImportError, AttributeError)</code>。若 observability_unified 存在但 set_trigger_time 不存在,bug_info 路径会 AttributeError 崩。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">context_elision 同 id 原位替换依赖 langchain 内部行为</span>
+<p><code>context_elision.py:96</code> 依赖 <code>add_messages</code> 对同 id 消息做替换而非追加(已验证 langchain 1.2.13)。langchain 升级若改语义会静默失败(消息重复)。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">truncation.py 字符串包含检测结构化截断(脆弱)</span>
+<p><code>truncation.py:77</code> <code>if '"_truncated"' in content:</code> 子串匹配。若工具结果正文恰好含 <code>"_truncated"</code>(如日志内容)会误判跳过 head/tail 截断。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">forced_call validation 失败透传未校验数据</span>
+<p><code>forced_call.py:300</code> <code>model_validate</code> 抛异常被 <code>contextlib.suppress</code>,fallback <code>json.dumps(data)</code> 把原始未校验 dict 流入消息历史。</p>
+</div>
+
+<h3>后端 — tools</h3>
+<div class="bug mid">
+<span class="b">🟠 中等</span><span class="ttl">source_map_resolve 是 stub(原样返回 input)</span>
+<p><code>source_map_resolve.py:42</code> 函数体直接返回输入,<code>status:"passthrough"</code>。但被 <code>inspect_frontend_error</code> 默认调用、工具描述宣传"Source map 还原"。前端栈帧还原实际不工作。</p>
+</div>
+<div class="bug mid">
+<span class="b">🟠 中等</span><span class="ttl">inspect_frontend_error docstring 与默认值矛盾</span>
+<p><code>frontend_inspect.py:173</code> 签名 <code>resolve_sourcemap: bool = False</code>,但 docstring :193 写"默认 True"。实际默认 False,docstring 误导。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">code_search._classify_file_role 死代码分支</span>
+<p><code>code_search.py:72</code> 先匹配 <code>/services/</code> 返回 business_logic,导致 :92 的 frontend_service 分支永远不可达。frontend_service 角色永不被赋值。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">4 个 DEPRECATED 工具仍 import-time 构造</span>
+<p><code>__init__.py:78-178</code> 的 LOKI/TEMPO/TRACE 工具在 import 时即构造,<code>SHARED_TOOLS</code> 仍含它们。若 specialist agent 用 SHARED_TOOLS 会同时暴露统一入口和细粒度弃用入口,可能重复查询。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">search_observability 静默纠正过期时间窗</span>
+<p><code>observability_unified.py:1023</code> 当传入 end 早于当前 1 小时,静默覆盖为默认窗口(仅 metadata 说明)。agent 复制 prompt 示例日期调用会被悄悄改窗口。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">_http_get_json 每次新建 ClientSession(无复用)</span>
+<p><code>observability_tools.py:388</code> 每请求新建 aiohttp.ClientSession,高频调用(auto 模式逐 trace_id 查 Tempo)有性能损耗。</p>
+</div>
+
+<h3>后端 — 入口层与横切</h3>
+<div class="bug mid">
+<span class="b">🟠 中等</span><span class="ttl">config.py OTel 配置字段是死配置(split-brain)</span>
+<p><code>config.py:147-148</code> <code>otel_exporter_otlp_endpoint</code> / <code>otel_service_name</code> 定义了但 <code>init_observability</code> 用硬编码 "doctor-api",<code>OTLPSpanExporter()</code> 无参(endpoint 由 OTel SDK 直接读系统环境变量)。改 .env 里这俩字段(经 settings)对实际 OTel 行为无效。仍是 split-brain,与"§6.1 根治"风格相悖。</p>
+</div>
+<div class="bug mid">
+<span class="b">🟠 中等</span><span class="ttl">DiagDoctorAgent.execute 疑似死代码</span>
+<p><code>copilotkit/agent.py:17</code> <code>execute()</code> 全仓无调用(主路径 <code>run_endpoint.py:65</code> 调父类 <code>agent.run()</code> 绕过它)。<code>execute</code> 仅被自定义 endpoint shadow 掉的 SDK handler 触发。</p>
+</div>
+<div class="bug mid">
+<span class="b">🟠 中等</span><span class="ttl">Langfuse handler 全局单例陷阱(跨 session 串台)</span>
+<p><code>langfuse_tracing.py:885</code> <code>get_langfuse_handler</code> 用 <code>_langfuse_handler</code> 全局缓存,session_id/tags 仅首次创建生效,后续调用忽略入参直接返回旧 handler。所有 session 共享首个 session_id(docstring 承认)。</p>
+</div>
+<div class="bug mid">
+<span class="b">🟠 中等</span><span class="ttl">TokenAccountant 疑似未接入运行时</span>
+<p><code>cost.py</code> 基于 ContextVar,但从横切层看不到谁调 <code>record()</code>。§7.3 已改用真实 usage 单源化。cost 统计空壳(与 engine 的 total_cost_usd 空壳呼应)。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">流式 [DONE] 在 error 后仍发</span>
+<p><code>diagnose.py:273</code> <code>_stream_graph</code> 的 finally 恒 yield <code>[DONE]</code>,即便已 yield 过 error 事件。客户端同时收 error + DONE。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">persistence/ 整个模块是 stub</span>
+<p><code>persistence/__init__.py</code> docstring 标"待实现",列了 3 个未实现文件。实际 checkpoint 由 graph 内置 SqliteSaver 承担。此模块无代码、无被引用。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">sdkVersion 硬编码 / /threads stub 恒空</span>
+<p><code>middleware.py:31</code> sdkVersion 写死 "0.1.94";<code>:51</code> <code>/threads</code> 恒返回 <code>{"threads":[]}</code> stub(真实列表走 REST /api/diagnose/threads)。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 文档滞后</span><span class="ttl">多处 docstring 与代码不符</span>
+<p><code>run_endpoint.py:14</code> 称复用 execute 的 EventEncoder(实际自建);<code>langfuse_tracing.py:273</code> 称截断 2000 字(实际 20000);<code>feedback.py:54</code> 称 MemorySaver(实际 SqliteSaver);<code>logger.py:74</code> min_level=0 默认全 DEBUG(生产噪声)。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">config.py:83 默认 DB URL 含明文密码</span>
+<p><code>demo_db_ro_url</code> 默认值把口令 <code>DiagDoctor</code> 写进代码(与"127.0.0.1+删回退"修复一致,但口令仍明文)。生产应经 env + 只读账号。</p>
+</div>
+
+<h3>前端 — doctor/frontend</h3>
+<div class="bug">
+<span class="b">🔴 重大</span><span class="ttl">HITL resolve 卡死(续查/采纳当前可能无法恢复后端图)</span>
+<p><code>GuidanceCard.tsx:11</code> 顶部明确警告:"⚠️ 调查中:1.62.2 + ag_ui_langgraph 下 resolve 的 command.resume 未到后端(无 human_input_resumed、卡片卡死)"。<code>DiagnosePage.tsx:92</code> 指向 <code>docs/frontend-hitl-plan.md §9.3</code>。<b>这是当前最影响体验的 bug</b> — 后端 <code>run_endpoint.py</code> 虽为修 CopilotKit 1.62.x forwardedProps 丢失而存在,但前端仍报未恢复。</p>
+</div>
+<div class="bug mid">
+<span class="b">🟠 中等</span><span class="ttl">parseAgentState 架构错配兜底(脆弱)</span>
+<p><code>parseAgentState.ts:1</code> CopilotKit 绕过外层图直接调内层 ReAct,前端只能从聊天消息倒序反解 JSON 重建 report。依赖 LLM 把 JSON 放最后;失败时 fallback 把原始文本截 500 字当 root_cause(confidence=0.2)。后端改 prompt 格式前端解析就断。</p>
+</div>
+<div class="bug mid">
+<span class="b">🟠 中等</span><span class="ttl">runId 回退不同步 threadId 致 feedback 404</span>
+<p><code>DiagnosePage.tsx:46</code> <code>runId = state?.case_id || threadId</code>。注释反复强调 threadId 与后端"不同步,用它会 404"。若 state.case_id 缺失(agent 未注入),fallback threadId → feedback POST 404。</p>
+</div>
+<div class="bug mid">
+<span class="b">🟠 中等</span><span class="ttl">ToolCallCard 步骤计数器跨会话累加</span>
+<p><code>ToolCallCard.tsx:135</code> <code>globalStepCounter</code> 模块级全局,<code>resetStepCounter</code> 虽 export 但无人调用。第二次诊断的第一个工具调用可能显示 "#15"。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">CaseInputChat 死代码</span>
+<p><code>CaseInputChat.tsx</code> 定义并 export 但全仓库无 import。DiagnosePage 直接用 <code>&lt;CopilotChat&gt;</code>。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">BudgetPanel 硬编码估算</span>
+<p><code>BudgetPanel.tsx:41</code> maxIter=12 / maxTokens=100_000 前端写死,与后端无同步;<code>estimateTokenSplit</code> 固定 35/65;phaseFromIteration 纯按百分比猜。后端调预算前端环图失真。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">HistoryPanel 恢复半成品</span>
+<p><code>HistoryPanel.tsx:11</code> v1 只 setThreadId,用户切换到 paused 线程后必须手动发消息才能触发 OnInterrupt 让引导卡浮现。v2 待办:自动 start。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">Eval/Case/Run 三个页面空 stub</span>
+<p>但 App.tsx:37 把"评测"放进了主导航,用户点进去只看到一个 📈 emoji 占位。</p>
+</div>
+
+<h3>前端 — demo-app/frontend</h3>
+<div class="bug mid">
+<span class="b">🟠 中等</span><span class="ttl">fetchTasks 早返回不释放 loading</span>
+<p><code>TaskBoardPage.tsx:167</code> <code>if(!projectId) return;</code> 在 try 之前,没 <code>setLoading(false)</code>。理论上 projectId 缺失会永久转圈。<code>TaskDetailPage.tsx:36</code> 同模式。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">console.error/warn 全量推 Loki(噪声)</span>
+<p><code>main.tsx:22</code> monkey-patch console.warn/error 全部 emitOtelLog 到 Loki。React 18+ StrictMode 下大量开发期警告会产生 Loki 噪声。</p>
+</div>
+<div class="bug low">
+<span class="b">🟡 轻微</span><span class="ttl">LoginPage 多发一次请求拿 currentUser</span>
+<p><code>LoginPage.tsx:34</code> 登录后先 POST /login 拿 token,再单独 GET /me 拿 profile。注释暗示后端 login 本可返回 user 却没返回,前后端契约别扭。</p>
+</div>
+<div class="ok"><b>TaskBoardPage.tsx 当前 git 修改</b>:仅 SortableTaskCard 加 3 行显示"N 标签",无害 UI 增强,非 bug。</div>
+</section>
+
+<!-- 18 -->
+<section id="journey">
+<h2>17. 一次诊断的完整旅程(端到端)</h2>
+<pre><code>用户在 doctor/frontend 聊天框描述 bug(或 REST POST /api/diagnose)
+  │
+  ▼ bug_info_node (bug_info.py:193)
+  ├─ CopilotKit: LLM 提取 BugInfo(user_report/trigger_time/trace_ids)
+  ├─ set_trigger_time -> search_observability 用 trigger_time ±5min
+  ├─ _prefetch_service / _prefetch_by_trace_ids -> Loki/Tempo 预取
+  ├─ ingest(raw) -> NormalizedEvidence(golden_signals, correlations)
+  └─ case_id = thread_id(与 checkpointer 寻址同 key)
+       │
+       ▼ diagnosis_agent_node (diagnosis_agent.py:179)
+  ├─ format_evidence_for_agent -> evidence_text
+  ├─ RAG: search_historical_cases -> §6.5 注入块(首次查询+缓存)
+  ├─ set_run_context(DiagnosisRunContext)
+  ├─ agent.ainvoke({messages:[System, RAG?, Human(evidence)]}, recursion_limit=200)
+  │    │
+  │    ▼ create_agent ReAct 循环(7 middleware 钩入)
+  │    ├─ [abefore_agent] Lifecycle 初始化 budget; Langfuse start_trace
+  │    ├─ 每轮 [abefore_model] ContextElision ageing -> BudgetGuard 检查
+  │    ├─ model call(诊断 LLM)
+  │    ├─ [aafter_model] BudgetGuard 记 real usage + record_hypothesis 豁免
+  │    ├─ [awrap_tool_call] Dedup -> Langfuse span -> Truncation -> 工具 -> BudgetGuard 计数
+  │    └─ natural stop 或 BudgetGuard jump_to:"end"
+  │    │
+  │    ▼ [aafter_agent] ForcedFinalCall: 无 JSON -> 强制再调一次
+  ├─ _finalize_report: parse_diagnosis_report + extract_findings + clamp_referenced_case_ids
+  └─ langfuse end_trace(report)
+       │
+       ▼ _route_after_diagnosis
+  ├─ early_stopped &amp; !hitl_resumed -> human_input(interrupt,checkpoint 持久化)
+  │    └─ resume Command(resume=guidance) -> diagnosis_agent 第二轮(scratchpad 续查)
+  └─ else -> END -> report 流回前端 ReportPanel / REST response</code></pre>
+<p style="color:var(--muted);font-size:13px;margin-top:16px;">— 本文档由源码逐文件核对生成。evidence(/§11) 与 memory(/§12) 两节因最后一处代码复核仍在进行,基于状态模型+现状文档+配置整理,已标注;其余章节均直接基于源码。Bug 嫌疑清单供后续修复排期。</p>
+</section>
+
+</div>
+</div>
+</body>
+</html>

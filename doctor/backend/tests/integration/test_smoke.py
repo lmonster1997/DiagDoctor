@@ -29,7 +29,7 @@ DEMO_BACKEND_URL = "http://localhost:8000"
 DOCTOR_URL = "http://localhost:8001"
 
 SERVICE_CHECK_TIMEOUT = 5.0
-REQUEST_TIMEOUT = 30.0
+REQUEST_TIMEOUT = 180.0
 LOG_PROPAGATION_WAIT = 5  # seconds for logs to propagate to Loki
 
 

@@ -2,7 +2,7 @@
 
 Covers the two halves of followup-plan #7:
 1. **Real reducers**: ``StateGraph(DoctorState)`` (TypedDict) makes the declared
-   ``add`` reducers on ``findings`` / ``hypotheses`` / ``budget_ticks`` /
+   ``add`` reducers on ``findings`` / ``budget_ticks`` /
    ``total_cost`` actually accumulate across nodes (the old ``StateGraph(dict)``
    declared them but they were dead -- node returns did dict-overwrite).
    ``messages`` uses ``add_messages`` (#5 HITL-resume: the chat history

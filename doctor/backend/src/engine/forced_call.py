@@ -2,7 +2,7 @@
 
 Baseline (Iteration 0) showed two failure modes accounting for all disaster
 cases:
-  mode 1 (3/4 disaster): loop hits MAX_TOOL_CALLS cap, last AIMessage has
+  mode 1 (3/4 disaster): loop hits MAX_MODEL_CALLS cap, last AIMessage has
     content="" + tool_calls=[...] → parse_diagnosis_report returns a
     low-confidence fallback with empty root_cause.
   mode 2 (1/4 disaster + 2 regression cases): agent natural-stops but
@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 from typing import Any, Literal
 
 from langchain_core.language_models import BaseChatModel
@@ -242,11 +243,8 @@ async def _forced_final_json_call(
         # include_raw=True so we can log the raw LLM output when the model
         # fails to emit a matching tool_call — critical for diagnosing
         # regressions (e.g. if DeepSeek's tool-call support degrades).
-        structured_llm = llm.with_structured_output(
-            ForcedDiagnosisReport, method="function_calling", include_raw=True
-        )
-        result: dict[str, Any] = await asyncio.wait_for(
-            structured_llm.ainvoke(
+        response: BaseMessage = await asyncio.wait_for(
+            llm.ainvoke(
                 forced_messages,
                 config=invoke_config if invoke_config else None,  # type: ignore[arg-type]
             ),
@@ -270,45 +268,49 @@ async def _forced_final_json_call(
                 )
         return None
 
-    parsed: ForcedDiagnosisReport | None = (
-        result.get("parsed") if isinstance(result, dict) else None
-    )
-    raw = result.get("raw") if isinstance(result, dict) else None
-    if parsed is None:
-        raw_content_str = str(getattr(raw, "content", "")) if raw is not None else None
-        raw_tool_calls = getattr(raw, "tool_calls", None) if raw is not None else None
-
+    content = str(getattr(response, "content", ""))
+    data = _extract_json_from_text(content)
+    if not data:
         logger.warning(
-            "forced_final_json_call_no_tool_call",
+            "forced_final_json_call_no_json",
             case_id=case_id,
             natural_stop=natural_stop,
-            raw_content_preview=str(getattr(raw, "content", ""))[:500],
-            raw_tool_calls=bool(getattr(raw, "tool_calls", None)),
+            raw_content_preview=content[:500],
         )
         if langfuse_handler is not None:
             with contextlib.suppress(Exception):
                 langfuse_handler.record_structured_output(
                     schema_name="ForcedDiagnosisReport",
                     parsed=None,
-                    raw_content=raw_content_str,
-                    raw_tool_calls=raw_tool_calls,
-                    error="model emitted no matching tool_call (parsed=None)",
+                    raw_content=content,
+                    error="model emitted no extractable JSON",
                     case_id=case_id,
                 )
         return None
+
+    # Validate against ForcedDiagnosisReport when possible (clean serialization
+    # + typed Langfuse span); fall back to the raw dict otherwise --
+    # parse_diagnosis_report downstream coerces types anyway.
+    parsed: ForcedDiagnosisReport | None = None
+    with contextlib.suppress(Exception):
+        parsed = ForcedDiagnosisReport.model_validate(data)
 
     # Serialize the parsed Pydantic object back to a JSON-string AIMessage so
     # parse_diagnosis_report (which expects content to be a JSON string) can
     # pick it up unchanged. model_dump_json produces properly-escaped JSON
     # by construction — no unescaped-quote risk.
-    json_str = parsed.model_dump_json(indent=2)
+    json_str = (
+        parsed.model_dump_json(indent=2)
+        if parsed is not None
+        else json.dumps(data, ensure_ascii=False)
+    )
     logger.info(
         "forced_final_json_call_completed",
         case_id=case_id,
         natural_stop=natural_stop,
         response_content_len=len(json_str),
-        primary_category=parsed.primary_category,
-        confidence=parsed.confidence,
+        primary_category=getattr(parsed, "primary_category", data.get("primary_category", "")),
+        confidence=getattr(parsed, "confidence", data.get("confidence", 0.5)),
         response_has_tool_calls=False,  # synthesized AIMessage has no tool_calls
     )
     # Record the parsed structured output to Langfuse. The callback path
@@ -321,9 +323,8 @@ async def _forced_final_json_call(
         with contextlib.suppress(Exception):
             langfuse_handler.record_structured_output(
                 schema_name="ForcedDiagnosisReport",
-                parsed=parsed.model_dump(mode="json"),
-                raw_content=str(getattr(raw, "content", "")) if raw is not None else None,
-                raw_tool_calls=getattr(raw, "tool_calls", None) if raw is not None else None,
+                parsed=parsed.model_dump(mode="json") if parsed is not None else data,
+                raw_content=content,
                 case_id=case_id,
             )
     return AIMessage(content=json_str)

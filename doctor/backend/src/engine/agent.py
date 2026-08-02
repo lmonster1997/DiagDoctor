@@ -3,7 +3,7 @@ DiagnosisAgent — V3 统一诊断 Agent (ReAct with full toolset).
 
 Uses LangChain's ``create_agent`` to build a ReAct agent that:
 1. Receives normalized evidence via HumanMessage
-2. Calls 5 tools on demand
+2. Calls 6 diagnostic tools on demand (+ 1 §7.2 record_hypothesis 埋点工具, 预算豁免)
 3. Produces a structured DiagnosisReport
 
 Agent is cached at module level for reuse across sessions.
@@ -20,6 +20,7 @@ from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 
 from src.config import settings
+from src.engine.run_context import DiagnosisRunContext
 from src.llm_factory import get_llm_for_role
 from src.observability.logger import get_logger
 from src.prompts.registry import render_prompt
@@ -58,7 +59,7 @@ def _build_system_prompt() -> str:
 
 
 def build_diagnosis_agent() -> Any:
-    """Build the DiagnosisAgent ReAct agent with 6 middlewares.
+    """Build the DiagnosisAgent ReAct agent with 7 middlewares.
 
     Middleware registration order (verified via verify_middleware_assumptions.py):
     - abefore_agent: runs in registration order
@@ -66,7 +67,7 @@ def build_diagnosis_agent() -> Any:
     - after_agent: reverse registration order
 
     Pipeline: AgentLifecycle → ToolDedup → LangfuseTracing
-              → ToolTruncation → BudgetGuard → ForcedFinalCall
+              → ToolTruncation → ContextElision → BudgetGuard → ForcedFinalCall
     """
     llm = _get_llm()
     tools = _get_tools()
@@ -80,6 +81,7 @@ def build_diagnosis_agent() -> Any:
     )
 
     from src.engine.budget.guard import BudgetGuardMiddleware
+    from src.engine.middleware.context_elision import ContextElisionMiddleware
     from src.engine.middleware.forced_call import ForcedFinalCallMiddleware
     from src.engine.middleware.langfuse_tracing import LangfuseTracingMiddleware
     from src.engine.middleware.lifecycle import AgentLifecycleMiddleware
@@ -91,15 +93,17 @@ def build_diagnosis_agent() -> Any:
         ToolDedupMiddleware(),
         LangfuseTracingMiddleware(),
         ToolTruncationMiddleware(),
+        ContextElisionMiddleware(),
         BudgetGuardMiddleware(),
         ForcedFinalCallMiddleware(),
     ]
 
-    agent = create_agent(
+    agent = create_agent(  # type: ignore[misc]
         model=llm,
         tools=tools,
         system_prompt=system_prompt,
         middleware=middleware,
+        context_schema=DiagnosisRunContext,
     )
 
     return agent

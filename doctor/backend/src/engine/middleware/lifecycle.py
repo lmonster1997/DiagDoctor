@@ -11,7 +11,6 @@ from typing import Any
 from langchain.agents.middleware import AgentMiddleware
 
 from src.engine.context.budget import ContextBudget
-from src.engine.run_context import get_run_context_or_none
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)
@@ -21,7 +20,7 @@ class AgentLifecycleMiddleware(AgentMiddleware):
     """Initialise per-invocation budget, counters, and dedup history."""
 
     async def abefore_agent(self, state: Any, runtime: Any) -> dict[str, Any] | None:
-        ctx = get_run_context_or_none()
+        ctx = runtime.context
         if ctx is None:
             return None
 
@@ -32,7 +31,8 @@ class AgentLifecycleMiddleware(AgentMiddleware):
             ctx.ctx_budget.add_evidence(ctx.evidence_text)
         ctx.ctx_budget.start_timer()
 
-        ctx.call_history = []
+        ctx.call_history = {}
+        ctx.elided_tool_call_ids = set()
         ctx.model_call_count = 0
         ctx.budget_exhausted = False
         ctx.forced_call_triggered = False

@@ -46,7 +46,9 @@ class _RecordingAgent:
         self.received_messages: list[BaseMessage] | None = None
         self._response = response
 
-    async def ainvoke(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
+    async def ainvoke(
+        self, state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
         self.received_messages = list(state.get("messages", []))
         return {"messages": [AIMessage(content=self._response)]}
 
@@ -107,6 +109,14 @@ def _patch_agent(
     agent = _RecordingAgent(response=response)
     monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: agent)
     return agent
+
+
+@pytest.fixture(autouse=True)
+def _enable_rag_injection(monkeypatch: pytest.MonkeyPatch) -> None:
+    """RAG injection tests mock retrieval, so the flag must be ON regardless
+    of the local .env (RAG_INJECTION_ENABLED=false when Qdrant/embeddings are
+    down). test_flag_off_skips_retrieval_entirely overrides this to False."""
+    monkeypatch.setattr(settings, "rag_injection_enabled", True)
 
 
 # ── pass 1: retrieve + inject + cache ───────────────────────────────

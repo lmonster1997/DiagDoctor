@@ -1,9 +1,10 @@
 """
-Source map resolve tool — resolve minified/compiled JS locations to original source.
+Source map resolve - resolve minified/compiled JS locations to original source.
 
-Provides a LangChain StructuredTool for ReAct agents to map frontend
-stack traces from minified bundles back to original TypeScript/JSX source
-using the source maps archived with each bug case.
+Exposes ``source_map_resolve`` for the active ``INSPECT_FRONTEND_ERROR_TOOL``
+(``frontend_inspect.py``) to map frontend stack traces from minified bundles
+back to original TypeScript/JSX source using the source maps archived with
+each bug case.
 
 Source maps are stored in:
     bug-factory/output/{recipe_id}/sourcemaps/
@@ -15,8 +16,6 @@ Usage:
 from __future__ import annotations
 
 import json
-
-from langchain_core.tools import StructuredTool
 
 from src.observability.logger import get_logger
 from src.observability.tracing import traced
@@ -40,7 +39,7 @@ async def source_map_resolve(file: str, line: int) -> str:
     """
 
     try:
-        # For now, return a structured placeholder — full source map
+        # For now, return a structured placeholder - full source map
         # resolution will be wired once code_index + sourcemaps are in place.
         result = {
             "original_file": file,
@@ -58,17 +57,3 @@ async def source_map_resolve(file: str, line: int) -> str:
     except Exception as exc:
         logger.error("source_map_resolve_failed", error=str(exc))
         return json.dumps({"error": str(exc)}, ensure_ascii=False)
-
-
-# ── LangChain StructuredTool wrapper ─────────────────────────────────
-
-SOURCE_MAP_RESOLVE_TOOL = StructuredTool.from_function(
-    coroutine=source_map_resolve,
-    name="source_map_resolve",
-    description=(
-        "Resolve a compiled/minified JavaScript file path and line number "
-        "back to the original TypeScript/JSX source using source maps. "
-        "Use this when a frontend stack trace references a minified bundle file. "
-        "Example: file='assets/index-BxY9Z.js', line=142"
-    ),
-)

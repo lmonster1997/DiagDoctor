@@ -121,7 +121,7 @@ CASE_IDS = list(ROOT_CAUSE_TYPE.keys())
 VECTOR_MODES = ("symptom", "root_cause", "both")
 
 
-# ── Evidence / text loading (mirrors benchmark runner) ───────────────
+# ── Evidence / text loading (mirrors experiment runner) ───────────────
 
 
 def _load_json(path: Path) -> list[dict[str, Any]]:

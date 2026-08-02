@@ -6,7 +6,7 @@ Usage:
     2. Open this file in VS Code
     3. Press F5 (or select "🔍 Debug Triage (BE-001)" in Run and Debug)
 
-This bypasses the FastAPI server and benchmark runner,
+This bypasses the FastAPI server (direct graph call),
 so you can step-debug the triage logic directly.
 """
 

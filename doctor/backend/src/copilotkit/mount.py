@@ -17,13 +17,14 @@ def mount_copilotkit(app: FastAPI) -> None:
         from src.copilotkit.agent import DiagDoctorAgent
         from src.copilotkit.middleware import CorsPreflightMiddleware, InfoCompatMiddleware
         from src.copilotkit.run_endpoint import register_default_agent_run_endpoint
+        from src.engine.budget.constants import RECURSION_LIMIT
         from src.engine.nodes.diagnosis_agent import get_copilotkit_graph
 
         agent = DiagDoctorAgent(
             name="default",
             description="DiagDoctor — AI Bug 诊断助手",
             graph=get_copilotkit_graph(),
-            config={"recursion_limit": 80},
+            config={"recursion_limit": RECURSION_LIMIT},
         )
 
         sdk = CopilotKitRemoteEndpoint(agents=[agent])

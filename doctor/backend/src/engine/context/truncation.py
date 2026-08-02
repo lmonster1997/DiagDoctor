@@ -75,6 +75,11 @@ def truncate_tool_result(tool_name: str, content: str) -> str:
     # - it would destroy the log/trace signal the tool preserved. The tool's
     # slimming is schema-aware; head/tail on the resulting JSON is not.
     if '"_truncated"' in content:
+        # Layer 1 (search_observability) already slimmed this result and marked
+        # it ``_truncated``. Layer 2 must NOT head/tail it - that destroys the
+        # schema-aware slim (and the key-line strategy can collapse to empty on
+        # low-keyword content). If the slimmed result is still too large, that
+        # is a Layer 1 concern (cap spans harder), not Layer 2's job to re-cut.
         return content
 
     char_limit = TOOL_CHAR_LIMITS.get(tool_name, _DEFAULT_CHAR_LIMIT)

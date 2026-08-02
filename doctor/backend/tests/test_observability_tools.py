@@ -680,50 +680,11 @@ class TestSearchTempoTracesIntegration:
 # ── StructuredTool wrapper tests ────────────────────────────────────
 
 
-class TestStructuredToolWrappers:
-    """Verify that LangChain StructuredTool wrappers are correctly configured."""
-
-    def test_loki_query_tool_exists(self) -> None:
-        """LOKI_QUERY_TOOL is importable and has correct name/description."""
-        from src.tools import LOKI_QUERY_TOOL
-
-        assert LOKI_QUERY_TOOL.name == "query_loki_logs"
-        assert "LogQL" in LOKI_QUERY_TOOL.description
-        assert LOKI_QUERY_TOOL.coroutine is not None
-
-    def test_tempo_trace_tool_exists(self) -> None:
-        """TEMPO_TRACE_TOOL is importable and has correct name/description."""
-        from src.tools import TEMPO_TRACE_TOOL
-
-        assert TEMPO_TRACE_TOOL.name == "query_tempo_trace"
-        assert "trace id" in TEMPO_TRACE_TOOL.description.lower()
-        assert TEMPO_TRACE_TOOL.coroutine is not None
-
-    def test_tempo_search_tool_exists(self) -> None:
-        """TEMPO_SEARCH_TOOL is importable and has correct name/description."""
-        from src.tools import TEMPO_SEARCH_TOOL
-
-        assert TEMPO_SEARCH_TOOL.name == "search_tempo_traces"
-        assert "service name" in TEMPO_SEARCH_TOOL.description.lower()
-        assert TEMPO_SEARCH_TOOL.coroutine is not None
-
-    def test_all_tools_exposed_in_all(self) -> None:
-        """All three tools are exposed in __all__."""
-        from src.tools import __all__ as tools_all
-
-        assert "LOKI_QUERY_TOOL" in tools_all
-        assert "TEMPO_TRACE_TOOL" in tools_all
-        assert "TEMPO_SEARCH_TOOL" in tools_all
-        assert "query_loki_logs" in tools_all
-        assert "query_tempo_trace" in tools_all
-        assert "search_tempo_traces" in tools_all
-
-
 # ── V3 统一工具集测试 ──────────────────────────────────────────────
 
 
 class TestV3UnifiedTools:
-    """Verify that the V3 unified tool set (6 tools) is correctly configured."""
+    """Verify that the V3 unified tool set (6 诊断 + 1 §7.2 埋点) is correctly configured."""
 
     def test_search_observability_tool_exists(self) -> None:
         """SEARCH_OBSERVABILITY_TOOL is importable and has correct metadata."""
@@ -757,11 +718,19 @@ class TestV3UnifiedTools:
         assert "根因" in ROOT_CAUSE_RECALL_TOOL.description
         assert ROOT_CAUSE_RECALL_TOOL.coroutine is not None
 
-    def test_all_tools_has_exactly_six(self) -> None:
-        """ALL_TOOLS must contain exactly 6 tools (5 observability/code + P1-a root-cause recall)."""
+    def test_record_hypothesis_tool_exists(self) -> None:
+        """RECORD_HYPOTHESIS_TOOL (§7.2 假设证伪埋点) is importable + correct metadata."""
+        from src.tools import RECORD_HYPOTHESIS_TOOL
+
+        assert RECORD_HYPOTHESIS_TOOL.name == "record_hypothesis"
+        assert "假设" in RECORD_HYPOTHESIS_TOOL.description
+        assert RECORD_HYPOTHESIS_TOOL.coroutine is not None
+
+    def test_all_tools_has_exactly_seven(self) -> None:
+        """ALL_TOOLS = 6 诊断工具 + 1 §7.2 record_hypothesis 埋点工具(预算豁免)。"""
         from src.tools import ALL_TOOLS
 
-        assert len(ALL_TOOLS) == 6
+        assert len(ALL_TOOLS) == 7
         tool_names = {t.name for t in ALL_TOOLS}
         assert tool_names == {
             "search_observability",
@@ -770,6 +739,7 @@ class TestV3UnifiedTools:
             "inspect_frontend_error",
             "get_file_content",
             "search_historical_root_cause",
+            "record_hypothesis",
         }
 
     def test_all_tools_are_structured_tools(self) -> None:
@@ -800,20 +770,3 @@ class TestV3UnifiedTools:
         assert "search_observability" in tools_all
         assert "inspect_frontend_error" in tools_all
         assert "get_file_content" in tools_all
-
-    def test_deprecated_tools_still_importable(self) -> None:
-        """Old tools should still be importable (deprecated, not removed)."""
-        from src.tools import (
-            FRONTEND_SPECIALIST_TOOLS,
-            LOKI_QUERY_TOOL,
-            TEMPO_SEARCH_TOOL,
-            TEMPO_TRACE_TOOL,
-            TRACE_ANALYSIS_TOOL,
-        )
-
-        # All deprecated tools exist
-        assert LOKI_QUERY_TOOL.name == "query_loki_logs"
-        assert TEMPO_TRACE_TOOL.name == "query_tempo_trace"
-        assert TEMPO_SEARCH_TOOL.name == "search_tempo_traces"
-        assert TRACE_ANALYSIS_TOOL.name == "analyze_trace"
-        assert len(FRONTEND_SPECIALIST_TOOLS) > 0

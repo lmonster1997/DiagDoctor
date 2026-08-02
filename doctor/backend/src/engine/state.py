@@ -189,7 +189,15 @@ VALID_CATEGORIES: frozenset[str] = frozenset(
 
 
 class Finding(BaseModel):
-    """A finding from an individual Specialist Agent."""
+    """A finding from an individual Specialist Agent.
+
+    §7.2: ``status`` / ``refuted`` / ``refutation_evidence`` carry the L4
+    hypothesis-tree structure for the HITL续查 scratchpad. The agent emits
+    ``{"hypothesis":..., "status":..., "evidence":..., "refuted":...}`` blocks
+    during investigation (parsed by ``extract_findings``); the final report's
+    ``root_cause`` becomes a ``confirmed`` finding. Defaults keep backward
+    compatibility (pre-§7.2 findings = pending, not refuted).
+    """
 
     agent: str = ""
     summary: str = ""
@@ -199,16 +207,10 @@ class Finding(BaseModel):
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     cross_layer: bool = False  # true if this finding points to a different tier root cause
     contradiction: bool = False  # true if evidence contradicts the initial classification
-
-
-class DiagnosisHypothesis(BaseModel):
-    """A hypothesis about the root cause — must ground to evidence."""
-
-    summary: str = ""
-    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
-    affected_files: list[str] = Field(default_factory=list)
-    evidence_refs: list[str] = Field(default_factory=list)
-    proposed_by: str = ""
+    # ── §7.2 hypothesis-tree fields (L4 falsification discipline) ──
+    status: Literal["confirmed", "excluded", "pending"] = "pending"
+    refuted: bool = False  # True if this hypothesis was disproven by a counterexample
+    refutation_evidence: str = ""  # the counterexample that excluded this hypothesis
 
 
 class DiagnosisReport(BaseModel):
@@ -265,7 +267,7 @@ class DoctorState(TypedDict, total=False):
     old ``StateGraph(dict)`` -- where ``Annotated[..., add]`` was declared but
     never ran and node returns did dict-overwrite):
 
-    - ``findings`` / ``hypotheses`` / ``budget_ticks``: ``add`` -> accumulate
+    - ``findings`` / ``budget_ticks``: ``add`` -> accumulate
       across nodes. Essential for #5 HITL resume (a resumed run appends to
       prior findings instead of clobbering them).
     - ``total_cost``: ``add`` -> accumulate cost across the run.
@@ -276,7 +278,7 @@ class DoctorState(TypedDict, total=False):
       old ``overwrite`` semantics, the second ``diagnosis_agent`` pass would
       clobber pass-1's visible messages from the synced state. ``add_messages``
       is the LangGraph idiom for an append-only message channel and is what
-      CopilotKit's ag-ui state sync expects. Safe for the REST/benchmark path:
+      CopilotKit's ag-ui state sync expects. Safe for the REST/headless path:
       that path carries no input chat messages, so accumulation == overwrite
       there (no regression). See ``docs/followup-plan-20260715.md`` #5/#7.
 
@@ -287,7 +289,7 @@ class DoctorState(TypedDict, total=False):
     V3 key changes from v2:
     - Removed: iterations, critic_feedback, verdict (no Critic loop in V3)
     - Removed: draft_report (no synthesis node in V3)
-    - Kept: raw_evidence, evidence, findings, hypotheses, report, budget,
+    - Kept: raw_evidence, evidence, findings, report, budget,
       total_cost, messages
     """
 
@@ -298,9 +300,8 @@ class DoctorState(TypedDict, total=False):
     # ── Ingest layer output ──
     evidence: NormalizedEvidence
 
-    # ── Accumulated findings & hypotheses (add reducer) ──
+    # ── Accumulated findings (add reducer) ──
     findings: Annotated[list[Finding], add]
-    hypotheses: Annotated[list[DiagnosisHypothesis], add]
 
     # ── Reports (V3: diagnosis_agent produces report directly; no draft_report) ──
     report: DiagnosisReport | None

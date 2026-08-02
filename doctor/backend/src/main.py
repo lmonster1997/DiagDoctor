@@ -6,11 +6,12 @@ Usage:
 """
 
 # ── OTel + logging MUST be initialized before FastAPI app instantiation ──
+from src.config import settings
 from src.observability import init_observability
 from src.observability.logger import configure_logging
 
 init_observability()
-configure_logging(json_format=False)
+configure_logging(json_format=False, log_file_path=settings.log_file_path)
 
 # ── Assemble the application ──
 from src.api.routes import register_routes  # noqa: E402

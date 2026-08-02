@@ -15,6 +15,7 @@ from typing import Any
 
 import tiktoken
 
+from src.engine.budget.constants import MAX_MODEL_CALLS, MAX_TIME_SECONDS
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)
@@ -57,9 +58,22 @@ class ContextPhase(StrEnum):
 class ContextBudget:
     """追踪 system_prompt / evidence / tool_result / agent_reasoning 的 token 使用。
 
-    S1.5：phase 现在同时考虑 token / iteration / tool_calls / time 四个维度，
-    取最严级别。对 15-case 规模，token 几乎到不了 80%，但 iteration 10-12
-    会触发 FINALIZING——让 phase 策略真正在 agent flail 之前 fire。
+    四维度取最严级别。单次诊断中 iteration/tool_calls 维度先于 token fire
+    （入口截断压小单次工具结果，累积 token 峰值 ~50k 远低于 100k 阈值），
+    token 阈值实际很少触及 80%，是兜底。详见 docs/context_engineering_design.md §5.2。
+
+    token 口径（§7.3 接真实 usage 后）：
+    - ``real_input_tokens``：从每轮 AIMessage 的 ``usage_metadata.input_tokens``
+      取 peak，反映模型实际收到的 context 大小（截断后口径，根治 §6.1 split-brain）。
+    - ``total_used``（gate 用）= ``max(system+evidence 静态估算, real_input_tokens)``：
+      首次调用前用 tiktoken 静态估算作 floor，有调用后用真实 peak。
+    - ``tool_result_tokens`` / ``agent_reasoning_tokens``：tiktoken 估算，仅作
+      to_dict telemetry breakdown，**不进 gate**（曾因 BudgetGuard 拿截断前
+      result 虚高触发 §6.1 split-brain）。
+
+    预算硬上限（MAX_MODEL_CALLS / MAX_TOKENS_BUDGET / MAX_TIME_SECONDS）的单一来源
+    是 engine/budget/constants.py，本类不另存副本。phase 字段当前仅导出（to_dict），
+    未接回 prompt 调整策略（§5.1/§7.5）。
     """
 
     model_context_window: int = 128_000
@@ -67,21 +81,21 @@ class ContextBudget:
     warning_threshold: float = 0.6
     critical_threshold: float = 0.8
 
-    # ── 各来源 token 计数 ──
+    # ── 各来源 token 计数（system/evidence 进 gate；tool_result/reasoning 仅 telemetry）──
     system_prompt_tokens: int = 0
     evidence_tokens: int = 0
     tool_result_tokens: int = 0
     agent_reasoning_tokens: int = 0
 
+    # ── 真实 usage（§7.3）：peak input_tokens，gate 主口径 ──
+    real_input_tokens: int = 0
+
     # ── S1.5：iteration / tool_calls / time 维度 ──
     iteration: int = 0
-    max_iterations: int = 12
     tool_calls: int = 0
-    max_tool_calls: int = 18
     started_at_monotonic: float = 0.0
-    max_time_seconds: float = 180.0
 
-    # iteration-based phase 阈值（按 max_iterations 比例）
+    # iteration-based phase 阈值（按 MAX_MODEL_CALLS 比例）
     iter_investigating_ratio: float = 0.25
     iter_converging_ratio: float = 0.58
     iter_finalizing_ratio: float = 0.83
@@ -92,12 +106,12 @@ class ContextBudget:
 
     @property
     def total_used(self) -> int:
-        return (
-            self.system_prompt_tokens
-            + self.evidence_tokens
-            + self.tool_result_tokens
-            + self.agent_reasoning_tokens
-        )
+        # gate 用真实 context fill（peak input_tokens），静态 system+evidence 估算
+        # 作为首次调用前的 floor。tool_result/agent_reasoning 的 tiktoken 估算不进
+        # gate（曾导致 §6.1 split-brain：BudgetGuard 拿截断前 result 虚高），
+        # 仅作 to_dict telemetry breakdown。
+        static_estimate = self.system_prompt_tokens + self.evidence_tokens
+        return max(static_estimate, self.real_input_tokens)
 
     @property
     def usage_ratio(self) -> float:
@@ -125,9 +139,9 @@ class ContextBudget:
 
     @property
     def _iteration_phase(self) -> ContextPhase:
-        if self.max_iterations <= 0:
+        if MAX_MODEL_CALLS <= 0:
             return ContextPhase.INITIAL
-        ratio = self.iteration / self.max_iterations
+        ratio = self.iteration / MAX_MODEL_CALLS
         if ratio >= self.iter_finalizing_ratio:
             return ContextPhase.FINALIZING
         if ratio >= self.iter_converging_ratio:
@@ -139,9 +153,9 @@ class ContextBudget:
     @property
     def phase(self) -> ContextPhase:
         candidates = [self._token_phase, self._iteration_phase]
-        if self.tool_calls >= self.max_tool_calls:
+        if self.tool_calls >= MAX_MODEL_CALLS:
             candidates.append(ContextPhase.FINALIZING)
-        if self.max_time_seconds > 0 and self.elapsed_seconds >= self.max_time_seconds:
+        if MAX_TIME_SECONDS > 0 and self.elapsed_seconds >= MAX_TIME_SECONDS:
             candidates.append(ContextPhase.FINALIZING)
         severity = {
             ContextPhase.INITIAL: 0,
@@ -188,6 +202,17 @@ class ContextBudget:
         self.agent_reasoning_tokens += tokens
         return tokens
 
+    def record_real_usage(self, input_tokens: int) -> int:
+        """Record real input_tokens from the latest AIMessage's usage_metadata.
+
+         Tracks the peak context size the model actually received (post-truncation
+        口径). This is the gate's primary token metric (see ``total_used``), replacing
+         the tiktoken tool-result estimate that caused §6.1 split-brain.
+        """
+        if input_tokens > self.real_input_tokens:
+            self.real_input_tokens = input_tokens
+        return self.real_input_tokens
+
     def is_warning(self) -> bool:
         return self.usage_ratio >= self.warning_threshold
 
@@ -200,6 +225,7 @@ class ContextBudget:
             "evidence_tokens": self.evidence_tokens,
             "tool_result_tokens": self.tool_result_tokens,
             "agent_reasoning_tokens": self.agent_reasoning_tokens,
+            "real_input_tokens": self.real_input_tokens,
             "total_used": self.total_used,
             "effective_window": self.effective_window,
             "usage_ratio": round(self.usage_ratio, 4),
@@ -208,8 +234,7 @@ class ContextBudget:
             "is_warning": self.is_warning(),
             "is_critical": self.is_critical(),
             "iteration": self.iteration,
-            "max_iterations": self.max_iterations,
+            "max_model_calls": MAX_MODEL_CALLS,
             "tool_calls": self.tool_calls,
-            "max_tool_calls": self.max_tool_calls,
             "elapsed_seconds": round(self.elapsed_seconds, 1),
         }

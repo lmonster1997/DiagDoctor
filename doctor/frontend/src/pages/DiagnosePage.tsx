@@ -1,32 +1,27 @@
 /**
- * DiagnosePage — "协同诊断室" 主诊断页
+ * DiagnosePage - "协同诊断室" 主诊断页
  *
  * §1 设计约束：
  *   - CopilotChat 永远可见且可输入（左侧 flex-1，始终挂载）
- *   - 右侧 420px 面板：进度 | 证据链 | 初步分析（胶囊标签）
- *   - 新报告 → "初步分析" 标签出现蓝色圆点徽章（脉冲一次后静止），不自动跳转
- *   - 状态指示灯：灰→青脉动(分析中)→蓝静止(有初步分析)，永不绿色
+ *   - 右侧 420px 面板：初步分析 | 历史
+ *   - 新报告 -> "初步分析" 标签出现蓝色圆点徽章（脉冲一次后静止），不自动跳转
+ *   - 状态指示灯：灰->青脉动(分析中)->蓝静止(有初步分析)，永不绿色
  */
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { CopilotChat } from "@copilotkit/react-ui";
 import { useCoAgent, useCopilotContext, useCopilotMessagesContext, useLangGraphInterrupt } from "@copilotkit/react-core";
-import { Network, FileText, Activity, Sparkles, Copy, Check, History } from "lucide-react";
+import { FileText, Sparkles, Copy, Check, History } from "lucide-react";
 
-import { BudgetPanel } from "@/features/diagnosis/BudgetPanel";
-import { EvidenceChainGraph } from "@/features/diagnosis/EvidenceChainGraph";
 import { ReportPanel } from "@/features/diagnosis/ReportPanel";
+import { DiagAssistantMessage } from "@/features/diagnosis/DiagAssistantMessage";
 import { GuidanceCard, type HitlPayload } from "@/features/diagnosis/GuidanceCard";
 import { HistoryPanel } from "@/features/diagnosis/HistoryPanel";
 import { parseAgentState, type RawAgentState } from "@/features/diagnosis/parseAgentState";
 import { apiFetch } from "@/api/client";
-import type { BudgetState, BudgetTick } from "@/api/types";
 
-type Tab = "budget" | "graph" | "report" | "history";
+type Tab = "report" | "history";
 
-interface AgentState extends RawAgentState {
-  budget?: BudgetState | null;
-  budget_ticks?: BudgetTick[];
-}
+type AgentState = RawAgentState;
 
 // ── Follow-up prompts ─────────────────────────────────────────────
 const FOLLOWUP_PROMPTS = [
@@ -79,7 +74,7 @@ export default function DiagnosePage() {
     }
   };
 
-  const { report, findings, evidence } = useMemo(
+  const { report, findings } = useMemo(
     () => parseAgentState(state, chatMessages),
     [state, chatMessages],
   );
@@ -111,23 +106,18 @@ export default function DiagnosePage() {
     ),
   });
 
-  const latestTick = state.budget_ticks?.at(-1) ?? null;
-  const budget = state.budget ?? null;
-  const isRunning = (latestTick?.model_call_count ?? 0) > 0 && !report;
-
   // HITL 暂停在续查/采纳后,或新诊断 run 启动时清除。
   useEffect(() => {
     if (running) setHitlPending(false);
   }, [running]);
 
-  const [tab, setTab] = useState<Tab>("graph");
-  const [highlightedRef, setHighlightedRef] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("report");
   const [reportSeen, setReportSeen] = useState(false);
   const [dotPulsing, setDotPulsing] = useState(false); // blue dot pulse-once
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const hadReportRef = useRef(false);
 
-  // New report → blue dot pulse once then static
+  // New report -> blue dot pulse once then static
   useEffect(() => {
     if (report && !hadReportRef.current) {
       hadReportRef.current = true;
@@ -141,11 +131,7 @@ export default function DiagnosePage() {
       setReportSeen(true);
       setDotPulsing(false);
     }
-    // Auto-switch to budget while running
-    if (isRunning && !report) {
-      setTab("budget");
-    }
-  }, [report, isRunning]);
+  }, [report]);
 
   const handleTabChange = (newTab: Tab) => {
     if (newTab === "report" && report) {
@@ -160,16 +146,6 @@ export default function DiagnosePage() {
     setCopiedIdx(idx);
     setTimeout(() => setCopiedIdx(null), 1500);
   }, []);
-
-  const highlightedRefs = useMemo(
-    () => (highlightedRef ? new Set([highlightedRef]) : new Set<string>()),
-    [highlightedRef],
-  );
-
-  const handleHighlightRef = (ref: string) => {
-    setHighlightedRef(ref);
-    setTab("graph");
-  };
 
   // 状态灯 5 态(永不绿色):amber-pulse=HITL 等待引导;blue=收敛完成;
   // amber-static=early_stopped 完成;cyan=分析中;grey=就绪。
@@ -209,6 +185,7 @@ export default function DiagnosePage() {
           }}
           onThumbsUp={onThumbsUp}
           onThumbsDown={onThumbsDown}
+          AssistantMessage={DiagAssistantMessage}
           className="h-full"
         />
       </div>
@@ -217,27 +194,14 @@ export default function DiagnosePage() {
       <div className="relative flex w-[420px] shrink-0 flex-col bg-[#0f1117]">
         {/* Capsule tab bar */}
         <div className="flex shrink-0 items-center gap-1 border-b border-white/[0.06] px-3 py-2">
-          {/* Status dot: grey → cyan pulse → blue static, NEVER green */}
+          {/* Status dot: grey -> cyan pulse -> blue static, NEVER green */}
           <span
             className={`mr-1.5 size-2 shrink-0 rounded-full transition-all duration-500 ${dotCls}`}
             title={dotTitle}
           />
 
-          {/* Capsule tabs: 进度 | 证据链 | 初步分析 */}
+          {/* Capsule tabs: 初步分析 | 历史 */}
           <div className="flex flex-1 items-center rounded-lg bg-white/[0.03] p-0.5">
-            <CapsuleTab
-              active={tab === "budget"}
-              onClick={() => handleTabChange("budget")}
-              icon={<Activity className="size-3.5" />}
-              label="进度"
-              pulse={isRunning}
-            />
-            <CapsuleTab
-              active={tab === "graph"}
-              onClick={() => handleTabChange("graph")}
-              icon={<Network className="size-3.5" />}
-              label="证据链"
-            />
             <CapsuleTab
               active={tab === "report"}
               onClick={() => handleTabChange("report")}
@@ -257,23 +221,11 @@ export default function DiagnosePage() {
 
         {/* Tab content */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          {tab === "graph" && (
-            <div key="graph" className="flex flex-1 flex-col animate-fade-in-up">
-              <EvidenceChainGraph
-                evidence={evidence}
-                findings={findings}
-                report={report}
-                highlightedRefs={highlightedRefs}
-              />
-            </div>
-          )}
           {tab === "report" && (
             <div key="report" className="flex flex-1 flex-col overflow-y-auto animate-fade-in-up">
               {report ? (
                 <ReportPanel
                   report={report}
-                  onHighlightRef={handleHighlightRef}
-                  highlightedRef={highlightedRef}
                   runId={runId}
                   similarCasesText={state?.similar_cases_text}
                 />
@@ -286,14 +238,9 @@ export default function DiagnosePage() {
               )}
             </div>
           )}
-          {tab === "budget" && (
-            <div key="budget" className="flex flex-1 flex-col overflow-y-auto animate-fade-in-up">
-              <BudgetPanel tick={latestTick} budget={budget} />
-            </div>
-          )}
           {tab === "history" && (
             <div key="history" className="flex flex-1 flex-col animate-fade-in-up">
-              <HistoryPanel onResumed={() => setTab("graph")} />
+              <HistoryPanel onResumed={() => setTab("report")} />
             </div>
           )}
         </div>
@@ -364,13 +311,12 @@ function FollowUpCard({
   );
 }
 
-/** Capsule tab — supports blue dot badge for unseen report */
+/** Capsule tab - supports blue dot badge for unseen report */
 function CapsuleTab({
   active,
   onClick,
   icon,
   label,
-  pulse,
   dotBadge,
   dotPulsing,
 }: {
@@ -378,7 +324,6 @@ function CapsuleTab({
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
-  pulse?: boolean;
   dotBadge?: boolean;
   dotPulsing?: boolean;
 }) {
@@ -392,9 +337,9 @@ function CapsuleTab({
           : "text-[#5c6070] hover:text-[#8a8fa3]"
       }`}
     >
-      <span className={pulse && active ? "animate-pulse-soft" : ""}>{icon}</span>
+      <span>{icon}</span>
       {label}
-      {/* Blue dot badge for unseen report — 8px, pulse once then static */}
+      {/* Blue dot badge for unseen report - 8px, pulse once then static */}
       {dotBadge && (
         <span
           className={`ml-0.5 size-2 shrink-0 rounded-full bg-blue-400 shadow-[0_0_6px_rgba(59,130,246,0.6)] ${

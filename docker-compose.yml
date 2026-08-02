@@ -20,14 +20,14 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: taskflow
+      POSTGRES_PASSWORD: DiagDoctor
+      POSTGRES_DB: demo_taskflow
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d taskflow"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d demo_taskflow"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -192,7 +192,7 @@ services:
         condition: service_started
     environment:
       # Database
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/taskflow
+      DATABASE_URL: postgresql+asyncpg://postgres:DiagDoctor@postgres:5432/demo_taskflow
       # JWT
       JWT_SECRET: change-me-in-production-use-a-strong-random-secret
       # OTel

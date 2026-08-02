@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 from src.config import settings
 from src.engine.state import DoctorState, NormalizedEvidence
 from src.evidence.normalizer import ingest
-from src.observability.logger import get_logger
+from src.observability.logger import bind_log_context, clear_log_context, get_logger
 
 logger = get_logger(__name__)
 
@@ -68,17 +68,28 @@ class BugInfo(BaseModel):
     )
 
 
-async def _extract_bug_info(user_message: str) -> dict[str, Any]:
-    """Parse user message → {bug_description, trigger_time, trace_ids}.
+async def _extract_bug_info(
+    user_message: str,
+) -> tuple[dict[str, Any], list[Any]]:
+    """Parse user message -> {bug_description, trigger_time, trace_ids}.
 
-    Uses triage LLM with ``with_structured_output`` for reliable JSON
-    extraction via native tool/function calling — no markdown fence
-    cleanup needed.
+    Uses ``bind_tools([BugInfo], tool_choice="required")`` instead of
+    ``with_structured_output`` so we retain the LLM's ``AIMessage`` (carrying
+    the real ``tool_call_id``) and can synthesize a matching ``ToolMessage``.
+    ``bug_info_node`` appends both to ``state.messages`` -- otherwise the
+    ag_ui ``MessagesSnapshotEvent`` fired on the bug_info -> diagnosis_agent
+    node transition wipes the streamed bug_info ToolCallCard: the LLM output
+    never entered ``state.messages``, so the full-snapshot replacement drops
+    it. With the messages in state, the snapshot carries the same
+    ``tool_call_id`` + result, and the frontend card persists.
 
-    Never raises — returns defaults on failure so the downstream
-    diagnosis agent can still work with whatever info we have.
+    Returns ``(bug_info_dict, [ai_msg, tool_msg])``. On failure returns
+    ``(defaults, [])`` -- no card emitted, diagnosis proceeds with the raw
+    user message.
     """
     from datetime import datetime
+
+    from langchain_core.messages import ToolMessage
 
     from src.llm_factory import get_llm_for_role
 
@@ -90,17 +101,39 @@ async def _extract_bug_info(user_message: str) -> dict[str, Any]:
 
     try:
         llm = get_llm_for_role("buginfo")
-        structured_llm = llm.with_structured_output(BugInfo, method="function_calling")
-        bug_info: BugInfo = await structured_llm.ainvoke(prompt)  # type: ignore[assignment]
+        bound_llm = llm.bind_tools([BugInfo], tool_choice="required")
+        ai_msg = await bound_llm.ainvoke(prompt)
+
+        tool_calls = getattr(ai_msg, "tool_calls", None) or []
+        if not tool_calls:
+            # tool_choice="required" 应保证有 tool_call;兜底回退。
+            logger.warning("bug_info_no_tool_call", content=str(ai_msg.content)[:200])
+            return {"bug_description": user_message, "trigger_time": None, "trace_ids": []}, []
+
+        tc = tool_calls[0]
+        tc_args = tc.get("args", {}) if isinstance(tc, dict) else getattr(tc, "args", {})
+        tc_id = tc.get("id", "") if isinstance(tc, dict) else getattr(tc, "id", "")
+        tc_name = (
+            tc.get("name", "BugInfo") if isinstance(tc, dict) else getattr(tc, "name", "BugInfo")
+        )
+        bug_info = BugInfo(**tc_args)
         logger.debug("bug_info_extracted", bug_info=bug_info.model_dump())
-        return bug_info.model_dump()
+
+        # ToolMessage(result)与流式 ToolCallStart 的 tool_call_id 对齐:
+        # MessagesSnapshot 据此把卡片确认为完成而非冲掉。
+        tool_msg = ToolMessage(
+            content=json.dumps(bug_info.model_dump(), ensure_ascii=False),
+            tool_call_id=tc_id,
+            name=tc_name,
+        )
+        return bug_info.model_dump(), [ai_msg, tool_msg]
     except Exception as exc:
         logger.warning("bug_info_extraction_failed", error=str(exc))
         return {
             "bug_description": user_message,
             "trigger_time": None,
             "trace_ids": [],
-        }
+        }, []
 
 
 # ── Prefetch helpers (re-exported from ingest.py for clarity) ────────
@@ -225,8 +258,19 @@ async def bug_info_node(state: DoctorState, config: RunnableConfig) -> dict[str,
     if tid and not state.get("case_id"):
         id_updates = {"case_id": tid, "trace_id": tid, "session_id": tid}
 
+    # Bind log correlation (case_id == thread_id) so this node's extract /
+    # prefetch / normalize logs join to the same case as the downstream
+    # diagnosis_agent logs. diagnosis_agent rebinds on its entry (and upgrades
+    # trace_id to the Langfuse trace id mid-ainvoke); we clear on every exit so
+    # the binding doesn't leak past this node.
+    if tid:
+        bind_log_context(trace_id=tid, case_id=tid)
+
     raw_evidence: Any = state.get("raw_evidence")
     messages: list[Any] = state.get("messages", [])
+    # CopilotKit 路径(_extract_bug_info)产出 AIMessage+ToolMessage,REST 路径为空;
+    # 写进 state.messages 让 ag_ui MessagesSnapshot 保留 bug_info 的 ToolCallCard。
+    extract_messages: list[Any] = []
 
     if raw_evidence is not None:
         # ── REST API path: structured evidence already provided ──
@@ -250,9 +294,10 @@ async def bug_info_node(state: DoctorState, config: RunnableConfig) -> dict[str,
 
         if not user_message.strip():
             logger.warning("buginfo_empty_user_message")
+            clear_log_context()
             return {"evidence": NormalizedEvidence(), **id_updates}
 
-        bug_info = await _extract_bug_info(user_message)
+        bug_info, extract_messages = await _extract_bug_info(user_message)
         user_report = bug_info.get("bug_description", user_message)
         trigger_time = bug_info.get("trigger_time")
         trace_ids = bug_info.get("trace_ids", []) or []
@@ -354,8 +399,9 @@ async def bug_info_node(state: DoctorState, config: RunnableConfig) -> dict[str,
         correlation_count=len(normalized.correlations),
     )
 
+    clear_log_context()
     return {
-        "messages": messages,
+        "messages": [*messages, *extract_messages],
         "evidence": normalized,
         # Explicitly pass-through Langfuse IDs so they survive the state merge
         # (defense against LangGraph dict-state merge silently dropping unknown keys).

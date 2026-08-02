@@ -1,10 +1,7 @@
 import { useState, useEffect } from "react";
 import { Routes, Route, Navigate, NavLink } from "react-router-dom";
-import { MessageSquare, BarChart3, Sun, Moon } from "lucide-react";
+import { MessageSquare, Sun, Moon } from "lucide-react";
 import DiagnosePage from "@/pages/DiagnosePage";
-import EvalPage from "@/pages/EvalPage";
-import CasePage from "@/pages/CasePage";
-import RunPage from "@/pages/RunPage";
 
 function ThemeToggle() {
   const [dark, setDark] = useState(() => {
@@ -32,15 +29,12 @@ function ThemeToggle() {
   );
 }
 
-const NAV_ITEMS = [
-  { to: "/", label: "诊断", icon: MessageSquare },
-  { to: "/eval", label: "评测", icon: BarChart3 },
-];
+const NAV_ITEMS = [{ to: "/", label: "诊断", icon: MessageSquare }];
 
 function App() {
   return (
     <div className="flex h-screen flex-col bg-[#0f1117]">
-      {/* Header — glass bar */}
+      {/* Header - glass bar */}
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-white/[0.06] bg-white/[0.02] px-4 backdrop-blur-xl">
         {/* Logo */}
         <span className="mr-4 flex items-center gap-2 text-sm font-semibold tracking-tight text-[#e4e4ef]">
@@ -84,9 +78,6 @@ function App() {
       <main className="flex-1 overflow-hidden">
         <Routes>
           <Route path="/" element={<DiagnosePage />} />
-          <Route path="/eval" element={<EvalPage />} />
-          <Route path="/cases/:id" element={<CasePage />} />
-          <Route path="/runs/:name" element={<RunPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

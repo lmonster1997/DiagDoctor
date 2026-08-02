@@ -78,9 +78,9 @@ class Settings(BaseSettings):
 
     # --- Demo App Database (read-only for Doctor diagnosis) ---
     # Doctor 诊断时只做 SELECT 验证数据状态，使用只读连接。
-    # 默认连接 docker-compose 中的 postgres 容器（taskflow 数据库）。
+    # 必须指向 demo-app 实际使用的同一个 Postgres（127.0.0.1，与 demo-app .env 一致）。
     # 正式环境应使用独立的只读账号。
-    demo_db_ro_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/taskflow"
+    demo_db_ro_url: str = "postgresql+asyncpg://postgres:DiagDoctor@127.0.0.1:5432/demo_taskflow"
 
     # --- Target Services ---
     # Service names as they appear in OpenTelemetry instrumentation.
@@ -96,11 +96,10 @@ class Settings(BaseSettings):
     ingest_time_window_minutes: int = 5  # Trigger time ± N minutes for Loki/Tempo queries
 
     # --- Agent Loop ---
-    agent_max_tool_calls: int = 12  # Max tool call iterations before forced termination
-    agent_model_context_window: int = 128_000  # Model context window (tokens)
-    agent_reserved_output_tokens: int = 4_000  # Reserved for final output
-    agent_context_warning_ratio: float = 0.6  # Start degradation at this budget usage
-    agent_context_critical_ratio: float = 0.8  # Force termination at this budget usage
+    # 预算硬上限（MAX_MODEL_CALLS / MAX_TOKENS_BUDGET / MAX_TIME_SECONDS）的单一来源
+    # 是 engine/budget/constants.py，此处不再另存副本（§6.1 split-brain 根治）。
+    # model_context_window / reserved_for_output / warning/critical ratio 等非上限
+    # 参数由 ContextBudget 自带默认值，不在此暴露。
 
     # --- Tool Result Truncation ---
     # 当为 False 时，禁用所有工具结果的截断/压缩（用于调试诊断效果）。
@@ -109,9 +108,25 @@ class Settings(BaseSettings):
     #   2. observability_unified.search_observability —— 8000 字符 JSON 截断
     tool_result_truncation_enabled: bool = True
 
+    # --- Context Elision (§7.1 / L2 re-fetchable placeholder) ---
+    # Runtime context management: replace ToolMessages older than ``keep_recent``
+    # with a one-line re-fetchable placeholder (tool name + re-fetch handle +
+    # key finding), preserving "what was called + conclusion + how to re-fetch",
+    # dropping the raw JSON. Orthogonal to truncation (entry-time): elision runs
+    # at ``abefore_model`` on already-in-context messages. Data is addressable
+    # and losslessly re-fetchable (search_observability is same-args-same-result
+    # and echoes query/time_range), so evicting old tool results costs a re-query,
+    # not information loss. See docs/context_engineering_design.md §7.1 +
+    # docs/L1-L4_Loki_Tempo_适用性分析.md (L2).
+    context_elision_enabled: bool = True
+    # Number of most-recent ToolMessages kept full; older ones elided.
+    # Untuned default (ref: deleted compaction keep_recent=4 + §5.3 P90=12);
+    # revisit via scripts/analyze_budget.py elision/re-fetch rates.
+    context_elision_keep_recent: int = 3
+
     # --- RAG Injection (episodic memory retrieval) ---
     # When False, the diagnosis agent skips historical-case retrieval entirely
-    # (no Qdrant query, no injection). Demo/interactive keeps True; benchmark/CI
+    # (no Qdrant query, no injection). Demo/interactive keeps True; headless/CI
     # set RAG_INJECTION_ENABLED=false for reproducibility + speed (an empty
     # library is already neutral, but this avoids the embed/Qdrant round-trip).
     # Also the toggle for #2 ablation (RAG on vs off on the same case set).
@@ -131,6 +146,13 @@ class Settings(BaseSettings):
     # --- OpenTelemetry ---
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
     otel_service_name: str = "doctor-api"
+
+    # --- Structured logging (structlog) ---
+    # JSONL file sink mirroring all structlog events + stdlib log records
+    # (Langfuse/OTel internals) with bound trace_id/session_id. Relative paths
+    # resolve against CWD (uvicorn runs from doctor/backend). Empty string ->
+    # file sink disabled (stdout only). Rotation: 10 MiB x 5 backups.
+    log_file_path: str = "data/logs/doctor.log"
 
     # --- CORS ---
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]

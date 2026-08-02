@@ -13,10 +13,13 @@ test_middleware.py (BudgetGuard -> jump_to='end'):
 The inner ``create_agent`` ReAct loop is replaced by a ``_FakeAgent`` so the
 test is deterministic and exercises the REAL outer graph + REAL
 ``_diagnosis_agent_node`` / ``human_input_node`` / routing / checkpoint logic.
-The fake still drives the real ``update_budget`` / ``is_budget_exceeded`` /
-``parse_diagnosis_report`` code paths - pass 1 returns 15 tool-call messages
-(>= MAX_TOOL_CALLS=12 -> ``early_stopped``), pass 2 returns a converged JSON
-report. Only the LLM is faked; the HITL wiring is the real thing.
+The fake still drives the real ``update_budget`` / ``parse_diagnosis_report``
+code paths - pass 1 simulates budget exhaustion by setting
+``context.budget_exhausted = True`` (the real BudgetGuard would do this on the
+iteration cap; the fake bypasses middlewares, so it sets the flag directly on
+the run context the node reads back) and returns 17 flailing tool-call messages
+(no JSON), pass 2 returns a converged JSON report. Only the LLM is faked; the
+HITL wiring is the real thing.
 """
 
 from __future__ import annotations
@@ -54,25 +57,34 @@ class _FakeAgent:
     """Replaces the inner create_agent. Branches on the resume marker.
 
     - resume (continuation HumanMessage present): emit converged JSON report.
-    - else (pass 1): flail - 15 tool-call AIMessages, no JSON ->
-      ``is_budget_exceeded`` True -> ``early_stopped`` -> route to human_input.
+    - else (pass 1): flail - 17 tool-call AIMessages, no JSON, and set
+      ``context.budget_exhausted = True`` (faking what BudgetGuard does on the
+      iteration cap) -> ``early_stopped`` -> route to human_input.
     """
 
     def __init__(self) -> None:
         self.calls = 0
 
-    async def ainvoke(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
+    async def ainvoke(
+        self, state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
         self.calls += 1
         msgs = state.get("messages", []) if isinstance(state, dict) else []
         is_resume = any(_RESUME_MARKER in str(getattr(m, "content", "")) for m in msgs)
         if is_resume:
             return {"messages": [AIMessage(content=CONVERGED_JSON)]}
+        # Pass 1: simulate budget exhaustion. The real BudgetGuardMiddleware
+        # would set ctx.budget_exhausted=True on the iteration cap; the fake
+        # bypasses middlewares, so set it directly on the run context the node
+        # reads back (``context`` is the same run_ctx object the node passed in).
+        if context is not None:
+            context.budget_exhausted = True
         flail = [
             AIMessage(
                 content="",
                 tool_calls=[{"name": "fake_tool", "args": {}, "id": f"tc{i}"}],
             )
-            for i in range(15)
+            for i in range(17)
         ]
         return {"messages": flail}
 
@@ -83,7 +95,9 @@ class _ConvergingFake:
     def __init__(self) -> None:
         self.calls = 0
 
-    async def ainvoke(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
+    async def ainvoke(
+        self, state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
         self.calls += 1
         return {"messages": [AIMessage(content=CONVERGED_JSON)]}
 
@@ -255,11 +269,16 @@ async def test_one_shot_hitl_no_loop(tmp_path: pytest.Path, fake_agent: _FakeAge
     """Pass 2 also exhausts budget -> END (hitl_resumed gates a second pause)."""
 
     # Override ainvoke to flail on BOTH passes (second exhaustion on resume).
-    async def always_flail(state: dict[str, Any], config: Any = None) -> dict[str, Any]:
+    async def always_flail(
+        state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
         fake_agent.calls += 1
+        # Both passes exhaust budget (fake bypasses BudgetGuard -> set flag).
+        if context is not None:
+            context.budget_exhausted = True
         flail = [
             AIMessage(content="", tool_calls=[{"name": "f", "args": {}, "id": f"t{i}"}])
-            for i in range(15)
+            for i in range(17)
         ]
         return {"messages": flail}
 

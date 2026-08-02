@@ -11,20 +11,13 @@
  * The DiagnosisReport is emitted by the agent as JSON inside the final AI
  * message (per the system prompt). This module mirrors the backend parsing
  * logic (`parsing.py: parse_diagnosis_report` / `extract_findings`) so the
- * frontend can recover the report + findings from `state.messages`, and
- * synthesises a reduced `NormalizedEvidence` (golden_signals derived from
- * the union of `evidence_ref`s) so the EvidenceChainGraph has nodes to render.
+ * frontend can recover the report + findings from `state.messages`.
  *
- * If the backend ever exposes the outer graph (with real `report`/`findings`/
- * `evidence` in state), this parser detects those fields directly and uses
- * them as-is, so both flows are supported.
+ * If the backend ever exposes the outer graph (with real `report`/`findings`
+ * in state), this parser detects those fields directly and uses them as-is,
+ * so both flows are supported.
  */
-import type {
-  DiagnosisReport,
-  Finding,
-  NormalizedEvidence,
-  Signal,
-} from "@/api/types";
+import type { DiagnosisReport, Finding } from "@/api/types";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -45,7 +38,6 @@ export interface RawAgentState {
   messages?: AgentMessage[];
   report?: DiagnosisReport | null;
   findings?: Finding[];
-  evidence?: NormalizedEvidence | null;
   budget?: unknown;
   budget_ticks?: unknown[];
   /** §6.5 injection block (all retrieved cases w/ content + [id:...]) - synced
@@ -57,7 +49,6 @@ export interface RawAgentState {
 export interface ParsedDiagnosis {
   report: DiagnosisReport | null;
   findings: Finding[];
-  evidence: NormalizedEvidence | null;
 }
 
 // ── Message helpers ───────────────────────────────────────────────
@@ -274,67 +265,14 @@ function parseFindingsFromMessages(messages: AgentMessage[]): Finding[] {
   return findings;
 }
 
-// ── Evidence synthesis ────────────────────────────────────────────
-
-/**
- * Build a reduced NormalizedEvidence from the parsed report + findings.
- *
- * Without the ingest node there are no real golden_signals/correlations, so
- * we synthesise one Signal node per distinct `evidence_ref` mentioned in the
- * report's `evidence_chain` and the findings' `evidence_refs`. This gives the
- * EvidenceChainGraph a left column to render and lets the evidence_chain
- * highlight path resolve.
- */
-function synthesizeEvidence(
-  report: DiagnosisReport | null,
-  findings: Finding[],
-): NormalizedEvidence | null {
-  const refs: string[] = [];
-  if (report) refs.push(...report.evidence_chain);
-  for (const f of findings) refs.push(...f.evidence_refs);
-
-  const seen = new Set<string>();
-  const signals: Signal[] = [];
-  for (const ref of refs) {
-    if (!ref || seen.has(ref)) continue;
-    seen.add(ref);
-    signals.push({
-      signal_id: ref,
-      source: "user_report",
-      signal_type: "behavior_mismatch",
-      service_tier: "backend",
-      severity: "info",
-      summary: ref,
-      evidence_ref: ref,
-      timestamp: null,
-      metadata: { synthetic: true },
-    });
-  }
-
-  if (!report && signals.length === 0 && findings.length === 0) return null;
-  return {
-    user_report: "",
-    golden_signals: signals,
-    timeline: [],
-    correlations: [],
-    raw_refs: {},
-    noise_ratio: 0,
-    trigger_time: null,
-    trigger_trace_ids: [],
-    frontend_span_count: 0,
-    backend_span_count: 0,
-    metadata: { synthetic: true },
-  };
-}
-
 // ── Public API ────────────────────────────────────────────────────
 
 /**
- * Recover the diagnosis report/findings/evidence for the UI.
+ * Recover the diagnosis report/findings for the UI.
  *
- * @param state    The `useCoAgent` state (may carry direct `report`/`findings`/
- *                 `evidence` fields if the outer graph is exposed, or `messages`
- *                 if the inner agent state is synced verbatim).
+ * @param state    The `useCoAgent` state (may carry direct `report`/`findings`
+ *                 fields if the outer graph is exposed, or `messages` if the
+ *                 inner agent state is synced verbatim).
  * @param chatMessages  The CopilotKit chat messages (`useCopilotMessagesContext`).
  *                      This is the reliable source in the current architecture:
  *                      CopilotKit invokes the inner `create_agent` directly, so
@@ -346,11 +284,10 @@ export function parseAgentState(
   chatMessages?: AgentMessage[] | null,
 ): ParsedDiagnosis {
   // Direct fields (outer-graph flow / future-proofing) take precedence.
-  if (state?.report || state?.findings?.length || state?.evidence) {
+  if (state?.report || state?.findings?.length) {
     return {
       report: state.report ?? null,
       findings: state.findings ?? [],
-      evidence: state.evidence ?? null,
     };
   }
 
@@ -359,6 +296,5 @@ export function parseAgentState(
   const messages = chatMessages?.length ? chatMessages : state?.messages ?? [];
   const report = parseReportFromMessages(messages);
   const findings = parseFindingsFromMessages(messages);
-  const evidence = synthesizeEvidence(report, findings);
-  return { report, findings, evidence };
+  return { report, findings };
 }

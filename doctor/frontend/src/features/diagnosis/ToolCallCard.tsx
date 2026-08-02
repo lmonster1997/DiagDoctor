@@ -18,6 +18,7 @@ import {
   Database,
   Settings,
   RefreshCw,
+  Bug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ const TOOL_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   code_search: Search,
   get_trace: Search,
   get_logs: Search,
+  buginfo: Bug,
 };
 const DEFAULT_TOOL_ICON = Wrench;
 
@@ -48,6 +50,7 @@ function toolLabel(name: string): string {
     code_search: "代码搜索",
     get_trace: "获取 Trace 详情",
     get_logs: "获取日志详情",
+    buginfo: "提取 Bug 信息",
   };
   const key = name.toLowerCase().replace(/[^a-z_]/g, "");
   return map[key] ?? name;
@@ -89,6 +92,8 @@ function friendlyHint(name: string, args: Record<string, unknown>): string {
       return `正在获取 Trace 详情…`;
     case "get_logs":
       return `正在拉取日志详情…`;
+    case "buginfo":
+      return `正在从描述中提取 Bug 信息…`;
     default:
       return `正在执行 ${toolLabel(name)}…`;
   }
@@ -207,7 +212,7 @@ export function ToolCallCardContent({
   return (
     <div
       className={cn(
-        "my-2 overflow-hidden rounded-lg border transition-all duration-300",
+        "my-2 mx-4 overflow-hidden rounded-lg border transition-all duration-300",
         isSkipped && "border-white/[0.04] bg-white/[0.01] opacity-50",
         isPending && "border-l-2 border-l-cyan-500/30 border-r border-r-white/[0.06] border-t border-t-white/[0.06] border-b border-b-white/[0.06] bg-blue-500/[0.04]",
         isFailed && "border-l-2 border-l-amber-500/60 border-r border-r-white/[0.06] border-t border-t-white/[0.06] border-b border-b-white/[0.06] bg-amber-500/[0.03]",
