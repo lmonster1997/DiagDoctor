@@ -69,3 +69,12 @@ class DiagnosisRunContext:
     model_call_count: int = 0
     budget_exhausted: bool = False
     forced_call_triggered: bool = False
+    # ── P1 active clarification (set by ClarificationMiddleware) ──
+    # When the agent calls ``request_user_clarification``, ClarificationMiddleware
+    # flips this True + stashes the question, then ``jump_to="end"`` stops the
+    # inner ReAct loop. ``_diagnosis_agent_node`` reads these off the run context
+    # after ``ainvoke`` returns and routes to the outer-graph ``clarify_input``
+    # interrupt node. Fresh per ainvoke (new DiagnosisRunContext per pass), so a
+    # pass that doesn't ask starts False.
+    clarification_requested: bool = False
+    clarification_question: str = ""

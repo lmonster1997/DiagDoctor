@@ -79,18 +79,20 @@ export default function DiagnosePage() {
     [state, chatMessages],
   );
 
-  // #5 F1+F2: HITL 暂停标志。收到 hitl_guidance_request -> 置 true(状态灯变
-  // "等待引导" + 抑制续问卡);resolve 包装清除,新 run 启动(running=true)时
-  // 由下方 effect 清除。
+  // #5 F1+F2 / P1: HITL 暂停标志。收到 hitl_guidance_request(预算耗尽)或
+  // clarify(agent 主动提问)-> 置 true(状态灯变"等待引导" + 抑制续问卡);resolve
+  // 包装清除,新 run 启动(running=true)时由下方 effect 清除。
   const [hitlPending, setHitlPending] = useState(false);
 
-  // #5 F1: HITL 引导卡(调查中)。图在 human_input 暂停时由 useLangGraphInterrupt
-  // 渲染进 <CopilotChat>。续查/采纳当前 -> CopilotKit resolve(value) ->
+  // #5 F1 / P1: HITL 引导卡(调查中)。图在 human_input(#5 预算耗尽)或
+  // clarify_input(P1 agent 主动提问)暂停时由 useLangGraphInterrupt 渲染进
+  // <CopilotChat>。续查/采纳当前 或 回答/跳过 -> CopilotKit resolve(value) ->
   // copilotkit.runAgent({forwardedProps:{command:{resume:value}}}) ->
   // POST /api/copilotkit/agent/default/run。调查 command.resume 为何不到后端:
   // 详见 docs/frontend-hitl-plan.md §9.3,后端断点见 .venv/.../ag_ui_langgraph/agent.py prepare_stream。
   useLangGraphInterrupt<HitlPayload>({
-    enabled: ({ eventValue }) => eventValue?.type === "hitl_guidance_request",
+    enabled: ({ eventValue }) =>
+      eventValue?.type === "hitl_guidance_request" || eventValue?.type === "clarify",
     handler: () => {
       setHitlPending(true);
     },

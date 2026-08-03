@@ -14,6 +14,10 @@ BUDGET_WARNING_THRESHOLD: int = 8
 MAX_TOKENS_BUDGET: int = 100_000
 MAX_TIME_SECONDS: int = 300
 
+# P1 主动澄清次数上限(bounded,§2.1 不 unlimited)。agent 主动问用户最多 N 次;
+# 超限后 route 直奔 END(采纳当前 best-effort),防无限澄清烧钱+收敛模糊。
+MAX_CLARIFICATIONS: int = 2
+
 # 图步安全网(必须 > MAX_MODEL_CALLS × 单轮步数,否则 recursion 先于 BudgetGuard 触顶)。
 # langchain create_agent 里每个 before_model/after_model 钩子都是独立图节点=1 步:
 # 本栈单轮 = ContextElision.bm + BudgetGuard.bm + model + BudgetGuard.am + tools ≈ 5 步

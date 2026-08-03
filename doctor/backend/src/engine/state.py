@@ -332,6 +332,22 @@ class DoctorState(TypedDict, total=False):
     human_guidance: str | None
     hitl_resumed: bool
 
+    # ── P1 active clarification (interrupt + resume, bounded) ──────────
+    # Distinct from #5 budget-exhaustion HITL: the agent *proactively* asks the
+    # user a question when it lacks info tools can't fetch (intermittent?
+    # recent change? caller?). ``clarification_requested``/``clarification_question``
+    # are written by ``_diagnosis_agent_node`` (from the run context flag set by
+    # ``ClarificationMiddleware`` when it sees a ``request_user_clarification``
+    # tool_call) -> the outer-graph ``clarify_input`` node interrupts. Resume
+    # writes ``clarification_answer`` + bumps ``clarification_count``; the route
+    # gates on ``clarification_count < MAX_CLARIFICATIONS`` (bounded, not
+    # unlimited -- see §2.1). ``clarification_requested`` is cleared on resume so
+    # a pass that doesn't re-ask routes to END normally.
+    clarification_requested: bool
+    clarification_question: str | None
+    clarification_answer: str | None
+    clarification_count: int
+
     # ── RAG: retrieved historical cases (#1 episodic retrieval) ────────
     # ``retrieved_case_ids``: case_ids recalled on pass 1 -- consumed by the
     # feedback loop (#8 / §8.1) to backfill ``effectiveness`` on 👍.

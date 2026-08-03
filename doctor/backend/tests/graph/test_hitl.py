@@ -102,6 +102,105 @@ class _ConvergingFake:
         return {"messages": [AIMessage(content=CONVERGED_JSON)]}
 
 
+# ── P1 active-clarification fakes ───────────────────────────────────
+# The inner create_agent is faked, so ClarificationMiddleware never runs. The
+# fakes set ``context.clarification_requested`` + ``clarification_question``
+# directly (mirroring what the middleware does on the real loop after seeing a
+# ``request_user_clarification`` tool_call). The outer-graph clarify_input
+# interrupt + routing is the REAL code under test.
+
+_CLARIFY_RESUME_MARKER = "【澄清续查】"  # emitted by _diagnosis_agent_node on a clarify resume
+_CLARIFY_QUESTION = "这个报错是偶发还是必现?"
+
+
+def _clarify_msg(question: str, tc_id: str) -> AIMessage:
+    """An AIMessage carrying a request_user_clarification tool_call (what the
+    real agent emits when it proactively asks the user)."""
+    return AIMessage(
+        content="",
+        tool_calls=[{"name": "request_user_clarification", "args": {"question": question}, "id": tc_id}],
+    )
+
+
+class _ClarifyingFake:
+    """Pass 1: agent asks a clarification question. Pass 2 (clarify resume): converge.
+
+    Mirrors ``_FakeAgent``'s branching: pass 1 sets the run-context flag the
+    real ClarificationMiddleware would set, plus emits the clarify tool_call
+    AIMessage; the clarify-resume pass (detected via the ``【澄清续查】`` marker
+    the node injects) returns the converged JSON report.
+    """
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def ainvoke(
+        self, state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
+        self.calls += 1
+        msgs = state.get("messages", []) if isinstance(state, dict) else []
+        is_clarify_resume = any(
+            _CLARIFY_RESUME_MARKER in str(getattr(m, "content", "")) for m in msgs
+        )
+        if is_clarify_resume:
+            return {"messages": [AIMessage(content=CONVERGED_JSON)]}
+        if context is not None:
+            context.clarification_requested = True
+            context.clarification_question = _CLARIFY_QUESTION
+        return {"messages": [_clarify_msg(_CLARIFY_QUESTION, "cc0")]}
+
+
+class _AlwaysClarifyingFake:
+    """Always asks a clarification question, never converges -> exercises the bound."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def ainvoke(
+        self, state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
+        self.calls += 1
+        if context is not None:
+            context.clarification_requested = True
+            context.clarification_question = _CLARIFY_QUESTION
+        return {"messages": [_clarify_msg(_CLARIFY_QUESTION, f"cc{self.calls}")]}
+
+
+class _ClarifyThenBudgetFake:
+    """Pass 1: ask clarify. Pass 2 (clarify resume): exhaust budget. Pass 3 (budget resume): converge.
+
+    For the coexistence test: active clarification + budget-exhaustion HITL in
+    one diagnosis (clarify -> answer -> budget-HITL -> guidance -> converge).
+    """
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def ainvoke(
+        self, state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
+        self.calls += 1
+        msgs = state.get("messages", []) if isinstance(state, dict) else []
+        content = " ".join(str(getattr(m, "content", "")) for m in msgs)
+        if _CLARIFY_RESUME_MARKER in content:
+            # Clarify resume pass: exhaust budget -> early_stopped -> human_input.
+            if context is not None:
+                context.budget_exhausted = True
+            flail = [
+                AIMessage(content="", tool_calls=[{"name": "f", "args": {}, "id": f"t{i}"}])
+                for i in range(17)
+            ]
+            return {"messages": flail}
+        if _RESUME_MARKER in content:
+            # Budget-HITL resume pass: converge.
+            return {"messages": [AIMessage(content=CONVERGED_JSON)]}
+        # Pass 1: ask clarify.
+        if context is not None:
+            context.clarification_requested = True
+            context.clarification_question = _CLARIFY_QUESTION
+        return {"messages": [_clarify_msg(_CLARIFY_QUESTION, "cc0")]}
+
+
 def _initial_state(thread_id: str) -> dict[str, Any]:
     """REST-path initial state: raw_evidence, no trigger_time (skips prefetch)."""
     return {
@@ -115,6 +214,13 @@ def _initial_state(thread_id: str) -> dict[str, Any]:
 @pytest.fixture
 def fake_agent(monkeypatch: pytest.MonkeyPatch) -> _FakeAgent:
     fake = _FakeAgent()
+    monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
+    return fake
+
+
+@pytest.fixture
+def clarify_fake(monkeypatch: pytest.MonkeyPatch) -> _ClarifyingFake:
+    fake = _ClarifyingFake()
     monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
     return fake
 
@@ -337,6 +443,135 @@ async def test_resume_survives_fresh_graph(tmp_path: pytest.Path, fake_agent: _F
 
 async def graph_ainvoke_pause(graph: Any, tid: str) -> None:
     await graph.ainvoke(_initial_state(tid), {"configurable": {"thread_id": tid}})
+
+
+# ── P1 active clarification (agent proactively asks the user) ─────────
+
+
+async def test_active_clarification_pauses_and_resumes(
+    tmp_path: pytest.Path, clarify_fake: _ClarifyingFake
+) -> None:
+    """Agent proactively asks -> pause at clarify_input -> resume -> converge."""
+    graph = _build(tmp_path)
+    tid = "clarify-1"
+    cfg: dict[str, Any] = {"configurable": {"thread_id": tid}}
+    answer = "偶发,大约每天一次"
+
+    # Pass 1 -> agent asks -> pause at clarify_input.
+    await graph.ainvoke(_initial_state(tid), cfg)
+
+    snap = await graph.aget_state(cfg)
+    assert "clarify_input" in snap.next, f"expected pause at clarify_input, next={snap.next}"
+    vals = snap.values or {}
+    assert vals.get("clarification_requested") is True
+    assert vals.get("clarification_question") == _CLARIFY_QUESTION
+    assert snap.tasks, "expected a pending (interrupted) task"
+    interrupts = getattr(snap.tasks[0], "interrupts", None)
+    assert interrupts, "expected an interrupt on the pending task"
+    assert interrupts[0].value["type"] == "clarify"
+    assert interrupts[0].value["question"] == _CLARIFY_QUESTION
+    assert clarify_fake.calls == 1
+
+    # Resume with a non-empty answer -> pass 2 (clarification续查) -> converge.
+    await graph.ainvoke(Command(resume=answer), cfg)
+
+    snap2 = await graph.aget_state(cfg)
+    assert snap2.next == (), f"expected END, next={snap2.next}"
+    vals2 = snap2.values or {}
+    assert vals2.get("clarification_count") == 1
+    # clarification_answer is cleared after the consuming pass (anti-stale).
+    assert vals2.get("clarification_answer") is None
+    report = vals2.get("report")
+    assert report is not None and report.primary_category == "logic"
+    assert report.early_stopped is False
+    assert clarify_fake.calls == 2
+
+
+async def test_clarification_empty_answer_accepts_current(
+    tmp_path: pytest.Path, clarify_fake: _ClarifyingFake
+) -> None:
+    """Empty answer = operator declines -> accept current best-effort -> END."""
+    graph = _build(tmp_path)
+    tid = "clarify-empty-1"
+    cfg: dict[str, Any] = {"configurable": {"thread_id": tid}}
+
+    await graph.ainvoke(_initial_state(tid), cfg)
+    assert "clarify_input" in (await graph.aget_state(cfg)).next
+
+    await graph.ainvoke(Command(resume=""), cfg)
+
+    snap = await graph.aget_state(cfg)
+    assert snap.next == (), f"expected END, next={snap.next}"
+    vals = snap.values or {}
+    assert vals.get("clarification_count") == 1
+    # No second pass (empty answer routes clarify_input -> END directly).
+    assert clarify_fake.calls == 1
+
+
+async def test_clarification_bounded(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Asking more than MAX_CLARIFICATIONS times is bounded -> END, no infinite loop."""
+    fake = _AlwaysClarifyingFake()
+    monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
+    graph = _build(tmp_path)
+    tid = "clarify-bound-1"
+    cfg: dict[str, Any] = {"configurable": {"thread_id": tid}}
+
+    # Pass 1: ask (count 0 < MAX) -> clarify -> count 1.
+    await graph.ainvoke(_initial_state(tid), cfg)
+    assert "clarify_input" in (await graph.aget_state(cfg)).next
+    await graph.ainvoke(Command(resume="回答1"), cfg)
+
+    # Pass 2: ask again (count 1 < MAX) -> clarify -> count 2.
+    assert "clarify_input" in (await graph.aget_state(cfg)).next
+    await graph.ainvoke(Command(resume="回答2"), cfg)
+
+    # Pass 3: ask again (count 2, NOT < MAX=2) -> bound hit -> END (ask dropped).
+    snap = await graph.aget_state(cfg)
+    assert snap.next == (), f"expected END after bound, next={snap.next}"
+    vals = snap.values or {}
+    assert vals.get("clarification_count") == 2
+    assert fake.calls == 3  # pass 1 + pass 2 + pass 3 (3rd ask ignored)
+
+
+async def test_clarification_coexists_with_budget_hitl(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Clarify -> answer -> budget exhausts -> human_input -> guidance -> converge.
+
+    Active clarification and #5 budget-exhaustion HITL coexist: clarification
+    has its own bounded gate (clarification_count), independent of the budget
+    HITL one-shot gate (hitl_resumed). Neither precludes the other.
+    """
+    fake = _ClarifyThenBudgetFake()
+    monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
+    graph = _build(tmp_path)
+    tid = "clarify-coexist-1"
+    cfg: dict[str, Any] = {"configurable": {"thread_id": tid}}
+
+    # Pass 1: agent asks clarify -> pause at clarify_input.
+    await graph.ainvoke(_initial_state(tid), cfg)
+    assert "clarify_input" in (await graph.aget_state(cfg)).next
+
+    # Resume clarify answer -> pass 2 exhausts budget -> pause at human_input.
+    await graph.ainvoke(Command(resume="偶发"), cfg)
+    snap = await graph.aget_state(cfg)
+    assert "human_input" in snap.next, f"expected budget HITL after clarify, next={snap.next}"
+    vals = snap.values or {}
+    assert vals.get("clarification_count") == 1
+    assert vals.get("early_stopped") is True
+    assert not vals.get("hitl_resumed")
+
+    # Resume budget guidance -> pass 3 converges -> END.
+    await graph.ainvoke(Command(resume="查 owner 校验"), cfg)
+    snap2 = await graph.aget_state(cfg)
+    assert snap2.next == (), f"expected END, next={snap2.next}"
+    vals2 = snap2.values or {}
+    assert vals2.get("hitl_resumed") is True
+    report = vals2.get("report")
+    assert report is not None and report.primary_category == "logic"
+    assert fake.calls == 3
 
 
 # ── REST endpoints (POST /diagnose, /diagnose/resume, GET /diagnose/threads) ──

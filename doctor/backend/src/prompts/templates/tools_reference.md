@@ -1,6 +1,6 @@
 ## 工具速查
 
-> DiagDoctor V3 统一工具集。共 6 个诊断工具（日志/Trace/代码搜索/前端分析/文件读取/历史根因检索）+ 1 个 §7.2 假设证伪埋点工具（record_hypothesis，预算豁免）。
+> DiagDoctor V3 统一工具集。共 6 个诊断工具（日志/Trace/代码搜索/前端分析/文件读取/历史根因检索）+ 1 个 §7.2 假设证伪埋点工具（record_hypothesis，预算豁免）+ 1 个 P1 主动澄清工具（request_user_clarification，缺关键信息时问用户）。
 
 ---
 
@@ -172,6 +172,28 @@ record_hypothesis(hypothesis="PixelSpacing 污染导致重建异常", status="pe
 
 ---
 
+### request_user_clarification - 主动向用户澄清
+
+当你发现要继续推进诊断，缺一类**工具拿不到**的信息时，主动向用户提一个澄清问题。调用后系统会暂停诊断、把问题呈现给用户，用户回答后你基于回答继续诊断（已有发现作为上下文保留）。
+
+```
+request_user_clarification(question="这个报错是一直存在，还是最近某次发版/改配置后才出现的？")
+request_user_clarification(question="是所有用户都能复现，还是只在特定用户/特定数据下触发？")
+request_user_clarification(question="期望的正确行为是什么？我怀疑这可能是预期逻辑而非 bug")
+```
+
+| 参数 | 说明 |
+|------|------|
+| `question` | 一个聚焦的澄清问题（中文）。说清你缺什么信息、为什么需要它才能继续 |
+
+**何时调用**：你确实卡在"工具拿不到的信息"上--典型如偶发 vs 必现、最近变更、调用方/触发条件、期望行为确认。能用其他工具自查的，先自查，不要滥用。
+
+**调用后**：停止调查、等待回复。系统暂停并把问题呈现给用户；用户回答后你进入「澄清续查」轮次（已有发现 + 你的问题 + 用户回答作为上下文），继续调查并输出最终报告。最多 2 次澄清机会，每次只问一个最关键的问题。
+
+**返回**：简短 ack（如 `已向用户提问: ...`）。用户回答不直接通过本工具返回，而是在你下一轮（暂停恢复后）作为上下文注入。
+
+---
+
 ## 工具选择决策表
 
 | 你有的线索 | 应该调用的工具 |
@@ -185,3 +207,4 @@ record_hypothesis(hypothesis="PixelSpacing 污染导致重建异常", status="pe
 | 需要看 Trace 分析 | `search_observability(source="tempo", query="<trace_id>", analysis="full")` |
 | 已形成根因假设，想参考历史相似 bug | `search_historical_root_cause(hypothesis="<一句话根因假设>")` |
 | 确认或排除了一个假设（全程） | `record_hypothesis(hypothesis="...", status="confirmed\|excluded\|pending", evidence="...", refuted=...)` |
+| 缺关键信息且工具拿不到（偶发/必现、最近变更、调用方等） | `request_user_clarification(question="一个聚焦的澄清问题")` |
