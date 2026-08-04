@@ -30,6 +30,9 @@ export interface DiagnosisReport {
   /** §8.1 path 2: historical case_ids the agent declared it referenced (clamped
    *  to ⊆ retrieved_case_ids server-side). Drives the per-case "有帮助" UI. */
   referenced_case_ids: string[];
+  /** P2 复诊轮次:1 = 初诊,>1 = 第 N 轮复诊(诊断 END 后用户追加,继承上轮
+   *  scratchpad 的知情修订)。由后端 _diagnosis_agent_node 盖入;前端据此标"第 N 轮"。 */
+  round: number;
 }
 
 // ── Diagnosis thread detail (P0 historical report view) ──────────

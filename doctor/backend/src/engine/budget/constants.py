@@ -18,6 +18,12 @@ MAX_TIME_SECONDS: int = 300
 # 超限后 route 直奔 END(采纳当前 best-effort),防无限澄清烧钱+收敛模糊。
 MAX_CLARIFICATIONS: int = 2
 
+# P2 复诊轮次上限(bounded,§2.1 不 unlimited)。诊断 END 后用户追加 = 开新复诊轮
+# (继承上轮 scratchpad + 重置 round-scoped flag),每轮烧一轮 MAX_MODEL_CALLS,
+# 故必须封顶防无界烧钱 + 收敛模糊。超限后 bug_info 出口 conditional edge 直奔 END
+# (硬门,非前端弱门)。初诊 = round 1,故 MAX_ROUNDS=3 = 初诊 + 2 轮复诊。
+MAX_ROUNDS: int = 3
+
 # 图步安全网(必须 > MAX_MODEL_CALLS × 单轮步数,否则 recursion 先于 BudgetGuard 触顶)。
 # langchain create_agent 里每个 before_model/after_model 钩子都是独立图节点=1 步:
 # 本栈单轮 = ContextElision.bm + BudgetGuard.bm + model + BudgetGuard.am + tools ≈ 5 步

@@ -10,8 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@copilotkit/react-core": "^1.62.2",
-    "@copilotkit/react-ui": "^1.62.2",
+    "@copilotkit/react-core": "^1.65.0",
+    "@copilotkit/react-ui": "^1.65.0",
     "@tailwindcss/vite": "^4.3.2",
     "@tanstack/react-query": "^5.101.2",
     "class-variance-authority": "^0.7.1",

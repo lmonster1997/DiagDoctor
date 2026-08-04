@@ -1,10 +1,14 @@
 """
 CopilotKit diagnosis graph - BugInfo -> DiagnosisAgent -> (HITL) -> END.
 
-4-node pipeline with two Human-In-The-Loop (HITL) resume branches:
+4-node pipeline with two Human-In-The-Loop (HITL) resume branches + a P2
+follow-up-round cap:
 
-    START -> bug_info -> diagnosis_agent -> [route_after_diagnosis]
-                                                 |
+    START -> bug_info -> [route_after_bug_info]
+                            |
+                 rounds_exhausted (round>MAX_ROUNDS) -> END   (P2 cap, no diagnosis)
+                 else                                 -> diagnosis_agent -> [route_after_diagnosis]
+                                                                       |
                          clarification_requested & count<MAX -> clarify_input (interrupt, P1)
                          early_stopped & !hitl_resumed        -> human_input (interrupt, #5)
                          else                                  -> END
@@ -17,6 +21,12 @@ CopilotKit diagnosis graph - BugInfo -> DiagnosisAgent -> (HITL) -> END.
 **BugInfo node**: parses the user's free-text chat message, extracts
 structured bug info (description, trigger_time, trace_ids), auto-prefetches
 logs+traces from Loki/Tempo, and normalizes them into ``NormalizedEvidence``.
+P2: also owns follow-up-round detection -- if a ``report`` already exists
+(prior round ENDed) this is a 复诊 round: bump ``round``, reset round-scoped
+flags (``hitl_resumed``/``clarification_count``/``early_stopped`` so the
+follow-up round gets fresh HITL/clarification budget -- fixes the S2
+state-bleed), and gate on ``MAX_ROUNDS`` (``rounds_exhausted`` -> END, no
+diagnosis, zero LLM cost).
 
 **DiagnosisAgent node**: consumes the normalized evidence identically to
 the REST API path - formats it into a system+human message pair, invokes
@@ -24,7 +34,11 @@ the ``create_agent`` subgraph (with all 8 middlewares), and produces a
 structured diagnosis report. On HITL resume (``human_guidance`` for budget
 exhaustion, or ``clarification_answer`` for P1 active clarification), it
 builds a *continuation* message set (prior findings summary + the operator
-input) and runs an informed second ReAct pass with a fresh budget.
+input) and runs an informed second ReAct pass with a fresh budget. P2
+follow-up round (``round >= 2``, not a HITL resume): builds a *复诊续查*
+continuation (prior report conclusion + findings scratchpad + new evidence)
+-- an informed revision pass, not a blind fresh start (S2: ENDed-thread
+re-invoke would otherwise re-run from zero).
 
 **HumanInput node**: the #5 HITL interrupt point. When budget exhausts
 before convergence (``early_stopped``), the graph pauses here via
@@ -260,12 +274,21 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
     guidance_str = str(human_guidance).strip() if human_guidance else ""
     answer_str = str(clarification_answer).strip() if clarification_answer else ""
     is_resume = bool(guidance_str or answer_str)
+    # P2 复诊轮:非 HITL resume,但 round>=2 且有上轮 report(诊断 END 后用户追加,
+    # bug_info 已重置 round-scoped flag)。与 HITL resume 一样继承上轮发现 scratchpad,
+    # 但触发来源不同(用户追加消息 vs 操作员引导/澄清回答)。
+    round_num = int(state.get("round") or 1)
+    prior_report = state.get("report")
+    is_followup = (not is_resume) and round_num >= 2 and prior_report is not None
 
     # ── #1 RAG: retrieve similar historical cases (design §6.5). First
     #    pass queries + caches; resume re-injects the cached block without
     #    re-querying. Graceful degradation: None on failure / empty recall /
     #    disabled -> diagnosis proceeds without historical reference. ──
-    similar_msg, rag_updates = await _build_similar_cases_message(state, evidence, is_resume)
+    # P2: 复诊轮与 HITL resume 一样复用 round-1 缓存的 similar_cases_text(不重查 Qdrant)。
+    similar_msg, rag_updates = await _build_similar_cases_message(
+        state, evidence, is_resume or is_followup
+    )
 
     if is_resume:
         prior_findings = state.get("findings", []) or []
@@ -299,6 +322,31 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
                 prior_findings=len(prior_findings),
             )
         initial_messages: list[BaseMessage] = [SystemMessage(content=base_prompt)]
+        if similar_msg is not None:
+            initial_messages.append(similar_msg)
+        initial_messages.append(HumanMessage(content=evidence_text))
+        initial_messages.append(HumanMessage(content=continuation))
+    elif is_followup:
+        # P2 复诊轮:诊断 END 后用户追加消息 -> bug_info 重置 flag + 增 round,这里注入
+        # "复诊续查"消息:上轮 report 结论 + findings 假设树 scratchpad + 本轮新证据。
+        # 非盲查(S2 实证的"哑启动"-> 知情修订)。复用 _format_scratchpad(✓确认/✗排除/?待验)。
+        prior_findings = state.get("findings", []) or []
+        scratchpad = _format_scratchpad(prior_findings)
+        prior_rc = getattr(prior_report, "root_cause", "") or ""
+        prior_conf = getattr(prior_report, "confidence", 0.0)
+        continuation = (
+            f"【复诊轮次】这是第 {round_num} 轮诊断。用户在上一轮诊断结束后追加了信息。\n\n"
+            f"上一轮结论: root_cause={prior_rc}, confidence={prior_conf}\n\n"
+            f"{scratchpad}\n\n"
+            "请结合上轮发现 + 本轮新证据继续调查(别重复已排除的假设),输出修订后的诊断报告 JSON。"
+        )
+        logger.info(
+            "copilotkit_diag_followup_round",
+            case_id=case_id,
+            round=round_num,
+            prior_findings=len(prior_findings),
+        )
+        initial_messages = [SystemMessage(content=base_prompt)]
         if similar_msg is not None:
             initial_messages.append(similar_msg)
         initial_messages.append(HumanMessage(content=evidence_text))
@@ -406,6 +454,9 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
     report, findings, budget_state, early_stopped = _finalize_report_for_dict_state(
         final_messages, budget_exhausted, effective_retrieved
     )
+    # P2: 盖入复诊轮次(DiagnosisReport.round 默认 1;复诊轮 >1)。agent JSON 不产此字段,
+    # 由 node 据 state.round 写入,供 UI/eval 标"第 N 轮复诊"。
+    report.round = int(state.get("round") or 1)
 
     _finalize_langfuse_trace(
         langfuse_handler=langfuse_handler,
@@ -599,6 +650,19 @@ async def human_input_node(state: DoctorState) -> dict[str, Any]:
     return {"human_guidance": guidance_str or None, "hitl_resumed": True}
 
 
+def _route_after_bug_info(state: DoctorState) -> str:
+    """Route after bug_info: 复诊上限耗尽 -> END,否则进 diagnosis_agent。
+
+    P2: bug_info 检测到下一轮会超过 ``MAX_ROUNDS`` 时置 ``rounds_exhausted`` -> 这里
+    据此直奔 END,不跑 ``diagnosis_agent``(零 LLM 成本,硬门非前端弱门)。否则正常进
+    ``diagnosis_agent``(初诊 round 1 或复诊轮 round>=2)。复诊轮的上下文继承在
+    ``_diagnosis_agent_node`` 里经 scratchpad 注入(非盲查)。
+    """
+    if bool(state.get("rounds_exhausted")):
+        return "end"
+    return "diagnosis_agent"
+
+
 def _route_after_diagnosis(state: DoctorState) -> str:
     """Route after diagnosis_agent: pause for clarification or budget-HITL, else END.
 
@@ -716,7 +780,13 @@ def build_copilotkit_graph(checkpointer: Any = None) -> Any:
     builder.add_node("clarify_input", clarify_input_node)
 
     builder.set_entry_point("bug_info")
-    builder.add_edge("bug_info", "diagnosis_agent")
+    # P2 复诊上限门:bug_info 检测到 rounds_exhausted -> END(不跑 diagnosis_agent),
+    # 否则进 diagnosis_agent(初诊 round 1 / 复诊轮 round>=2)。见 _route_after_bug_info。
+    builder.add_conditional_edges(
+        "bug_info",
+        _route_after_bug_info,
+        {"diagnosis_agent": "diagnosis_agent", "end": END},
+    )
     # After diagnosis: P1 active clarification takes priority (agent proactively
     # asked), then #5 budget-exhaustion HITL, else END. See _route_after_diagnosis.
     builder.add_conditional_edges(

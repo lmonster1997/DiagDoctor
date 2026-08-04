@@ -349,6 +349,9 @@ async def list_diagnosis_threads(
                 "findings_count": len(vals.get("findings") or []),
                 "has_report": bool(report),
                 "next": list(snap.next or []),
+                # P2 复诊轮次:1=初诊,>1=第 N 轮复诊;前端历史列表据此标"第 N 轮"。
+                "round": int(vals.get("round") or 1),
+                "rounds_exhausted": bool(vals.get("rounds_exhausted")),
             }
         )
     threads.sort(key=lambda t: (t["status"] != "paused",))
@@ -386,3 +389,51 @@ async def get_diagnosis_thread(thread_id: str) -> DiagnoseResponse:
         has_report=bool(vals.get("report")),
     )
     return _response_from_state(thread_id, vals)
+
+
+@router.get("/diagnose/threads/{thread_id}/messages", response_model=None)
+async def get_diagnosis_thread_messages(thread_id: str) -> dict[str, Any]:
+    """Return the visible chat messages of a diagnosis thread (AG-UI format).
+
+    P2 复诊:历史 case「追加诊断」时,前端 CopilotKit 无 persistence(setThreadId
+    不拉历史)-> 左侧聊天空。此端点从 checkpoint ``state.messages`` 读可见消息,
+    转 AG-UI 格式供前端 ``setMessages`` 回填,让用户看到该 case 之前的诊断对话。
+
+    - 过滤 ``SystemMessage``(系统 prompt 不泄漏)+ 仅保留 Human/AI/Tool(防
+      ``langchain_messages_to_agui`` 对未知类型抛 TypeError)。``_filter_visible_messages``
+      已在节点侧过滤了内部 evidence HumanMessage / SystemMessage,这里再保险一次。
+    - 消息 id = ``str(message.id)``(与 checkpoint 一义)-> 后续 ``sendMessage`` 走
+      复诊轮(``prepare_stream`` regenerate 启发式只对 ``last_user_message.id ∈
+      checkpoint_ids`` 触发;新消息 id 新 -> 不误判时间旅行 -> fresh astream 复诊)。
+    - 404:线程不存在 / 无消息(REST 路径无 chat 消息时也 404,前端回退空聊天)。
+    """
+    from ag_ui_langgraph.utils import langchain_messages_to_agui
+    from langchain_core.messages import AIMessage as _AIMessage
+    from langchain_core.messages import HumanMessage as _HumanMessage
+    from langchain_core.messages import ToolMessage as _ToolMessage
+
+    graph = get_copilotkit_graph()
+    try:
+        snap = await graph.aget_state({"configurable": {"thread_id": thread_id}})
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=f"Thread not resolvable: {e}") from e
+    vals = snap.values or {}
+    raw_messages = vals.get("messages", []) or []
+    if not raw_messages:
+        raise HTTPException(
+            status_code=404,
+            detail="No messages for this thread_id (REST-path diagnoses carry no chat history).",
+        )
+    # 仅保留可见类型( drops SystemMessage + 任何未知类型,防转换抛错)。
+    visible = [m for m in raw_messages if isinstance(m, (_AIMessage, _HumanMessage, _ToolMessage))]
+    agui = langchain_messages_to_agui(visible)
+    # by_alias=True: AG-UI pydantic 模型字段是 snake_case(tool_calls/tool_call_id)
+    # 但 alias 是 camelCase(toolCalls/toolCallId)。CopilotKit v2 的 @ag-ui/core zod
+    # schema 按 camelCase 解析 -> 不带 by_alias 会产出 tool_calls,前端认不出工具调用
+    # (assistant 文本能渲染但 toolCalls 丢、ToolMessage 的 toolCallId 对不上也丢 ->
+    # 历史回填"只剩 AI 文本,工具调用看不到")。exclude_none=True 对齐 EventEncoder
+    # (流式路径 model_dump_json(by_alias=True, exclude_none=True))的产出形状。
+    return {
+        "thread_id": thread_id,
+        "messages": [m.model_dump(mode="json", by_alias=True, exclude_none=True) for m in agui],
+    }
