@@ -102,6 +102,105 @@ class _ConvergingFake:
         return {"messages": [AIMessage(content=CONVERGED_JSON)]}
 
 
+# ── P1 active-clarification fakes ───────────────────────────────────
+# The inner create_agent is faked, so ClarificationMiddleware never runs. The
+# fakes set ``context.clarification_requested`` + ``clarification_question``
+# directly (mirroring what the middleware does on the real loop after seeing a
+# ``request_user_clarification`` tool_call). The outer-graph clarify_input
+# interrupt + routing is the REAL code under test.
+
+_CLARIFY_RESUME_MARKER = "【澄清续查】"  # emitted by _diagnosis_agent_node on a clarify resume
+_CLARIFY_QUESTION = "这个报错是偶发还是必现?"
+
+
+def _clarify_msg(question: str, tc_id: str) -> AIMessage:
+    """An AIMessage carrying a request_user_clarification tool_call (what the
+    real agent emits when it proactively asks the user)."""
+    return AIMessage(
+        content="",
+        tool_calls=[{"name": "request_user_clarification", "args": {"question": question}, "id": tc_id}],
+    )
+
+
+class _ClarifyingFake:
+    """Pass 1: agent asks a clarification question. Pass 2 (clarify resume): converge.
+
+    Mirrors ``_FakeAgent``'s branching: pass 1 sets the run-context flag the
+    real ClarificationMiddleware would set, plus emits the clarify tool_call
+    AIMessage; the clarify-resume pass (detected via the ``【澄清续查】`` marker
+    the node injects) returns the converged JSON report.
+    """
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def ainvoke(
+        self, state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
+        self.calls += 1
+        msgs = state.get("messages", []) if isinstance(state, dict) else []
+        is_clarify_resume = any(
+            _CLARIFY_RESUME_MARKER in str(getattr(m, "content", "")) for m in msgs
+        )
+        if is_clarify_resume:
+            return {"messages": [AIMessage(content=CONVERGED_JSON)]}
+        if context is not None:
+            context.clarification_requested = True
+            context.clarification_question = _CLARIFY_QUESTION
+        return {"messages": [_clarify_msg(_CLARIFY_QUESTION, "cc0")]}
+
+
+class _AlwaysClarifyingFake:
+    """Always asks a clarification question, never converges -> exercises the bound."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def ainvoke(
+        self, state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
+        self.calls += 1
+        if context is not None:
+            context.clarification_requested = True
+            context.clarification_question = _CLARIFY_QUESTION
+        return {"messages": [_clarify_msg(_CLARIFY_QUESTION, f"cc{self.calls}")]}
+
+
+class _ClarifyThenBudgetFake:
+    """Pass 1: ask clarify. Pass 2 (clarify resume): exhaust budget. Pass 3 (budget resume): converge.
+
+    For the coexistence test: active clarification + budget-exhaustion HITL in
+    one diagnosis (clarify -> answer -> budget-HITL -> guidance -> converge).
+    """
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def ainvoke(
+        self, state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
+        self.calls += 1
+        msgs = state.get("messages", []) if isinstance(state, dict) else []
+        content = " ".join(str(getattr(m, "content", "")) for m in msgs)
+        if _CLARIFY_RESUME_MARKER in content:
+            # Clarify resume pass: exhaust budget -> early_stopped -> human_input.
+            if context is not None:
+                context.budget_exhausted = True
+            flail = [
+                AIMessage(content="", tool_calls=[{"name": "f", "args": {}, "id": f"t{i}"}])
+                for i in range(17)
+            ]
+            return {"messages": flail}
+        if _RESUME_MARKER in content:
+            # Budget-HITL resume pass: converge.
+            return {"messages": [AIMessage(content=CONVERGED_JSON)]}
+        # Pass 1: ask clarify.
+        if context is not None:
+            context.clarification_requested = True
+            context.clarification_question = _CLARIFY_QUESTION
+        return {"messages": [_clarify_msg(_CLARIFY_QUESTION, "cc0")]}
+
+
 def _initial_state(thread_id: str) -> dict[str, Any]:
     """REST-path initial state: raw_evidence, no trigger_time (skips prefetch)."""
     return {
@@ -115,6 +214,13 @@ def _initial_state(thread_id: str) -> dict[str, Any]:
 @pytest.fixture
 def fake_agent(monkeypatch: pytest.MonkeyPatch) -> _FakeAgent:
     fake = _FakeAgent()
+    monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
+    return fake
+
+
+@pytest.fixture
+def clarify_fake(monkeypatch: pytest.MonkeyPatch) -> _ClarifyingFake:
+    fake = _ClarifyingFake()
     monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
     return fake
 
@@ -339,6 +445,135 @@ async def graph_ainvoke_pause(graph: Any, tid: str) -> None:
     await graph.ainvoke(_initial_state(tid), {"configurable": {"thread_id": tid}})
 
 
+# ── P1 active clarification (agent proactively asks the user) ─────────
+
+
+async def test_active_clarification_pauses_and_resumes(
+    tmp_path: pytest.Path, clarify_fake: _ClarifyingFake
+) -> None:
+    """Agent proactively asks -> pause at clarify_input -> resume -> converge."""
+    graph = _build(tmp_path)
+    tid = "clarify-1"
+    cfg: dict[str, Any] = {"configurable": {"thread_id": tid}}
+    answer = "偶发,大约每天一次"
+
+    # Pass 1 -> agent asks -> pause at clarify_input.
+    await graph.ainvoke(_initial_state(tid), cfg)
+
+    snap = await graph.aget_state(cfg)
+    assert "clarify_input" in snap.next, f"expected pause at clarify_input, next={snap.next}"
+    vals = snap.values or {}
+    assert vals.get("clarification_requested") is True
+    assert vals.get("clarification_question") == _CLARIFY_QUESTION
+    assert snap.tasks, "expected a pending (interrupted) task"
+    interrupts = getattr(snap.tasks[0], "interrupts", None)
+    assert interrupts, "expected an interrupt on the pending task"
+    assert interrupts[0].value["type"] == "clarify"
+    assert interrupts[0].value["question"] == _CLARIFY_QUESTION
+    assert clarify_fake.calls == 1
+
+    # Resume with a non-empty answer -> pass 2 (clarification续查) -> converge.
+    await graph.ainvoke(Command(resume=answer), cfg)
+
+    snap2 = await graph.aget_state(cfg)
+    assert snap2.next == (), f"expected END, next={snap2.next}"
+    vals2 = snap2.values or {}
+    assert vals2.get("clarification_count") == 1
+    # clarification_answer is cleared after the consuming pass (anti-stale).
+    assert vals2.get("clarification_answer") is None
+    report = vals2.get("report")
+    assert report is not None and report.primary_category == "logic"
+    assert report.early_stopped is False
+    assert clarify_fake.calls == 2
+
+
+async def test_clarification_empty_answer_accepts_current(
+    tmp_path: pytest.Path, clarify_fake: _ClarifyingFake
+) -> None:
+    """Empty answer = operator declines -> accept current best-effort -> END."""
+    graph = _build(tmp_path)
+    tid = "clarify-empty-1"
+    cfg: dict[str, Any] = {"configurable": {"thread_id": tid}}
+
+    await graph.ainvoke(_initial_state(tid), cfg)
+    assert "clarify_input" in (await graph.aget_state(cfg)).next
+
+    await graph.ainvoke(Command(resume=""), cfg)
+
+    snap = await graph.aget_state(cfg)
+    assert snap.next == (), f"expected END, next={snap.next}"
+    vals = snap.values or {}
+    assert vals.get("clarification_count") == 1
+    # No second pass (empty answer routes clarify_input -> END directly).
+    assert clarify_fake.calls == 1
+
+
+async def test_clarification_bounded(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Asking more than MAX_CLARIFICATIONS times is bounded -> END, no infinite loop."""
+    fake = _AlwaysClarifyingFake()
+    monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
+    graph = _build(tmp_path)
+    tid = "clarify-bound-1"
+    cfg: dict[str, Any] = {"configurable": {"thread_id": tid}}
+
+    # Pass 1: ask (count 0 < MAX) -> clarify -> count 1.
+    await graph.ainvoke(_initial_state(tid), cfg)
+    assert "clarify_input" in (await graph.aget_state(cfg)).next
+    await graph.ainvoke(Command(resume="回答1"), cfg)
+
+    # Pass 2: ask again (count 1 < MAX) -> clarify -> count 2.
+    assert "clarify_input" in (await graph.aget_state(cfg)).next
+    await graph.ainvoke(Command(resume="回答2"), cfg)
+
+    # Pass 3: ask again (count 2, NOT < MAX=2) -> bound hit -> END (ask dropped).
+    snap = await graph.aget_state(cfg)
+    assert snap.next == (), f"expected END after bound, next={snap.next}"
+    vals = snap.values or {}
+    assert vals.get("clarification_count") == 2
+    assert fake.calls == 3  # pass 1 + pass 2 + pass 3 (3rd ask ignored)
+
+
+async def test_clarification_coexists_with_budget_hitl(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Clarify -> answer -> budget exhausts -> human_input -> guidance -> converge.
+
+    Active clarification and #5 budget-exhaustion HITL coexist: clarification
+    has its own bounded gate (clarification_count), independent of the budget
+    HITL one-shot gate (hitl_resumed). Neither precludes the other.
+    """
+    fake = _ClarifyThenBudgetFake()
+    monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
+    graph = _build(tmp_path)
+    tid = "clarify-coexist-1"
+    cfg: dict[str, Any] = {"configurable": {"thread_id": tid}}
+
+    # Pass 1: agent asks clarify -> pause at clarify_input.
+    await graph.ainvoke(_initial_state(tid), cfg)
+    assert "clarify_input" in (await graph.aget_state(cfg)).next
+
+    # Resume clarify answer -> pass 2 exhausts budget -> pause at human_input.
+    await graph.ainvoke(Command(resume="偶发"), cfg)
+    snap = await graph.aget_state(cfg)
+    assert "human_input" in snap.next, f"expected budget HITL after clarify, next={snap.next}"
+    vals = snap.values or {}
+    assert vals.get("clarification_count") == 1
+    assert vals.get("early_stopped") is True
+    assert not vals.get("hitl_resumed")
+
+    # Resume budget guidance -> pass 3 converges -> END.
+    await graph.ainvoke(Command(resume="查 owner 校验"), cfg)
+    snap2 = await graph.aget_state(cfg)
+    assert snap2.next == (), f"expected END, next={snap2.next}"
+    vals2 = snap2.values or {}
+    assert vals2.get("hitl_resumed") is True
+    report = vals2.get("report")
+    assert report is not None and report.primary_category == "logic"
+    assert fake.calls == 3
+
+
 # ── REST endpoints (POST /diagnose, /diagnose/resume, GET /diagnose/threads) ──
 
 
@@ -397,3 +632,435 @@ def test_rest_pause_list_resume_cycle(
         # 5. Resume a completed (non-paused) thread -> 409.
         r = client.post("/api/diagnose/resume", json={"thread_id": tid, "guidance": "x"})
         assert r.status_code == 409
+
+
+# ── REST GET /diagnose/threads/{tid} (P0: view historical report) ─────
+
+
+def test_rest_get_thread_detail_completed(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """GET /api/diagnose/threads/{tid} returns the full report of a completed
+    thread, and 404s for an unknown thread_id (P0 historical report view)."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from src.api import diagnose as diag_api
+
+    fake = _ConvergingFake()
+    monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
+    graph = _build(tmp_path)
+    monkeypatch.setattr(diag_api, "get_copilotkit_graph", lambda: graph)
+
+    app = FastAPI()
+    app.include_router(diag_api.router)
+    with TestClient(app) as client:
+        # 1. Run a converging diagnosis -> completed.
+        r = client.post("/api/diagnose", json={"evidence": {"user_report": "comments IDOR"}})
+        assert r.status_code == 200, r.text
+        tid = r.json()["thread_id"]
+
+        # 2. GET the thread detail -> full report payload (same shape as POST).
+        r = client.get(f"/api/diagnose/threads/{tid}")
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["thread_id"] == tid
+        assert body["report"] is not None
+        assert body["report"]["primary_category"] == "logic"
+        assert body["report"]["early_stopped"] is False
+        assert "findings_count" in body
+
+        # 3. Unknown thread_id -> 404.
+        r = client.get("/api/diagnose/threads/never-existed")
+        assert r.status_code == 404
+
+
+def test_rest_get_thread_detail_paused(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """GET /api/diagnose/threads/{tid} on a paused thread returns the
+    best-effort early_stopped report (so an operator can read it before
+    deciding whether to resume)."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from src.api import diagnose as diag_api
+
+    fake = _FakeAgent()
+    monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
+    graph = _build(tmp_path)
+    monkeypatch.setattr(diag_api, "get_copilotkit_graph", lambda: graph)
+
+    app = FastAPI()
+    app.include_router(diag_api.router)
+    with TestClient(app) as client:
+        # 1. Run -> budget exhausts -> pauses at human_input.
+        r = client.post("/api/diagnose", json={"evidence": {"user_report": "comments IDOR"}})
+        assert r.status_code == 200, r.text
+        tid = r.json()["thread_id"]
+
+        # 2. GET the paused thread -> early_stopped report is readable.
+        r = client.get(f"/api/diagnose/threads/{tid}")
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["report"] is not None
+        assert body["report"]["early_stopped"] is True
+
+
+# ── REST GET /diagnose/threads/{tid}/messages (P2: history replay for 追加诊断) ──
+
+
+def test_rest_get_thread_messages(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """GET /api/diagnose/threads/{tid}/messages returns AG-UI chat messages.
+
+    P2 复诊:历史 case「追加诊断」时前端 setMessages 回填 -> 左侧聊天显示该 case
+    之前的诊断对话(CopilotKit 无 persistence)。验证端点:从 checkpoint state.messages
+    读、过滤 SystemMessage、转 AG-UI(role/id/content 齐全)、未知线程 404。
+    """
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from src.api import diagnose as diag_api
+
+    fake = _ConvergingFake()
+    monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
+    graph = _build(tmp_path)
+    monkeypatch.setattr(diag_api, "get_copilotkit_graph", lambda: graph)
+
+    app = FastAPI()
+    app.include_router(diag_api.router)
+    with TestClient(app) as client:
+        # 1. Run a converging diagnosis -> completed (REST path: state.messages
+        #    = [AIMessage(CONVERGED_JSON)]; no user HumanMessage on REST path).
+        r = client.post("/api/diagnose", json={"evidence": {"user_report": "comments IDOR"}})
+        assert r.status_code == 200, r.text
+        tid = r.json()["thread_id"]
+
+        # 2. GET messages -> AG-UI list (assistant message carrying the report JSON).
+        r = client.get(f"/api/diagnose/threads/{tid}/messages")
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["thread_id"] == tid
+        msgs = body["messages"]
+        assert len(msgs) >= 1, "expected at least the converged assistant message"
+        # No system messages leaked (system prompt must not reach the frontend).
+        assert all(m["role"] != "system" for m in msgs), "SystemMessage leaked into history"
+        # Each message carries a stable id (= str(langchain message.id)) so prepare_stream's
+        # regenerate heuristic recognises them on the follow-up send (new message id -> 复诊,
+        # not time-travel regenerate).
+        assert all(isinstance(m.get("id"), str) and m["id"] for m in msgs), "messages need stable ids"
+        # The assistant message carries the report (root_cause present in content).
+        assistant = next(m for m in msgs if m["role"] == "assistant")
+        assert "IDOR" in assistant["content"]
+
+        # 3. Unknown thread -> 404.
+        r = client.get("/api/diagnose/threads/never-existed/messages")
+        assert r.status_code == 404
+
+
+def test_rest_get_thread_messages_tool_calls_camelcase(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """GET /api/diagnose/threads/{tid}/messages serializes tool calls in camelCase.
+
+    Regression: AG-UI pydantic models use snake_case field names with camelCase
+    aliases (``alias_generator=to_camel``). ``model_dump(mode="json")`` defaults
+    to ``by_alias=False`` -> snake_case (``tool_calls``/``tool_call_id``), but
+    CopilotKit v2's ``@ag-ui/core`` zod schema parses camelCase
+    (``toolCalls``/``toolCallId``). Without ``by_alias=True`` the history
+    backfill rendered only assistant text -- tool calls + tool results vanished
+    ("只恢复了 AI 内容，工具调用看不到了"). This test pins the camelCase contract.
+    """
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from langchain_core.messages import ToolMessage
+
+    from src.api import diagnose as diag_api
+
+    class _ToolCallFake:
+        """Converges on pass 1 but emits a tool-call + tool-result first,
+        mirroring a real ReAct step (so the endpoint has tool calls to serialize)."""
+
+        async def ainvoke(
+            self, state: dict[str, Any], config: Any = None, context: Any = None
+        ) -> dict[str, Any]:
+            return {
+                "messages": [
+                    AIMessage(
+                        content="",
+                        tool_calls=[{"name": "db_query", "args": {"q": 1}, "id": "tc0"}],
+                    ),
+                    ToolMessage(content="rows: 1", tool_call_id="tc0"),
+                    AIMessage(content=CONVERGED_JSON),
+                ]
+            }
+
+    monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: _ToolCallFake())
+    graph = _build(tmp_path)
+    monkeypatch.setattr(diag_api, "get_copilotkit_graph", lambda: graph)
+
+    app = FastAPI()
+    app.include_router(diag_api.router)
+    with TestClient(app) as client:
+        r = client.post("/api/diagnose", json={"evidence": {"user_report": "comments IDOR"}})
+        assert r.status_code == 200, r.text
+        tid = r.json()["thread_id"]
+
+        r = client.get(f"/api/diagnose/threads/{tid}/messages")
+        assert r.status_code == 200, r.text
+        msgs = r.json()["messages"]
+
+        # Assistant message carrying a tool call -> camelCase ``toolCalls``.
+        assistant_tc = next(
+            m for m in msgs if m["role"] == "assistant" and m.get("toolCalls")
+        )
+        tc = assistant_tc["toolCalls"][0]
+        assert tc["id"] == "tc0"
+        assert tc["type"] == "function"
+        assert tc["function"]["name"] == "db_query"
+        # snake_case must NOT leak (CopilotKit's zod schema wouldn't see it).
+        assert "tool_calls" not in assistant_tc, "snake_case tool_calls leaked"
+
+        # Tool result message -> camelCase ``toolCallId``.
+        tool_msg = next(m for m in msgs if m["role"] == "tool")
+        assert tool_msg["toolCallId"] == "tc0"
+        assert "tool_call_id" not in tool_msg, "snake_case tool_call_id leaked"
+
+
+# ═════════════════════════════════════════════════════════════════════
+# P2 复诊轮次(诊断 END 后追加 = 继承上轮 scratchpad 的知情修订,非哑启动)
+# ═════════════════════════════════════════════════════════════════════
+
+# A DIFFERENT converged report for round 2 -- proves the report was REVISED
+# (informed by the follow-up), not just re-emitted verbatim.
+CONVERGED_JSON_ROUND2 = """```json
+{
+  "primary_category": "config",
+  "categories": ["config"],
+  "symptom_tier": "backend",
+  "root_cause_tier": "backend",
+  "root_cause": "cache 失效导致 IDOR 路径被暴露(复诊轮修订)",
+  "affected_file": "app/cache.py",
+  "affected_function": "get_or_set",
+  "fix_suggestion": "【文件】app/cache.py\\n【位置】get_or_set\\n【改后】加 owner 维度 cache key",
+  "evidence_chain": ["sig-2"],
+  "confidence": 0.82
+}
+```"""
+
+_FOLLOWUP_MARKER = "【复诊轮次】"  # emitted by _diagnosis_agent_node on a follow-up round
+
+
+class _FollowupAwareFake:
+    """Round 1: converge. Follow-up round (sees the 复诊轮次 marker): converge a
+    REVISED report + record that the marker was injected (proves scratchpad
+    inheritance). Mirrors ``_FakeAgent``'s branching but for 复诊."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+        self.saw_followup_marker = False
+
+    async def ainvoke(
+        self, state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
+        self.calls += 1
+        msgs = state.get("messages", []) if isinstance(state, dict) else []
+        content = " ".join(str(getattr(m, "content", "")) for m in msgs)
+        if _FOLLOWUP_MARKER in content:
+            self.saw_followup_marker = True
+            return {"messages": [AIMessage(content=CONVERGED_JSON_ROUND2)]}
+        return {"messages": [AIMessage(content=CONVERGED_JSON)]}
+
+
+class _FollowupClarifyFake:
+    """Round 1: converge. Follow-up round: agent proactively asks a clarification.
+    Clarify-resume pass: converge. For the coexistence test (复诊轮 + P1 主动澄清)."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def ainvoke(
+        self, state: dict[str, Any], config: Any = None, context: Any = None
+    ) -> dict[str, Any]:
+        self.calls += 1
+        msgs = state.get("messages", []) if isinstance(state, dict) else []
+        content = " ".join(str(getattr(m, "content", "")) for m in msgs)
+        if _CLARIFY_RESUME_MARKER in content:
+            return {"messages": [AIMessage(content=CONVERGED_JSON)]}
+        if _FOLLOWUP_MARKER in content:
+            # Follow-up round: agent realises it lacks info -> ask.
+            if context is not None:
+                context.clarification_requested = True
+                context.clarification_question = _CLARIFY_QUESTION
+            return {"messages": [_clarify_msg(_CLARIFY_QUESTION, "fc0")]}
+        # Round 1: converge.
+        return {"messages": [AIMessage(content=CONVERGED_JSON)]}
+
+
+def _followup_state(tid: str, user_report: str) -> dict[str, Any]:
+    """REST-path state for a follow-up round (new evidence on an ENDed thread)."""
+    return {
+        "raw_evidence": Evidence(user_report=user_report),
+        "case_id": tid,
+        "trace_id": tid,
+        "session_id": tid,
+    }
+
+
+async def test_followup_round_inherits_prior_context(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P2 core: a follow-up round inherits the prior round's scratchpad.
+
+    Round 1 converges -> END. Re-invoking the same thread with new evidence
+    starts round 2: bug_info bumps ``round`` + resets flags, and
+    ``_diagnosis_agent_node`` injects a 复诊续查 continuation (prior report +
+    findings scratchpad). The agent runs an INFORMED revision pass (not a blind
+    fresh start), producing a revised report with ``round=2``.
+    """
+    fake = _FollowupAwareFake()
+    monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
+    graph = _build(tmp_path)
+    tid = "p2-followup-inherit-1"
+    cfg: dict[str, Any] = {"configurable": {"thread_id": tid}}
+
+    # Round 1 -> converge -> END.
+    await graph.ainvoke(_initial_state(tid), cfg)
+    snap1 = await graph.aget_state(cfg)
+    assert snap1.next == ()
+    vals1 = snap1.values or {}
+    assert vals1.get("round") == 1
+    report1 = vals1.get("report")
+    assert report1 is not None and report1.round == 1
+    assert fake.calls == 1
+
+    # Round 2: follow-up on the ENDed thread.
+    await graph.ainvoke(_followup_state(tid, "追加:其实是 cache 失效"), cfg)
+    snap2 = await graph.aget_state(cfg)
+    assert snap2.next == (), f"expected END after round 2, next={snap2.next}"
+    vals2 = snap2.values or {}
+
+    assert fake.calls == 2, "round 2 re-ran diagnosis_agent"
+    assert fake.saw_followup_marker, "复诊续查 continuation (scratchpad) was injected"
+    assert vals2.get("round") == 2
+    report2 = vals2.get("report")
+    assert report2 is not None
+    assert report2.round == 2, "report carries the follow-up round number"
+    # The report was REVISED (different root_cause), not re-emitted verbatim.
+    assert report2.root_cause != report1.root_cause
+    assert "复诊轮修订" in report2.root_cause
+
+
+async def test_followup_round_re_enables_hitl_after_reset(
+    tmp_path: pytest.Path, fake_agent: _FakeAgent
+) -> None:
+    """P2: round-scoped reset re-enables HITL in the follow-up round.
+
+    Round 1 hits budget-HITL (``hitl_resumed=True`` after resume). Pre-P2 that
+    flag bled into round 2, so a round-2 budget exhaustion skipped HITL (one-shot
+    gate already tripped). P2 resets ``hitl_resumed`` in bug_info on the
+    follow-up -> round 2 budget exhaustion re-pauses at ``human_input``.
+    """
+    graph = _build(tmp_path)
+    tid = "p2-followup-hitl-1"
+    cfg: dict[str, Any] = {"configurable": {"thread_id": tid}}
+
+    # Round 1: exhaust -> human_input -> resume -> converge -> END.
+    await graph.ainvoke(_initial_state(tid), cfg)
+    assert "human_input" in (await graph.aget_state(cfg)).next
+    await graph.ainvoke(Command(resume="查 owner 校验"), cfg)
+    snap1 = await graph.aget_state(cfg)
+    assert snap1.next == ()
+    assert (snap1.values or {}).get("hitl_resumed") is True
+    assert fake_agent.calls == 2
+
+    # Round 2: follow-up. _FakeAgent flails on the 复诊 pass (no 续查模式 marker)
+    # -> budget exhausts -> early_stopped. With hitl_resumed RESET, this re-pauses
+    # at human_input (instead of skipping to END like the pre-P2 bleed did).
+    await graph.ainvoke(_followup_state(tid, "追加信息"), cfg)
+    snap2 = await graph.aget_state(cfg)
+    assert "human_input" in snap2.next, (
+        f"round 2 budget exhaustion must re-pause at human_input (reset re-enabled HITL), "
+        f"next={snap2.next}"
+    )
+    vals2 = snap2.values or {}
+    assert vals2.get("round") == 2
+    assert vals2.get("hitl_resumed") is False, "hitl_resumed was reset on follow-up"
+    assert vals2.get("early_stopped") is True
+    assert fake_agent.calls == 3  # round1 pass1 + round1 resume + round2 followup
+
+
+async def test_followup_round_cap_routes_to_end(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P2 cap: beyond MAX_ROUNDS, a follow-up routes straight to END (no diagnosis).
+
+    The bound is a backend hard gate (bug_info sets ``rounds_exhausted`` ->
+    ``_route_after_bug_info`` -> END), not a frontend-only weak gate. round 4
+    (MAX_ROUNDS=3) does NOT call diagnosis_agent (zero LLM cost).
+    """
+    fake = _ConvergingFake()
+    monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
+    graph = _build(tmp_path)
+    tid = "p2-followup-cap-1"
+    cfg: dict[str, Any] = {"configurable": {"thread_id": tid}}
+
+    # Rounds 1..3 (MAX_ROUNDS=3) all converge.
+    await graph.ainvoke(_initial_state(tid), cfg)
+    await graph.ainvoke(_followup_state(tid, "追加1"), cfg)
+    await graph.ainvoke(_followup_state(tid, "追加2"), cfg)
+    snap3 = await graph.aget_state(cfg)
+    assert (snap3.values or {}).get("round") == 3
+    assert fake.calls == 3
+
+    # Round 4: bug_info detects next_round=4 > MAX_ROUNDS -> rounds_exhausted -> END.
+    await graph.ainvoke(_followup_state(tid, "追加3(应被拒)"), cfg)
+    snap4 = await graph.aget_state(cfg)
+    assert snap4.next == (), f"expected END (cap), next={snap4.next}"
+    vals4 = snap4.values or {}
+    assert vals4.get("rounds_exhausted") is True
+    assert vals4.get("round") == 3, "round not advanced past the cap"
+    assert fake.calls == 3, "diagnosis_agent must NOT run past the cap (zero LLM cost)"
+
+
+async def test_followup_round_coexists_with_clarification(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P2 + P1 coexistence: a follow-up round can still trigger active clarification.
+
+    Round 1 converges. Round 2 (follow-up): agent proactively asks a clarification
+    -> pause at clarify_input -> resume -> converge. The bounded clarification
+    gate (MAX_CLARIFICATIONS) works inside a follow-up round, independent of the
+    round counter.
+    """
+    fake = _FollowupClarifyFake()
+    monkeypatch.setattr(diag_mod, "get_diagnosis_agent", lambda: fake)
+    graph = _build(tmp_path)
+    tid = "p2-followup-clarify-1"
+    cfg: dict[str, Any] = {"configurable": {"thread_id": tid}}
+
+    # Round 1 -> converge -> END.
+    await graph.ainvoke(_initial_state(tid), cfg)
+    assert (await graph.aget_state(cfg)).next == ()
+    assert fake.calls == 1
+
+    # Round 2 (follow-up): agent asks clarify -> pause at clarify_input.
+    await graph.ainvoke(_followup_state(tid, "追加:偶发白屏"), cfg)
+    snap2 = await graph.aget_state(cfg)
+    assert "clarify_input" in snap2.next, f"expected clarify in follow-up, next={snap2.next}"
+    vals2 = snap2.values or {}
+    assert vals2.get("round") == 2
+    assert vals2.get("clarification_requested") is True
+
+    # Resume the clarification answer -> converge -> END.
+    await graph.ainvoke(Command(resume="偶发,每天一次"), cfg)
+    snap3 = await graph.aget_state(cfg)
+    assert snap3.next == (), f"expected END after clarify resume, next={snap3.next}"
+    vals3 = snap3.values or {}
+    assert vals3.get("clarification_count") == 1
+    assert vals3.get("round") == 2
+    report = vals3.get("report")
+    assert report is not None and report.round == 2
+    assert fake.calls == 3  # round1 + round2-ask + clarify-resume

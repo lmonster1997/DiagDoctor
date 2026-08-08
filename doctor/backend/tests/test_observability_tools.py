@@ -726,11 +726,11 @@ class TestV3UnifiedTools:
         assert "假设" in RECORD_HYPOTHESIS_TOOL.description
         assert RECORD_HYPOTHESIS_TOOL.coroutine is not None
 
-    def test_all_tools_has_exactly_seven(self) -> None:
-        """ALL_TOOLS = 6 诊断工具 + 1 §7.2 record_hypothesis 埋点工具(预算豁免)。"""
+    def test_all_tools_has_exactly_eight(self) -> None:
+        """ALL_TOOLS = 6 诊断工具 + 1 §7.2 record_hypothesis 埋点 + 1 P1 request_user_clarification 主动澄清。"""
         from src.tools import ALL_TOOLS
 
-        assert len(ALL_TOOLS) == 7
+        assert len(ALL_TOOLS) == 8
         tool_names = {t.name for t in ALL_TOOLS}
         assert tool_names == {
             "search_observability",
@@ -740,6 +740,7 @@ class TestV3UnifiedTools:
             "get_file_content",
             "search_historical_root_cause",
             "record_hypothesis",
+            "request_user_clarification",
         }
 
     def test_all_tools_are_structured_tools(self) -> None:

@@ -27,6 +27,7 @@ from langchain_core.runnables import RunnableConfig
 from pydantic import BaseModel, Field
 
 from src.config import settings
+from src.engine.budget.constants import MAX_ROUNDS
 from src.engine.state import DoctorState, NormalizedEvidence
 from src.evidence.normalizer import ingest
 from src.observability.logger import bind_log_context, clear_log_context, get_logger
@@ -266,6 +267,38 @@ async def bug_info_node(state: DoctorState, config: RunnableConfig) -> dict[str,
     if tid:
         bind_log_context(trace_id=tid, case_id=tid)
 
+    # ── P2 复诊轮次检测 + 上限门 + round-scoped 重置 ────────────────
+    # bug_info 是图入口,只在 fresh start(初诊 or 复诊)跑,HITL resume 跳过本节点。
+    # S2 实证:END 线程再 invoke = LangGraph 自然从 bug_info 重跑;问题在那次重跑是
+    # "哑启动"(不继承上轮 + round-scoped flag 残留)。这里把它塑形为"知情复诊轮":
+    #   - round 计数(state.round 累积,同 thread)。
+    #   - 上限门:next_round > MAX_ROUNDS -> rounds_exhausted,conditional edge 直奔
+    #     END,不跑 _extract_bug_info/prefetch/normalization(零 LLM 成本)。硬门非前端弱门。
+    #   - 复诊轮(prior_report 存在且未耗尽):重置 hitl_resumed/clarification_count/
+    #     early_stopped 等,让复诊轮拿到全新 HITL/澄清预算(修 S2 的 state-bleed:否则
+    #     round-1 的 hitl_resumed=True 会让复诊轮预算耗尽因 one-shot 门已跳过 HITL)。
+    prior_report = state.get("report")
+    next_round = (int(state.get("round") or 0)) + 1
+    round_updates: dict[str, Any] = {"round": next_round, "rounds_exhausted": False}
+    if next_round > MAX_ROUNDS:
+        logger.info("buginfo_rounds_exhausted", round=next_round - 1, max_rounds=MAX_ROUNDS)
+        clear_log_context()
+        # 不开新轮:round 保持上轮值,仅置耗尽旗 -> _route_after_bug_info -> END。
+        return {"rounds_exhausted": True, **id_updates}
+    if prior_report is not None:
+        round_updates.update(
+            {
+                "hitl_resumed": False,
+                "clarification_count": 0,
+                "clarification_requested": False,
+                "clarification_answer": None,
+                "clarification_question": None,
+                "human_guidance": None,
+                "early_stopped": False,
+            }
+        )
+        logger.info("buginfo_followup_round", round=next_round, has_prior_report=True)
+
     raw_evidence: Any = state.get("raw_evidence")
     messages: list[Any] = state.get("messages", [])
     # CopilotKit 路径(_extract_bug_info)产出 AIMessage+ToolMessage,REST 路径为空;
@@ -295,7 +328,7 @@ async def bug_info_node(state: DoctorState, config: RunnableConfig) -> dict[str,
         if not user_message.strip():
             logger.warning("buginfo_empty_user_message")
             clear_log_context()
-            return {"evidence": NormalizedEvidence(), **id_updates}
+            return {"evidence": NormalizedEvidence(), **round_updates, **id_updates}
 
         bug_info, extract_messages = await _extract_bug_info(user_message)
         user_report = bug_info.get("bug_description", user_message)
@@ -409,4 +442,6 @@ async def bug_info_node(state: DoctorState, config: RunnableConfig) -> dict[str,
         "langfuse_session_id": state.get("langfuse_session_id"),
         # case_id/trace_id/session_id from the checkpoint thread_id (see top).
         **id_updates,
+        # P2 复诊轮次(round 计数 + round-scoped 重置,见顶部 round_updates)。
+        **round_updates,
     }

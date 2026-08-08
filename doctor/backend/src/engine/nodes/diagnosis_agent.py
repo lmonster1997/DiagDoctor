@@ -1,26 +1,44 @@
 """
 CopilotKit diagnosis graph - BugInfo -> DiagnosisAgent -> (HITL) -> END.
 
-3-node pipeline with a Human-In-The-Loop (HITL) resume branch:
+4-node pipeline with two Human-In-The-Loop (HITL) resume branches + a P2
+follow-up-round cap:
 
-    START -> bug_info -> diagnosis_agent -> [route_after_diagnosis]
+    START -> bug_info -> [route_after_bug_info]
+                            |
+                 rounds_exhausted (round>MAX_ROUNDS) -> END   (P2 cap, no diagnosis)
+                 else                                 -> diagnosis_agent -> [route_after_diagnosis]
+                                                                       |
+                         clarification_requested & count<MAX -> clarify_input (interrupt, P1)
+                         early_stopped & !hitl_resumed        -> human_input (interrupt, #5)
+                         else                                  -> END
                                                  |
-                         early_stopped & !hitl_resumed -> human_input (interrupt)
-                         else                              -> END
-                                                 |
-                         (resumed w/ guidance) -> diagnosis_agent (pass 2) -> END
-                         (resumed w/ empty)    -> END (accept current report)
+                         clarify resume w/ answer   -> diagnosis_agent (pass 2) -> END
+                         clarify resume w/ empty    -> END (accept current report)
+                         human resume w/ guidance   -> diagnosis_agent (pass 2) -> END
+                         human resume w/ empty      -> END (accept current report)
 
 **BugInfo node**: parses the user's free-text chat message, extracts
 structured bug info (description, trigger_time, trace_ids), auto-prefetches
 logs+traces from Loki/Tempo, and normalizes them into ``NormalizedEvidence``.
+P2: also owns follow-up-round detection -- if a ``report`` already exists
+(prior round ENDed) this is a 复诊 round: bump ``round``, reset round-scoped
+flags (``hitl_resumed``/``clarification_count``/``early_stopped`` so the
+follow-up round gets fresh HITL/clarification budget -- fixes the S2
+state-bleed), and gate on ``MAX_ROUNDS`` (``rounds_exhausted`` -> END, no
+diagnosis, zero LLM cost).
 
 **DiagnosisAgent node**: consumes the normalized evidence identically to
 the REST API path - formats it into a system+human message pair, invokes
-the ``create_agent`` subgraph (with all 6 middlewares), and produces a
-structured diagnosis report. On HITL resume (``human_guidance`` present),
-it builds a *continuation* message set (prior findings summary + operator
-guidance) and runs an informed second ReAct pass with a fresh budget.
+the ``create_agent`` subgraph (with all 8 middlewares), and produces a
+structured diagnosis report. On HITL resume (``human_guidance`` for budget
+exhaustion, or ``clarification_answer`` for P1 active clarification), it
+builds a *continuation* message set (prior findings summary + the operator
+input) and runs an informed second ReAct pass with a fresh budget. P2
+follow-up round (``round >= 2``, not a HITL resume): builds a *复诊续查*
+continuation (prior report conclusion + findings scratchpad + new evidence)
+-- an informed revision pass, not a blind fresh start (S2: ENDed-thread
+re-invoke would otherwise re-run from zero).
 
 **HumanInput node**: the #5 HITL interrupt point. When budget exhausts
 before convergence (``early_stopped``), the graph pauses here via
@@ -29,6 +47,15 @@ before convergence (``early_stopped``), the graph pauses here via
 re-enters ``diagnosis_agent`` for a second pass; empty guidance accepts
 the current best-effort report. One-shot: ``hitl_resumed`` gates a single
 HITL cycle (a second exhaustion routes straight to END).
+
+**ClarifyInput node**: the P1 active-clarification interrupt point. When the
+agent *proactively* calls ``request_user_clarification`` (it realises it
+lacks info tools can't fetch -- intermittent? recent change? caller?),
+``ClarificationMiddleware`` stops the inner ReAct loop and the node routes
+here to ``interrupt()`` with the agent's question. Resume with
+``Command(resume=<answer>)`` - non-empty answer re-enters ``diagnosis_agent``
+for an informed continuation pass; empty accepts the current best-effort.
+Bounded by ``clarification_count < MAX_CLARIFICATIONS`` (not unlimited).
 
 State schema: typed ``DoctorState`` (TypedDict) so the declared ``add``
 reducers on findings/budget_ticks/total_cost actually run, and
@@ -50,7 +77,7 @@ from src.engine.agent import (
     _build_system_prompt,
     get_diagnosis_agent,
 )
-from src.engine.budget.constants import RECURSION_LIMIT
+from src.engine.budget.constants import MAX_CLARIFICATIONS, RECURSION_LIMIT
 from src.engine.nodes.bug_info import bug_info_node
 from src.engine.run_context import DiagnosisRunContext
 from src.engine.state import DoctorState, NormalizedEvidence
@@ -237,34 +264,93 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
     #     instead of the fresh initial pair. The inner agent runs an
     #     informed second ReAct pass with a fresh budget (a new
     #     DiagnosisRunContext is constructed below). ──
+    # P1: a clarification resume (agent proactively asked, user answered) is
+    # also a continuation pass -- ``clarification_answer`` carries the user's
+    # answer. Both are "informed second pass"; the continuation text branches
+    # below. ``clarification_answer`` is cleared in this node's return so a
+    # later budget-HITL resume doesn't misread a stale answer.
     human_guidance = state.get("human_guidance")
-    is_resume = bool(human_guidance and str(human_guidance).strip())
+    clarification_answer = state.get("clarification_answer")
+    guidance_str = str(human_guidance).strip() if human_guidance else ""
+    answer_str = str(clarification_answer).strip() if clarification_answer else ""
+    is_resume = bool(guidance_str or answer_str)
+    # P2 复诊轮:非 HITL resume,但 round>=2 且有上轮 report(诊断 END 后用户追加,
+    # bug_info 已重置 round-scoped flag)。与 HITL resume 一样继承上轮发现 scratchpad,
+    # 但触发来源不同(用户追加消息 vs 操作员引导/澄清回答)。
+    round_num = int(state.get("round") or 1)
+    prior_report = state.get("report")
+    is_followup = (not is_resume) and round_num >= 2 and prior_report is not None
 
     # ── #1 RAG: retrieve similar historical cases (design §6.5). First
     #    pass queries + caches; resume re-injects the cached block without
     #    re-querying. Graceful degradation: None on failure / empty recall /
     #    disabled -> diagnosis proceeds without historical reference. ──
-    similar_msg, rag_updates = await _build_similar_cases_message(state, evidence, is_resume)
+    # P2: 复诊轮与 HITL resume 一样复用 round-1 缓存的 similar_cases_text(不重查 Qdrant)。
+    similar_msg, rag_updates = await _build_similar_cases_message(
+        state, evidence, is_resume or is_followup
+    )
 
     if is_resume:
         prior_findings = state.get("findings", []) or []
         scratchpad = _format_scratchpad(prior_findings)
-        continuation = (
-            "【续查模式】上一轮调查因预算耗尽未收敛。\n\n"
-            f"{scratchpad}\n\n"
-            f"操作员补充引导: {human_guidance}\n\n"
-            "请基于已有发现和引导继续调查(别重复已排除的假设),并输出最终诊断报告 JSON。"
-        )
+        if answer_str:
+            # P1 clarification resume: agent asked, user answered.
+            question = state.get("clarification_question") or ""
+            continuation = (
+                "【澄清续查】你上一轮主动向用户提了澄清问题。\n\n"
+                f"你的问题: {question}\n"
+                f"用户回答: {answer_str}\n\n"
+                f"{scratchpad}\n\n"
+                "请结合用户的回答继续调查(别重复已排除的假设),并输出最终诊断报告 JSON。"
+            )
+            logger.info(
+                "copilotkit_diag_clarification_resume_pass",
+                case_id=case_id,
+                prior_findings=len(prior_findings),
+            )
+        else:
+            # #5 budget-exhaustion resume: operator steering hint.
+            continuation = (
+                "【续查模式】上一轮调查因预算耗尽未收敛。\n\n"
+                f"{scratchpad}\n\n"
+                f"操作员补充引导: {guidance_str}\n\n"
+                "请基于已有发现和引导继续调查(别重复已排除的假设),并输出最终诊断报告 JSON。"
+            )
+            logger.info(
+                "copilotkit_diag_hitl_resume_pass",
+                case_id=case_id,
+                prior_findings=len(prior_findings),
+            )
         initial_messages: list[BaseMessage] = [SystemMessage(content=base_prompt)]
         if similar_msg is not None:
             initial_messages.append(similar_msg)
         initial_messages.append(HumanMessage(content=evidence_text))
         initial_messages.append(HumanMessage(content=continuation))
+    elif is_followup:
+        # P2 复诊轮:诊断 END 后用户追加消息 -> bug_info 重置 flag + 增 round,这里注入
+        # "复诊续查"消息:上轮 report 结论 + findings 假设树 scratchpad + 本轮新证据。
+        # 非盲查(S2 实证的"哑启动"-> 知情修订)。复用 _format_scratchpad(✓确认/✗排除/?待验)。
+        prior_findings = state.get("findings", []) or []
+        scratchpad = _format_scratchpad(prior_findings)
+        prior_rc = getattr(prior_report, "root_cause", "") or ""
+        prior_conf = getattr(prior_report, "confidence", 0.0)
+        continuation = (
+            f"【复诊轮次】这是第 {round_num} 轮诊断。用户在上一轮诊断结束后追加了信息。\n\n"
+            f"上一轮结论: root_cause={prior_rc}, confidence={prior_conf}\n\n"
+            f"{scratchpad}\n\n"
+            "请结合上轮发现 + 本轮新证据继续调查(别重复已排除的假设),输出修订后的诊断报告 JSON。"
+        )
         logger.info(
-            "copilotkit_diag_hitl_resume_pass",
+            "copilotkit_diag_followup_round",
             case_id=case_id,
+            round=round_num,
             prior_findings=len(prior_findings),
         )
+        initial_messages = [SystemMessage(content=base_prompt)]
+        if similar_msg is not None:
+            initial_messages.append(similar_msg)
+        initial_messages.append(HumanMessage(content=evidence_text))
+        initial_messages.append(HumanMessage(content=continuation))
     else:
         initial_messages = [SystemMessage(content=base_prompt)]
         if similar_msg is not None:
@@ -335,10 +421,21 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
             with contextlib.suppress(Exception):
                 langfuse_handler.end_trace(output_data={"error": str(exc)})
         clear_log_context()
-        return {"report": None, "findings": []}
+        return {
+            "report": None,
+            "findings": [],
+            "clarification_requested": False,
+            "clarification_answer": None,
+        }
 
     budget_exhausted = run_ctx.budget_exhausted
     forced_call_triggered = run_ctx.forced_call_triggered
+    # P1: ClarificationMiddleware sets this ( + clarification_question) when the
+    # agent called ``request_user_clarification`` this pass, then jumped to end.
+    # Routed to the ``clarify_input`` interrupt node; the best-effort fallback
+    # report below is kept in case the operator later declines to answer.
+    clarification_requested = run_ctx.clarification_requested
+    clarification_question = run_ctx.clarification_question
 
     # Build a minimal budget_state for _finalize_report
     from src.engine.state import BudgetState
@@ -357,6 +454,9 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
     report, findings, budget_state, early_stopped = _finalize_report_for_dict_state(
         final_messages, budget_exhausted, effective_retrieved
     )
+    # P2: 盖入复诊轮次(DiagnosisReport.round 默认 1;复诊轮 >1)。agent JSON 不产此字段,
+    # 由 node 据 state.round 写入,供 UI/eval 标"第 N 轮复诊"。
+    report.round = int(state.get("round") or 1)
 
     _finalize_langfuse_trace(
         langfuse_handler=langfuse_handler,
@@ -374,6 +474,11 @@ async def _diagnosis_agent_node(state: DoctorState) -> dict[str, Any]:
         "findings": findings,
         "budget": budget_state,
         "early_stopped": early_stopped,
+        "clarification_requested": clarification_requested,
+        "clarification_question": clarification_question or None,
+        # Clear the consumed answer so a later budget-HITL resume pass doesn't
+        # misread a stale clarification_answer as a clarification resume.
+        "clarification_answer": None,
         **rag_updates,
     }
 
@@ -545,15 +650,39 @@ async def human_input_node(state: DoctorState) -> dict[str, Any]:
     return {"human_guidance": guidance_str or None, "hitl_resumed": True}
 
 
-def _route_after_diagnosis(state: DoctorState) -> str:
-    """Route after diagnosis_agent: pause for HITL on first budget exhaustion.
+def _route_after_bug_info(state: DoctorState) -> str:
+    """Route after bug_info: 复诊上限耗尽 -> END,否则进 diagnosis_agent。
 
-    - ``early_stopped`` and not yet resumed -> ``human_input`` (pause).
-    - otherwise (converged, or already resumed) -> ``end``.
-
-    One-shot: once ``hitl_resumed`` is True, a second exhaustion goes
-    straight to END instead of re-pausing.
+    P2: bug_info 检测到下一轮会超过 ``MAX_ROUNDS`` 时置 ``rounds_exhausted`` -> 这里
+    据此直奔 END,不跑 ``diagnosis_agent``(零 LLM 成本,硬门非前端弱门)。否则正常进
+    ``diagnosis_agent``(初诊 round 1 或复诊轮 round>=2)。复诊轮的上下文继承在
+    ``_diagnosis_agent_node`` 里经 scratchpad 注入(非盲查)。
     """
+    if bool(state.get("rounds_exhausted")):
+        return "end"
+    return "diagnosis_agent"
+
+
+def _route_after_diagnosis(state: DoctorState) -> str:
+    """Route after diagnosis_agent: pause for clarification or budget-HITL, else END.
+
+    Priority:
+    1. P1 active clarification -- the agent proactively called
+       ``request_user_clarification`` (``clarification_requested``), bounded by
+       ``clarification_count < MAX_CLARIFICATIONS``. Once the cap is hit, a
+       further request is dropped (accept current best-effort) so the agent
+       can't ask indefinitely (§2.1).
+    2. #5 budget-exhaustion HITL -- ``early_stopped`` and not yet resumed.
+    3. otherwise (converged, or already resumed) -> ``end``.
+
+    One-shot: once ``hitl_resumed`` is True, a second budget exhaustion goes
+    straight to END instead of re-pausing. Clarification has its own bound
+    (``clarification_count``), independent of the budget-HITL one-shot gate.
+    """
+    clarification_requested = bool(state.get("clarification_requested"))
+    clarification_count = int(state.get("clarification_count") or 0)
+    if clarification_requested and clarification_count < MAX_CLARIFICATIONS:
+        return "clarify_input"
     early_stopped = bool(state.get("early_stopped"))
     hitl_resumed = bool(state.get("hitl_resumed"))
     if early_stopped and not hitl_resumed:
@@ -568,13 +697,69 @@ def _route_after_human_input(state: DoctorState) -> str:
     return "end"
 
 
+async def clarify_input_node(state: DoctorState) -> dict[str, Any]:
+    """P1 active-clarification interrupt point: pause for the user's answer.
+
+    Reached when ``diagnosis_agent`` proactively called
+    ``request_user_clarification`` (signalled via ``clarification_requested``,
+    set by ``ClarificationMiddleware`` + read back by the node). Mirrors
+    ``human_input_node`` but for an agent-initiated question rather than budget
+    exhaustion: the agent's question is carried in ``clarification_question`` and
+    surfaced to the operator; resume with ``Command(resume=<answer>)``.
+
+    Resume semantics:
+    - non-empty answer -> ``clarification_answer`` set -> re-enter
+      ``diagnosis_agent`` for an informed continuation pass (the answer is
+      injected as context alongside the prior-findings scratchpad).
+    - empty answer -> operator declines -> END (accept current best-effort).
+
+    ``clarification_count`` is bumped either way; ``_route_after_diagnosis``
+    gates on ``clarification_count < MAX_CLARIFICATIONS`` (bounded, not
+    unlimited). ``clarification_requested`` is cleared so a pass that doesn't
+    re-ask routes normally.
+    """
+    from langgraph.types import interrupt
+
+    question = state.get("clarification_question") or ""
+    prior_findings = state.get("findings", []) or []
+    answer = interrupt(
+        {
+            "type": "clarify",
+            "question": question,
+            "prior_findings_count": len(prior_findings),
+            "early_stopped": bool(state.get("early_stopped")),
+        }
+    )
+    answer_str = str(answer).strip() if answer else ""
+    logger.info(
+        "copilotkit_clarify_input_resumed",
+        case_id=state.get("case_id") or "",
+        answer_len=len(answer_str),
+        declined=not answer_str,
+    )
+    return {
+        "clarification_answer": answer_str or None,
+        "clarification_count": int(state.get("clarification_count") or 0) + 1,
+        "clarification_requested": False,
+    }
+
+
+def _route_after_clarify_input(state: DoctorState) -> str:
+    """Route after clarify_input: re-investigate only if the user answered."""
+    if state.get("clarification_answer"):
+        return "diagnosis_agent"
+    return "end"
+
+
 _copilotkit_graph_instance: Any = None
 
 
 def build_copilotkit_graph(checkpointer: Any = None) -> Any:
     """Build the CopilotKit diagnosis graph.
 
-    3-node pipeline with a HITL resume branch (see module docstring).
+    4-node pipeline with two HITL resume branches (see module docstring):
+    #5 budget-exhaustion (``human_input``) + P1 active clarification
+    (``clarify_input``).
 
     Args:
         checkpointer: optional ``BaseCheckpointSaver``. Defaults to the
@@ -592,20 +777,39 @@ def build_copilotkit_graph(checkpointer: Any = None) -> Any:
     builder.add_node("bug_info", bug_info_node)
     builder.add_node("diagnosis_agent", _diagnosis_agent_node)
     builder.add_node("human_input", human_input_node)
+    builder.add_node("clarify_input", clarify_input_node)
 
     builder.set_entry_point("bug_info")
-    builder.add_edge("bug_info", "diagnosis_agent")
-    # #5 HITL: on first budget exhaustion (early_stopped, not yet resumed)
-    # pause at human_input; otherwise END. Empty guidance -> END (accept
-    # current); non-empty -> diagnosis_agent second pass. See _route_*.
+    # P2 复诊上限门:bug_info 检测到 rounds_exhausted -> END(不跑 diagnosis_agent),
+    # 否则进 diagnosis_agent(初诊 round 1 / 复诊轮 round>=2)。见 _route_after_bug_info。
+    builder.add_conditional_edges(
+        "bug_info",
+        _route_after_bug_info,
+        {"diagnosis_agent": "diagnosis_agent", "end": END},
+    )
+    # After diagnosis: P1 active clarification takes priority (agent proactively
+    # asked), then #5 budget-exhaustion HITL, else END. See _route_after_diagnosis.
     builder.add_conditional_edges(
         "diagnosis_agent",
         _route_after_diagnosis,
-        {"human_input": "human_input", "end": END},
+        {
+            "human_input": "human_input",
+            "clarify_input": "clarify_input",
+            "end": END,
+        },
     )
+    # #5 budget HITL: empty guidance -> END (accept current); non-empty ->
+    # diagnosis_agent second pass.
     builder.add_conditional_edges(
         "human_input",
         _route_after_human_input,
+        {"diagnosis_agent": "diagnosis_agent", "end": END},
+    )
+    # P1 clarification: empty answer -> END (accept current); non-empty ->
+    # diagnosis_agent informed continuation pass.
+    builder.add_conditional_edges(
+        "clarify_input",
+        _route_after_clarify_input,
         {"diagnosis_agent": "diagnosis_agent", "end": END},
     )
 

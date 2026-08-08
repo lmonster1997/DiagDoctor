@@ -1,0 +1,31 @@
+# 两轮测试 case:条件相关 bug(只在特定数据/条件下才复现)。
+#
+# 首轮 user_report 故意模糊(不说触发条件),agent 应主动调 request_user_clarification 问复现条件;
+# 次轮 clarify_answer 是用户补充的条件(工具拿不到的信息),agent 据此钉到真根因。
+#
+# 价值点:这类 case 的根因线索在"用户的复现条件"里,不在代码静态搜索/日志里。
+# 不澄清 -> agent 易泛泛归因(误判网络/DB/所有任务);澄清后 -> 钉到 null-assignee 真根因。
+#
+# 用法(见 scripts/test_copilotkit.py):
+#   & ".venv\Scripts\python.exe" scripts/test_copilotkit.py BE-022 --clarify       # 注入bug+生成首轮+输出次轮答案(手贴)
+#   & ".venv\Scripts\python.exe" scripts/test_copilotkit.py BE-022 --two-round     # 全自动:注入->首轮->检测clarify->次轮resume->校验must_mention
+#
+# expected_* 来自 bug-factory recipe 的 expected_diagnosis,用于校验 agent 结论对不对。
+
+BE-022:
+  desc: 部分任务详情随机 500(只有未分配负责人的任务崩)
+  # 首轮:故意模糊,不说"哪些任务"。含"偶尔/不是所有/比较随机"触发主动澄清 prompt。
+  user_report: "任务详情接口偶尔报 500,不是所有任务都复现,有些任务打开正常有些直接 500,比较随机,目前没拿到 trace_id,也不确定具体是哪些任务会出问题。"
+  # 次轮:用户补充的复现条件(工具拿不到)-- assignee 是否为空。
+  clarify_answer: "只有未分配负责人的任务(assignee_id 为空/None)打开会报 500,有负责人的任务完全正常。"
+  expected_root_cause: "get_task 中 task.assignee_id.hex 未判空,assignee_id 为 None 时抛 AttributeError 导致 500"
+  must_mention: ["AttributeError", "assignee_id"]      # agent 结论必须含(否则错)
+  should_mention: ["NoneType", "判空", "未分配", "get_task"]
+
+FE-021:
+  desc: 部分任务详情页白屏(只有未分配负责人的任务白屏)
+  user_report: "任务详情页偶尔白屏,不是所有任务都复现,有些任务打开正常有些直接白屏,比较随机,没拿到 trace_id,也不确定是哪些任务。"
+  clarify_answer: "只有未分配负责人的任务(assignee_id 为 null)打开详情页会白屏,有负责人的任务正常。"
+  expected_root_cause: "TaskDetailPage 渲染 task.assignee_id.slice(0,8) 未判空,assignee_id 为 null 时抛 TypeError 白屏"
+  must_mention: ["assignee_id", "null"]
+  should_mention: ["slice", "可选链", "判空", "未分配"]

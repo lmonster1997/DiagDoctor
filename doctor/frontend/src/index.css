@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════════
-   DiagDoctor Design Tokens — "AI 诊断室" 暗色主题
+   DiagDoctor Design Tokens - "AI 诊断室" 暗色主题
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ── Tailwind v4 theme (CSS-first configuration) ────────────────── */
@@ -16,7 +16,7 @@
   --color-brand-200: #fde68a;
   --color-brand-300: #fcd34d;
   --color-brand-400: #fbbf24;
-  --color-brand-500: #f59e0b;   /* amber/gold — key findings */
+  --color-brand-500: #f59e0b;   /* amber/gold - key findings */
   --color-brand-600: #d97706;
   --color-brand-700: #b45309;
   --color-brand-800: #92400e;
@@ -37,7 +37,7 @@
   /* Accent: violet for analysis */
   --color-violet-500: #a855f7;
 
-  /* Surface colours — dark clinic */
+  /* Surface colours - dark clinic */
   --color-surface-900: #0a0a0f;   /* deepest bg */
   --color-surface-850: #0f1117;   /* main bg */
   --color-surface-800: #13161b;   /* card bg */
@@ -197,7 +197,7 @@
   animation: cursor-blink 1s step-end infinite;
 }
 
-/* Stagger children animations — use as regular CSS class in @layer utilities */
+/* Stagger children animations - use as regular CSS class in @layer utilities */
 @layer utilities {
   .stagger-children > * {
     opacity: 0;
@@ -230,227 +230,179 @@
   }
 }
 
-/* ── CopilotKit dark theme overrides ───────────────────────────── */
-/*
- * §2 诊断对话区重设计
- * 消息气泡：用户右对齐 / AI 左侧青色竖线 / 系统居中
- * 流式文本：blinking-cursor + 思考态 opacity
- */
+/* ═══════════════════════════════════════════════════════════════════
+   CopilotKit v2 chat 主题 - 类 Claude.ai 暗色风
+   ───────────────────────────────────────────────────────────────────
+   中性灰 + 极简 + 留白分层,无 glass/光效/cyan 竖线。
+   • AI 消息:左对齐纯文字,无背景无装饰
+   • 用户消息:右对齐,中性灰气泡 #1a1d25
+   • 输入框:中性灰条 #1a1d25 + 极淡边框,无阴影(去掉 v2 的 1px 黑描边
+     cpk:shadow-[...#0000009e] -- 它是之前"黑角/黑边"的主因)
+   选择器优先 data-testid(v2 hook class .copilotKit* 在 v2 下有时不生效,
+   data-testid 稳定)。无 testid 的用 cpk: utility class 组合(转义 .cpk\:xxx)。
+   ═══════════════════════════════════════════════════════════════════ */
 
-/* ── Container ──────────────────────────────────────────────── */
-.copilotKitChat,
-.copilotKitMessages,
-.copilotKitInput {
+/* ── Chat 根 / 消息列表:透明,继承页面 #0f1117 ───────────────── */
+[data-testid="copilot-chat"],
+[data-testid="copilot-message-list"] {
   background: transparent !important;
 }
 
-/* ── Message list ───────────────────────────────────────────── */
-.copilotKitMessages {
-  padding: 12px 0 !important;
+/* ── v2 主题变量对齐:dark 模式下 v2 给 [data-copilotkit] 设
+ * --background: oklch(14.5% 0 0)(~#262626 中性灰),被 cpk:bg-background
+ * 用在工具卡片/AI 回复等外层,与页面 #0f1117 不一致 = 突兀灰黑块。
+ * 覆盖成页面底色,让这些元素融入背景。 */
+[data-copilotkit] {
+  --background: #0f1117 !important;
 }
 
-/* ── Individual message wrapper ─────────────────────────────── */
-.copilotKitMessage {
-  background: transparent !important;
-  margin-bottom: 4px !important;
+/* ── Welcome 引导词:v2 渲染成 <h1> text-2xl 太大,降正文级 ─────── */
+[data-testid="copilot-welcome-screen"] h1 {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #a0a5ba !important;
+  line-height: 1.7 !important;
+  letter-spacing: 0.01em !important;
 }
 
-/* ── User message: right-aligned, dark card ─────────────────── */
-.copilotKitUserMessage {
-  display: flex !important;
-  justify-content: flex-end !important;
-  padding: 0 16px !important;
+/* ── 用户消息:右对齐中性灰气泡 ─────────────────────────────── */
+/* v2 用户气泡内部 div 带 cpk:bg-muted + cpk:rounded-[18px] */
+[data-testid="copilot-user-message"] {
+  padding: 6px 16px !important;
 }
-.copilotKitUserMessage > div {
-  max-width: 75% !important;
-  background: #1a1c2b !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 16px 16px 4px 16px !important;
-  padding: 10px 14px !important;
+[data-testid="copilot-user-message"] .cpk\:bg-muted {
+  background: #1a1d25 !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 14px !important;
+  padding: 8px 14px !important;
   color: #e4e4ef !important;
-  font-size: 13px !important;
+  font-size: 14px !important;
   line-height: 1.6 !important;
 }
 
-/* ── Assistant message: left-aligned, cyan thinking bar ─────── */
-.copilotKitAssistantMessage {
-  display: flex !important;
-  justify-content: flex-start !important;
-  padding: 0 16px !important;
+/* ── AI 消息:左对齐,prose 内容包一层卡片(与工具卡片风格统一) ── */
+[data-testid="copilot-assistant-message"] {
+  padding: 6px 16px !important;
 }
-.copilotKitAssistantMessage > div {
-  max-width: 85% !important;
-  background: transparent !important;
-  border-left: 2px solid rgba(6, 182, 212, 0.35) !important; /* cyan-500/35 */
-  border-radius: 0 !important;
-  padding: 8px 0 8px 12px !important;
-  color: #A0A5BA !important;                        /* "思考中" grey tone */
-  font-size: 13px !important;
-  line-height: 1.65 !important;
-  transition: border-color 0.5s ease, color 0.5s ease !important;
-}
-
-/* AI "thinking" state — dim grey text, semi-transparent cyan bar */
-.copilotKitAssistantMessage.is-streaming > div,
-.copilotKitAssistantMessage[data-streaming="true"] > div,
-.copilotKitMessages:has(.copilotKitLoading) .copilotKitAssistantMessage:last-child > div {
-  color: #A0A5BA !important;                        /* dim grey */
-  border-left-color: rgba(6, 182, 212, 0.45) !important; /* cyan-500/45 */
-}
-
-/* AI "conclusion" state — bright white text, bright cyan bar */
-.copilotKitAssistantMessage:not(.is-streaming):last-child > div {
-  color: #E8ECF1 !important;                       /* bright white */
-  border-left-color: rgba(6, 182, 212, 0.7) !important; /* cyan-500/70 */
-}
-
-
-
-/* ── Blinking cursor at end of last AI paragraph ────────────── */
-.copilotKitAssistantMessage:last-child > div > *:last-child::after {
-  content: "▍";
-  display: inline-block;
-  color: rgba(6, 182, 212, 0.7);                  /* cyan */
-  animation: cursor-blink 1s step-end infinite;
-  margin-left: 1px;
-  font-size: 14px;
-  vertical-align: -1px;
-}
-
-/* Hide cursor when message is complete (not streaming) */
-.copilotKitAssistantMessage:not([data-streaming]):last-child > div > *:last-child::after {
-  display: none;
-}
-
-/* ── Input area ─────────────────────────────────────────────── */
-.copilotKitInput {
-  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
-  background: rgba(255, 255, 255, 0.02) !important;
+[data-testid="copilot-assistant-message"] .cpk\:prose {
+  background: #1a1d25 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-left: 2px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 10px !important;
   padding: 12px 16px !important;
-}
-
-.copilotKitInput textarea,
-.copilotKitInput input {
-  color: #e4e4ef !important;
-  background: transparent !important;
-  font-family: var(--font-sans) !important;
-  font-size: 13px !important;
-}
-
-.copilotKitInput textarea::placeholder,
-.copilotKitInput input::placeholder {
-  color: #5c6070 !important;
-}
-
-.copilotKitInput button[type="submit"] {
-  color: #8a8fa3 !important;
-  transition: all 0.2s ease !important;
-}
-
-.copilotKitInput button[type="submit"]:hover {
-  color: #e4e4ef !important;
-  background: rgba(255, 255, 255, 0.06) !important;
-}
-
-/* ── Suggestion chips ───────────────────────────────────────── */
-.copilotKitSuggestion {
-  background: rgba(255, 255, 255, 0.03) !important;
-  border: 1px solid rgba(255, 255, 255, 0.06) !important;
-  color: #8a8fa3 !important;
-  font-size: 12px !important;
-  transition: all 0.2s ease !important;
-}
-
-.copilotKitSuggestion:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
-  color: #e4e4ef !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
-}
-
-/* ── Window title bar ───────────────────────────────────────── */
-.copilotKitHeader {
-  background: rgba(255, 255, 255, 0.02) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  margin: 8px 16px !important;
+  max-width: 100% !important;
   color: #e4e4ef !important;
   font-size: 13px !important;
-  font-weight: 600 !important;
+  line-height: 1.55 !important;
 }
-
-/* ── Message controls — hidden on all messages except the last ─ */
-.copilotKitMessageControls {
+/* 段落/列表间距收紧(prose 默认 + Streamdown space-y-4 都偏大,工具卡片是紧凑风) */
+[data-testid="copilot-assistant-message"] .cpk\:prose p,
+[data-testid="copilot-assistant-message"] .cpk\:prose ul,
+[data-testid="copilot-assistant-message"] .cpk\:prose ol {
+  margin: 0 0 6px !important;
+}
+[data-testid="copilot-assistant-message"] .cpk\:prose p:last-child,
+[data-testid="copilot-assistant-message"] .cpk\:prose ul:last-child,
+[data-testid="copilot-assistant-message"] .cpk\:prose ol:last-child {
+  margin-bottom: 0 !important;
+}
+/* AI 直接调工具(无文本输出)时 prose 为空,不显示空卡片框,让工具卡片独立。
+ * Streamdown 空渲染为 <div class="space-y-4 whitespace-normal"></div>(空 div),
+ * 所以匹配 prose 完全空 / 仅含一个空子元素两种情况。 */
+[data-testid="copilot-assistant-message"] .cpk\:prose:empty,
+[data-testid="copilot-assistant-message"] .cpk\:prose:has(> *:only-child:empty) {
   display: none !important;
 }
 
-/* Last message: force markdown + controls to stack vertically */
-.copilotKitMessage:last-child {
-  flex-direction: column !important;
-  align-items: stretch !important;
+/* ── 输入框:中性灰条,无阴影无黑描边 ───────────────────────── */
+/* v2 默认 cpk:bg-white/dark:#303030 + 1px 黑描边 shadow + rounded-28。
+ * 改 #1a1d25 中性灰 + 极淡边框 + 12px 圆角 + 无 shadow。不透明底:圆角
+ * 外的角是页面 #0f1117(更深),对比轻微(皆暗色),无黑描边不突兀。 */
+[data-testid="copilot-chat-input"] {
+  background: #1a1d25 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  padding: 8px 12px !important;
 }
-.copilotKitMessage:last-child > .copilotKitMarkdown {
-  display: block !important;
-  width: 100% !important;
+/* input 父容器 cpk:px-4 左右 padding 透底形成黑边,去掉让 input 占满 */
+div:has(> [data-testid="copilot-chat-input"]) {
+  padding-inline: 0 !important;
 }
-.copilotKitMessage:last-child > .copilotKitMessageControls {
-  display: flex !important;
-  position: static !important;
-  justify-content: flex-start !important;
-  gap: 4px !important;
-  margin-top: 10px !important;
-  width: 100% !important;
-  opacity: 0.5 !important;
-  transition: opacity 0.2s ease !important;
+/* textarea:14px 与消息一致,placeholder muted */
+[data-testid="copilot-chat-textarea"] {
+  color: #e4e4ef !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
 }
-.copilotKitMessage:last-child:hover > .copilotKitMessageControls {
-  opacity: 1 !important;
+[data-testid="copilot-chat-textarea"]::placeholder {
+  color: #5c6070 !important;
+}
+/* add-menu(+)按钮暂不用,隐藏(grid col-1 auto 自动塌缩) */
+[data-testid="copilot-add-menu-button"] {
+  display: none !important;
+}
+/* send 按钮:v2 默认 light 黑/dark 白圆,突兀。改中性浅圆深箭头 */
+[data-testid="copilot-send-button"] {
+  background: #e4e4ef !important;
+  color: #0f1117 !important;
+}
+[data-testid="copilot-send-button"]:disabled {
+  background: #2a2d3a !important;
+  color: #5c6070 !important;
 }
 
-.copilotKitMessage:last-child .copilotKitMessageControlButton {
-  color: #5c6070 !important;
-  transition: color 0.15s ease !important;
+/* ── disclaimer:隐藏(showDisclaimer 走 context,顶层未暴露) ──── */
+.cpk\:text-center.cpk\:text-xs.cpk\:text-muted-foreground {
+  display: none !important;
 }
-.copilotKitMessage:last-child .copilotKitMessageControlButton:hover {
+
+/* ── 建议胶囊:中性灰(备用,DiagnosePage 暂未配 suggestions) ─── */
+[data-testid="copilot-suggestion"] {
+  background: #1a1d25 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #8a8fa3 !important;
+  font-size: 12px !important;
+}
+[data-testid="copilot-suggestion"]:hover {
+  background: #2a2d3a !important;
+  color: #e4e4ef !important;
+}
+
+/* ── 滚动到底部按钮:中性灰 ─────────────────────────────────── */
+[data-testid="copilot-scroll-to-bottom"] {
+  background: #1a1d25 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
   color: #8a8fa3 !important;
 }
-
-/* ── Loading indicator (spinner) ────────────────────────────── */
-.copilotKitLoading {
-  color: #3b82f6 !important;
+[data-testid="copilot-scroll-to-bottom"]:hover {
+  background: #2a2d3a !important;
+  color: #e4e4ef !important;
 }
 
-/* ── Markdown inside messages ───────────────────────────────── */
-.copilotKitMessage code {
+/* ── 消息内 markdown 代码块 ─────────────────────────────────── */
+[data-testid="copilot-assistant-message"] code,
+[data-testid="copilot-user-message"] code {
   font-family: var(--font-mono) !important;
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
   border: 1px solid rgba(255, 255, 255, 0.06) !important;
   border-radius: 4px !important;
   padding: 1px 5px !important;
-  color: #f59e0b !important;
+  color: #e4e4ef !important;
   font-size: 12px !important;
 }
-
-.copilotKitMessage pre {
+[data-testid="copilot-assistant-message"] pre,
+[data-testid="copilot-user-message"] pre {
   background: #0a0a0f !important;
   border: 1px solid rgba(255, 255, 255, 0.06) !important;
   border-radius: 8px !important;
   padding: 12px !important;
 }
-
-/* ── Thinking hint banner (gentle status message) ───────────── */
-.copilotKitThinkingHint {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 16px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
-  animation: fade-in 0.4s ease-out both;
-}
-
-.copilotKitThinkingHint::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #3b82f6;
-  animation: pulse-soft 2s ease-in-out infinite;
+[data-testid="copilot-assistant-message"] pre code,
+[data-testid="copilot-user-message"] pre code {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  color: #e4e4ef !important;
 }

@@ -235,6 +235,10 @@ class DiagnosisReport(BaseModel):
     # it was given). Consumed by the case-level feedback endpoint to validate
     # which cases may be marked "有帮助".
     referenced_case_ids: list[str] = Field(default_factory=list)
+    # P2 复诊轮次:1 = 初诊,>1 = 第 N 轮复诊(诊断 END 后用户追加,继承上轮
+    # scratchpad 的知情修订)。由 ``_diagnosis_agent_node`` 据 ``state.round`` 盖入;
+    # agent JSON 不产此字段(默认 1 向后兼容)。UI/eval 据此标"第 N 轮复诊"。
+    round: int = 1
 
 
 # ── Budget guard ────────────────────────────────────────────────────
@@ -331,6 +335,33 @@ class DoctorState(TypedDict, total=False):
     # routes straight to END instead of re-pausing (no infinite HITL loop).
     human_guidance: str | None
     hitl_resumed: bool
+
+    # ── P1 active clarification (interrupt + resume, bounded) ──────────
+    # Distinct from #5 budget-exhaustion HITL: the agent *proactively* asks the
+    # user a question when it lacks info tools can't fetch (intermittent?
+    # recent change? caller?). ``clarification_requested``/``clarification_question``
+    # are written by ``_diagnosis_agent_node`` (from the run context flag set by
+    # ``ClarificationMiddleware`` when it sees a ``request_user_clarification``
+    # tool_call) -> the outer-graph ``clarify_input`` node interrupts. Resume
+    # writes ``clarification_answer`` + bumps ``clarification_count``; the route
+    # gates on ``clarification_count < MAX_CLARIFICATIONS`` (bounded, not
+    # unlimited -- see §2.1). ``clarification_requested`` is cleared on resume so
+    # a pass that doesn't re-ask routes to END normally.
+    clarification_requested: bool
+    clarification_question: str | None
+    clarification_answer: str | None
+    clarification_count: int
+
+    # ── P2 复诊轮次(bounded,§2.1 不 unlimited)─────────────────────────
+    # 诊断 END 后用户再发消息 = 开新复诊轮(同 thread 累积,非新 thread):bug_info
+    # 检测 ``report`` 已存在 -> 增 ``round`` + 重置 round-scoped flag
+    # (``hitl_resumed``/``clarification_count``/``early_stopped`` 等,否则 S2 实证的
+    # state-bleed 会让复诊轮 HITL 因 one-shot 门已跳过)。``_diagnosis_agent_node``
+    # 据此注入"复诊续查"scratchpad(继承上轮发现,非盲查)。``rounds_exhausted`` 是
+    # 上限门:``round > MAX_ROUNDS`` 时 bug_info 出口 conditional edge 直奔 END(硬门,
+    # 不跑 diagnosis_agent,零 LLM 成本)。详见 docs/hitl-evolution-plan.md §5。
+    round: int
+    rounds_exhausted: bool
 
     # ── RAG: retrieved historical cases (#1 episodic retrieval) ────────
     # ``retrieved_case_ids``: case_ids recalled on pass 1 -- consumed by the

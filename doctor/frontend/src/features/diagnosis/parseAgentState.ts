@@ -197,6 +197,7 @@ function buildReport(data: Record<string, unknown>, fallbackText: string): Diagn
       early_stopped: false,
       notes: "JSON 解析失败，使用原始输出作为 root_cause",
       referenced_case_ids: [],
+      round: 1,
     };
   }
 
@@ -220,6 +221,10 @@ function buildReport(data: Record<string, unknown>, fallbackText: string): Diagn
     // state.report is absent. The backend endpoint re-validates against the
     // checkpoint's clamped set regardless.
     referenced_case_ids: ensureStrList(data.referenced_case_ids),
+    // P2: round is set by the backend node (not in the agent JSON) -> default 1
+    // on the messages-fallback path. The synced state.report carries the real
+    // round number and is returned directly via the direct-fields path below.
+    round: typeof data.round === "number" ? data.round : 1,
   };
 }
 

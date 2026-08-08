@@ -1,34 +1,61 @@
 /**
- * HistoryPanel - 历史诊断列表 (#5 F3).
+ * HistoryPanel - 历史诊断列表 (#5 F3 + P0 历史报告查看).
  *
  * 消费 GET /api/diagnose/threads(paused 置顶)。每条展示状态 / thread_id(可复制)
  * / findings_count / early_stopped。
  *
  * 恢复暂停诊断:
- *   - v1(本组件):点「切换恢复」-> useCopilotContext().setThreadId(thread_id)
- *     把 CopilotKit 聊天切到该暂停线程。后续交互时 prepare_stream 检测到 active
- *     interrupt 且无 resume -> 发 OnInterrupt -> F1 引导卡浮现(见 plan §1.1/§1.3.1)。
- *   - v2(待办):切换后自动调 useCoAgent().start() 立即浮现引导卡,免去手动交互。
+ *   - 点「切换恢复」-> onResume(tid) 上抛 DiagnosePage(v2 无 useCopilotContext,
+ *     threadId 改 DiagnosePage 本地 state 控制 + <CopilotChat threadId>)。后续交互时
+ *     prepare_stream 检测到 active interrupt 且无 resume -> 发 OnInterrupt ->
+ *     useInterrupt 渲染 F1 引导卡(见 plan §1.1/§1.3.1)。切线程后历史消息由
+ *     DiagnosePage 的 backfill effect 回填(agent.setMessages)。
+ *
+ * P0 历史报告查看:有报告的行点「查看报告」-> GET /api/diagnose/threads/{tid}
+ * -> modal 只读渲染 ReportPanel(不传 runId -> 反馈按钮禁用,纯查看)。
+ * 见 docs/hitl-evolution-plan.md §3。
  */
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useCopilotContext } from "@copilotkit/react-core";
-import { RefreshCw, Copy, Check, ArrowRight, History as HistoryIcon } from "lucide-react";
-import { listThreads, type DiagnosisThread } from "@/api/client";
+import {
+  RefreshCw,
+  Copy,
+  Check,
+  ArrowRight,
+  History as HistoryIcon,
+  FileText,
+  Plus,
+  X,
+  Loader2,
+} from "lucide-react";
+import { listThreads, getThread, type DiagnosisThread } from "@/api/client";
+import { ReportPanel } from "./ReportPanel";
 
 interface HistoryPanelProps {
   /** 切换线程后回调(如切回证据链 tab)。 */
   onResumed?: () => void;
+  /** P2: completed case「追加诊断」--由 DiagnosePage 处理(切线程 + 回填历史消息)。 */
+  onFollowup?: (tid: string) => void;
+  /** paused case「切换恢复」--由 DiagnosePage 处理(v2 无 useCopilotContext,
+   *  threadId 改 DiagnosePage 本地 state 控制;切线程后历史消息由 backfill effect 回填)。 */
+  onResume?: (tid: string) => void;
 }
 
-export function HistoryPanel({ onResumed }: HistoryPanelProps) {
-  const { setThreadId } = useCopilotContext();
+export function HistoryPanel({ onResumed, onFollowup, onResume }: HistoryPanelProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [viewingTid, setViewingTid] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["diagnosis-threads"],
     queryFn: () => listThreads(),
     staleTime: 10_000,
+  });
+
+  // P0: 历史报告详情(按需 fetch,点「查看报告」才触发)
+  const { data: detail, isLoading: detailLoading, error: detailError } = useQuery({
+    queryKey: ["diagnosis-thread", viewingTid],
+    queryFn: () => getThread(viewingTid!),
+    enabled: !!viewingTid,
   });
 
   const threads = data?.threads ?? [];
@@ -40,9 +67,18 @@ export function HistoryPanel({ onResumed }: HistoryPanelProps) {
   };
 
   const handleResume = (tid: string) => {
-    setThreadId(tid);
+    onResume?.(tid);
     onResumed?.();
   };
+
+  // P2「追加诊断」:委托 DiagnosePage 的 onFollowup(切线程 + 回填历史消息 +
+  // 切 tab)。v2 消息回填在 DiagnosePage 的 useEffect[threadId] 里走 agent.setMessages。
+  const handleFollowup = (tid: string) => {
+    onFollowup?.(tid);
+  };
+
+  const handleView = (tid: string) => setViewingTid(tid);
+  const handleClose = () => setViewingTid(null);
 
   return (
     <div className="flex h-full flex-col">
@@ -77,10 +113,57 @@ export function HistoryPanel({ onResumed }: HistoryPanelProps) {
               copied={copiedId === t.thread_id}
               onCopy={handleCopy}
               onResume={handleResume}
+              onFollowup={handleFollowup}
+              onView={handleView}
             />
           ))
         )}
       </div>
+
+      {/* P0: 历史报告 modal(只读) */}
+      {viewingTid && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={handleClose}
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-white/[0.08] bg-[#13141c] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.06] bg-[#13141c] px-4 py-2.5">
+              <span className="flex items-center gap-1.5 text-[11px] font-medium text-[#8a8fa3]">
+                <FileText className="size-3.5" />
+                历史诊断报告
+                <code className="ml-1 font-mono text-[10px] text-[#5c6070]">{viewingTid.slice(0, 8)}</code>
+              </span>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="text-[#5c6070] transition-colors hover:text-[#8a8fa3]"
+                title="关闭"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="p-4">
+              {detailLoading ? (
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-[#5c6070]">
+                  <Loader2 className="size-4 animate-spin" />
+                  加载报告…
+                </div>
+              ) : detailError ? (
+                <div className="py-12 text-center text-sm text-red-400/80">
+                  加载失败:{(detailError as Error).message}
+                </div>
+              ) : detail?.report ? (
+                <ReportPanel report={detail.report} />
+              ) : (
+                <div className="py-12 text-center text-sm text-[#5c6070]">该诊断无报告</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -90,11 +173,15 @@ function ThreadRow({
   copied,
   onCopy,
   onResume,
+  onFollowup,
+  onView,
 }: {
   thread: DiagnosisThread;
   copied: boolean;
   onCopy: (tid: string) => void;
   onResume: (tid: string) => void;
+  onFollowup: (tid: string) => void;
+  onView: (tid: string) => void;
 }) {
   const isPaused = thread.status === "paused";
   const shortId = thread.thread_id.slice(0, 8);
@@ -128,18 +215,51 @@ function ThreadRow({
         {thread.hitl_resumed && (
           <span className="rounded bg-cyan-500/10 px-1 py-0.5 text-cyan-400/80">已续查</span>
         )}
+        {thread.round > 1 && (
+          <span className="rounded bg-cyan-500/10 px-1 py-0.5 text-cyan-400/80">第 {thread.round} 轮</span>
+        )}
+        {thread.rounds_exhausted && (
+          <span className="rounded bg-white/[0.06] px-1 py-0.5 text-[#8a8fa3]">复诊上限</span>
+        )}
         {thread.has_report && <span className="text-blue-400/60">有报告</span>}
       </div>
 
-      {isPaused && (
-        <button
-          type="button"
-          onClick={() => onResume(thread.thread_id)}
-          className="flex items-center justify-center gap-1 rounded-md bg-amber-500/15 px-2 py-1 text-[11px] font-medium text-amber-300 transition-all hover:bg-amber-500/25"
-        >
-          切换并恢复
-          <ArrowRight className="size-3" />
-        </button>
+      {/* 操作:paused -> 切换恢复;completed -> 追加诊断(P2);有报告 -> 查看报告(P0) */}
+      {thread.has_report && (
+        <div className="flex gap-1.5">
+          {isPaused ? (
+            <button
+              type="button"
+              onClick={() => onResume(thread.thread_id)}
+              className="flex flex-1 items-center justify-center gap-1 rounded-md bg-amber-500/15 px-2 py-1 text-[11px] font-medium text-amber-300 transition-all hover:bg-amber-500/25"
+            >
+              切换并恢复
+              <ArrowRight className="size-3" />
+            </button>
+          ) : !thread.rounds_exhausted ? (
+            <button
+              type="button"
+              onClick={() => onFollowup(thread.thread_id)}
+              className="flex flex-1 items-center justify-center gap-1 rounded-md bg-blue-500/15 px-2 py-1 text-[11px] font-medium text-blue-300 transition-all hover:bg-blue-500/25"
+              title="切到该 case + 回填历史诊断对话,再追加信息 -> 开复诊轮(继承上轮诊断)"
+            >
+              <Plus className="size-3" />
+              追加诊断
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => onView(thread.thread_id)}
+            className={`flex items-center justify-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-all ${
+              isPaused || !thread.rounds_exhausted
+                ? "bg-white/[0.04] text-[#8a8fa3] hover:bg-white/[0.08]"
+                : "flex-1 bg-blue-500/15 text-blue-300 hover:bg-blue-500/25"
+            }`}
+          >
+            <FileText className="size-3" />
+            查看报告
+          </button>
+        </div>
       )}
     </div>
   );

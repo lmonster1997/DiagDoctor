@@ -1,42 +1,42 @@
-# 🩺 DiagDoctor — AI 驱动的 Web 应用 Bug 诊断助手
+# 🩺 DiagDoctor — AI 驱动的 Web 应用 Bug 诊断 Agent
 
 > 给定一个出错的 Web 应用 + 错误现象描述 + 日志/Trace 数据，**自动定位根因并给出修复建议**。
 
-[![CI](https://github.com/your-org/DiagDoctor/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/DiagDoctor/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
-[![TypeScript 5.x](https://img.shields.io/badge/typescript-5.x-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript 6.x](https://img.shields.io/badge/typescript-6.x-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ---
 
 ## 📖 项目简介
 
-**DiagDoctor** 是一个通用 Web 应用 Bug 诊断助手。它由 **3 个独立子系统** 组成：
+**DiagDoctor** 是一个面向 Web 应用的 Bug 诊断 Agent。它不是“挂一个 LLM 聊天框”，而是把**证据归一化、受限的 ReAct 工具循环、上下文工程、长期记忆、人在回路（HITL）**这五件事工程化落地的一个完整 Agent 系统。由 3 个独立子系统组成：
 
 | 子系统 | 路径 | 职责 |
 |--------|------|------|
-| **demo-app** | `demo-app/` | 被诊断的目标 Web 应用 — TaskFlow 任务管理系统（FastAPI + React） |
-| **bug-factory** | `bug-factory/` | Bug 生成与注入工厂（AI 自动制造 Bug，可量产评测数据） |
-| **doctor** | `doctor/` | 诊断 Agent 主体（LangGraph，ingest → diagnosis_agent → reporter 线性图） |
+| **demo-app** | `demo-app/` | 被诊断的目标 Web 应用 — TaskFlow 任务管理系统（FastAPI + React），全链路 OTel 接入 Loki/Tempo |
+| **bug-factory** | `bug-factory/` | Bug 生成与注入工厂 — AI 改写代码注入 Bug + 自动触发 + 收集证据，量产评测数据 |
+| **doctor** | `doctor/` | 诊断 Agent 主体 — `doctor/backend`（LangGraph + LangChain ReAct）+ `doctor/frontend`（CopilotKit v2 操作台） |
 
 ### 核心能力
 
 | 演示场景 | 描述 |
 |---------|------|
-| 🔴 **前端报错诊断** | 上传崩溃截图 + 控制台日志 → Agent 定位代码行 + 修复建议 |
+| 🔴 **前端报错诊断** | 上传崩溃截图 / 控制台日志 → Agent 定位代码行 + 修复建议 |
 | 🟠 **后端 API 异常** | 给定错误响应 + 请求日志 → 沿调用链追溯根因 |
-| 🟡 **性能瓶颈** | 报告"页面加载慢" → 分析 Trace 找出慢 SQL / 慢接口 |
-| 🟢 **数据不一致** | 报告"数据显示不对" → 对照业务流程定位逻辑错误 |
+| 🟡 **性能瓶颈** | 报告“页面加载慢” → 分析 Trace 找出慢 SQL / N+1 / 慢接口 |
+| 🟢 **数据/逻辑不一致** | 报告“数据显示不对” → 主动 SQL 探测 + 代码对照定位逻辑错误（IDOR、静默丢数据等无报错 Bug） |
 
 ### 区别于传统诊断工具
 
 | 维度 | 传统诊断工具 | DiagDoctor |
 |------|------------|------------|
-| Bug 来源 | 真实生产 Bug（稀缺） | **AI 自动生成 + 注入**（可控、可量产） |
-| 诊断方式 | 人工 GDB/CDB 调试 | **LangGraph 单统一 Agent（手动 ReAct 循环）** |
-| 知识库 | 领域专有 | **code_search 用 ripgrep 精确匹配（不依赖向量检索）** |
-| 评测体系 | 无/手动 | **Langfuse 评测体系（15 案例 × 7 维度 Scoring，mean overall 0.909）** |
-| 部署 | 企业内网 | **Docker Compose 一键启动 + K8s Helm** |
+| Bug 来源 | 真实生产 Bug（稀缺、不可控） | **AI 自动生成 + 注入**（可控、可量产、带金标准） |
+| 诊断方式 | 人工 GDB / 翻日志 | **受限 ReAct Agent**（8 工具 + 8 中间件 + 预算硬门） |
+| 知识沉淀 | 无 | **双向量长期记忆**（症状相似 + 根因检索 + 👍 反馈闭环） |
+| 上下文管理 | 全塞进 prompt | **分层上下文工程**（符号占位可重取 + 静态截断 + 四维预算） |
+| 评测体系 | 无 / 手动 | **Langfuse 评测**（15 case × 7 维度，mean overall 0.909） |
+| 部署 | — | **Docker Compose 一键启动**（12 服务全栈） |
 
 ---
 
@@ -44,54 +44,161 @@
 
 ```mermaid
 flowchart TB
-    subgraph User["用户层"]
-        WebUI["Web UI (React)"]
-        CLI["CLI 工具"]
+    subgraph Operator["操作台（doctor/frontend）"]
+        Console["协同诊断室<br/>CopilotKit v2 + AG-UI"]
     end
 
-    subgraph Gateway["网关层"]
-        FastAPI["FastAPI"]
-        Auth["JWT 认证"]
-    end
-
-    subgraph Core["核心层"]
-        Orchestrator["LangGraph Orchestrator<br/>主图 (V3 线性)"]
-        StateStore[("Checkpointer<br/>MemorySaver")]
-    end
-
-    subgraph Agents["Agent 层 (V3 — 单统一 Agent)"]
-        Ingest["Ingest 证据归一化层"]
-        DiagnosisAgent["DiagnosisAgent<br/>手动 ReAct 循环 + 5 工具"]
-        Reporter["Reporter 报告生成"]
+    subgraph Doctor["Doctor 后端（FastAPI）"]
+        OuterGraph["外层 LangGraph<br/>bug_info → diagnosis_agent → clarify/human → END"]
+        Inner["内层 ReAct Agent<br/>create_agent + 8 中间件 + 8 工具"]
+        OuterGraph --> Inner
     end
 
     subgraph Knowledge["知识层"]
-        VectorDB[("Qdrant<br/>向量库 (仅知识库, 非代码检索)")]
-        CaseDB[("历史案例库")]
+        Qdrant[("Qdrant<br/>historical_cases<br/>symptom + root_cause 双向量")]
+        Checkpoint[("SQLite Checkpoint<br/>data/checkpoints.db")]
     end
 
-    subgraph Tools["工具层"]
-        LogTools["日志解析"]
-        TraceTools["Trace 分析"]
-        CodeTools["代码搜索"]
-        DBTools["DB 查询"]
+    subgraph Tools["8 个诊断工具"]
+        Obs["search_observability<br/>Loki/Tempo 统一查询"]
+        Code["code_search<br/>ripgrep 精确匹配"]
+        DB["db_query<br/>只读 SQL 探测"]
+        FE["inspect_frontend_error<br/>前端错误归因"]
+        File["get_file_content<br/>沙箱读源码"]
+        Rag["search_historical_root_cause<br/>根因向量召回"]
+        Hyp["record_hypothesis<br/>假设树埋点"]
+        Clar["request_user_clarification<br/>P1 主动澄清"]
     end
 
-    subgraph Target["被诊断系统"]
-        DemoApp["TaskFlow<br/>Demo Web App"]
-        BugInjector["Bug 注入器"]
-        ObsStack["OTel + Loki + Tempo"]
+    subgraph Target["被诊断系统（demo-app）"]
+        TaskFlow["TaskFlow<br/>FastAPI + React"]
+        ObsStack["OTel Collector → Loki + Tempo + Grafana"]
+        TaskFlow --> ObsStack
     end
 
-    WebUI --> FastAPI
-    CLI --> FastAPI
-    FastAPI --> Orchestrator
-    Orchestrator --> Agents
-    Agents --> Knowledge
-    Agents --> Tools
-    Agents -.-> Target
-    ObsStack --> Tools
+    Console <-->|"/api/copilotkit AG-UI SSE"| Doctor
+    Doctor --> Knowledge
+    Inner --> Tools
+    Tools -.-> Target
 ```
+
+---
+
+## 🧠 Doctor Agent 工程深度
+
+这是项目的核心，也是简历重点。以下每一项都有对应代码实现。
+
+### 1. 受限 ReAct 循环（不是裸 LLM）
+
+外层 LangGraph 由 4 个节点构成，带条件路由（[engine/nodes/diagnosis_agent.py](doctor/backend/src/engine/nodes/diagnosis_agent.py)）：
+
+```
+START → bug_info → [route]
+                    ├─ rounds_exhausted ────────────────────────→ END（P2 硬门）
+                    └─ → diagnosis_agent → [route]
+                                         ├─ clarification_requested & count<MAX → clarify_input → diagnosis_agent
+                                         ├─ early_stopped & !hitl_resumed    → human_input   → diagnosis_agent
+                                         └─ else                              → END
+```
+
+内层 ReAct Agent 由 LangChain `create_agent` 构建，挂载 **8 个中间件 + 8 个工具**，并通过 `DiagnosisRunContext`（langgraph runtime context）在中间件间共享运行时状态。
+
+**8 个工具**（[tools/](doctor/backend/src/tools/)）：
+
+| 工具 | 作用 |
+|------|------|
+| `search_observability` | Loki 日志 + Tempo Trace 统一查询 + 异常检测 |
+| `code_search` | ripgrep 精确匹配代码标识符（不依赖向量检索） |
+| `db_query` | 对 demo-app Postgres 只读 SELECT（psycopg sync + `to_thread` 适配 ProactorEventLoop） |
+| `inspect_frontend_error` | 前端错误一站归因：分类 / 栈帧 / 跨层提示 / 可选 source-map 还原 |
+| `get_file_content` | 沙箱内读 demo-app 源码，支持行区间 |
+| `search_historical_root_cause` | P1-a：根因向量召回历史已解 case（按需，agent 侧） |
+| `record_hypothesis` | §7.2 假设树埋点工具（**预算豁免**，no-op，由 `extract_findings` 解析） |
+| `request_user_clarification` | P1：主动澄清信号工具（触发外层 interrupt） |
+
+**8 个中间件**（注册顺序即流水线，[engine/middleware/](doctor/backend/src/engine/middleware/)）：
+
+| # | 中间件 | 拦截点 | 职责 |
+|---|--------|--------|------|
+| 1 | AgentLifecycle | `abefore_agent` | 初始化每轮运行态：ContextBudget、call_history、elided_tool_call_ids、计数器 |
+| 2 | ToolDedup | `awrap_tool_call` | 跳过同 `(name,args)` 重复调用，但**感知 elision**：被归档的可重取 |
+| 3 | LangfuseTracing | `awrap_tool_call` | 每次工具调用记录 Langfuse span（参数/结果/延迟/轮次） |
+| 4 | ToolTruncation | `awrap_tool_call` | 工具结果入上下文前按 per-tool 字符上限截断（保留关键行，回退头+尾） |
+| 5 | ContextElision | `abefore_model` | 把旧 ToolMessage 替换为**可重取符号占位**（§7.1，L2 无损） |
+| 6 | BudgetGuard | `abefore_model` | 预算硬门：超 `MAX_MODEL_CALLS`/token/时间即 `jump_to=end`；埋点工具豁免 |
+| 7 | Clarification | `abefore_model` | 检测 `request_user_clarification` 调用 → 暂停内层循环转外层 interrupt |
+| 8 | ForcedFinalCall | `aafter_agent` | 循环结束仍无合法 JSON 报告 → 强制补一次 LLM 调用产出终态 JSON |
+
+### 2. 上下文工程（分层、可重取、有预算）
+
+不是“把所有东西塞进 prompt”，而是 3 层协同（[engine/context/](doctor/backend/src/engine/context/)，权威设计见本地 `docs/context_engineering_design.md`）：
+
+- **符号占位（§7.1 / L2）**：超过 `keep_recent=3` 的旧 ToolMessage 被替换为一行可重取占位（工具名 + 重取句柄 + 关键发现），**数据可寻址、无损重取**（`search_observability` 同参同结果）。驱逐旧结果代价是一次重查，不是信息丢失。
+- **静态截断**：工具结果入上下文前的字符上限（search_observability 12k / code_search 4k / get_file_content 8k / db_query 3.2k），保留 error/exception/trace 关键行，回退头 15 + 尾 10 行。
+- **四维预算**（[engine/budget/](doctor/backend/src/engine/budget/)，`constants.py` 单一来源）：
+
+  | 硬限 | 值 | 说明 |
+  |------|----|------|
+  | `MAX_MODEL_CALLS` | 12 | P90=12 + 4 buffer（§5.3 标定） |
+  | `MAX_TOKENS_BUDGET` | 100,000 | 单次诊断 token 上限 |
+  | `MAX_TIME_SECONDS` | 300 | 5 分钟硬超时 |
+  | `MAX_CLARIFICATIONS` | 2 | P1 主动澄清上限（有界，不无限） |
+  | `MAX_ROUNDS` | 3 | P2 复诊轮次上限（初诊 + 2 轮复诊） |
+
+### 3. 双向量长期记忆（RAG + 反馈闭环）
+
+Qdrant 单 collection `historical_cases`，**双命名向量** `symptom` + `root_cause`（1024 维 COSINE + INT8 scalar quantization）。两个独立的检索机制（[memory/long_term/](doctor/backend/src/memory/long_term/)）：
+
+- **P0 症状静态注入**（node 侧，pre-agent）：embed 症状 → 查 `symptom` 向量（overfetch 10 → 排除自身 → 三因子打分 → 阈值 **0.60** → **MMR top-3** λ=0.5）→ 渲染“历史相似诊断参考”块注入。首轮查 Qdrant，HITL resume 复用缓存。
+- **P1-a 根因召回工具**（agent 侧，按需）：agent 形成根因假设后主动调用，查 `root_cause` 向量（阈值 **0.61**，无 MMR —— 深度要同根召回）。
+
+**反馈闭环**（[api/feedback.py](doctor/backend/src/api/feedback.py)）：
+- `POST /api/feedback/{run_id}/upvote` → 把本次诊断索引入 Qdrant（**唯一 P0 写触发**）。
+- `POST /api/feedback/{run_id}/case` → case 级反馈：先校验 `case_id ∈ report.referenced_case_ids`（反幻觉），`helpful=True` 时 backfill `effectiveness +0.1`。**只升不降**（👎 归因不清，仅记录不降权）。
+- **冲突检测 P1-c**：召回集含 ≥2 个不同根因 → 注入反锚定提示，防 top-1 锚定。
+
+### 4. 证据归一化（Ingest，纯 Python 非 LLM）
+
+`bug_info` 节点编排：解析用户输入（REST 结构化 / CopilotKit LLM 抽取）→ **auto-prefetch** Loki/Tempo（按 `trigger_time ±5min` 或 `trace_ids` 精确隔离）→ 跑 5 步管线（[evidence/normalizer.py](doctor/backend/src/evidence/normalizer.py)）：
+
+1. **tier-aware marking** — 标记每条 log/trace 属前端还是后端
+2. **denoise** — 剥离 `/health`、`/metrics` 噪声，保护稀疏前端日志
+3. **dedup & fold** — 折叠重复模式（如 N+1 同一 SQL）为一条 + `xN` 计数
+4. **golden signal extraction** — 抽取 error_log / error_span / slow_span / repeated_query 等关键信号
+5. **cross-layer correlation** — 以 `trace_id` 为主键串联前端/后端/DB 证据
+
+### 5. 人在回路（HITL）演进
+
+不是无限澄清，而是**有界、分层**（权威设计见本地 `docs/hitl-evolution-plan.md`）：
+
+| 阶段 | 机制 | 状态 |
+|------|------|------|
+| **被动兜底** | 预算耗尽 `early_stopped` → `human_input` interrupt → 用户给一行指引 → 继承 scratchpad 知情修订第二趟 | ✅ |
+| **P0 历史查看** | `GET /api/diagnose/threads` + `/{id}` 完整报告查看（不重跑） | ✅ |
+| **P1 主动澄清** | Agent 缺信息时**主动开口问**（非预算耗尽被动），`MAX_CLARIFICATIONS=2` 有界 | ✅ |
+| **P2 复诊轮次** | 诊断 END 后用户再发消息 = 开新复诊轮（同 thread 累积，非新 thread），继承上轮发现，`MAX_ROUNDS=3` 硬门 | ✅ |
+
+跨进程持久化靠 SQLite checkpointer（`_LazyAsyncSqliteSaver` → `data/checkpoints.db`），interrupt/resume 可跨重启。
+
+---
+
+## 📊 评测体系
+
+15 个 gold 评测 case（4 smoke / 8 train / 3 blind），由 `bug-factory` 注入真实 Bug 触发，全程 Langfuse 追踪。
+
+**7 维度加权评分**（[scripts/langfuse_scorers.py](scripts/langfuse_scorers.py)）：
+
+| 类型 | 维度 | 权重 |
+|------|------|------|
+| LLM-as-Judge | root_cause_accuracy | 0.30 |
+| LLM-as-Judge | fix_suggestion_quality | 0.20 |
+| LLM-as-Judge | evidence_chain_completeness | 0.10 |
+| 确定性 | affected_file_accuracy（basename 精确匹配） | 0.15 |
+| 确定性 | affected_function_accuracy（子串匹配） | 0.10 |
+| 确定性 | category_accuracy（recall-only 多标签，不漏 gold） | 0.10 |
+| 确定性 | confidence_calibration（1−|置信度−正确性|） | 0.05 |
+
+**mean overall = 0.909**（15 case 基线）。评测编排见 [scripts/run_baseline_experiment.py](scripts/run_baseline_experiment.py)：`git stash → 注入 Bug → 触发 → 调 Doctor → 评分 → 还原 worktree`。
 
 ---
 
@@ -100,48 +207,52 @@ flowchart TB
 ### 前置条件
 
 - [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/install/) v2+
-- [uv](https://docs.astral.sh/uv/)（Python 包管理器，仅本地开发需要）
-- [pnpm](https://pnpm.io/)（仅前端本地开发需要）
+- [uv](https://docs.astral.sh/uv/)（Python 包管理器，仅本地开发）
+- [pnpm](https://pnpm.io/)（仅前端本地开发）
 
-### 快速开始（5 分钟）
+### 快速开始
 
 ```bash
-# 1. 克隆仓库
-git clone https://github.com/your-org/DiagDoctor.git
+# 1. 克隆
+git clone https://github.com/lmonster1997/DiagDoctor.git
 cd DiagDoctor
 
-# 2. 一键启动所有服务
+# 2. 配置 LLM Key（必填）
+cp .env.example .env
+#   编辑 .env 填入 LLM_API_KEY / LLM_BASE_URL / LLM_MODEL
+
+# 3. 一键启动全部服务
 make up
 
-# 3. 初始化数据库
+# 4. 初始化数据库 + 种子数据
 make demo-migrate
-
-# 4. 种入演示数据
 make demo-seed
 
 # 5. 打开浏览器
-#    TaskFlow 前端:  http://localhost:3000
-#    Grafana 监控:   http://localhost:3001  (admin/admin)
-#    Doctor API 文档: http://localhost:8001/docs
-#    Demo API 文档:   http://localhost:8000/docs
+#    DiagDoctor 诊断台: http://localhost:8001  （操作台 UI 在 doctor/frontend，dev 见下）
+#    TaskFlow 被诊断应用: http://localhost:3000
+#    Grafana 监控:        http://localhost:3001  (admin/admin)
+#    Langfuse 评测台:     http://localhost:3002
 ```
 
-> 也可以一条命令搞定首次初始化：`make setup` = `make up` + `make demo-migrate` + `make demo-seed`
+> 首次初始化可一条命令：`make setup` = `make up` + `demo-migrate` + `demo-seed`。
 
-### 启动的服务一览
+### 启动的服务（12 个）
 
 | 服务 | 端口 | 说明 |
 |------|------|------|
-| **demo-frontend** | `3000` | TaskFlow 前端 (React + shadcn/ui) |
-| **demo-backend** | `8000` | TaskFlow API (FastAPI) |
-| **doctor-api** | `8001` | 诊断 Agent API |
-| **postgres** | `5432` | PostgreSQL 16 |
-| **redis** | `6379` | Redis 7 |
-| **grafana** | `3001` | Grafana 监控面板 (admin/admin) |
+| **demo-frontend** | `3000` | TaskFlow 前端（React 19 + shadcn/ui） |
+| **demo-backend** | `8000` | TaskFlow API（FastAPI + SQLAlchemy 2.x async） |
+| **doctor-api** | `8001` | 诊断 Agent API（FastAPI + LangGraph） |
+| **postgres** | `5432` | PostgreSQL 16（TaskFlow 数据） |
+| **otel-collector** | `4317/4318` | OpenTelemetry 采集器 |
 | **loki** | `3100` | 日志聚合 |
 | **tempo** | `3200` | Trace 存储 |
-| **otel-collector** | `4317/4318` | OpenTelemetry 采集器 |
-| **qdrant** | `6333/6334` | 向量数据库 |
+| **grafana** | `3001` | 监控面板（admin/admin） |
+| **tei** | `8080` | bge-m3 本地 embedding 服务（legacy fallback） |
+| **qdrant** | `6333/6334` | 向量数据库（长期记忆） |
+| **langfuse-server** | `3002` | LLM 可观测 + 评测台 |
+| **langfuse-postgres** | `5433` | Langfuse 元数据库 |
 
 ### 常用命令
 
@@ -155,70 +266,15 @@ make clean          # 停止并清除数据卷
 make setup          # 首次初始化（启动 + 迁移 + 种子数据）
 ```
 
----
+### Doctor 操作台前端（本地开发）
 
-## ✅ 当前开发阶段：V3 基线已实现，深度化进行中
+诊断台 UI 在 `doctor/frontend/`（CopilotKit v2 + AG-UI），需单独起 dev server：
 
-> **V3 基线 ✅ 已实现**：3 节点线性图 `ingest → diagnosis_agent → reporter`。
-> **深度化进行中**：Phase 1（手动循环 / 上下文工程 / Ingest-search 深度）已完成。
-> 详细规划见 `docs/diagdoctor-depth-directions-v2.md`，任务卡片见 `docs/diagdoctor-depth-handbook-v2.md`，
-> Harness 迭代记录见 `docs/harness-iteration-log.md`。
-
-### Demo App（TaskFlow 任务管理）
-
-| 模块 | 功能 | 状态 |
-|------|------|------|
-| **后端 API** | FastAPI + SQLAlchemy 2.x 异步 | ✅ |
-| **数据模型** | User、Project、Task、Comment、Tag（含多对多） | ✅ |
-| **认证** | JWT 注册/登录 + `get_current_user` 依赖注入 | ✅ |
-| **项目管理** | CRUD `/api/projects/` | ✅ |
-| **任务管理** | CRUD + 按项目筛选 `/api/tasks/` | ✅ |
-| **评论系统** | 任务评论 `/api/tasks/{tid}/comments` | ✅ |
-| **前端 UI** | React 18 + shadcn/ui + Tailwind CSS | ✅ |
-| **路由** | 登录/注册/项目列表/看板/任务详情 | ✅ |
-| **状态管理** | Zustand (authStore) + TanStack Query | ✅ |
-| **拖拽看板** | 3 列看板 (todo/doing/done) + @dnd-kit 拖拽 | ✅ |
-| **错误边界** | ErrorBoundary + console.error 结构化标记 `[TAG]` | ✅ |
-| **Sentry 集成** | @sentry/react（可配置 DSN） | ✅ |
-| **数据库迁移** | Alembic + 自动生成迁移 | ✅ |
-| **种子数据** | 30 个任务 + 2 个用户 + 示例项目 | ✅ |
-
-### Doctor 诊断 Agent
-
-| 模块 | 功能 | 状态 |
-|------|------|------|
-| **项目骨架** | FastAPI + LangGraph + Pydantic v2 | ✅ |
-| **诊断接口** | `POST /api/diagnose` 接收 Evidence → 结构化报告 | ✅ |
-| **LangGraph State** | DoctorState V3（NormalizedEvidence + Finding + DiagnosisReport） | ✅ |
-| **主图拓扑** | V3 线性 `ingest → diagnosis_agent → reporter`（含 MemorySaver Checkpointer） | ✅ |
-| **流式输出** | `?stream=true` astream_events v2 支持 | ✅ |
-| **结构化日志** | structlog + trace_id/session_id 自动注入 | ✅ |
-| **成本核算** | TokenAccountant 按 model 统计 | ✅ |
-| **OTel 追踪** | @traced 装饰器 + OpenTelemetry 集成 | ✅ |
-| **安全模块** | 路径沙箱、子进程参数校验、LLM 脱敏、SecretStr | ✅ |
-| **可观测性工具** | search_observability（Loki/Tempo，auto 模式异常检测 + 因果链）、code_search（ripgrep 精确匹配，不依赖向量检索） | ✅ |
-| **手动 ReAct 循环** | diagnosis_agent 包内 node.py + react_loop.py + forced_call.py，硬约束 MAX_MODEL_CALLS | ✅ |
-| **上下文工程** | context_engine.py：tool result 静态截断、历史消息降级、动态 system prompt | ✅ |
-| **Langfuse Tracing** | langfuse-langchain 集成，每次诊断 trace + score 上报 | ✅ |
-| **SQL 只读守卫** | db_query 工具强制 read-only，禁写保护 | ✅ |
-
-### 可观测性栈
-
-| 组件 | 功能 | 状态 |
-|------|------|------|
-| **OTel Collector** | OTLP gRPC/HTTP 接收 → Loki + Tempo 导出 | ✅ |
-| **Loki** | 日志聚合存储（filesystem） | ✅ |
-| **Tempo** | Trace 存储（OTLP receiver） | ✅ |
-| **Grafana** | 数据源自动配置 + Demo Dashboard | ✅ |
-
-### 基础设施
-
-| 组件 | 功能 | 状态 |
-|------|------|------|
-| **Docker Compose** | 10 个服务一键编排 | ✅ |
-| **Makefile** | up/down/logs/migrate/seed/setup | ✅ |
-| **CI (GitHub Actions)** | ruff check + format + mypy strict + pytest (Python 3.11/3.12) | ✅ |
-| **多阶段 Dockerfile** | demo-backend, demo-frontend, doctor-api | ✅ |
+```bash
+cd doctor/frontend
+pnpm install
+pnpm dev            # http://localhost:5173（代理 /api → :8001）
+```
 
 ---
 
@@ -234,110 +290,22 @@ curl -X POST http://localhost:8001/api/diagnose \
     }
   }'
 
-# 流式输出
-curl -X POST "http://localhost:8001/api/diagnose?stream=true" \
+# 带 trigger_time / trace_ids 精确定位（批量评测场景）
+curl -X POST http://localhost:8001/api/diagnose \
   -H "Content-Type: application/json" \
   -d '{
-    "evidence": {
-      "user_report": "创建任务时返回 500 错误",
-      "logs": [],
-      "traces": []
-    }
+    "evidence": {"user_report": "创建任务时返回 500"},
+    "trigger_time": "2026-08-08T10:00:00Z",
+    "trigger_trace_ids": ["abc123..."]
   }'
-```
 
----
+# HITL：恢复一个暂停的诊断
+curl -X POST http://localhost:8001/api/diagnose/resume \
+  -H "Content-Type: application/json" \
+  -d '{"thread_id": "<paused_thread_id>", "guidance": "检查 auth 依赖注入"}'
 
-## 📋 Sprint 1 验收清单
-
-> 必须全部通过才能进入 Sprint 2
-
-- [x] `make up` 启动所有服务（postgres、redis、demo-backend、demo-frontend、otel-collector、loki、tempo、grafana、qdrant、doctor-api）
-- [x] 浏览器访问 http://localhost:3000 完整使用 TaskFlow
-- [x] Grafana (http://localhost:3001) 中能看到 demo-backend 的日志和 trace
-- [x] `curl -X POST http://localhost:8001/api/diagnose` 端到端跑通，返回结构化报告
-- [x] CI 全绿（ruff check + format + mypy strict + pytest）
-- [x] mypy strict 模式无错误
-
----
-
-## 🗺️ 开发路线图
-
-### ✅ Sprint 1：基础设施（D1-D10）— 已完成
-
-- Demo App 前后端骨架（TaskFlow 任务管理）
-- 数据库模型 + Alembic 迁移
-- JWT 认证 + RESTful API
-- Docker Compose 全栈编排
-- OpenTelemetry + Loki + Tempo + Grafana 可观测性栈
-- Doctor 项目骨架 + LangGraph 最小 Graph
-- CI/CD 流水线（GitHub Actions）
-
-### ✅ Sprint 2：Bug Factory + Harness 评测雏形（D11-D20）— 已完成
-
-- Bug 配方系统（15 个 YAML 配方，跨 8 类别）
-- Bug Injector / Trigger Runner / Evidence Collector / Case Generator
-- Harness Runner + Evaluators（已迁移至 Langfuse）
-
-### ✅ V3 重构 — 已完成
-
-- 从多 Agent（Triage / Specialist / Critic / Synthesis）收敛为单统一 Agent
-- 线性图 `ingest → diagnosis_agent → reporter`，MemorySaver checkpointer
-- DoctorState V3：移除 iterations / critic_feedback / verdict / draft_report
-
-### 🔄 深度化方向（进行中，详见 `docs/diagdoctor-depth-directions-v2.md`）
-
-| 方向 | 状态 | 说明 |
-|------|------|------|
-| 0 手动 Agent 循环 | ✅ | diagnosis_agent 包内手动 ReAct，硬约束 + forced final JSON |
-| 1 Ingest 证据归一化深度化 | ✅ | auto-prefetch + 9 步标准化管线 |
-| 2 search_observability auto 模式 | ✅ | 异常检测 + 因果链分析 |
-| 3 code_search ripgrep 混合检索 | ✅ | 精确匹配替代向量检索 |
-| 4 上下文工程（压缩/预算/动态策略） | ✅ | context_engine.py |
-| 5 Langfuse 评测体系迁移 | ✅ | 15 案例 × 7 维度 Scoring |
-| 6 System Prompt 策略化 | ⏸ 已暂缓 | 复盘：非瓶颈环节，待 ablation 数据支持 |
-| 7 诊断计划 TodoWrite | 🔜 | 先规划再执行，防止漂移 |
-| 8 Bug Factory 变异生成 | ❌ 已决策不做 | 扩展已决策不做，详见 handbook 附录 E |
-| 9 安全沙箱纵深防御 | 🔜 | P2 |
-| 10 Agent 自省与纠错 | 🔜 | P2 |
-| 11 成本优化与模型路由 | 🔜 | P2 |
-| 12 Hook 系统 | 🔜 | P2 |
-| 13 Subagent 上下文隔离 | 🔜 | P2 |
-
----
-
-## 🛠️ 技术栈
-
-### Python（后端 + Agent + 评测）
-```yaml
-version: "3.11+"
-package_manager: uv
-framework: FastAPI + Pydantic v2 + SQLAlchemy 2.x
-agent: LangGraph + LangChain
-vector_db: Qdrant
-observability: OpenTelemetry + structlog
-test: pytest + pytest-asyncio
-linter: ruff + mypy --strict
-```
-
-### TypeScript（前端）
-```yaml
-version: "5.x"
-package_manager: pnpm
-framework: React 18 + Vite
-ui: shadcn/ui + Tailwind CSS
-state: Zustand
-data_fetching: TanStack Query
-e2e: Playwright
-```
-
-### 基础设施
-```yaml
-database: PostgreSQL 16
-cache: Redis 7
-observability: Loki + Tempo + Grafana + OpenTelemetry Collector
-deploy: Docker Compose → K8s + Helm
-ci: GitHub Actions
+# 列出历史诊断线程（含复诊轮次）
+curl http://localhost:8001/api/diagnose/threads
 ```
 
 ---
@@ -346,119 +314,122 @@ ci: GitHub Actions
 
 ```
 DiagDoctor/
-├── demo-app/                  # 被诊断系统
-│   ├── backend/               # FastAPI（TaskFlow API）
-│   │   ├── app/
-│   │   │   ├── main.py        # FastAPI 入口
-│   │   │   ├── config.py      # Pydantic Settings
-│   │   │   ├── database.py    # SQLAlchemy async session
-│   │   │   ├── observability.py # OTel 初始化
-│   │   │   ├── models/        # SQLAlchemy 模型
-│   │   │   ├── schemas/       # Pydantic schema
-│   │   │   ├── api/           # 路由
-│   │   │   ├── services/      # 业务逻辑
-│   │   │   └── auth/          # JWT 认证
-│   │   ├── alembic/           # 数据库迁移
-│   │   └── tests/
-│   └── frontend/              # React + shadcn/ui + Vite
-│       └── src/
-│           ├── components/    # 组件（含 ui/ shadcn 组件）
-│           ├── pages/         # 页面
-│           ├── stores/        # Zustand stores
-│           ├── services/      # API 调用层
-│           └── types/         # TypeScript 类型
-├── bug-factory/               # Bug 生成系统
-│   ├── recipes/               # Bug 配方 YAML
-│   └── src/                   # injector, trigger, evidence collector
-├── doctor/                    # 诊断 Agent
-│   ├── src/
-│   │   ├── main.py
-│   │   ├── config.py
-│   │   ├── llm_factory.py     # 分层模型（diagnosis / judge / default …）
-│   │   ├── api/               # diagnose, health
-│   │   ├── graph/             # LangGraph 定义
-│   │   │   ├── main_graph.py  # V3 线性图 ingest→diagnosis_agent→reporter
-│   │   │   ├── state.py       # DoctorState V3
-│   │   │   ├── context_engine.py  # 上下文工程（截断/降级/动态 prompt）
-│   │   │   ├── nodes/
-│   │   │   │   ├── ingest/        # 证据归一化（auto-prefetch + 9 步管线）
-│   │   │   │   ├── diagnosis_agent/  # 手动 ReAct 包
-│   │   │   │   │   ├── node.py        # diagnosis_agent_node 入口
-│   │   │   │   │   ├── react_loop.py  # 手动 ReAct 循环 + 硬约束
-│   │   │   │   │   └── forced_call.py # 强制终态 JSON
-│   │   │   │   └── reporter/      # 报告生成
-│   │   ├── tools/             # Agent 工具（search_observability / code_search / db_query / inspect_frontend_error / get_file_content）
-│   │   ├── observability/     # 日志/成本/追踪 + Langfuse
-│   │   ├── prompts/           # Jinja2 模板
-│   │   └── security/          # 安全模块
-│   ├── seed_data/             # 初始知识 YAML
-│   └── tests/
-├── infra/                     # 部署配置
-│   ├── docker-compose.yml
-│   ├── otel/collector.yaml
-│   ├── loki/config.yaml
-│   ├── tempo/config.yaml
-│   ├── grafana/               # Dashboard + 数据源
-│   └── postgres/init-db.sql
-├── docs/                      # 设计文档
-│   ├── diagdoctor-depth-handbook-v2.md   # 执行手册（权威，任务卡片）
-│   ├── diagdoctor-depth-directions-v2.md # 14 个深度方向规划
-│   ├── harness-iteration-log.md          # Harness case 驱动迭代日志
-│   ├── bug-authoring-and-observability-guide.md
-│   ├── bug-case-quality-review-and-improvements.md
-│   ├── docker-network-fixes.md
-│   ├── ai-assisted-dev-tips.md
-│   └── agent-dev-notes/                  # 任务面试准备笔记
-├── scripts/                   # 辅助脚本
-├── Makefile                   # 开发命令
-└── pyproject.toml             # Workspace 配置
+├── demo-app/                    # 被诊断系统
+│   ├── backend/                 # FastAPI（TaskFlow API）
+│   │   └── app/{models,api,services,auth,observability}.py
+│   └── frontend/                # React 19 + Vite + shadcn/ui + OTel web SDK
+│
+├── bug-factory/                 # Bug 生成注入工厂
+│   ├── recipes/gold/            # 15 个 YAML gold 配方（6 类别）
+│   └── src/bug_factory/         # injector / ai_rewriter / trigger / evidence_collector / case_generator / cli
+│
+├── doctor/                      # 诊断 Agent
+│   ├── backend/
+│   │   └── src/
+│   │       ├── api/             # diagnose / resume / threads / feedback / health
+│   │       ├── engine/          # ← 核心：Agent 引擎
+│   │       │   ├── agent.py         # create_agent + 8 中间件
+│   │       │   ├── state.py         # DoctorState（TypedDict + reducers）
+│   │       │   ├── nodes/           # bug_info / diagnosis_agent（外层图 + 条件路由）
+│   │       │   ├── middleware/      # 8 个中间件
+│   │       │   ├── context/         # elision / truncation / budget（上下文工程）
+│   │       │   ├── budget/         # constants（硬限单源）/ guard / tracker
+│   │       │   ├── forced_call.py  # 强制终态 JSON
+│   │       │   ├── run_context.py  # DiagnosisRunContext（runtime context）
+│   │       │   ├── parsing.py      # 报告解析 + 假设树提取
+│   │       │   └── checkpointer.py# _LazyAsyncSqliteSaver
+│   │       ├── tools/           # 8 个诊断工具
+│   │       ├── memory/long_term/  # 双向量 RAG + 反馈闭环 + MMR
+│   │       ├── evidence/        # 5 步证据归一化管线
+│   │       ├── copilotkit/      # CopilotKit v2 / AG-UI 挂载
+│   │       ├── observability/   # structlog + Langfuse + OTel
+│   │       ├── prompts/         # Jinja2 模板 + tools_reference
+│   │       └── security/        # 路径沙箱 / SQL 只读守卫 / LLM 脱敏
+│   └── frontend/                # CopilotKit v2 操作台（协同诊断室）
+│
+├── scripts/                     # 评测编排 + 评分 + 预算分析
+├── infra/                       # otel / loki / tempo / grafana 配置
+├── docker-compose.yml           # 12 服务编排
+├── Makefile
+└── pyproject.toml               # uv workspace（doctor/backend, bug-factory, demo-app/backend, benchmark）
+```
+
+> 📝 **设计文档**：项目本地维护有权威设计文档（`docs/`，未纳入版本控制），涵盖上下文工程、长期记忆系统、HITL 演进、检索测试集、当前路线图。克隆仓库不含这些文档；核心架构已在上方 README 自包含说明。
+
+---
+
+## 🛠️ 技术栈
+
+**Python（Agent + 评测）**
+```yaml
+版本: "3.11+"
+包管理: uv (workspace)
+框架: FastAPI + Pydantic v2
+Agent: LangGraph + LangChain (create_agent + middleware)
+向量库: Qdrant (双命名向量 + scalar quantization)
+可观测: OpenTelemetry + structlog + Langfuse
+测试: pytest + pytest-asyncio
+质量: ruff + mypy --strict
+```
+
+**TypeScript（前端 ×2）**
+```yaml
+版本: "6.x"
+demo-app: React 19 + Vite + shadcn/ui + Tailwind v4 + Zustand + TanStack Query + @dnd-kit + Sentry
+doctor: React 19 + Vite + CopilotKit v2 (@copilotkit/react-core 1.65) + AG-UI 协议
+```
+
+**基础设施**
+```yaml
+数据库: PostgreSQL 16
+可观测栈: OTel Collector + Loki + Tempo + Grafana
+LLM 评测: Langfuse
+部署: Docker Compose（12 服务）
+embedding: DashScope qwen3 为主，TEI/bge-m3 legacy fallback
 ```
 
 ---
 
-## 📚 文档索引
+## ✅ 质量门
 
-| 文档 | 路径 | 说明 |
+项目使用 ruff + mypy（strict 模式）+ pytest 工具链（配置见 [pyproject.toml](pyproject.toml)）：
+
+```bash
+ruff check . && ruff format --check .   # lint + 格式
+mypy                                     # strict 类型检查
+pytest                                   # 单元 + 集成测试（asyncio_mode=auto）
+```
+
+测试覆盖：doctor（引擎/工具/记忆/上下文/解析）+ bug-factory（配方/注入/触发）。
+
+---
+
+## 🗺️ 开发路线图
+
+**已完成基线**：3 子系统全栈 + 受限 ReAct Agent + 上下文工程 + 双向量记忆 + HITL 三阶段 + Langfuse 评测。
+
+**当前演进方向**（按优先级，非承诺）：
+
+| 方向 | 状态 | 说明 |
 |------|------|------|
-| **执行手册（权威）** | `docs/diagdoctor-depth-handbook-v2.md` | 逐日任务卡片、当前状态、Phase 规划 |
-| **深度方向（权威）** | `docs/diagdoctor-depth-directions-v2.md` | 14 个方向的方案细节与代码级改动 |
-| Harness 迭代日志 | `docs/harness-iteration-log.md` | ReAct 循环/forced call/结构化输出的 case 驱动迭代记录 |
-| Bug 配方规范 | `docs/bug-authoring-and-observability-guide.md` | 编写新 Bug 配方 |
-| Case 质量审查 | `docs/bug-case-quality-review-and-improvements.md` | Bug case 质量参考 |
-| Docker 排错 | `docs/docker-network-fixes.md` | Docker 网络问题排查 |
-| AI 编程技巧 | `docs/ai-assisted-dev-tips.md` | AI 辅助编程最佳实践 |
+| 上下文工程 §7.1 符号占位 / §7.2 假设树 | ✅ | 可重取占位 + L4 证伪纪律（Finding 加 status/refuted） |
+| 上下文工程 §7.3 预算单源化 / §7.4 可观测闭环 | ✅ | constants 单源 + 真实 usage + early_stopped split-brain 根治 |
+| 长期记忆双向量 + MMR + 反馈闭环 | ✅ | 症状/根因双召回 + MMR 多样性 + 👍 索引 |
+| HITL P0/P1/P2 | ✅ | 历史查看 / 主动澄清 / 复诊轮次 |
+| Langfuse 评测体系 | ✅ | 15 case × 7 维度，overall 0.909 |
+| 上下文 §7.5 phase 动态策略 | 🔜 | 基于预算相位的 prompt 收敛 |
+| 上下文 §7.6 工具结果压缩 / §7.7 贵查询缓存 | 🔜 | 进一步降上下文压力 |
+| Subagent 上下文隔离 | 🔜 | 子 Agent 独立上下文窗口 |
 
-> ⚠️ 以下文档已删除（过时/冲突）：`diagdoctor-from-scratch.md` / `diagdoctor-execution-handbook.md` / `architecture-diff-and-changes.md`。
-> 唯一权威来源：`depth-handbook-v2.md` + `depth-directions-v2.md` + `harness-iteration-log.md`。
+> 历史路线图与现状快照见本地 `docs/followup-plan-20260715.md` / `docs/current-status.md`。
 
 ---
 
-## 🤝 贡献指南
+## 🤝 贡献规范
 
-### 命名规范
+**Commit 规范**（Conventional Commits）：`feat(scope): desc` / `fix(scope): desc` / `docs:` / `refactor(scope): desc` / `test(scope): desc`
 
-| 语言 | 类型 | 规范 | 示例 |
-|------|------|------|------|
-| Python | 文件 | `snake_case` | `task_service.py` |
-| Python | 类 | `PascalCase` | `TaskService` |
-| Python | 函数/变量 | `snake_case` | `get_task_by_id` |
-| TypeScript | 组件文件 | `PascalCase` | `TaskBoard.tsx` |
-| TypeScript | 工具/服务文件 | `kebab-case` | `api-client.ts` |
-| TypeScript | 组件 | `PascalCase` | `TaskCard` |
-| TypeScript | 函数/变量 | `camelCase` | `fetchTasks` |
-
-### Commit 规范（Conventional Commits）
-
-```
-feat(scope): description    # 新功能
-fix(scope): description     # 修复
-docs: description           # 文档
-chore: description          # 杂务
-refactor(scope): description # 重构
-test(scope): description    # 测试
-```
-
-Scope: `doctor`, `demo-app`, `bug-factory`, `infra`
+Scope：`doctor` / `demo-app` / `bug-factory` / `infra` / `context-engineering` / `memory` / `hitl`
 
 ---
 

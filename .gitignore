@@ -11,6 +11,9 @@ venv/
 # Node
 node_modules/
 
+# Vite dev artifact (compiled CSS w/ HMR injection, stray at repo root)
+.compiled.css
+
 # IDE
 .vscode/
 

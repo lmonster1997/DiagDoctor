@@ -29,6 +29,16 @@ class ForcedFinalCallMiddleware(AgentMiddleware):
         ctx = runtime.context
         if ctx is None:
             return None
+        # P1 active clarification: if the agent just asked the user a question
+        # (ClarificationMiddleware set the flag + jump_to="end"), we're pausing
+        # for an outer-graph interrupt -- no need to force a final JSON report
+        # (it'd be discarded on the clarify route anyway, so forcing it wastes a
+        # full-history LLM call). The best-effort fallback report is materialised
+        # by ``_finalize_report_for_dict_state`` from findings if the user later
+        # declines to answer.
+        if getattr(ctx, "clarification_requested", False):
+            logger.info("forced_call_skipped_clarification", case_id=ctx.case_id)
+            return None
         messages = state.get("messages", []) if isinstance(state, dict) else []
 
         if not messages:
